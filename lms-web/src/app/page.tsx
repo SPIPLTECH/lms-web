@@ -1,8 +1,33 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function HomePage() {
+  const router = useRouter();
+
+  const handleLogout = () => {
+    document.cookie =
+      "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/";
+
+    document.cookie =
+      "role=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/";
+
+    router.push("/login");
+  };
+
   return (
     <main className="min-h-screen bg-gray-100">
+      {/* Navbar */}
+      <div className="flex justify-end p-4">
+        <button
+          onClick={handleLogout}
+          className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
+        >
+          Logout
+        </button>
+      </div>
+
       {/* Hero Section */}
       <section className="flex flex-col items-center justify-center text-center py-32 px-6">
         <h1 className="text-6xl font-bold text-orange-500 mb-6">
