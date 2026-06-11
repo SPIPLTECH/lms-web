@@ -1,0 +1,9 @@
+export { default as AdminDashboard } from "./AdminDashboard";
+export { default as UserManagement } from "./UserManagement";
+export { default as CourseManagement } from "./CourseManagement";
+export { default as ReportCard } from "./ReportCard";
+export { default as SystemSettings } from "./SystemSettings";
+export { default as PaymentManagement } from "./PaymentManagement";
+export { default as AdminSidebar } from "./AdminSidebar";
+export { default as AdminHeader } from "./AdminHeader";
+export { default as AdminAnalytics } from "./AdminAnalytics";
