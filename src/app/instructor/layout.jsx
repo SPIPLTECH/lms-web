@@ -1,5 +1,5 @@
-import InstructorSidebar from "@/layouts/InstructorSidebar";
-import Navbar from "@/layouts/Navbar";
+import InstructorSidebar from "../../components/layouts/InstructorSidebar";
+import Navbar from "../../components/layouts/Navbar";
 
 export default function InstructorLayout({
   children,
