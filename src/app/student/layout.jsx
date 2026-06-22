@@ -1,15 +1,20 @@
-import StudentSidebar from "@/components/layouts/StudentSidebar";
+import StudentSidebar from "@/layouts/StudentSidebar";
+import Navbar from "@/layouts/Navbar";
 
 export default function StudentLayout({
   children,
 }) {
   return (
-    <div className="flex min-h-screen bg-slate-950 text-white">
+    <div className="flex min-h-screen bg-slate-950">
       <StudentSidebar />
 
-      <main className="flex-1 p-8">
-        {children}
-      </main>
+      <div className="flex-1 flex flex-col">
+        <Navbar />
+
+        <main className="p-6 flex-1">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }
