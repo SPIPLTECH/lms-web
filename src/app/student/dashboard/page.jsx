@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 
 import {
   getMyEnrollments,
@@ -32,34 +35,44 @@ export default function StudentDashboard() {
             )
           );
 
-        const enrollments =
+        const enrollmentResponse =
           await getMyEnrollments(
             user.id
           );
 
-        const progress =
-          await getProgress(
-            user.id
-          );
+        const enrollments =
+          enrollmentResponse.data;
 
-        const completed =
-          progress.filter(
-            (item) =>
-              item.completed
-          ).length;
+        let completed = 0;
+        let totalLessons = 0;
+
+        for (const enrollment of enrollments) {
+          const progressResponse =
+            await getProgress(
+              enrollment.courseId
+            );
+
+          completed +=
+            progressResponse.data
+              .completedLessons;
+
+          totalLessons +=
+            progressResponse.data
+              .totalLessons;
+        }
 
         const percentage =
-          progress.length > 0
+          totalLessons > 0
             ? Math.round(
                 (completed /
-                  progress.length) *
+                  totalLessons) *
                   100
               )
             : 0;
 
         setStats({
           enrolled:
-            enrollments.data.length,
+            enrollments.length,
           completed,
           progress:
             percentage,
