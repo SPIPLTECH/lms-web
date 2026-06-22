@@ -1,32 +1,47 @@
 import api from "@/lib/axios";
 
-export const registerUser = async (
-userData
-) => {
-const response =
-await api.post(
-"/auth/register",
-userData
-);
+export const registerUser = async (userData) => {
+  const response = await api.post(
+    "/auth/register",
+    userData
+  );
 
-return response.data;
+  return response.data;
 };
 
-export const loginUser = async (
-credentials
-) => {
-const response =
-await api.post(
-"/auth/login",
-credentials
-);
+export const loginUser = async (credentials) => {
+  const response = await api.post(
+    "/auth/login",
+    credentials
+  );
 
-return response.data;
+  return response.data;
 };
 
-export const logoutUser = async () => {
-const response =
-await api.post("/auth/logout");
+export const forgotPassword =
+  async (email) => {
+    const response =
+      await api.post(
+        "/auth/forgot-password",
+        { email }
+      );
 
-return response.data;
-};
+    return response.data;
+  };
+
+export const resetPassword =
+  async (
+    token,
+    newPassword
+  ) => {
+    const response =
+      await api.post(
+        "/auth/reset-password",
+        {
+          token,
+          newPassword,
+        }
+      );
+
+    return response.data;
+  };

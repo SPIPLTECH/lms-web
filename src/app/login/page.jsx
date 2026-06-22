@@ -13,87 +13,59 @@ export default function LoginPage() {
 
   const { login } = useAuth();
 
-  const [formData, setFormData] =
-    useState({
-      email: "",
-      password: "",
-    });
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+  });
 
   const handleChange = (e) => {
     setFormData({
       ...formData,
-      [e.target.name]:
-        e.target.value,
+      [e.target.name]: e.target.value,
     });
   };
 
-  const handleSubmit =
-    async (e) => {
-      e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-      try {
-        const user =
-          await login(
-            formData
-          );
+    try {
+      const user = await login(formData);
 
-        if (
-          user.role ===
-          "ADMIN"
-        ) {
-          router.push(
-            "/admin/dashboard"
-          );
-        } else if (
-          user.role ===
-          "INSTRUCTOR"
-        ) {
-          router.push(
-            "/instructor/dashboard"
-          );
-        } else {
-          router.push(
-            "/student/dashboard"
-          );
-        }
-      } catch (error) {
-        console.error(error);
-
-        alert(
-          error?.response?.data
-            ?.message ||
-            "Login failed"
-        );
+      if (user.role === "ADMIN") {
+        router.push("/admin/dashboard");
+      } else if (user.role === "INSTRUCTOR") {
+        router.push("/instructor/dashboard");
+      } else {
+        router.push("/student/dashboard");
       }
-    };
+    } catch (error) {
+      console.error(error);
+
+      alert(error?.response?.data?.message || "Login failed");
+    }
+  };
 
   return (
-    <AuthLayout
-      title="Login"
-      subtitle="Access your learning dashboard"
-    >
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-4"
-      >
+    <AuthLayout title="Login" subtitle="Access your learning dashboard">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <AuthInput
           type="email"
           name="email"
           placeholder="Enter your email"
-          onChange={
-            handleChange
-          }
+          onChange={handleChange}
         />
 
         <AuthInput
           type="password"
           name="password"
           placeholder="Enter your password"
-          onChange={
-            handleChange
-          }
+          onChange={handleChange}
         />
-
+        <div className="text-right">
+          <a href="/forgot-password" className="text-orange-500 text-sm">
+            Forgot Password?
+          </a>
+        </div>
         <button
           type="submit"
           className="
@@ -111,12 +83,8 @@ export default function LoginPage() {
         </button>
 
         <p className="text-center text-slate-400 text-sm">
-          Don't have an
-          account?{" "}
-          <a
-            href="/register"
-            className="text-orange-500"
-          >
+          Don't have an account?{" "}
+          <a href="/register" className="text-orange-500">
             Register
           </a>
         </p>
