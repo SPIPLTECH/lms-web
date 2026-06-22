@@ -18,7 +18,7 @@ export default function StudentSidebar() {
     <div className="w-64 min-h-screen bg-slate-900 flex flex-col justify-between">
       <div>
         <h1 className="text-4xl font-bold text-orange-500 p-6">
-          Student
+          Orange Tree LMS
         </h1>
 
         <nav className="space-y-2 px-4">

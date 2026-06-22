@@ -38,7 +38,7 @@ export default function AdminSidebar() {
     <aside className="w-64 bg-slate-900 border-r border-slate-800">
       <div className="p-6 border-b border-slate-800">
         <h1 className="text-3xl font-bold text-orange-500">
-          Orange LMS
+          Orange Tree LMS
         </h1>
       </div>
 

@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default function Home() {
 return ( <main className="min-h-screen bg-slate-950 text-white"> <div className="max-w-7xl mx-auto px-6"> <nav className="flex justify-between items-center py-6"> <h1 className="text-2xl font-bold text-orange-500">
-Orange LMS </h1>
+Orange Tree LMS </h1>
 
       <div className="flex gap-4">
         <Link
