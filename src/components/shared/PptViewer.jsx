@@ -442,6 +442,22 @@ export default function PptViewer({
               backgroundColor: currentSlide.background || "#FFFFFF",
             }}
           >
+            {/* The slide is laid out once at its own canvas size and shrunk
+                (or grown) as a whole. Scaling each font size separately — with
+                a minimum so text stayed legible — let text outgrow its boxes
+                on a phone while positions and padding kept shrinking, so it
+                spilled into neighbouring shapes and was cut off at the edge.
+                One transform keeps every proportion the deck was authored
+                with; the zoom controls are there for reading small text. */}
+            <div
+              className="absolute left-0 top-0"
+              style={{
+                width: `${baseSlideWidth}px`,
+                height: `${baseSlideHeight}px`,
+                transform: `scale(${renderedWidth / baseSlideWidth})`,
+                transformOrigin: "0 0",
+              }}
+            >
             {/* Slide Elements */}
             {currentSlide.elements?.map((elem) => {
               if (elem.type === "image") {
@@ -484,7 +500,7 @@ export default function PptViewer({
                           <span
                             key={rIdx}
                             style={{
-                              fontSize: `${Math.max(10, Math.round(run.fontSize * effectiveScale))}px`,
+                              fontSize: `${run.fontSize}px`,
                               fontWeight: run.bold ? "bold" : "normal",
                               fontStyle: run.italic ? "italic" : "normal",
                               color: run.color || currentSlide.defaultTextColor || "#000000",
@@ -548,12 +564,11 @@ export default function PptViewer({
                                     color: c.color || currentSlide.defaultTextColor || "#000000",
                                     fontWeight: c.bold ? 700 : 400,
                                     fontStyle: c.italic ? "italic" : "normal",
-                                    // Scaled exactly like a text run's size, so
-                                    // a table reads at the same size as the
-                                    // prose around it at every zoom level.
-                                    fontSize: `${Math.max(8, Math.round((c.fontSize || 14) * effectiveScale))}px`,
+                                    // Canvas units, like a text run's size — the
+                                    // slide's transform scales both together.
+                                    fontSize: `${c.fontSize || 14}px`,
                                     textAlign: c.textAlign || "left",
-                                    padding: `${Math.max(1, Math.round(3 * effectiveScale))}px ${Math.max(2, Math.round(5 * effectiveScale))}px`,
+                                    padding: "3px 5px",
                                     border: "1px solid rgba(255, 255, 255, 0.25)",
                                     verticalAlign: "middle",
                                     overflow: "hidden",
@@ -573,6 +588,7 @@ export default function PptViewer({
 
               return null;
             })}
+            </div>
           </div>
         ) : null}
       </div>

@@ -458,16 +458,25 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                 (e.g. a merged document block from an import with no block title) —
                 an icon-only bar with nothing next to it isn't useful, and we don't
                 invent a fake title just to fill it. */}
-            {type !== "VIDEO" && (content.title || isSlideShow || pdfPage || viewerControls) && (
+            {type !== "VIDEO" && (content.title || isSlideShow || pdfPage || viewerControls || showReadAloud) && (
             <div
-                className={`shrink-0 border-b border-border px-4 sm:px-6 py-3.5 flex items-center justify-between bg-background min-h-[52px] max-xl:py-2.5 max-xl:min-h-0${
+                className={`relative shrink-0 border-b border-border px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-2 bg-background min-h-[52px] max-xl:py-2.5 max-xl:min-h-0${
                     // At xl the learn page floats its Mark as Complete pill over
                     // this header's top-right corner; keep the header's own
-                    // controls (page, zoom, slide count) clear of it.
-                    reserveHeaderCorner && (isSlideShow || pdfPage || viewerControls) ? " xl:pr-44" : ""
+                    // controls (page, zoom, slide count, read aloud) clear of it.
+                    reserveHeaderCorner && (isSlideShow || pdfPage || viewerControls || showReadAloud) ? " xl:pr-44" : ""
+                }${
+                    // With read aloud in it, the header stays pinned at xl, where
+                    // the player frame scrolls this whole block — so Pause/Stop
+                    // are always reachable in a long lesson. Below xl it already
+                    // sits outside the scrolling text.
+                    showReadAloud ? " xl:sticky xl:top-0 z-20" : ""
                 }`}
             >
-                <h2 className="text-sm sm:text-base font-semibold text-foreground flex items-center gap-2 truncate pr-2">
+                {/* flex-1 with a floor: when the viewer's controls can't fit beside a
+                    readable title (slide and zoom controls on a phone), they
+                    wrap to their own row instead of squeezing it to "Pre…". */}
+                <h2 className="text-sm sm:text-base font-semibold text-foreground flex flex-1 min-w-[9rem] items-center gap-2 truncate pr-2">
                     {isSlideShow && <Presentation className="h-4 w-4 text-primary shrink-0" />}
                     {isTextLike && !isSlideShow && <BookOpen className="h-4 w-4 text-primary shrink-0" />}
                     {isFileLike && <FileText className="h-4 w-4 text-primary shrink-0" />}
@@ -529,19 +538,18 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                 )}
 
                 {viewerControls}
-            </div>
-            )}
 
-            {/* Read-aloud player — a compact bar between the title and the text.
-                Outside the scrolling text below xl, so it stays pinned there;
-                sticky at xl, where the player frame scrolls this whole block. */}
-            {showReadAloud && (
-                <SpeechControls
-                    speech={readAloud.speech}
-                    onListen={readAloud.listen}
-                    lang={resolveSpeechLang(speechLanguage)}
-                    className="shrink-0 xl:sticky xl:top-0 z-10"
-                />
+                {/* Read aloud — in the title row, beside the lesson title. */}
+                {showReadAloud && (
+                    <SpeechControls
+                        variant="inline"
+                        speech={readAloud.speech}
+                        onListen={readAloud.listen}
+                        lang={resolveSpeechLang(speechLanguage)}
+                        className="min-w-0"
+                    />
+                )}
+            </div>
             )}
 
             {/* Content Area with fluid aspect ratio */}
@@ -589,11 +597,13 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                         {isPdfUrl(displayFileUrl) ? (
                             <PdfViewer fileUrl={displayFileUrl} title={content?.title} hideToolbar fillHeight onPageStateChange={reportPdfPage} readAloud={documentReadAloud} />
                         ) : isPptUrl(displayFileUrl) ? (
+                            /* No fillHeight: the slide area sizes itself from
+                               the deck's aspect ratio at every width, and the
+                               learn page's frame hugs it (player mode "aspect"). */
                             <PptViewer
                                 fileUrl={displayFileUrl}
                                 title={content?.title}
                                 hideToolbar
-                                fillHeight
                                 showDownload={false}
                                 onControlsRender={setViewerControls}
                             />

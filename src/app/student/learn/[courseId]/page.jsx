@@ -1181,8 +1181,12 @@ export default function LearnPage() {
   // Derived from data already in scope; desktop is unaffected (every class
   // below is max-xl:).
   const activeContentType = activeBlock?.kind === "content" ? activeBlock.item?.type : null;
+  // An uploaded .ppt/.pptx is a fixed-aspect canvas, like a video: a fitted
+  // slide on a phone is ~180px tall, so the 68dvh reading box left most of the
+  // frame as empty backdrop beneath it. Its frame sizes to the slide instead.
   const playerMode =
-    activeContentType === "VIDEO"
+    activeContentType === "VIDEO" ||
+    (activeBlock?.kind === "content" && rendersUploadedDeck(activeBlock.item))
       ? "aspect"
       : activeBlock?.kind === "assignment" || activeContentType === "ASSIGNMENT"
       ? "natural"
