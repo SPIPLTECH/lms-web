@@ -1378,7 +1378,6 @@ export default function CourseDetailsPage() {
             lessonId: composeLessonId || null,
             topicId: composeTopicId || null,
             order: pendingQuizOrder ?? undefined,
-            questions: updatedQuizData.questions || [],
           });
           setPendingQuizOrder(null);
 
