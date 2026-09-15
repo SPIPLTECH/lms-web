@@ -93,13 +93,13 @@ function AssignmentUploadField({
 
   return (
     <div className="space-y-2">
-      <label className="block text-xs font-semibold text-foreground mb-1.5">Attachment (optional)</label>
+      <label className="block text-sm font-semibold text-foreground mb-1.5">Attachment (optional)</label>
       <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" />
       <button
         type="button"
         onClick={() => fileInputRef.current?.click()}
         disabled={isUploading}
-        className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 hover:bg-primary/20 px-3.5 py-2 text-xs font-bold text-primary transition cursor-pointer disabled:opacity-50"
+        className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 hover:bg-primary/20 px-3.5 py-2 text-sm font-bold text-primary transition cursor-pointer disabled:opacity-50"
       >
         {isUploading ? (
           <>
@@ -114,10 +114,10 @@ function AssignmentUploadField({
         )}
       </button>
 
-      {uploadError && <p className="text-xs text-destructive">{uploadError}</p>}
+      {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
 
       {fileUrl && (
-        <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-foreground max-w-full">
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-sm text-foreground max-w-full">
           <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />
           <a
             href={getDisplayUrl(fileUrl)}
@@ -259,24 +259,24 @@ export function AssignmentCell({
           />
 
           <div>
-            <label className="block text-xs font-semibold text-foreground mb-1.5">Title</label>
+            <label className="block text-sm font-semibold text-foreground mb-1.5">Title</label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Assignment title"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary font-medium"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground outline-none focus:border-primary font-medium"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-foreground mb-1.5">Description</label>
+            <label className="block text-sm font-semibold text-foreground mb-1.5">Description</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe what students need to do for this assignment…"
               rows={5}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary resize-y"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground outline-none focus:border-primary resize-y"
             />
           </div>
 
@@ -292,7 +292,7 @@ export function AssignmentCell({
       ) : (
         <div className="space-y-3">
           {viewDescription && (
-            <p className="text-sm leading-relaxed text-foreground/90 line-clamp-3 whitespace-pre-line break-words">
+            <p className="text-base leading-relaxed text-foreground/90 line-clamp-3 whitespace-pre-line break-words">
               {viewDescription}
             </p>
           )}
@@ -305,7 +305,7 @@ export function AssignmentCell({
                 target="_blank"
                 rel="noreferrer"
                 title={viewFileName}
-                className="truncate min-w-0 text-xs font-semibold text-foreground/90 hover:text-primary hover:underline"
+                className="truncate min-w-0 text-sm font-semibold text-foreground/90 hover:text-primary hover:underline"
               >
                 {viewFileName}
               </a>
@@ -367,24 +367,24 @@ export function CreateAssignmentForm({ parent, order, onCreated, onCancel }: Cre
       />
 
       <div>
-        <label className="block text-xs font-semibold text-foreground mb-1.5">Title</label>
+        <label className="block text-sm font-semibold text-foreground mb-1.5">Title</label>
         <input
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Assignment title"
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary font-medium"
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground outline-none focus:border-primary font-medium"
         />
       </div>
 
       <div>
-        <label className="block text-xs font-semibold text-foreground mb-1.5">Description</label>
+        <label className="block text-sm font-semibold text-foreground mb-1.5">Description</label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Describe what students need to do for this assignment…"
           rows={5}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary resize-y"
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground outline-none focus:border-primary resize-y"
         />
       </div>
 

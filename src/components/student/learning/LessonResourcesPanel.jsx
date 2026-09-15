@@ -16,7 +16,7 @@ export default function LessonResourcesPanel({
 }) {
   if (attachments.length === 0) {
     return (
-      <div className="p-4 rounded-xl bg-background/20 border border-dashed border-border text-center text-muted-foreground text-xs">
+      <div className="p-4 rounded-xl bg-background/20 border border-dashed border-border text-center text-muted-foreground text-sm">
         {emptyMessage}
       </div>
     );
@@ -34,10 +34,10 @@ export default function LessonResourcesPanel({
               <Download size={14} />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-bold text-foreground truncate group-hover:text-primary transition">
+              <p className="text-sm font-bold text-foreground truncate group-hover:text-primary transition">
                 {file.title || "Class Attachment"}
               </p>
-              <span className="text-[10px] text-muted-foreground font-mono uppercase">
+              <span className="text-[12px] text-muted-foreground font-mono uppercase">
                 {file.type || "FILE"}
                 {showReadyBadge ? " • Ready" : ""}
               </span>
@@ -49,13 +49,13 @@ export default function LessonResourcesPanel({
               target="_blank"
               rel="noreferrer"
               download
-              className="px-3 py-2 min-h-[44px] flex items-center gap-1 rounded-xl bg-primary hover:bg-orange-600 text-slate-950 font-black text-[10px] uppercase tracking-wider transition shadow-md shrink-0 cursor-pointer"
+              className="px-3 py-2 min-h-[44px] flex items-center gap-1 rounded-xl bg-primary hover:bg-orange-600 text-slate-950 font-black text-[12px] uppercase tracking-wider transition shadow-md shrink-0 cursor-pointer"
             >
               <Download size={11} />
               <span>Get</span>
             </a>
           ) : (
-            <span className="text-[10px] text-muted-foreground italic shrink-0">No File</span>
+            <span className="text-[12px] text-muted-foreground italic shrink-0">No File</span>
           )}
         </div>
       ))}

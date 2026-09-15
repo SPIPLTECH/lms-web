@@ -126,7 +126,7 @@ export function CellShell({
             onAddAbove();
           }}
           className={cn(
-            "absolute -top-3 left-1/2 z-10 hidden md:flex -translate-x-1/2 items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-[10px] font-bold text-muted-foreground shadow-md transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground cursor-pointer",
+            "absolute -top-3 left-1/2 z-10 hidden md:flex -translate-x-1/2 items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-[12px] font-bold text-muted-foreground shadow-md transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground cursor-pointer",
             addControlsVisible
           )}
           title="Add block above"
@@ -141,7 +141,7 @@ export function CellShell({
 
         <div
           className={cn(
-            "flex h-6 w-6 sm:h-8 sm:w-8 items-center justify-center rounded-lg font-extrabold text-xs border shadow-sm shrink-0 transition-opacity",
+            "flex h-6 w-6 sm:h-8 sm:w-8 items-center justify-center rounded-lg font-extrabold text-sm border shadow-sm shrink-0 transition-opacity",
             badgeClass,
             // Same hover trap as the action controls: on touch this made the
             // type badge permanently invisible.
@@ -151,7 +151,7 @@ export function CellShell({
           )}
         >
           {badgeText ? (
-            <span className="text-[10px] font-black uppercase">{badgeText}</span>
+            <span className="text-[12px] font-black uppercase">{badgeText}</span>
           ) : (
             <Icon size={15} />
           )}
@@ -168,10 +168,10 @@ export function CellShell({
             {/* flex-1 so the title claims the leftover space instead of being
                 squeezed by the shrink-0 action cluster next to it. */}
             <div className="min-w-0 flex-1">
-              <h4 className="truncate text-xs font-bold text-foreground">
+              <h4 className="truncate text-sm font-bold text-foreground">
                 {title || (isTextOrHeading ? "Text Block" : "Untitled Block")}
               </h4>
-              <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+              <p className="text-[12px] font-black uppercase tracking-wider text-muted-foreground">
                 {typeLabel}
               </p>
             </div>
@@ -298,7 +298,7 @@ export function CellShell({
             onAddBelow();
           }}
           className={cn(
-            "absolute -bottom-3 left-1/2 z-10 hidden md:flex -translate-x-1/2 items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-[10px] font-bold text-muted-foreground shadow-md transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground cursor-pointer",
+            "absolute -bottom-3 left-1/2 z-10 hidden md:flex -translate-x-1/2 items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-[12px] font-bold text-muted-foreground shadow-md transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground cursor-pointer",
             addControlsVisible
           )}
           title="Add block below"

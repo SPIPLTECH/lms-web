@@ -157,8 +157,8 @@ export default function ExternalDocumentViewer({
     return (
       <div className="flex h-80 w-full flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-[#0B101D] p-6 text-center">
         <AlertCircle className="h-10 w-10 text-amber-500" />
-        <h4 className="text-sm font-bold text-foreground">No Document URL Provided</h4>
-        <p className="text-xs text-muted-foreground">Please provide a valid document URL.</p>
+        <h4 className="text-base font-bold text-foreground">No Document URL Provided</h4>
+        <p className="text-sm text-muted-foreground">Please provide a valid document URL.</p>
       </div>
     );
   }
@@ -168,7 +168,7 @@ export default function ExternalDocumentViewer({
     return (
       <div className="flex h-80 w-full flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-[#0B101D] p-6 text-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-xs font-bold text-foreground">Loading document...</p>
+        <p className="text-sm font-bold text-foreground">Loading document...</p>
       </div>
     );
   }
@@ -178,8 +178,8 @@ export default function ExternalDocumentViewer({
     return (
       <div className="flex h-80 w-full flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-[#0B101D] p-6 text-center">
         <AlertCircle className="h-10 w-10 text-rose-500" />
-        <h4 className="text-sm font-bold text-foreground">Unable to load document</h4>
-        <p className="text-xs text-muted-foreground max-w-sm leading-relaxed">{refError}</p>
+        <h4 className="text-base font-bold text-foreground">Unable to load document</h4>
+        <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">{refError}</p>
       </div>
     );
   }
@@ -214,7 +214,7 @@ export default function ExternalDocumentViewer({
       <div className={`relative w-full overflow-hidden rounded-2xl border border-border/80 bg-[#060913] ${className}`}>
         {/* Helper Action Header Bar */}
         <div className="flex items-center justify-between border-b border-border/80 bg-[#0B101D] px-4 py-2.5">
-          <div className="flex items-center gap-2 text-xs text-foreground">
+          <div className="flex items-center gap-2 text-sm text-foreground">
             <span className="font-semibold text-primary">{providerLabel}</span>
             <span className="text-muted-foreground hidden sm:inline">• If preview is restricted by Google Account permissions, open directly:</span>
           </div>
@@ -222,7 +222,7 @@ export default function ExternalDocumentViewer({
             href={resolved.sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/30 px-3 py-1.5 text-xs font-bold text-primary transition"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/30 px-3 py-1.5 text-sm font-bold text-primary transition"
           >
             <ExternalLink size={13} />
             <span>Open in {providerLabel}</span>
@@ -233,7 +233,7 @@ export default function ExternalDocumentViewer({
         {iframeLoading && !iframeError && (
           <div className="absolute inset-x-0 bottom-0 top-[49px] flex flex-col items-center justify-center gap-3 bg-[#060913]/90 z-20">
             <Loader2 className="h-9 w-9 animate-spin text-primary" />
-            <p className="text-xs font-bold text-foreground">Loading document preview...</p>
+            <p className="text-sm font-bold text-foreground">Loading document preview...</p>
           </div>
         )}
 
@@ -242,8 +242,8 @@ export default function ExternalDocumentViewer({
           <div className={`flex w-full flex-col items-center justify-center gap-4 p-8 text-center bg-[#060913] ${extStateSizing}`}>
             <AlertCircle className="h-10 w-10 text-amber-400" />
             <div>
-              <h4 className="text-sm font-bold text-foreground mb-1">Google Drive preview unavailable</h4>
-              <p className="text-xs text-muted-foreground max-w-md leading-relaxed mb-4">
+              <h4 className="text-base font-bold text-foreground mb-1">Google Drive preview unavailable</h4>
+              <p className="text-sm text-muted-foreground max-w-md leading-relaxed mb-4">
                 This file requires Google Drive access to view. You can open it directly in {providerLabel}.
               </p>
             </div>
@@ -252,7 +252,7 @@ export default function ExternalDocumentViewer({
                 href={resolved.sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl bg-primary hover:bg-orange-600 px-5 py-2.5 text-xs font-bold text-slate-950 transition shadow-lg"
+                className="inline-flex items-center gap-2 rounded-xl bg-primary hover:bg-orange-600 px-5 py-2.5 text-sm font-bold text-slate-950 transition shadow-lg"
               >
                 <ExternalLink size={14} />
                 <span>Open in {providerLabel}</span>
@@ -314,15 +314,15 @@ export default function ExternalDocumentViewer({
         {iframeLoading && !iframeError && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#060913]/90 z-20 rounded-2xl">
             <Loader2 className="h-9 w-9 animate-spin text-primary" />
-            <p className="text-xs font-bold text-foreground">Loading document preview...</p>
+            <p className="text-sm font-bold text-foreground">Loading document preview...</p>
           </div>
         )}
 
         {iframeError ? (
           <div className={`flex w-full flex-col items-center justify-center gap-4 p-8 text-center bg-[#060913] ${extStateSizing}`}>
             <FileText className="h-12 w-12 text-muted-foreground mb-1" />
-            <h4 className="text-sm font-bold text-foreground mb-1">Document preview unavailable</h4>
-            <p className="text-xs text-muted-foreground max-w-sm mb-4 leading-relaxed">
+            <h4 className="text-base font-bold text-foreground mb-1">Document preview unavailable</h4>
+            <p className="text-sm text-muted-foreground max-w-sm mb-4 leading-relaxed">
               Open the document in an external viewer to read its contents.
             </p>
             {resolved.sourceUrl && (
@@ -330,7 +330,7 @@ export default function ExternalDocumentViewer({
                 href={resolved.sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl bg-primary hover:bg-orange-600 px-5 py-2.5 text-xs font-bold text-slate-950 transition shadow-lg"
+                className="inline-flex items-center gap-2 rounded-xl bg-primary hover:bg-orange-600 px-5 py-2.5 text-sm font-bold text-slate-950 transition shadow-lg"
               >
                 <ExternalLink size={14} />
                 <span>Open Document</span>
@@ -362,8 +362,8 @@ export default function ExternalDocumentViewer({
         <FileText size={28} />
       </div>
       <div>
-        <h4 className="text-sm font-bold text-foreground mb-1">Document preview unavailable</h4>
-        <p className="text-xs text-muted-foreground max-w-sm leading-relaxed mb-4">
+        <h4 className="text-base font-bold text-foreground mb-1">Document preview unavailable</h4>
+        <p className="text-sm text-muted-foreground max-w-sm leading-relaxed mb-4">
           This document format ({resolved.fileType || "file"}) cannot be rendered directly inside the viewer.
         </p>
       </div>
@@ -372,7 +372,7 @@ export default function ExternalDocumentViewer({
           href={resolved.sourceUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 rounded-xl bg-primary hover:bg-orange-600 px-5 py-2.5 text-xs font-bold text-slate-950 transition shadow-lg"
+          className="inline-flex items-center gap-2 rounded-xl bg-primary hover:bg-orange-600 px-5 py-2.5 text-sm font-bold text-slate-950 transition shadow-lg"
         >
           <ExternalLink size={14} />
           <span>Open Document</span>

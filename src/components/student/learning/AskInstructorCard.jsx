@@ -104,8 +104,8 @@ export default function AskInstructorCard({ lessonId, target, inline = false }) 
     <>
       <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-foreground">Ask your instructor</p>
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">About {aboutLabel}</p>
+          <p className="text-base font-semibold text-foreground">Ask your instructor</p>
+          <p className="mt-0.5 truncate text-sm text-muted-foreground">About {aboutLabel}</p>
         </div>
         {!inline && (
           <button
@@ -133,15 +133,15 @@ export default function AskInstructorCard({ lessonId, target, inline = false }) 
             rows={3}
             placeholder="What would you like to ask?"
             disabled={createMutation.isPending}
-            className="w-full resize-y rounded-xl border border-border bg-background/60 px-3 py-2 text-sm leading-relaxed text-foreground outline-none transition focus:border-primary disabled:opacity-50"
+            className="w-full resize-y rounded-xl border border-border bg-background/60 px-3 py-2 text-base leading-relaxed text-foreground outline-none transition focus:border-primary disabled:opacity-50"
           />
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] tabular-nums text-muted-foreground">{question.length}/2000</span>
+            <span className="text-[13px] tabular-nums text-muted-foreground">{question.length}/2000</span>
             <button
               type="submit"
               disabled={!trimmed || createMutation.isPending}
               aria-busy={createMutation.isPending}
-              className="inline-flex min-h-[34px] items-center gap-1.5 rounded-lg bg-primary px-3.5 text-xs font-bold text-slate-950 transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+              className="inline-flex min-h-[34px] items-center gap-1.5 rounded-lg bg-primary px-3.5 text-sm font-bold text-slate-950 transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
             >
               {createMutation.isPending ? (
                 <Loader2 size={13} className="animate-spin" aria-hidden />
@@ -153,24 +153,24 @@ export default function AskInstructorCard({ lessonId, target, inline = false }) 
           </div>
         </form>
       ) : (
-        <p className="px-4 pt-3 text-xs text-muted-foreground">Open a lesson to ask your instructor about it.</p>
+        <p className="px-4 pt-3 text-sm text-muted-foreground">Open a lesson to ask your instructor about it.</p>
       )}
 
       <div className="mt-3 border-t border-border px-4 py-3">
-        <p className="text-xs font-semibold text-foreground">Your questions here</p>
+        <p className="text-sm font-semibold text-foreground">Your questions here</p>
         {isLoading ? (
           <div className="mt-2 space-y-2">
             <div className="h-10 rounded-lg bg-muted animate-pulse" />
             <div className="h-10 rounded-lg bg-muted animate-pulse" />
           </div>
         ) : questions.length === 0 ? (
-          <p className="mt-1.5 text-xs text-muted-foreground">You haven&apos;t asked anything about this yet.</p>
+          <p className="mt-1.5 text-sm text-muted-foreground">You haven&apos;t asked anything about this yet.</p>
         ) : (
           <ul className="mt-2 max-h-60 space-y-2 overflow-y-auto pr-1">
             {questions.map((q) => (
               <li key={q.id} className="rounded-lg border border-border bg-background/40 px-3 py-2">
-                <p className="whitespace-pre-wrap break-words text-xs text-foreground">{q.question}</p>
-                <p className="mt-1 flex items-center gap-2 text-[11px]">
+                <p className="whitespace-pre-wrap break-words text-sm text-foreground">{q.question}</p>
+                <p className="mt-1 flex items-center gap-2 text-[13px]">
                   <span className={q.status === "ANSWERED" ? "text-emerald-500" : "text-amber-500"}>
                     {q.status === "ANSWERED" ? "Answered" : "Waiting for a reply"}
                   </span>
@@ -178,8 +178,8 @@ export default function AskInstructorCard({ lessonId, target, inline = false }) 
                 </p>
                 {q.reply && (
                   <div className="mt-2 border-l-2 border-emerald-500/40 pl-2.5">
-                    <p className="text-[11px] font-medium text-muted-foreground">Instructor</p>
-                    <p className="whitespace-pre-wrap break-words text-xs text-foreground">{q.reply}</p>
+                    <p className="text-[13px] font-medium text-muted-foreground">Instructor</p>
+                    <p className="whitespace-pre-wrap break-words text-sm text-foreground">{q.reply}</p>
                   </div>
                 )}
               </li>
@@ -201,7 +201,7 @@ export default function AskInstructorCard({ lessonId, target, inline = false }) 
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className={`inline-flex min-h-[40px] items-center gap-2 rounded-xl border px-3.5 text-sm font-semibold transition-colors cursor-pointer ${
+        className={`inline-flex min-h-[40px] items-center gap-2 rounded-xl border px-3.5 text-base font-semibold transition-colors cursor-pointer ${
           open
             ? "border-primary/60 bg-primary/10 text-primary"
             : "border-border bg-card text-foreground hover:border-primary/40 hover:text-primary"

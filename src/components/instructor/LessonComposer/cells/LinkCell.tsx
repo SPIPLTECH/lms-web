@@ -131,7 +131,7 @@ export function LinkCell({
       {mode === "edit" ? (
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-foreground mb-1.5">
+            <label className="block text-sm font-semibold text-foreground mb-1.5">
               Link Title
             </label>
             <input
@@ -139,12 +139,12 @@ export function LinkCell({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Link title"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground outline-none focus:border-primary"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-foreground mb-1.5">
+            <label className="block text-sm font-semibold text-foreground mb-1.5">
               URL / Link Target
             </label>
             <input
@@ -152,7 +152,7 @@ export function LinkCell({
               value={externalUrl}
               onChange={(e) => setExternalUrl(e.target.value)}
               placeholder="https://example.com"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary font-mono"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground outline-none focus:border-primary font-mono"
             />
           </div>
 
@@ -161,7 +161,7 @@ export function LinkCell({
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-border/60" />
             </div>
-            <span className="relative bg-card px-2 text-[10px] font-bold text-muted-foreground uppercase">
+            <span className="relative bg-card px-2 text-[12px] font-bold text-muted-foreground uppercase">
               OR
             </span>
           </div>
@@ -178,7 +178,7 @@ export function LinkCell({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 hover:bg-primary/20 px-3.5 py-2 text-xs font-bold text-primary transition cursor-pointer disabled:opacity-50"
+              className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 hover:bg-primary/20 px-3.5 py-2 text-sm font-bold text-primary transition cursor-pointer disabled:opacity-50"
             >
               {isUploading ? (
                 <>
@@ -194,10 +194,10 @@ export function LinkCell({
             </button>
           </div>
 
-          {uploadError && <p className="text-xs text-destructive">{uploadError}</p>}
+          {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
 
           {externalUrl && (
-            <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-foreground">
+            <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-sm text-foreground">
               <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />
               <span className="truncate flex-1 font-mono">{externalUrl}</span>
               <button
@@ -225,13 +225,13 @@ export function LinkCell({
           href={content.externalUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-between gap-3 rounded-xl border border-card-border bg-background px-4 py-3 text-sm text-foreground transition-colors hover:border-primary/50"
+          className="flex items-center justify-between gap-3 rounded-xl border border-card-border bg-background px-4 py-3 text-base text-foreground transition-colors hover:border-primary/50"
         >
           <span className="truncate">{content.externalUrl}</span>
           <ExternalLink className="size-4 shrink-0 text-primary" />
         </a>
       ) : (
-        <p className="text-sm italic text-muted-foreground">No URL set yet.</p>
+        <p className="text-base italic text-muted-foreground">No URL set yet.</p>
       )}
     </CellShell>
   );
@@ -286,7 +286,7 @@ export function CreateLinkForm({ parent, order, onCreated, onCancel }: CreateCel
   return (
     <div className="space-y-4 pt-1">
       <div>
-        <label className="block text-xs font-semibold text-foreground mb-1.5">
+        <label className="block text-sm font-semibold text-foreground mb-1.5">
           Link Title
         </label>
         <input
@@ -294,12 +294,12 @@ export function CreateLinkForm({ parent, order, onCreated, onCancel }: CreateCel
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Link title"
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground outline-none focus:border-primary"
         />
       </div>
 
       <div>
-        <label className="block text-xs font-semibold text-foreground mb-1.5">
+        <label className="block text-sm font-semibold text-foreground mb-1.5">
           URL / Link Target
         </label>
         <input
@@ -307,7 +307,7 @@ export function CreateLinkForm({ parent, order, onCreated, onCancel }: CreateCel
           value={externalUrl}
           onChange={(e) => setExternalUrl(e.target.value)}
           placeholder="https://example.com"
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary font-mono"
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground outline-none focus:border-primary font-mono"
         />
       </div>
 
@@ -316,7 +316,7 @@ export function CreateLinkForm({ parent, order, onCreated, onCancel }: CreateCel
         <div className="absolute inset-0 flex items-center">
           <div className="w-full border-t border-border/60" />
         </div>
-        <span className="relative bg-background px-2 text-[10px] font-bold text-muted-foreground uppercase">
+        <span className="relative bg-background px-2 text-[12px] font-bold text-muted-foreground uppercase">
           OR
         </span>
       </div>
@@ -333,7 +333,7 @@ export function CreateLinkForm({ parent, order, onCreated, onCancel }: CreateCel
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={isUploading}
-          className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 hover:bg-primary/20 px-3.5 py-2 text-xs font-bold text-primary transition cursor-pointer disabled:opacity-50"
+          className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 hover:bg-primary/20 px-3.5 py-2 text-sm font-bold text-primary transition cursor-pointer disabled:opacity-50"
         >
           {isUploading ? (
             <>
@@ -349,10 +349,10 @@ export function CreateLinkForm({ parent, order, onCreated, onCancel }: CreateCel
         </button>
       </div>
 
-      {uploadError && <p className="text-xs text-destructive">{uploadError}</p>}
+      {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
 
       {externalUrl && (
-        <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-foreground">
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-sm text-foreground">
           <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />
           <span className="truncate flex-1 font-mono">{externalUrl}</span>
           <button

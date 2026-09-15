@@ -17,7 +17,7 @@ export function UnpublishModal({
         <div className="flex items-center justify-between border-b border-border pb-3">
           <div className="flex items-center gap-2 text-amber-400">
             <AlertTriangle size={18} />
-            <h3 className="text-lg font-black text-foreground">Unpublish Course?</h3>
+            <h3 className="text-xl font-black text-foreground">Unpublish Course?</h3>
           </div>
           <button
             onClick={onClose}
@@ -27,8 +27,8 @@ export function UnpublishModal({
           </button>
         </div>
 
-        <div className="space-y-3 text-xs leading-relaxed text-foreground">
-          <p className="font-bold text-foreground text-sm">{courseTitle}</p>
+        <div className="space-y-3 text-sm leading-relaxed text-foreground">
+          <p className="font-bold text-foreground text-base">{courseTitle}</p>
           <p>
             This course will no longer be available for new enrollment. Existing student learning data will remain preserved.
           </p>
@@ -39,7 +39,7 @@ export function UnpublishModal({
             type="button"
             onClick={onClose}
             disabled={isUnpublishing}
-            className="rounded-xl border border-border bg-background px-4 py-2 text-xs font-bold text-foreground hover:bg-muted transition cursor-pointer"
+            className="rounded-xl border border-border bg-background px-4 py-2 text-sm font-bold text-foreground hover:bg-muted transition cursor-pointer"
           >
             Cancel
           </button>
@@ -47,7 +47,7 @@ export function UnpublishModal({
             type="button"
             onClick={onUnpublish}
             disabled={isUnpublishing}
-            className="rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 font-black text-xs px-5 py-2 transition shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-2"
+            className="rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 font-black text-sm px-5 py-2 transition shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-2"
           >
             {isUnpublishing ? (
               <>

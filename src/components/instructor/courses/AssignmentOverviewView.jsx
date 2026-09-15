@@ -25,7 +25,7 @@ export function AssignmentOverviewView({ assignment, scopeLabel, startEditing = 
 
   if (!assignment) {
     return (
-      <div className="notebook-cell rounded-2xl border border-border bg-background p-8 text-center text-sm text-muted-foreground">
+      <div className="notebook-cell rounded-2xl border border-border bg-background p-8 text-center text-base text-muted-foreground">
         This assignment is no longer in the course.
       </div>
     );
@@ -49,12 +49,12 @@ export function AssignmentOverviewView({ assignment, scopeLabel, startEditing = 
       {/* Header Bar */}
       <div className="cell-header flex items-center justify-between border-b border-border/80 pb-3 flex-wrap gap-2">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="rounded bg-yellow-500/15 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-yellow-700 dark:text-yellow-400 flex items-center gap-1.5">
+          <span className="rounded bg-yellow-500/15 px-2.5 py-1 text-[12px] font-black uppercase tracking-wider text-yellow-700 dark:text-yellow-400 flex items-center gap-1.5">
             <ClipboardList size={12} />
             {scopeLabel}
           </span>
           <span
-            className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+            className={`rounded px-2 py-0.5 text-[12px] font-bold uppercase tracking-wider ${
               assignment.isPublished === false
                 ? "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400"
                 : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
@@ -69,7 +69,7 @@ export function AssignmentOverviewView({ assignment, scopeLabel, startEditing = 
             <button
               type="button"
               onClick={() => setIsEditing(false)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-background hover:bg-muted text-foreground text-xs font-bold transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-background hover:bg-muted text-foreground text-sm font-bold transition cursor-pointer"
             >
               <X size={14} />
               Cancel
@@ -80,7 +80,7 @@ export function AssignmentOverviewView({ assignment, scopeLabel, startEditing = 
                 <button
                   type="button"
                   onClick={onDelete}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-500/40 bg-red-500/10 hover:bg-red-500/20 text-red-700 dark:text-red-400 text-xs font-bold transition cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-500/40 bg-red-500/10 hover:bg-red-500/20 text-red-700 dark:text-red-400 text-sm font-bold transition cursor-pointer"
                 >
                   <Trash2 size={14} />
                   Delete
@@ -90,7 +90,7 @@ export function AssignmentOverviewView({ assignment, scopeLabel, startEditing = 
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-yellow-500/40 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 text-xs font-bold transition cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-yellow-500/40 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 text-sm font-bold transition cursor-pointer"
                 >
                   <Pencil size={14} />
                   Edit Assignment
@@ -111,32 +111,32 @@ export function AssignmentOverviewView({ assignment, scopeLabel, startEditing = 
         />
       ) : (
         <div className="space-y-4">
-          <h2 className="text-xl font-bold text-foreground">{assignment.title || "Untitled Assignment"}</h2>
+          <h2 className="text-2xl font-bold text-foreground">{assignment.title || "Untitled Assignment"}</h2>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
             {details.map(({ label, value, icon: Icon, tone }) => (
               <div key={label} className="p-3 rounded-xl bg-muted/40 flex items-center gap-3">
                 <div className={`p-2 rounded-lg shrink-0 ${tone}`}>
                   <Icon size={16} />
                 </div>
                 <div className="min-w-0">
-                  <span className="text-[10px] uppercase font-mono text-muted-foreground block">{label}</span>
-                  <span className="font-bold text-foreground text-sm break-words">{value}</span>
+                  <span className="text-[12px] uppercase font-mono text-muted-foreground block">{label}</span>
+                  <span className="font-bold text-foreground text-base break-words">{value}</span>
                 </div>
               </div>
             ))}
           </div>
 
           <div className="space-y-1.5">
-            <h3 className="text-[11px] font-bold uppercase tracking-wider text-yellow-700 dark:text-yellow-400">Brief</h3>
-            <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">
+            <h3 className="text-[13px] font-bold uppercase tracking-wider text-yellow-700 dark:text-yellow-400">Brief</h3>
+            <p className="text-base text-foreground leading-relaxed whitespace-pre-line">
               {assignment.description || <span className="text-muted-foreground italic">No description.</span>}
             </p>
           </div>
 
           {attachments.length > 0 && (
             <div className="space-y-1.5">
-              <h3 className="text-[11px] font-bold uppercase tracking-wider text-yellow-700 dark:text-yellow-400">Attachments</h3>
+              <h3 className="text-[13px] font-bold uppercase tracking-wider text-yellow-700 dark:text-yellow-400">Attachments</h3>
               <ul className="flex flex-wrap gap-2">
                 {attachments.map((att, idx) => (
                   <li key={att.url || idx}>
@@ -144,7 +144,7 @@ export function AssignmentOverviewView({ assignment, scopeLabel, startEditing = 
                       href={att.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs text-sky-600 dark:text-sky-400 underline underline-offset-2 hover:text-sky-500"
+                      className="inline-flex items-center gap-1.5 text-sm text-sky-600 dark:text-sky-400 underline underline-offset-2 hover:text-sky-500"
                     >
                       <Paperclip size={12} />
                       {att.name || "Attachment"}

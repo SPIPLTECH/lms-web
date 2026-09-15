@@ -64,7 +64,9 @@ export default function WelcomeBanner({
             </span>
           </h1>
 
-          {subtitle && <p className="mt-2 text-sm text-muted-foreground">{subtitle}</p>}
+          {subtitle && (
+            <p className="mt-2 min-h-[2.5rem] text-sm text-muted-foreground line-clamp-2">{subtitle}</p>
+          )}
         </div>
 
         {hasStats && (

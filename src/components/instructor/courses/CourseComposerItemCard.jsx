@@ -31,7 +31,7 @@ export function CourseComposerItemCard({
     >
       {/* Top Bar: Order Badge & 3-Dot Kebab Menu */}
       <div className="flex items-center justify-between gap-2">
-        <span className={`px-2.5 py-0.5 rounded text-xs font-mono font-bold border ${badgeColorClass}`}>
+        <span className={`px-2.5 py-0.5 rounded text-sm font-mono font-bold border ${badgeColorClass}`}>
           {formattedNum}
         </span>
 
@@ -57,7 +57,7 @@ export function CourseComposerItemCard({
                       key={item.label || idx}
                       disabled={item.disabled}
                       onClick={item.onSelect}
-                      className={`cursor-pointer text-xs ${
+                      className={`cursor-pointer text-sm ${
                         item.destructive
                           ? "text-red-400 hover:bg-red-950/40"
                           : item.highlight
@@ -82,15 +82,15 @@ export function CourseComposerItemCard({
           {title}
         </h4>
         {subtitle && (
-          <p className="text-xs text-muted-foreground line-clamp-1">
+          <p className="text-sm text-muted-foreground line-clamp-1">
             {subtitle}
           </p>
         )}
       </div>
 
       {/* Bottom Bar: Metadata & Arrow Affordance */}
-      <div className="flex items-center justify-between text-xs pt-2 border-t border-border/60 text-muted-foreground">
-        <span className="text-[11px] font-mono font-medium">
+      <div className="flex items-center justify-between text-sm pt-2 border-t border-border/60 text-muted-foreground">
+        <span className="text-[13px] font-mono font-medium">
           {metadataText}
         </span>
         <ArrowRight size={13} className={`text-muted-foreground ${arrowColorClass} group-hover:translate-x-0.5 transition`} />

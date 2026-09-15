@@ -207,7 +207,7 @@ export default function ZipImportTimeline({
 
                 <span
                   aria-current={state === "active" ? "step" : undefined}
-                  className={`mt-2 px-1 text-[11px] leading-tight text-center ${
+                  className={`mt-2 px-1 text-[13px] leading-tight text-center ${
                     state === "pending"
                       ? "text-muted-foreground/60 font-medium"
                       : state === "failed"
@@ -229,26 +229,26 @@ export default function ZipImportTimeline({
           so the progression stays a compact single row. */}
       <div className="mt-4 space-y-2">
         {fileName && (
-          <p className="text-xs text-muted-foreground truncate">
+          <p className="text-sm text-muted-foreground truncate">
             {fileName}
             {sizeLabel ? ` · ${sizeLabel}` : ""}
           </p>
         )}
 
         {!isFailed && activeStage?.busy && (
-          <p className="text-xs text-sky-300/90">{activeStage.busy}</p>
+          <p className="text-sm text-sky-300/90">{activeStage.busy}</p>
         )}
 
         {/* Failure interrupts the progression and explains itself here. */}
         {isFailed && (
           <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-800/50">
-            <p className="text-xs font-semibold text-rose-200 break-words">
+            <p className="text-sm font-semibold text-rose-200 break-words">
               {errorMessage || "The package could not be imported."}
             </p>
             {errors.length > 0 && errors[0] !== errorMessage && (
               <ul className="mt-1.5 space-y-1 list-disc list-inside">
                 {errors.slice(0, 5).map((error, i) => (
-                  <li key={i} className="text-xs text-rose-300/80 break-words">
+                  <li key={i} className="text-sm text-rose-300/80 break-words">
                     {error}
                   </li>
                 ))}
@@ -261,7 +261,7 @@ export default function ZipImportTimeline({
         {!isFailed && status === "READY" && summary && (
           <div className="p-3 rounded-xl bg-sky-950/40 border border-sky-800/50">
             {summary.title && (
-              <p className="text-sm font-bold text-foreground truncate">{summary.title}</p>
+              <p className="text-base font-bold text-foreground truncate">{summary.title}</p>
             )}
             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5">
               {[
@@ -269,7 +269,7 @@ export default function ZipImportTimeline({
                 ["lesson", "lessons", summary.lessons],
                 ["quiz", "quizzes", summary.quizzes],
               ].map(([singular, plural, value]) => (
-                <span key={singular} className="text-xs text-sky-200/90">
+                <span key={singular} className="text-sm text-sky-200/90">
                   <span className="font-bold text-sky-100">{value}</span>{" "}
                   {value === 1 ? singular : plural}
                 </span>

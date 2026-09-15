@@ -53,11 +53,11 @@ export function CourseStructureSidebar({
     <aside className="rounded-2xl border border-border bg-background/80 p-3.5 shadow-xl flex flex-col h-full max-h-[calc(100vh-6rem)] overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-1 pb-3 mb-2 border-b border-border/80 shrink-0">
-        <h2 className="text-xs font-black uppercase tracking-widest text-foreground flex items-center gap-2">
+        <h2 className="text-sm font-black uppercase tracking-widest text-foreground flex items-center gap-2">
           <Folder size={14} className="text-primary" />
           <span>Course Structure</span>
         </h2>
-        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+        <span className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">
           {modules.length} Modules
         </span>
       </div>
@@ -70,12 +70,12 @@ export function CourseStructureSidebar({
           placeholder="Filter structure..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full bg-background border border-border rounded-xl !pl-8 !pr-3 py-1.5 text-xs text-foreground placeholder-slate-500 outline-none focus:border-primary transition"
+          className="w-full bg-background border border-border rounded-xl !pl-8 !pr-3 py-1.5 text-sm text-foreground placeholder-slate-500 outline-none focus:border-primary transition"
         />
       </div>
 
       {/* Navigation Tree */}
-      <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 text-xs">
+      <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 text-sm">
         {/* Course Overview Root Item */}
         <div
           onClick={onSelectCourseOverview}
@@ -90,9 +90,9 @@ export function CourseStructureSidebar({
               size={14}
               className={composerMode === "course" ? "text-primary" : "text-muted-foreground"}
             />
-            <span className="truncate font-semibold text-xs">Course Overview</span>
+            <span className="truncate font-semibold text-sm">Course Overview</span>
           </div>
-          <span className="text-[9px] font-black uppercase text-muted-foreground bg-background px-1.5 py-0.5 rounded border border-border">
+          <span className="text-[11px] font-black uppercase text-muted-foreground bg-background px-1.5 py-0.5 rounded border border-border">
             Root
           </span>
         </div>
@@ -101,7 +101,7 @@ export function CourseStructureSidebar({
 
         {/* Modules List */}
         {filteredModules.length === 0 ? (
-          <div className="py-8 text-center text-muted-foreground text-xs italic">
+          <div className="py-8 text-center text-muted-foreground text-sm italic">
             No modules found.
           </div>
         ) : (
@@ -137,13 +137,13 @@ export function CourseStructureSidebar({
                       )}
                     </button>
 
-                    <span className="truncate text-xs font-bold leading-snug">
+                    <span className="truncate text-sm font-bold leading-snug">
                       M{idx + 1}: {mod.title}
                     </span>
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="text-[9.5px] font-bold text-muted-foreground bg-background border border-border px-1.5 py-0.5 rounded-md">
+                    <span className="text-[11.5px] font-bold text-muted-foreground bg-background border border-border px-1.5 py-0.5 rounded-md">
                       {modLessons.length}
                     </span>
 
@@ -158,7 +158,7 @@ export function CourseStructureSidebar({
                           <MoreVertical size={13} />
                         </button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-background border-border text-foreground text-xs">
+                      <DropdownMenuContent align="end" className="bg-background border-border text-foreground text-sm">
                         <DropdownMenuItem
                           onSelect={() => onSelectModule(mod)}
                           className="cursor-pointer hover:bg-background"
@@ -194,7 +194,7 @@ export function CourseStructureSidebar({
                 {isModuleExpanded && (
                   <div className="pl-5 space-y-0.5 border-l border-border/80 ml-3.5 py-0.5">
                     {modLessons.length === 0 ? (
-                      <p className="text-[10px] text-muted-foreground py-1 pl-2 italic">
+                      <p className="text-[12px] text-muted-foreground py-1 pl-2 italic">
                         No lessons yet
                       </p>
                     ) : (
@@ -210,7 +210,7 @@ export function CourseStructureSidebar({
                           <div
                             key={lesson.id}
                             onClick={() => onSelectLesson(lesson.id, mod.id)}
-                            className={`group flex items-center justify-between px-2.5 py-1.5 rounded-lg transition cursor-pointer text-xs ${
+                            className={`group flex items-center justify-between px-2.5 py-1.5 rounded-lg transition cursor-pointer text-sm ${
                               isLessonSelected
                                 ? "bg-primary/15 text-primary font-bold border-l-2 border-primary"
                                 : "text-muted-foreground hover:text-slate-50 hover:bg-background/40"
@@ -223,13 +223,13 @@ export function CourseStructureSidebar({
                                   isLessonSelected ? "text-primary shrink-0" : "text-muted-foreground shrink-0"
                                 }
                               />
-                              <span className="truncate text-[11px] leading-snug">
+                              <span className="truncate text-[13px] leading-snug">
                                 {lIdx + 1}. {lesson.title}
                               </span>
                             </div>
 
                             <div className="flex items-center gap-1 shrink-0">
-                              <span className="text-[9px] font-semibold text-muted-foreground">
+                              <span className="text-[11px] font-semibold text-muted-foreground">
                                 {blockCount} blks
                               </span>
 
@@ -243,7 +243,7 @@ export function CourseStructureSidebar({
                                     <MoreVertical size={12} />
                                   </button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="bg-background border-border text-foreground text-xs">
+                                <DropdownMenuContent align="end" className="bg-background border-border text-foreground text-sm">
                                   <DropdownMenuItem
                                     onSelect={() => onSelectLesson(lesson.id, mod.id)}
                                     className="cursor-pointer hover:bg-background"
@@ -272,7 +272,7 @@ export function CourseStructureSidebar({
                     <button
                       type="button"
                       onClick={() => onAddLesson(mod.id)}
-                      className="w-full text-left py-1 px-2.5 mt-0.5 flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground hover:text-primary transition cursor-pointer"
+                      className="w-full text-left py-1 px-2.5 mt-0.5 flex items-center gap-1.5 text-[12px] font-bold text-muted-foreground hover:text-primary transition cursor-pointer"
                     >
                       <Plus size={11} className="text-primary" />
                       <span>Add Lesson</span>
@@ -290,7 +290,7 @@ export function CourseStructureSidebar({
         <button
           type="button"
           onClick={onAddModule}
-          className="w-full py-2 flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-border hover:border-primary/70 bg-background hover:bg-background text-foreground hover:text-slate-50 text-xs font-bold transition cursor-pointer"
+          className="w-full py-2 flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-border hover:border-primary/70 bg-background hover:bg-background text-foreground hover:text-slate-50 text-sm font-bold transition cursor-pointer"
         >
           <Plus size={13} className="text-primary" />
           <span>Add Module</span>

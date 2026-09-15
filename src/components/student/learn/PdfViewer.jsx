@@ -204,13 +204,13 @@ export default function PdfViewer({
             <ChevronLeft size={16} />
           </button>
 
-          <div className="flex items-center gap-1 text-xs font-semibold text-foreground font-mono">
+          <div className="flex items-center gap-1 text-sm font-semibold text-foreground font-mono">
             <input
               type="text"
               value={pageInput}
               onChange={handlePageInputChange}
               onKeyDown={handlePageInputSubmit}
-              className="w-8 rounded bg-background border border-transparent px-1 py-0.5 text-center text-xs font-bold text-foreground focus:outline-none focus:border-primary font-mono"
+              className="w-8 rounded bg-background border border-transparent px-1 py-0.5 text-center text-sm font-bold text-foreground focus:outline-none focus:border-primary font-mono"
               title="Type page number and press Enter"
             />
             <span className="text-muted-foreground">/</span>
@@ -241,7 +241,7 @@ export default function PdfViewer({
           <ZoomOut size={15} />
         </button>
 
-        <span className="text-[11px] font-semibold text-foreground min-w-[36px] text-center font-mono">
+        <span className="text-[13px] font-semibold text-foreground min-w-[36px] text-center font-mono">
           {isFitToWidth ? "Fit" : `${effectiveZoomPercentage}%`}
         </span>
 
@@ -260,7 +260,7 @@ export default function PdfViewer({
           <button
             type="button"
             onClick={handleFitToWidth}
-            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold text-primary hover:bg-primary/10 border border-primary/30 transition cursor-pointer"
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[13px] font-bold text-primary hover:bg-primary/10 border border-primary/30 transition cursor-pointer"
             title="Fit to Width"
           >
             <Maximize2 size={12} />
@@ -275,7 +275,7 @@ export default function PdfViewer({
         download
         target="_blank"
         rel="noopener noreferrer"
-        className="flex items-center gap-1.5 rounded-xl bg-primary hover:bg-orange-600 px-3 py-1.5 text-xs font-extrabold text-slate-950 transition cursor-pointer shadow-md"
+        className="flex items-center gap-1.5 rounded-xl bg-primary hover:bg-orange-600 px-3 py-1.5 text-sm font-extrabold text-slate-950 transition cursor-pointer shadow-md"
         title="Download PDF Document"
       >
         <Download size={14} />
@@ -340,8 +340,8 @@ export default function PdfViewer({
     return (
       <div className="flex h-80 w-full flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-[#0B101D] p-6 text-center">
         <AlertCircle className="h-10 w-10 text-amber-500" />
-        <h4 className="text-sm font-bold text-foreground">No PDF File Provided</h4>
-        <p className="text-xs text-muted-foreground">Please select a valid PDF content item.</p>
+        <h4 className="text-base font-bold text-foreground">No PDF File Provided</h4>
+        <p className="text-sm text-muted-foreground">Please select a valid PDF content item.</p>
       </div>
     );
   }
@@ -364,7 +364,7 @@ export default function PdfViewer({
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/15 border border-primary/30 text-primary shrink-0">
               <FileText size={15} />
             </div>
-            <span className="text-xs font-bold text-foreground truncate max-w-[160px] sm:max-w-xs md:max-w-md">
+            <span className="text-sm font-bold text-foreground truncate max-w-[160px] sm:max-w-xs md:max-w-md">
               {title || "PDF Document"}
             </span>
           </div>
@@ -391,7 +391,7 @@ export default function PdfViewer({
         {loading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#060913]/90 z-20 rounded-2xl">
             <Loader2 className="h-9 w-9 animate-spin text-primary" />
-            <p className="text-xs font-bold text-foreground">Rendering PDF Document…</p>
+            <p className="text-sm font-bold text-foreground">Rendering PDF Document…</p>
           </div>
         )}
 
@@ -400,15 +400,15 @@ export default function PdfViewer({
           <div className="my-12 flex flex-col items-center justify-center gap-4 rounded-2xl border border-rose-500/20 bg-rose-500/5 p-8 text-center max-w-md">
             <AlertCircle className="h-10 w-10 text-rose-400" />
             <div>
-              <h4 className="text-sm font-bold text-foreground mb-1">Unable to Render PDF</h4>
-              <p className="text-xs text-muted-foreground leading-relaxed mb-4">{error}</p>
+              <h4 className="text-base font-bold text-foreground mb-1">Unable to Render PDF</h4>
+              <p className="text-sm text-muted-foreground leading-relaxed mb-4">{error}</p>
             </div>
             <a
               href={resolvedUrl || fileUrl}
               download
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-xl bg-primary hover:bg-orange-600 px-5 py-2.5 text-xs font-bold text-slate-950 transition shadow-lg"
+              className="inline-flex items-center gap-2 rounded-xl bg-primary hover:bg-orange-600 px-5 py-2.5 text-sm font-bold text-slate-950 transition shadow-lg"
             >
               <Download size={15} />
               <span>Download File Instead</span>
@@ -423,7 +423,7 @@ export default function PdfViewer({
             loading={
               <div className="flex flex-col items-center justify-center py-24 gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <span className="text-xs font-semibold text-muted-foreground">Loading document pages…</span>
+                <span className="text-sm font-semibold text-muted-foreground">Loading document pages…</span>
               </div>
             }
             className="flex flex-col items-center max-w-full"

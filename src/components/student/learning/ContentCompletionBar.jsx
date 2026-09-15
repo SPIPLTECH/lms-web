@@ -41,7 +41,7 @@ function ContentCompletionBar({
       disabled={isPending}
       aria-busy={isPending}
       title="Mark as Complete"
-      className="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full border border-emerald-500/50 bg-card/90 backdrop-blur-sm shadow-md text-xs font-bold text-emerald-400 transition cursor-pointer outline-none hover:bg-emerald-500/10 hover:border-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed"
+      className="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full border border-emerald-500/50 bg-card/90 backdrop-blur-sm shadow-md text-sm font-bold text-emerald-400 transition cursor-pointer outline-none hover:bg-emerald-500/10 hover:border-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed"
     >
       {isPending ? (
         <>

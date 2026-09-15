@@ -24,7 +24,7 @@ export function DeleteCourseModal({
           <div className="flex items-center justify-between border-b border-border pb-3">
             <div className="flex items-center gap-2 text-amber-400">
               <AlertOctagon size={18} />
-              <h3 className="text-lg font-black text-foreground">Course Cannot Be Deleted</h3>
+              <h3 className="text-xl font-black text-foreground">Course Cannot Be Deleted</h3>
             </div>
             <button
               onClick={onClose}
@@ -34,8 +34,8 @@ export function DeleteCourseModal({
             </button>
           </div>
 
-          <div className="space-y-3 text-xs leading-relaxed text-foreground">
-            <p className="font-bold text-foreground text-sm">{courseTitle}</p>
+          <div className="space-y-3 text-sm leading-relaxed text-foreground">
+            <p className="font-bold text-foreground text-base">{courseTitle}</p>
             <p>
               This course contains student or historical data (enrollments, quiz submissions, or certificates).
             </p>
@@ -49,7 +49,7 @@ export function DeleteCourseModal({
               type="button"
               onClick={onClose}
               disabled={isArchiving}
-              className="rounded-xl border border-border bg-background px-4 py-2 text-xs font-bold text-foreground hover:bg-muted transition cursor-pointer"
+              className="rounded-xl border border-border bg-background px-4 py-2 text-sm font-bold text-foreground hover:bg-muted transition cursor-pointer"
             >
               Cancel
             </button>
@@ -58,7 +58,7 @@ export function DeleteCourseModal({
                 type="button"
                 onClick={onConfirmArchive}
                 disabled={isArchiving}
-                className="rounded-xl bg-purple-600 hover:bg-purple-700 active:scale-95 text-foreground font-black text-xs px-5 py-2 transition shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                className="rounded-xl bg-purple-600 hover:bg-purple-700 active:scale-95 text-foreground font-black text-sm px-5 py-2 transition shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-2"
               >
                 {isArchiving ? (
                   <>
@@ -73,7 +73,7 @@ export function DeleteCourseModal({
                 )}
               </button>
             ) : (
-              <p className="text-[11px] text-amber-400 font-semibold self-center">
+              <p className="text-[13px] text-amber-400 font-semibold self-center">
                 Contact an Administrator to archive this course.
               </p>
             )}
@@ -91,7 +91,7 @@ export function DeleteCourseModal({
           <div className="flex items-center justify-between border-b border-border pb-3">
             <div className="flex items-center gap-2 text-red-400">
               <AlertOctagon size={18} />
-              <h3 className="text-lg font-black text-foreground">Cannot Delete Published Course</h3>
+              <h3 className="text-xl font-black text-foreground">Cannot Delete Published Course</h3>
             </div>
             <button
               onClick={onClose}
@@ -101,8 +101,8 @@ export function DeleteCourseModal({
             </button>
           </div>
 
-          <div className="space-y-3 text-xs leading-relaxed text-foreground">
-            <p className="font-bold text-foreground text-sm">{courseTitle}</p>
+          <div className="space-y-3 text-sm leading-relaxed text-foreground">
+            <p className="font-bold text-foreground text-base">{courseTitle}</p>
             <p>
               Published courses cannot be directly deleted by instructors. You must unpublish the course first, after which deletion safety rules will be evaluated.
             </p>
@@ -112,7 +112,7 @@ export function DeleteCourseModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-border bg-background px-4 py-2 text-xs font-bold text-foreground hover:bg-muted transition cursor-pointer"
+              className="rounded-xl border border-border bg-background px-4 py-2 text-sm font-bold text-foreground hover:bg-muted transition cursor-pointer"
             >
               Understood
             </button>
@@ -129,7 +129,7 @@ export function DeleteCourseModal({
         <div className="flex items-center justify-between border-b border-border pb-3">
           <div className="flex items-center gap-2 text-red-400">
             <Trash2 size={18} />
-            <h3 className="text-lg font-black text-foreground">Delete Course?</h3>
+            <h3 className="text-xl font-black text-foreground">Delete Course?</h3>
           </div>
           <button
             onClick={onClose}
@@ -139,8 +139,8 @@ export function DeleteCourseModal({
           </button>
         </div>
 
-        <div className="space-y-3 text-xs leading-relaxed text-foreground">
-          <p className="font-bold text-foreground text-sm">{courseTitle}</p>
+        <div className="space-y-3 text-sm leading-relaxed text-foreground">
+          <p className="font-bold text-foreground text-base">{courseTitle}</p>
           <p className="text-red-400 font-semibold">This action cannot be undone.</p>
         </div>
 
@@ -149,7 +149,7 @@ export function DeleteCourseModal({
             type="button"
             onClick={onClose}
             disabled={isDeleting}
-            className="rounded-xl border border-border bg-background px-4 py-2 text-xs font-bold text-foreground hover:bg-muted transition cursor-pointer"
+            className="rounded-xl border border-border bg-background px-4 py-2 text-sm font-bold text-foreground hover:bg-muted transition cursor-pointer"
           >
             Cancel
           </button>
@@ -157,7 +157,7 @@ export function DeleteCourseModal({
             type="button"
             onClick={onConfirmDelete}
             disabled={isDeleting}
-            className="rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-foreground font-black text-xs px-5 py-2 transition shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-2"
+            className="rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-foreground font-black text-sm px-5 py-2 transition shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-2"
           >
             {isDeleting ? (
               <>

@@ -118,7 +118,7 @@ export function SlideColumnsView({ title, columns, backgroundColor = DEFAULT_SLI
           line-height: 1.15;
           letter-spacing: -0.01em;
           color: #f8fafc;
-          font-size: clamp(1rem, 4.4cqw, 2.1rem);
+          font-size: clamp(1.15rem, 5cqw, 2.4rem);
         }
         .slide-body {
           flex: none;
@@ -136,7 +136,7 @@ export function SlideColumnsView({ title, columns, backgroundColor = DEFAULT_SLI
         }
         .slide-prose {
           color: #cbd5e1;
-          font-size: clamp(0.7rem, 1.9cqw, 1rem);
+          font-size: clamp(0.85rem, 2.2cqw, 1.15rem);
           line-height: 1.45;
         }
         .slide-prose > *:first-child { margin-top: 0; }
@@ -146,14 +146,14 @@ export function SlideColumnsView({ title, columns, backgroundColor = DEFAULT_SLI
           color: #f8fafc;
           line-height: 1.2;
           margin: 0 0 0.3em;
-          font-size: clamp(0.95rem, 3.2cqw, 1.5rem);
+          font-size: clamp(1.1rem, 3.6cqw, 1.7rem);
         }
         .slide-prose h3, .slide-prose h4, .slide-prose h5, .slide-prose h6 {
           font-weight: 700;
           color: #e2e8f0;
           line-height: 1.25;
           margin: 0 0 0.3em;
-          font-size: clamp(0.8rem, 2.4cqw, 1.1rem);
+          font-size: clamp(0.95rem, 2.7cqw, 1.25rem);
         }
         .slide-prose p {
           margin: 0 0 0.45em;
@@ -170,7 +170,7 @@ export function SlideColumnsView({ title, columns, backgroundColor = DEFAULT_SLI
           border-left: 2px solid #f59e0b;
           color: #94a3b8;
           font-style: italic;
-          font-size: clamp(0.62rem, 1.5cqw, 0.8rem);
+          font-size: clamp(0.75rem, 1.7cqw, 0.95rem);
         }
         .slide-prose code {
           color: #fbbf24;
@@ -201,7 +201,7 @@ export function SlideColumnsView({ title, columns, backgroundColor = DEFAULT_SLI
       `}</style>
 
       {isEmpty ? (
-        <div className="absolute inset-0 flex items-center justify-center p-6 text-center text-xs italic text-muted-foreground">
+        <div className="absolute inset-0 flex items-center justify-center p-6 text-center text-sm italic text-muted-foreground">
           Empty slide.
         </div>
       ) : (
@@ -273,7 +273,7 @@ export function SlideColumnsEditor({ columns, backgroundColor, onChange }: Slide
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <label className="text-xs font-semibold text-foreground">Columns</label>
+        <label className="text-sm font-semibold text-foreground">Columns</label>
         <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-0.5">
           <button
             type="button"
@@ -284,7 +284,7 @@ export function SlideColumnsEditor({ columns, backgroundColor, onChange }: Slide
           >
             <Minus size={12} />
           </button>
-          <span className="w-6 text-center text-xs font-bold text-foreground">{columns.length}</span>
+          <span className="w-6 text-center text-sm font-bold text-foreground">{columns.length}</span>
           <button
             type="button"
             onClick={addColumn}
@@ -307,7 +307,7 @@ export function SlideColumnsEditor({ columns, backgroundColor, onChange }: Slide
             className="flex-1 min-w-0 space-y-2 rounded-lg border border-border bg-background/70 p-3"
           >
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+              <span className="text-[12px] font-black uppercase tracking-wider text-muted-foreground">
                 Column {idx + 1}
               </span>
               <div className="flex items-center gap-0.5 rounded-lg border border-border bg-background p-0.5">
@@ -316,7 +316,7 @@ export function SlideColumnsEditor({ columns, backgroundColor, onChange }: Slide
                     key={type}
                     type="button"
                     onClick={() => updateColumn(column.id, { contentType: type })}
-                    className={`px-2 py-1 rounded text-[10px] font-bold uppercase cursor-pointer transition ${
+                    className={`px-2 py-1 rounded text-[12px] font-bold uppercase cursor-pointer transition ${
                       column.contentType === type
                         ? "bg-primary text-slate-950"
                         : "text-muted-foreground hover:text-foreground"
@@ -333,18 +333,18 @@ export function SlideColumnsEditor({ columns, backgroundColor, onChange }: Slide
               onChange={(e) => updateColumn(column.id, { content: e.target.value })}
               rows={5}
               placeholder={column.contentType === "markdown" ? "Write markdown…" : "Write HTML…"}
-              className="w-full rounded-lg border border-border bg-background px-2.5 py-2 text-xs text-foreground outline-none focus:border-primary font-mono leading-relaxed resize-y"
+              className="w-full rounded-lg border border-border bg-background px-2.5 py-2 text-sm text-foreground outline-none focus:border-primary font-mono leading-relaxed resize-y"
             />
 
             <div className="rounded-lg border border-border/60 bg-black/20 p-2.5">
-              <p className="mb-1.5 text-[9px] font-black uppercase tracking-wider text-muted-foreground">Preview</p>
+              <p className="mb-1.5 text-[11px] font-black uppercase tracking-wider text-muted-foreground">Preview</p>
               {column.content ? (
                 <div
                   className="prose prose-invert prose-sm max-w-none break-words text-foreground"
                   dangerouslySetInnerHTML={{ __html: renderColumnContent(column) }}
                 />
               ) : (
-                <p className="text-[11px] italic text-slate-600">Nothing to preview yet.</p>
+                <p className="text-[13px] italic text-slate-600">Nothing to preview yet.</p>
               )}
             </div>
           </div>

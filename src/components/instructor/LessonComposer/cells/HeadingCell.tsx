@@ -113,7 +113,7 @@ export function HeadingCell({
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Heading text"
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-lg font-bold text-foreground outline-none focus:border-primary"
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xl font-bold text-foreground outline-none focus:border-primary"
           />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" size="sm" onClick={handleCancel}>
@@ -138,7 +138,7 @@ export function HeadingCell({
           {displayText}
         </ViewTag>
       ) : (
-        <p className="text-sm italic text-muted-foreground">No heading text yet.</p>
+        <p className="text-base italic text-muted-foreground">No heading text yet.</p>
       )}
     </CellShell>
   );
@@ -173,7 +173,7 @@ export function CreateHeadingForm({ parent, order, onCreated, onCancel }: Create
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder="Heading text"
-        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-lg font-bold text-foreground outline-none focus:border-primary"
+        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xl font-bold text-foreground outline-none focus:border-primary"
       />
       <div className="flex justify-end gap-2">
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>

@@ -109,7 +109,7 @@ export function TextCell({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Block title (optional)"
-            className="shrink-0 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+            className="shrink-0 w-full rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground outline-none focus:border-primary"
           />
           <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
             <MarkdownEditor
@@ -167,7 +167,7 @@ export function CreateTextForm({ parent, order, onCreated, onCancel }: CreateCel
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="Block title (optional)"
-        className="shrink-0 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+        className="shrink-0 w-full rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground outline-none focus:border-primary"
       />
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         <MarkdownEditor

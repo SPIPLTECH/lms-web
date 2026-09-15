@@ -58,12 +58,12 @@ export function LessonOverviewView({
       {/* Lesson Header Toolbar */}
       <div className="cell-header flex items-center justify-between border-b border-border/80 pb-3 flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <span className="cell-badge rounded bg-purple-500/15 border border-purple-500/30 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
+          <span className="cell-badge rounded bg-purple-500/15 border border-purple-500/30 px-2.5 py-1 text-[12px] font-black uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
             <BookOpen size={12} />
             Lesson Header
           </span>
           {parentModule && (
-            <span className="text-xs font-semibold text-muted-foreground">
+            <span className="text-sm font-semibold text-muted-foreground">
               in <span className="text-foreground">{parentModule.title}</span>
             </span>
           )}
@@ -71,7 +71,7 @@ export function LessonOverviewView({
         <div className="cell-controls">
           <button
             type="button"
-            className={`btn ${isEditing ? "bg-purple-500 text-slate-950 hover:bg-purple-400" : "border border-border text-foreground hover:text-foreground bg-background hover:bg-muted"} rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer flex items-center gap-1.5`}
+            className={`btn ${isEditing ? "bg-purple-500 text-slate-950 hover:bg-purple-400" : "border border-border text-foreground hover:text-foreground bg-background hover:bg-muted"} rounded-xl px-3 py-1.5 text-sm font-bold transition cursor-pointer flex items-center gap-1.5`}
             onClick={() => setIsEditing(!isEditing)}
           >
             <Pencil size={13} />
@@ -83,14 +83,14 @@ export function LessonOverviewView({
       {/* Lesson Metadata Display / Edit Form */}
       <div className="cell-render-area">
         {isEditing ? (
-          <div className="space-y-4 text-xs bg-background/40 p-4 rounded-xl border border-border">
+          <div className="space-y-4 text-sm bg-background/40 p-4 rounded-xl border border-border">
             <div className="form-group">
-              <label className="cell-field-label block text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">
+              <label className="cell-field-label block text-[12px] font-black uppercase tracking-wider text-muted-foreground mb-1">
                 Lesson Title *
               </label>
               <input
                 type="text"
-                className="cell-input w-full bg-background border border-transparent rounded-xl px-3.5 py-2 text-xs font-bold text-foreground outline-none focus:border-purple-500"
+                className="cell-input w-full bg-background border border-transparent rounded-xl px-3.5 py-2 text-sm font-bold text-foreground outline-none focus:border-purple-500"
                 value={lessonForm.title || ""}
                 onChange={(e) => setLessonForm({ ...lessonForm, title: e.target.value })}
                 placeholder="e.g. Introduction to C"
@@ -98,12 +98,12 @@ export function LessonOverviewView({
             </div>
 
             <div className="form-group">
-              <label className="cell-field-label block text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">
+              <label className="cell-field-label block text-[12px] font-black uppercase tracking-wider text-muted-foreground mb-1">
                 Lesson Subtitle
               </label>
               <input
                 type="text"
-                className="cell-input w-full bg-background border border-transparent rounded-xl px-3.5 py-2 text-xs font-bold text-foreground outline-none focus:border-purple-500"
+                className="cell-input w-full bg-background border border-transparent rounded-xl px-3.5 py-2 text-sm font-bold text-foreground outline-none focus:border-purple-500"
                 value={lessonForm.subtitle || ""}
                 onChange={(e) => setLessonForm({ ...lessonForm, subtitle: e.target.value })}
                 placeholder="e.g. Understanding compilation and basic structure."
@@ -111,11 +111,11 @@ export function LessonOverviewView({
             </div>
 
             <div className="form-group">
-              <label className="cell-field-label block text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">
+              <label className="cell-field-label block text-[12px] font-black uppercase tracking-wider text-muted-foreground mb-1">
                 Lesson Summary / Objectives
               </label>
               <textarea
-                className="cell-textarea w-full bg-background border border-transparent rounded-xl px-3.5 py-2 text-xs text-foreground outline-none focus:border-purple-500 resize-none"
+                className="cell-textarea w-full bg-background border border-transparent rounded-xl px-3.5 py-2 text-sm text-foreground outline-none focus:border-purple-500 resize-none"
                 rows={3}
                 value={lessonForm.summary || lessonForm.description || ""}
                 onChange={(e) => setLessonForm({ ...lessonForm, summary: e.target.value, description: e.target.value })}
@@ -126,14 +126,14 @@ export function LessonOverviewView({
             <div className="flex justify-end gap-2 pt-2 border-t border-border">
               <button
                 type="button"
-                className="rounded-xl border border-border px-3.5 py-1.5 text-xs font-bold text-foreground hover:bg-muted transition cursor-pointer"
+                className="rounded-xl border border-border px-3.5 py-1.5 text-sm font-bold text-foreground hover:bg-muted transition cursor-pointer"
                 onClick={() => setIsEditing(false)}
               >
                 Cancel
               </button>
               <button
                 type="button"
-                className="rounded-xl bg-purple-600 hover:bg-purple-500 px-4 py-1.5 text-xs font-black text-foreground transition shadow-lg shadow-purple-600/20 cursor-pointer"
+                className="rounded-xl bg-purple-600 hover:bg-purple-500 px-4 py-1.5 text-sm font-black text-foreground transition shadow-lg shadow-purple-600/20 cursor-pointer"
                 onClick={onSaveLessonMeta}
                 disabled={isSaving}
               >
@@ -143,12 +143,12 @@ export function LessonOverviewView({
           </div>
         ) : (
           <div className="space-y-2">
-            <h2 className="text-xl font-bold text-foreground">{lesson.title || "Untitled Lesson"}</h2>
+            <h2 className="text-2xl font-bold text-foreground">{lesson.title || "Untitled Lesson"}</h2>
             {lesson.subtitle && (
-              <p className="text-xs font-semibold text-purple-400 italic">{lesson.subtitle}</p>
+              <p className="text-sm font-semibold text-purple-400 italic">{lesson.subtitle}</p>
             )}
             {(lesson.summary || lesson.description) && (
-              <p className="text-xs text-foreground leading-relaxed bg-background/60 p-3 rounded-xl border border-border/80">
+              <p className="text-sm text-foreground leading-relaxed bg-background/60 p-3 rounded-xl border border-border/80">
                 {lesson.summary || lesson.description}
               </p>
             )}
@@ -160,11 +160,11 @@ export function LessonOverviewView({
       {role === "INSTRUCTOR" && !isDraftMode && (
         <div className="pt-4 border-t border-border space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-foreground">Lesson Content</h3>
+            <h3 className="text-base font-bold text-foreground">Lesson Content</h3>
             <button
               type="button"
               onClick={() => setContentAutoOpenSignal((n) => n + 1)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-xs font-bold transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-sm font-bold transition cursor-pointer"
             >
               <Plus size={14} />
               Add Content
@@ -184,8 +184,8 @@ export function LessonOverviewView({
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <Layers size={16} className="text-purple-400" />
-            <h3 className="text-sm font-bold text-foreground">Topics</h3>
-            <span className="text-xs font-mono font-bold text-muted-foreground bg-background px-2 py-0.5 rounded border border-border">
+            <h3 className="text-base font-bold text-foreground">Topics</h3>
+            <span className="text-sm font-mono font-bold text-muted-foreground bg-background px-2 py-0.5 rounded border border-border">
               {displayTopics.length}
             </span>
           </div>
@@ -193,7 +193,7 @@ export function LessonOverviewView({
           <button
             type="button"
             onClick={onAddTopic}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-xs font-bold transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-sm font-bold transition cursor-pointer"
           >
             <Plus size={14} />
             Add Topic
@@ -207,15 +207,15 @@ export function LessonOverviewView({
               <Layers size={24} />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-foreground">No topics yet</h4>
-              <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1">
+              <h4 className="text-base font-bold text-foreground">No topics yet</h4>
+              <p className="text-sm text-muted-foreground max-w-sm mx-auto mt-1">
                 Add your first topic to organize content blocks in this lesson.
               </p>
             </div>
             <button
               type="button"
               onClick={onAddTopic}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-foreground text-xs font-bold transition shadow-lg shadow-purple-600/20 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-foreground text-sm font-bold transition shadow-lg shadow-purple-600/20 cursor-pointer"
             >
               <Plus size={14} />
               Add Topic
@@ -286,8 +286,8 @@ export function LessonOverviewView({
             className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl border border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 text-right transition group cursor-pointer max-w-[280px]"
           >
             <div className="overflow-hidden">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-purple-400 block">Next Lesson</span>
-              <span className="text-xs font-bold text-foreground truncate block">{nextLesson.title}</span>
+              <span className="text-[12px] font-mono font-bold uppercase tracking-wider text-purple-400 block">Next Lesson</span>
+              <span className="text-sm font-bold text-foreground truncate block">{nextLesson.title}</span>
             </div>
             <ChevronRight size={16} className="text-purple-400 group-hover:translate-x-0.5 transition shrink-0" />
           </button>

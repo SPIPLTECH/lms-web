@@ -281,8 +281,8 @@ const VideoPlayer = forwardRef(function VideoPlayer(
             <div className="flex aspect-video min-h-[220px] max-h-[520px] w-full items-center justify-center rounded-2xl border border-border bg-background p-6 text-center">
                 <div>
                     <PlayCircle className="mx-auto mb-3 h-12 w-12 text-slate-600 animate-pulse" />
-                    <h3 className="text-base sm:text-xl font-semibold text-foreground">Select a lesson</h3>
-                    <p className="mt-1 text-xs sm:text-sm text-muted-foreground">Choose a lesson from the sidebar to begin learning.</p>
+                    <h3 className="text-lg sm:text-2xl font-semibold text-foreground">Select a lesson</h3>
+                    <p className="mt-1 text-sm sm:text-base text-muted-foreground">Choose a lesson from the sidebar to begin learning.</p>
                 </div>
             </div>
         );
@@ -437,14 +437,14 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                 invent a fake title just to fill it. */}
             {type !== "VIDEO" && (content.title || isSlideShow || pdfPage || viewerControls) && (
             <div className="shrink-0 border-b border-border px-4 sm:px-6 py-3.5 flex items-center justify-between bg-background min-h-[52px] max-xl:py-2.5 max-xl:min-h-0">
-                <h2 className="text-sm sm:text-base font-semibold text-foreground flex items-center gap-2 truncate pr-2">
+                <h2 className="text-base sm:text-lg font-semibold text-foreground flex items-center gap-2 truncate pr-2">
                     {isSlideShow && <Presentation className="h-4 w-4 text-primary shrink-0" />}
                     {isTextLike && !isSlideShow && <BookOpen className="h-4 w-4 text-primary shrink-0" />}
                     {isFileLike && <FileText className="h-4 w-4 text-primary shrink-0" />}
                     {content.title && <span className="truncate">{content.title}</span>}
                 </h2>
                 {isSlideShow && slideCount > 1 && (
-                    <span className="text-xs font-medium text-muted-foreground bg-muted px-2.5 py-1 rounded-full shrink-0">
+                    <span className="text-sm font-medium text-muted-foreground bg-muted px-2.5 py-1 rounded-full shrink-0">
                         Slide {slideIndex + 1} / {slideCount}
                     </span>
                 )}
@@ -469,7 +469,7 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                             <ChevronLeft size={15} />
                         </button>
 
-                        <span className="px-1 text-[11px] font-bold tabular-nums text-muted-foreground whitespace-nowrap">
+                        <span className="px-1 text-[13px] font-bold tabular-nums text-muted-foreground whitespace-nowrap">
                             <span className="sm:hidden">
                                 {pdfPage.page} / {pdfPage.total}
                             </span>
@@ -521,8 +521,8 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                     ) : (
                         <div className="flex h-80 w-full flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-[#0B101D] p-6 text-center">
                             <PlayCircle className="h-10 w-10 text-amber-500 animate-pulse" />
-                            <h4 className="text-sm font-bold text-foreground">No Video Source Provided</h4>
-                            <p className="text-xs text-muted-foreground max-w-sm leading-relaxed">
+                            <h4 className="text-base font-bold text-foreground">No Video Source Provided</h4>
+                            <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">
                                 No video URL or video file was configured for this video item.
                             </p>
                         </div>
@@ -607,7 +607,7 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                                     type="button"
                                     onClick={() => setSlideIndex(prev => Math.max(0, prev - 1))}
                                     disabled={slideIndex === 0}
-                                    className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-muted text-foreground rounded-xl text-xs font-bold disabled:opacity-50 hover:bg-muted transition"
+                                    className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-muted text-foreground rounded-xl text-sm font-bold disabled:opacity-50 hover:bg-muted transition"
                                 >
                                     <ChevronLeft className="h-4 w-4" /> Prev slide
                                 </button>
@@ -629,7 +629,7 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                                     type="button"
                                     onClick={() => setSlideIndex(prev => Math.min(slideDeck.length - 1, prev + 1))}
                                     disabled={slideIndex === slideDeck.length - 1}
-                                    className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-muted text-foreground rounded-xl text-xs font-bold disabled:opacity-50 hover:bg-muted transition"
+                                    className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-muted text-foreground rounded-xl text-sm font-bold disabled:opacity-50 hover:bg-muted transition"
                                 >
                                     Next slide <ChevronRight className="h-4 w-4" />
                                 </button>
@@ -669,7 +669,7 @@ const VideoPlayer = forwardRef(function VideoPlayer(
 
                 {/* CODE / CODING_EXERCISE */}
                 {(type === "CODE" || type === "CODING_EXERCISE") && (
-                    <pre className="m-4 sm:m-8 rounded-xl border border-border overflow-hidden text-xs sm:text-sm select-text">
+                    <pre className="m-4 sm:m-8 rounded-xl border border-border overflow-hidden text-sm sm:text-base select-text">
                         <code
                             className={`hljs${content?.data?.language ? ` language-${content.data.language}` : ""}`}
                             dangerouslySetInnerHTML={{ __html: highlightCode(htmlContent || "", content?.data?.language) }}
@@ -708,7 +708,7 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                             );
                         }
                         return (
-                            <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
+                            <div className="flex h-[220px] items-center justify-center text-base text-muted-foreground">
                                 No embed URL configured
                             </div>
                         );
@@ -723,7 +723,7 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                         <div className="flex-1 flex flex-col justify-between p-4 sm:p-8 min-h-[320px] max-xl:flex-none max-xl:min-h-0">
                             <div
                                 onClick={handleSlideAreaClick}
-                                className={`prose prose-invert max-w-none text-foreground text-base sm:text-lg leading-relaxed flex-1 flex flex-col justify-center select-text ${
+                                className={`prose prose-invert max-w-none text-foreground text-lg sm:text-xl leading-relaxed flex-1 flex flex-col justify-center select-text ${
                                     legacySlides.length > 1 ? "cursor-pointer" : ""
                                 }`}
                                 dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(legacySlides[slideIndex] || "") }}
@@ -737,7 +737,7 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                                     type="button"
                                     onClick={() => setSlideIndex(prev => Math.max(0, prev - 1))}
                                     disabled={slideIndex === 0}
-                                    className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-muted text-foreground rounded-xl text-xs font-bold disabled:opacity-50 hover:bg-muted transition"
+                                    className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-muted text-foreground rounded-xl text-sm font-bold disabled:opacity-50 hover:bg-muted transition"
                                 >
                                     <ChevronLeft className="h-4 w-4" /> Prev slide
                                 </button>
@@ -759,7 +759,7 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                                     type="button"
                                     onClick={() => setSlideIndex(prev => Math.min(legacySlides.length - 1, prev + 1))}
                                     disabled={slideIndex === legacySlides.length - 1}
-                                    className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-muted text-foreground rounded-xl text-xs font-bold disabled:opacity-50 hover:bg-muted transition"
+                                    className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-muted text-foreground rounded-xl text-sm font-bold disabled:opacity-50 hover:bg-muted transition"
                                 >
                                     Next slide <ChevronRight className="h-4 w-4" />
                                 </button>
@@ -807,15 +807,15 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                     ) : (
                         <div className="flex h-[320px] sm:h-[420px] md:h-[520px] flex-col items-center justify-center gap-4 p-6 text-center">
                             <ExternalLink className="h-16 w-16 text-primary animate-pulse" />
-                            <h3 className="text-lg font-semibold text-foreground">External Resource</h3>
-                            <p className="text-xs sm:text-sm text-muted-foreground max-w-md">
+                            <h3 className="text-xl font-semibold text-foreground">External Resource</h3>
+                            <p className="text-sm sm:text-base text-muted-foreground max-w-md">
                                 This content is hosted externally. Click below to open it in a new tab.
                             </p>
                             <a
                                 href={externalUrl}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="rounded-xl bg-orange-600 px-5 py-2.5 min-h-[44px] flex items-center justify-center font-bold text-xs uppercase tracking-wider text-foreground transition hover:bg-orange-700 shadow-lg"
+                                className="rounded-xl bg-orange-600 px-5 py-2.5 min-h-[44px] flex items-center justify-center font-bold text-sm uppercase tracking-wider text-foreground transition hover:bg-orange-700 shadow-lg"
                             >
                                 Visit Website
                             </a>

@@ -9,7 +9,7 @@ export default function InstructorStudentProgressWidget({ courseId }) {
   const { data, isLoading, isError } = useInstructorCourseProgress(courseId);
 
   if (isLoading) return <Loader />;
-  if (isError || !data) return <Card className="p-4 text-muted-foreground text-xs">Unable to load student progress analytics.</Card>;
+  if (isError || !data) return <Card className="p-4 text-muted-foreground text-sm">Unable to load student progress analytics.</Card>;
 
   const { overview = {}, students = [] } = data;
 
@@ -22,8 +22,8 @@ export default function InstructorStudentProgressWidget({ courseId }) {
             <Users size={18} />
           </div>
           <div>
-            <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Enrolled Students</p>
-            <p className="text-xl font-bold text-foreground">{overview.totalStudents ?? 0}</p>
+            <p className="text-[12px] font-black uppercase tracking-wider text-muted-foreground">Enrolled Students</p>
+            <p className="text-2xl font-bold text-foreground">{overview.totalStudents ?? 0}</p>
           </div>
         </div>
 
@@ -32,8 +32,8 @@ export default function InstructorStudentProgressWidget({ courseId }) {
             <CheckCircle2 size={18} />
           </div>
           <div>
-            <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Completed</p>
-            <p className="text-xl font-bold text-foreground">{overview.completedStudents ?? 0}</p>
+            <p className="text-[12px] font-black uppercase tracking-wider text-muted-foreground">Completed</p>
+            <p className="text-2xl font-bold text-foreground">{overview.completedStudents ?? 0}</p>
           </div>
         </div>
 
@@ -42,8 +42,8 @@ export default function InstructorStudentProgressWidget({ courseId }) {
             <Clock size={18} />
           </div>
           <div>
-            <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">In Progress</p>
-            <p className="text-xl font-bold text-foreground">{overview.inProgressStudents ?? 0}</p>
+            <p className="text-[12px] font-black uppercase tracking-wider text-muted-foreground">In Progress</p>
+            <p className="text-2xl font-bold text-foreground">{overview.inProgressStudents ?? 0}</p>
           </div>
         </div>
 
@@ -52,8 +52,8 @@ export default function InstructorStudentProgressWidget({ courseId }) {
             <BarChart3 size={18} />
           </div>
           <div>
-            <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Avg. Completion</p>
-            <p className="text-xl font-bold text-foreground">{overview.avgProgressPercent ?? 0}%</p>
+            <p className="text-[12px] font-black uppercase tracking-wider text-muted-foreground">Avg. Completion</p>
+            <p className="text-2xl font-bold text-foreground">{overview.avgProgressPercent ?? 0}%</p>
           </div>
         </div>
       </div>
@@ -61,22 +61,22 @@ export default function InstructorStudentProgressWidget({ courseId }) {
       {/* 2. STUDENT PROGRESS TABLE */}
       <div className="rounded-3xl border border-border/80 bg-card/40 backdrop-blur-md overflow-hidden shadow-xl">
         <div className="p-4 sm:p-5 border-b border-border/60 flex items-center justify-between">
-          <h3 className="text-xs font-black uppercase tracking-widest text-foreground">
+          <h3 className="text-sm font-black uppercase tracking-widest text-foreground">
             Student Progress Roster
           </h3>
-          <span className="text-xs font-bold text-muted-foreground">
+          <span className="text-sm font-bold text-muted-foreground">
             {students.length} {students.length === 1 ? "Student" : "Students"}
           </span>
         </div>
 
         {students.length === 0 ? (
-          <div className="p-8 text-center text-xs text-muted-foreground italic">
+          <div className="p-8 text-center text-sm text-muted-foreground italic">
             No students are currently enrolled in this course.
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-background/80 border-b border-border text-[10px] uppercase font-black tracking-wider text-muted-foreground">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-background/80 border-b border-border text-[12px] uppercase font-black tracking-wider text-muted-foreground">
                 <tr>
                   <th className="px-5 py-3.5">Student</th>
                   <th className="px-5 py-3.5">Progress</th>
@@ -98,7 +98,7 @@ export default function InstructorStudentProgressWidget({ courseId }) {
                     <tr key={student.studentId} className="hover:bg-background/40 transition">
                       <td className="px-5 py-4 font-bold text-foreground">
                         <div>{student.name}</div>
-                        <div className="text-[10px] text-muted-foreground font-normal">{student.email}</div>
+                        <div className="text-[12px] text-muted-foreground font-normal">{student.email}</div>
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3 min-w-[120px]">
@@ -108,7 +108,7 @@ export default function InstructorStudentProgressWidget({ courseId }) {
                               style={{ width: `${student.progressPercent}%` }}
                             />
                           </div>
-                          <span className="font-bold text-primary text-[11px] shrink-0">
+                          <span className="font-bold text-primary text-[13px] shrink-0">
                             {student.progressPercent}%
                           </span>
                         </div>
@@ -117,7 +117,7 @@ export default function InstructorStudentProgressWidget({ courseId }) {
                         {student.completedItems} / {student.totalItems} items
                       </td>
                       <td className="px-5 py-4">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${statusColor}`}>
+                        <span className={`px-2.5 py-1 rounded-full text-[12px] font-bold border ${statusColor}`}>
                           {student.status}
                         </span>
                       </td>
