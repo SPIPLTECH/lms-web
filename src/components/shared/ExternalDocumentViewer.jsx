@@ -20,6 +20,8 @@ export default function ExternalDocumentViewer({
   // phone-sized player frame. Consumers that do not pass it are unchanged.
   fillHeight = false,
   onControlsRender,
+  // Passed through to PdfViewer/DocxViewer (student read aloud). Optional.
+  readAloud = null,
 }) {
   const [refMetadata, setRefMetadata] = useState(null);
   const [refLoading, setRefLoading] = useState(false);
@@ -105,6 +107,7 @@ export default function ExternalDocumentViewer({
         hideToolbar={hideToolbar}
         fillHeight={fillHeight}
         onControlsRender={onControlsRender}
+        readAloud={readAloud}
       />
     );
   }
@@ -149,6 +152,7 @@ export default function ExternalDocumentViewer({
         hideToolbar={hideToolbar}
         fillHeight={fillHeight}
         onControlsRender={onControlsRender}
+        readAloud={readAloud}
       />
     );
   }
@@ -197,6 +201,7 @@ export default function ExternalDocumentViewer({
         hideToolbar={hideToolbar}
         fillHeight={fillHeight}
         onControlsRender={onControlsRender}
+        readAloud={readAloud}
       />
     );
   }
@@ -300,6 +305,7 @@ export default function ExternalDocumentViewer({
         hideToolbar={hideToolbar}
         fillHeight={fillHeight}
         onControlsRender={onControlsRender}
+        readAloud={readAloud}
       />
     );
   }

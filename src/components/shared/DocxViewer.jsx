@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import axios from "axios";
 import {
   FileText,
@@ -14,6 +14,10 @@ import {
 
 import { getDisplayUrl } from "@/lib/blob";
 import { parseDocxArrayBuffer } from "@/lib/docxParser";
+import { buildDocxSpeech } from "@/lib/documentSpeech";
+import SpeechControls from "@/components/student/tts/SpeechControls";
+import useChunkHighlight from "@/hooks/useChunkHighlight";
+import useTextToSpeech from "@/hooks/useTextToSpeech";
 
 export default function DocxViewer({
   fileUrl,
@@ -30,6 +34,9 @@ export default function DocxViewer({
   // Same opt-out PptViewer takes: drops the Download button from the controls
   // for hosts that don't want the file offered for download.
   showDownload = true,
+  // Opt-in read aloud for the student player: { sessionKey, lang }. Omitted
+  // by every other consumer (instructor views), which render as before.
+  readAloud = null,
 }) {
   const resolvedUrl = getDisplayUrl(fileUrl);
 
@@ -48,6 +55,21 @@ export default function DocxViewer({
   const [isMounted, setIsMounted] = useState(false);
 
   const viewportRef = useRef(null);
+  const paperRef = useRef(null);
+
+  // Read aloud — sentences come straight from the parsed paragraphs/tables,
+  // and each rendered sentence carries its chunk number for highlighting.
+  const readAloudLang = readAloud?.lang || "";
+  const readAloudEnabled = Boolean(readAloud?.sessionKey);
+  const speech = useTextToSpeech(readAloudEnabled ? `docx:${readAloud.sessionKey}` : null);
+  const docSpeech = useMemo(
+    () => (readAloudEnabled && elements.length > 0 ? buildDocxSpeech(elements, readAloudLang) : null),
+    [readAloudEnabled, elements, readAloudLang]
+  );
+  const showReadAloud = readAloudEnabled && speech.supported && (docSpeech?.chunks.length ?? 0) > 0;
+  useChunkHighlight(paperRef, showReadAloud && (speech.isPlaying || speech.isPaused) ? speech.index : -1, docSpeech, {
+    topInset: 16,
+  });
 
   useEffect(() => {
     setIsMounted(true);
@@ -239,6 +261,16 @@ export default function DocxViewer({
         </div>
       )}
 
+      {showReadAloud && (
+        <SpeechControls
+          speech={speech}
+          onListen={() => speech.start(docSpeech.chunks, { lang: readAloudLang })}
+          lang={readAloudLang}
+          label="document"
+          className="shrink-0"
+        />
+      )}
+
       {/* DOCUMENT PAPER VIEWPORT */}
       <div
         ref={viewportRef}
@@ -288,6 +320,7 @@ export default function DocxViewer({
         ) : elements.length > 0 ? (
           /* Render Document Paper Container */
           <div
+            ref={paperRef}
             className="w-full max-w-4xl bg-background border border-border text-foreground p-6 sm:p-12 shadow-2xl rounded-2xl transition-transform duration-150 origin-top"
             style={{
               transform: `scale(${zoomScale})`,
@@ -322,7 +355,26 @@ export default function DocxViewer({
                     className={textClass}
                     style={{ textAlign: elem.alignment || "left" }}
                   >
-                    {elem.runs?.map((run, rIdx) => (
+                    {showReadAloud && docSpeech.paragraphs[idx]
+                      ? docSpeech.paragraphs[idx].map((segment, sIdx) => {
+                          const run = elem.runs?.[segment.runIndex] || {};
+                          return (
+                            <span
+                              key={sIdx}
+                              className={segment.chunkIndex != null ? "tts-chunk" : undefined}
+                              data-tts-chunk={segment.chunkIndex ?? undefined}
+                              style={{
+                                fontWeight: run.bold ? "bold" : "normal",
+                                fontStyle: run.italic ? "italic" : "normal",
+                                textDecoration: run.underline ? "underline" : "none",
+                                color: run.color || undefined,
+                              }}
+                            >
+                              {segment.text}
+                            </span>
+                          );
+                        })
+                      : elem.runs?.map((run, rIdx) => (
                       <span
                         key={rIdx}
                         style={{
@@ -345,7 +397,11 @@ export default function DocxViewer({
                     <table className="w-full text-xs text-foreground border-collapse">
                       <tbody>
                         {elem.rows?.map((row, rIdx) => (
-                          <tr key={rIdx} className="border-b border-border/80">
+                          <tr
+                            key={rIdx}
+                            className={`border-b border-border/80${showReadAloud && docSpeech.rows[`${idx}:${rIdx}`] != null ? " tts-chunk" : ""}`}
+                            data-tts-chunk={showReadAloud ? docSpeech.rows[`${idx}:${rIdx}`] : undefined}
+                          >
                             {row?.map((cell, cIdx) => (
                               <td key={cIdx} className="p-2 border-r border-border/80">
                                 {cell}

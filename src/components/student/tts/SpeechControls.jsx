@@ -16,7 +16,7 @@ const iconButtonClass =
  * Purely presentational over useTextToSpeech() — `speech` is that hook's
  * return value and `onListen` starts (or restarts) the reading session.
  */
-export default function SpeechControls({ speech, onListen, lang = "", label = "lesson", className = "" }) {
+export default function SpeechControls({ speech, onListen, lang = "", label = "lesson", notice = "", className = "" }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsId = useId();
   const regionRef = useRef(null);
@@ -153,6 +153,11 @@ export default function SpeechControls({ speech, onListen, lang = "", label = "l
       <p className="sr-only" role="status" aria-live="polite">
         {statusText}
       </p>
+      {notice && !isEngaged && (
+        <p role="status" className="pt-1.5 text-xs text-muted-foreground">
+          {notice}
+        </p>
+      )}
       {speech.error && isEngaged === false && (
         <p role="alert" className="pt-1.5 text-xs font-medium text-destructive">
           {speech.error}

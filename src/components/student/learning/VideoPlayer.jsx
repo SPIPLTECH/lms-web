@@ -88,7 +88,7 @@ const parseSlides = (html) => {
 };
 
 const VideoPlayer = forwardRef(function VideoPlayer(
-    { content, onTimeUpdate, onEnded, onDurationChange, initialTime = 0, speechLanguage, lessonTitle },
+    { content, onTimeUpdate, onEnded, onDurationChange, initialTime = 0, speechLanguage, lessonTitle, reserveHeaderCorner = false },
     ref
 ) {
     const containerRef = useRef(null);
@@ -295,6 +295,9 @@ const VideoPlayer = forwardRef(function VideoPlayer(
         lang: resolveSpeechLang(speechLanguage),
     });
     const showReadAloud = isTextBlock && readAloud.hasText && readAloud.speech.supported;
+    // PDF/Word viewers read their own extracted text; they only need to know
+    // what they're showing and in which language.
+    const documentReadAloud = content?.id ? { sessionKey: content.id, lang: resolveSpeechLang(speechLanguage) } : null;
 
     if (!content) {
         return (
@@ -456,7 +459,14 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                 an icon-only bar with nothing next to it isn't useful, and we don't
                 invent a fake title just to fill it. */}
             {type !== "VIDEO" && (content.title || isSlideShow || pdfPage || viewerControls) && (
-            <div className="shrink-0 border-b border-border px-4 sm:px-6 py-3.5 flex items-center justify-between bg-background min-h-[52px] max-xl:py-2.5 max-xl:min-h-0">
+            <div
+                className={`shrink-0 border-b border-border px-4 sm:px-6 py-3.5 flex items-center justify-between bg-background min-h-[52px] max-xl:py-2.5 max-xl:min-h-0${
+                    // At xl the learn page floats its Mark as Complete pill over
+                    // this header's top-right corner; keep the header's own
+                    // controls (page, zoom, slide count) clear of it.
+                    reserveHeaderCorner && (isSlideShow || pdfPage || viewerControls) ? " xl:pr-44" : ""
+                }`}
+            >
                 <h2 className="text-sm sm:text-base font-semibold text-foreground flex items-center gap-2 truncate pr-2">
                     {isSlideShow && <Presentation className="h-4 w-4 text-primary shrink-0" />}
                     {isTextLike && !isSlideShow && <BookOpen className="h-4 w-4 text-primary shrink-0" />}
@@ -577,7 +587,7 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                        scrolls. */
                     <div className="w-full flex-1 min-h-0 flex flex-col">
                         {isPdfUrl(displayFileUrl) ? (
-                            <PdfViewer fileUrl={displayFileUrl} title={content?.title} hideToolbar fillHeight onPageStateChange={reportPdfPage} />
+                            <PdfViewer fileUrl={displayFileUrl} title={content?.title} hideToolbar fillHeight onPageStateChange={reportPdfPage} readAloud={documentReadAloud} />
                         ) : isPptUrl(displayFileUrl) ? (
                             <PptViewer
                                 fileUrl={displayFileUrl}
@@ -602,9 +612,10 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                                 hideToolbar
                                 showDownload={false}
                                 onControlsRender={setViewerControls}
+                                readAloud={documentReadAloud}
                             />
                         ) : displayFileUrl ? (
-                            <ExternalDocumentViewer fileUrl={displayFileUrl} title={content?.title} fillHeight />
+                            <ExternalDocumentViewer fileUrl={displayFileUrl} title={content?.title} fillHeight readAloud={documentReadAloud} />
                         ) : htmlContent ? (
                             <div className="p-4 sm:p-8 select-text min-w-0 max-w-full">
                                 <MarkdownRenderer

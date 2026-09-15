@@ -1469,6 +1469,7 @@ export default function LearnPage() {
                       initialTime={!extraUnit && blockIndex === 0 ? initialTime : 0}
                       speechLanguage={course?.language}
                       lessonTitle={selectedLesson?.title}
+                      reserveHeaderCorner={showCompletionBar}
                     />
                   )}
                 </div>

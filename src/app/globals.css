@@ -729,8 +729,17 @@ button.bg-primary:hover, a.bg-primary:hover, .btn-rainbow:hover {
   }
 }
 
+/* PDF pages are always white paper, so the box multiplies onto the page
+   rather than covering the glyphs underneath it. */
+.tts-pdf-highlight {
+  background-color: color-mix(in oklab, var(--primary) 35%, transparent);
+  mix-blend-mode: multiply;
+  border-radius: 2px;
+}
+
 @media (forced-colors: active) {
-  .tts-chunk.tts-active {
+  .tts-chunk.tts-active,
+  .tts-pdf-highlight {
     background-color: Highlight;
     color: HighlightText;
     forced-color-adjust: none;

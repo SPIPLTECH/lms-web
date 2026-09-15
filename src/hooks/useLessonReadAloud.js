@@ -2,38 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
+import useChunkHighlight from "@/hooks/useChunkHighlight";
 import useTextToSpeech from "@/hooks/useTextToSpeech";
 import { renderMarkdownToSafeHtml } from "@/lib/markdown";
 import { annotateHtmlForSpeech } from "@/lib/speechDocument";
 import { asSentence } from "@/lib/textToSpeech";
 
 const normalize = (text) => (text || "").replace(/\s+/g, " ").replace(/[.!?:;]+$/, "").trim().toLowerCase();
-
-// The element that actually scrolls the sentence, so only it moves — never
-// the whole page.
-function scrollParentOf(element) {
-  for (let el = element?.parentElement; el; el = el.parentElement) {
-    const { overflowY } = window.getComputedStyle(el);
-    if ((overflowY === "auto" || overflowY === "scroll") && el.scrollHeight > el.clientHeight) return el;
-  }
-  return null;
-}
-
-function revealIfHidden(element) {
-  const container = scrollParentOf(element);
-  if (!container) return;
-  const box = container.getBoundingClientRect();
-  const rect = element.getBoundingClientRect();
-  // Leave room for the sticky reader bar at the top of the scroller.
-  const topInset = 72;
-  const bottomInset = 24;
-  if (rect.top >= box.top + topInset && rect.bottom <= box.bottom - bottomInset) return;
-  const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  container.scrollTo({
-    top: container.scrollTop + (rect.top - box.top) - box.height / 3,
-    behavior: reduceMotion ? "auto" : "smooth",
-  });
-}
 
 /**
  * Read-aloud for one text lesson block (Markdown/HTML).
@@ -87,14 +62,8 @@ export default function useLessonReadAloud({ enabled, contentId, title, source, 
   // moves off screen). Paused keeps the highlight so the student can see
   // where they'll resume; stopped/finished clears it.
   const highlightIndex = speech.isPlaying || speech.isPaused ? speech.index : -1;
-  useEffect(() => {
-    const scope = scopeRef.current;
-    if (!scope || highlightIndex < 0) return undefined;
-    const elements = scope.querySelectorAll(`[data-tts-chunk="${highlightIndex}"]`);
-    elements.forEach((el) => el.classList.add("tts-active"));
-    if (elements[0]) revealIfHidden(elements[0]);
-    return () => elements.forEach((el) => el.classList.remove("tts-active"));
-  }, [highlightIndex, prepared]);
+  // Leave room for the sticky reader bar at the top of the scroller.
+  useChunkHighlight(scopeRef, highlightIndex, prepared, { topInset: 72 });
 
   return {
     speech,
