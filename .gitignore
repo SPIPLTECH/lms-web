@@ -49,3 +49,9 @@ next-env.d.ts
 # Backup files / removed legacy features
 /.backup/
 .worktrees/
+
+# Playwright MCP scratch output (screenshots, console logs, page snapshots)
+/.playwright-mcp/
+
+# Local documentation & planning scratch
+/docs/

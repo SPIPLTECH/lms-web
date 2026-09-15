@@ -1,7 +1,0 @@
-- generic [ref=e4]:
-  - generic [ref=e5]: Target location
-  - generic [ref=e6]:
-    - combobox [ref=e8] [cursor=pointer]:
-      - 'option "Module: Module 1: Spring Boot & RESTful Web Services" [selected]'
-    - combobox [ref=e10] [cursor=pointer]:
-      - 'option "Lesson: Building RESTful APIs with Spring Boot" [selected]'

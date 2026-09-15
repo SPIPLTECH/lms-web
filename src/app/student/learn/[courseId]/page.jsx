@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ListTree, X } from "lucide-react";
+import { ListTree, MoreHorizontal, X } from "lucide-react";
 
 import LessonContentBlock from "@/components/student/learning/LessonContentBlock";
 import ContentCompletionBar from "@/components/student/learning/ContentCompletionBar";
@@ -36,6 +36,7 @@ import useTrackCourseAccess from "@/hooks/queries/student/useTrackCourseAccess";
 import useLearningStateSync from "@/hooks/queries/student/useLearningStateSync";
 import useLessonNavigation from "@/hooks/queries/student/useLessonNavigation";
 import useTopicNavigation from "@/hooks/queries/student/useTopicNavigation";
+import useMediaQuery from "@/hooks/useMediaQuery";
 
 import Loader from "@/components/common/Loader";
 import Card from "@/components/ui/Card";
@@ -188,13 +189,24 @@ export default function LearnPage() {
   const [courseMapOpen, setCourseMapOpen] = useState(false);
 
   // Right-hand utility column (Ask Instructor / Sticky Notes / Feedback)
-  // collapse state — desktop only, mirrors the left Course Map sidebar's
-  // collapse behavior. Closed by default to match the Course Index being
-  // open on first arrival (avoids both wide panels competing for space).
+  // collapse state — mirrors the left Course Map sidebar's collapse
+  // behavior. Closed by default to match the Course Index being open on
+  // first arrival (avoids both wide panels competing for space). One flag,
+  // two surfaces: the xl+ column and the below-xl "More" popover in the
+  // lesson context row, the same way renderCourseTree serves both the
+  // desktop rail and the mobile drawer.
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   // Which section of that panel is expanded (LearnSidePanel shows one at a
-  // time; null collapses all). Desktop-only, like the panel itself.
+  // time; null collapses all). Shared by both surfaces, like the flag above.
   const [sidePanelFeature, setSidePanelFeature] = useState("notes");
+
+  // The below-xl "More" popover mounts on a real viewport check rather than
+  // an xl:hidden class: its dismiss listeners would otherwise bind on
+  // desktop too, where Escape or a stray click would close the desktop side
+  // panel that shares rightPanelOpen. Desktop behaviour has to stay exactly
+  // as it was.
+  const isDesktop = useMediaQuery("(min-width: 1280px)");
+  const moreMenuRef = useRef(null);
 
   const videoPlayerRef = useRef(null);
 
@@ -250,6 +262,30 @@ export default function LearnPage() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [courseMapOpen]);
+
+  // The below-xl "More" popover dismisses on a tap outside it or Escape —
+  // the same idiom AskInstructorCard's own popover uses. moreMenuRef wraps
+  // the trigger as well as the menu, so pressing the button dismisses via
+  // its onClick toggle rather than closing here and reopening. Bound only
+  // while the popover is actually mounted (below xl, panel open), so the
+  // desktop side panel never listens.
+  useEffect(() => {
+    if (isDesktop || !rightPanelOpen) return;
+    const onPointerDown = (event) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target)) {
+        setRightPanelOpen(false);
+      }
+    };
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") setRightPanelOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isDesktop, rightPanelOpen]);
 
   // previousTopic/nextTopic/selectTopic aren't used for Prev/Next crossing
   // any more — courseUnits below now owns "what's adjacent" for the whole
@@ -1024,7 +1060,8 @@ export default function LearnPage() {
   activeCompletionRef.current = { contentIds: activeContentIds, completed: activeContentCompleted };
 
   // The side panel (Ask instructor / Sticky notes / Feedback / Reviews) —
-  // desktop only: below xl the lesson itself owns the screen.
+  // one definition, two surfaces: the xl+ column at the page's right edge
+  // and the below-xl "More" popover in the lesson context row.
   // Questions are tied to the one item on screen — content block, quiz or
   // assignment — and only ever listed back on that item.
   const sidePanel = (
@@ -1383,16 +1420,19 @@ export default function LearnPage() {
 
             {/* VIDEO — the primary learning action: first below xl, row 1 of the left column on desktop. */}
             <div className="space-y-3 xl:space-y-4 min-w-0 row-start-1 xl:col-start-1 xl:row-start-1">
-              {/* LESSON CONTEXT — below xl only. Where the learner is, then what
-                  they are reading. Bookmark / more / back-to-module are gone: the
-                  lesson is what this screen is for. */}
+              {/* LESSON CONTEXT — below xl only. Where the learner is, what
+                  they are reading, and the overflow for everything secondary:
+                  below xl the lesson owns the screen, so Ask instructor and
+                  Sticky notes live behind "More" instead of permanently
+                  costing a scroll. */}
               <div className="xl:hidden">
                 {/* Course Map on the left, lesson identity centred on the ROW,
                     not on the space left over beside the button: the first and
                     third grid cells are the same 44px, so the middle cell's
-                    centre is the row's centre. The third cell is inert spacing,
-                    not a second control. Same courseMapOpen state and drawer as
-                    before — only the trigger's size and position changed. */}
+                    centre is the row's centre. The third cell holds the More
+                    trigger in a 36px circle centred inside that same 44px box,
+                    so the title's centring is unchanged by it. Same
+                    courseMapOpen state and drawer as before. */}
                 <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
                   <button
                     type="button"
@@ -1413,7 +1453,58 @@ export default function LearnPage() {
                     )}
                   </div>
 
-                  <div aria-hidden="true" className="h-11 w-11 shrink-0" />
+                  {/* MORE — the below-xl entry point to LearnSidePanel (Ask
+                      instructor / Sticky notes), the same component and the
+                      same rightPanelOpen/sidePanelFeature state the xl+
+                      column uses. The 44px cell keeps the row's geometry; the
+                      button inside it is the compact 36px circle. */}
+                  <div ref={moreMenuRef} className="relative flex h-11 w-11 shrink-0 items-center justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setRightPanelOpen((prev) => !prev)}
+                      aria-expanded={rightPanelOpen}
+                      aria-haspopup="dialog"
+                      aria-controls="learn-more-menu"
+                      // globals.css stamps an UNLAYERED border-radius on every
+                      // <button>, and unlayered rules beat Tailwind's layered
+                      // utilities — `rounded-full` alone renders a 6px square.
+                      // Same inline escape hatch LearnPageHeader's More pill uses.
+                      style={{ borderRadius: 9999 }}
+                      className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition cursor-pointer ${
+                        rightPanelOpen
+                          ? "border-primary bg-primary/15 text-primary"
+                          : "border-primary/40 bg-primary/5 text-primary hover:bg-primary/10"
+                      }`}
+                      aria-label="More learning tools"
+                      title="More"
+                    >
+                      <MoreHorizontal size={18} aria-hidden="true" />
+                    </button>
+
+                    {/* Anchored to the trigger and capped to the viewport's
+                        gutters, so it never widens the page or pushes the
+                        player down — same technique, and the same role, as
+                        AskInstructorCard's own popover. Tall content scrolls
+                        inside it rather than running off the bottom of the
+                        screen.
+
+                        LearnSidePanel lays its two triggers out side by side,
+                        which fits the 360px desktop column but truncates
+                        ("Ask instruc…") at every phone width. Stacking them
+                        is presentation only, scoped to this call site — same
+                        treatment the course map drawer gives the course tree
+                        — so the desktop panel keeps its two-up row. */}
+                    {!isDesktop && rightPanelOpen && (
+                      <div
+                        id="learn-more-menu"
+                        role="dialog"
+                        aria-label="Learning tools"
+                        className="absolute right-0 top-full z-40 mt-2 max-h-[70vh] w-[min(22rem,calc(100vw-2.5rem))] overflow-y-auto overscroll-contain rounded-2xl border border-border bg-card p-2.5 text-left shadow-2xl shadow-black/40 [&_[role=group]]:grid-cols-1"
+                      >
+                        {sidePanel}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1524,10 +1615,11 @@ export default function LearnPage() {
               )}
             </div>
 
-            {/* SIDE PANEL — desktop only. Collapsed state renders no grid
+            {/* SIDE PANEL — the xl+ surface. Collapsed state renders no grid
                 column at all (see grid-cols above) — the player gets the full
-                width back. Below xl there is no side panel: the lesson is what
-                the screen is for. */}
+                width back. Below xl the same panel is reached through the
+                lesson context row's "More" popover instead, so it never takes
+                a column out of a one-column layout. */}
             {rightPanelOpen && (
               <div className="hidden xl:block min-w-0 xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:sticky xl:top-24 xl:h-fit w-full xl:w-[360px]">
                 {sidePanel}
