@@ -695,3 +695,53 @@ button.bg-primary:hover, a.bg-primary:hover, .btn-rainbow:hover {
 .dark .text-gray-600 {
   color: var(--muted-foreground) !important;
 }
+
+/* ==========================================================================
+   TEXT-TO-SPEECH — the sentence being read aloud (see lib/speechDocument.js).
+   The .tts-chunk spans are inert until one is marked active, so a lesson looks
+   exactly as authored when nothing is playing. Built from theme tokens so the
+   highlight reads in light and dark mode alike; forced-colors mode gets the
+   system highlight pair instead.
+   ========================================================================== */
+.tts-chunk {
+  scroll-margin-block: 6rem;
+  border-radius: 0.25rem;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tts-chunk.tts-active {
+  background-color: color-mix(in oklab, var(--primary) 20%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--primary) 20%, transparent);
+  color: var(--foreground);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* The dark theme's green primary needs a little more fill to read on the near-black canvas. */
+.dark .tts-chunk.tts-active {
+  background-color: color-mix(in oklab, var(--primary) 32%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--primary) 32%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tts-chunk {
+    transition: none;
+  }
+}
+
+/* PDF pages are always white paper, so the box multiplies onto the page
+   rather than covering the glyphs underneath it. */
+.tts-pdf-highlight {
+  background-color: color-mix(in oklab, var(--primary) 35%, transparent);
+  mix-blend-mode: multiply;
+  border-radius: 2px;
+}
+
+@media (forced-colors: active) {
+  .tts-chunk.tts-active,
+  .tts-pdf-highlight {
+    background-color: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+}

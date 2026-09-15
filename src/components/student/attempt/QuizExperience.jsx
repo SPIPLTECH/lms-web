@@ -60,7 +60,7 @@ function readStoredProgress(storageKey) {
  * has used all their attempts is stopped — before answering, rather than
  * after the server refuses the submission.
  */
-export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextContent }) {
+export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextContent, speechLanguage }) {
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [submitError, setSubmitError] = useState("");
     // Dismisses the "already completed" landing card below in favor of the
@@ -378,6 +378,7 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
                 passed={Boolean(submissionResult?.passed)}
                 resultHref={resultHref}
                 onNextContent={onNextContent}
+                speechLanguage={speechLanguage}
             />
         );
     }
@@ -476,6 +477,9 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
                     question={currentQuestion}
                     selectedAnswer={answers[currentQuestion?.id]}
                     onSelectAnswer={handleSelectAnswer}
+                    questionNumber={currentQuestionIndex + 1}
+                    totalQuestions={questions.length}
+                    speechLanguage={speechLanguage}
                 />
 
                 <QuizNavigation

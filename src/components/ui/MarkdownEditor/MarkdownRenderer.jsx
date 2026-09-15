@@ -2,6 +2,8 @@
 
 import "highlight.js/styles/vs2015.css";
 
+import { useMemo } from "react";
+
 import { renderMarkdownToSafeHtml } from "@/lib/markdown";
 
 /**
@@ -11,13 +13,27 @@ import { renderMarkdownToSafeHtml } from "@/lib/markdown";
  * `marked` passes untouched HTML blocks straight through, so no per-row
  * migration is needed. Single shared render path for every "view mode" of
  * Markdown content across the Composer and the student learning view.
+ *
+ * `renderedHtml` (optional) is that same render, already produced by the
+ * caller from `source` — the student read-aloud reader passes the output of
+ * renderMarkdownToSafeHtml with sentence spans added (lib/speechDocument.js)
+ * so it can highlight what's being spoken. Omitted everywhere else.
  */
-export default function MarkdownRenderer({ source, className = "", emptyText = "No content yet." }) {
+export default function MarkdownRenderer({ source, renderedHtml, className = "", emptyText = "No content yet." }) {
+  const html = useMemo(
+    () => (source ? renderedHtml ?? renderMarkdownToSafeHtml(source) : ""),
+    [source, renderedHtml]
+  );
+
+  // The same element instance for the same HTML, so a parent re-render never
+  // re-assigns innerHTML (React 19 does whenever the __html object is new).
+  // That reset would wipe DOM state inside the content — a text selection,
+  // or the read-aloud highlight class on the sentence being spoken.
+  const body = useMemo(() => <div dangerouslySetInnerHTML={{ __html: html }} />, [html]);
+
   if (!source) {
     return <p className="text-sm italic text-muted-foreground">{emptyText}</p>;
   }
-
-  const html = renderMarkdownToSafeHtml(source);
 
   // max-w-none is the default (existing callers rely on filling whatever
   // container they're in) — but it's a Tailwind utility, so appending a
@@ -280,7 +296,7 @@ export default function MarkdownRenderer({ source, className = "", emptyText = "
         .md-prose tr:last-child td { border-bottom: none; }
         .md-prose tr:hover td { background-color: var(--muted); }
       `}</style>
-      <div dangerouslySetInnerHTML={{ __html: html }} />
+      {body}
     </div>
   );
 }

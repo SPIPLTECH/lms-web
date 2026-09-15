@@ -6,12 +6,18 @@ import MCQMultiOptionList from "./MCQMultiOptionList";
 import ArrangeTokensList from "./ArrangeTokensList";
 import MatchPairsGrid from "./MatchPairsGrid";
 import SelfAssessmentInput from "./SelfAssessmentInput";
+import ListenButton from "@/components/student/tts/ListenButton";
 import { resolveQuestionType } from "@/lib/questionType";
+import { buildQuestionSpeech } from "@/lib/quizSpeech";
+import { resolveSpeechLang } from "@/lib/textToSpeech";
 
 export default function QuestionCard({
   question,
   selectedAnswer,
   onSelectAnswer,
+  questionNumber,
+  totalQuestions,
+  speechLanguage,
 }) {
   const type = resolveQuestionType(question?.questionType);
 
@@ -55,6 +61,20 @@ export default function QuestionCard({
 
   if (!question) return null;
 
+  // Built at click time from the options exactly as shuffled on screen, so
+  // "A." in speech is the "A" the student sees.
+  const lang = resolveSpeechLang(speechLanguage);
+  const getQuestionSpeech = () =>
+    buildQuestionSpeech({
+      question,
+      type,
+      options: shuffledOptions,
+      matchOptions: shuffledMatchOptions,
+      questionNumber,
+      totalQuestions,
+      lang,
+    });
+
   return (
     <div className="rounded-2xl border border-border bg-background p-2.5 sm:p-4 shadow-xl">
       {/* Question Text + Concept / Marks */}
@@ -64,6 +84,17 @@ export default function QuestionCard({
         </h2>
 
         <div className="flex shrink-0 items-center gap-1.5">
+          {/* Beside the question, not in a separate audio section, so it's
+              reachable without scrolling on a phone. Keyed by question: moving
+              to another question stops this one's speech. */}
+          <ListenButton
+            sessionKey={question.id ? `quiz-question:${question.id}` : null}
+            getChunks={getQuestionSpeech}
+            lang={lang}
+            label="Listen"
+            ariaLabel="Listen to question"
+            compact
+          />
           {question.concept && (
             <div className="hidden sm:inline-block rounded-lg bg-muted border border-transparent px-2.5 py-1 text-xs font-medium text-foreground">
               Concept: <span className="text-primary font-semibold">{question.concept}</span>

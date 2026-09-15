@@ -5,6 +5,9 @@ import { Award, ArrowRight, CheckCircle2, Eye } from "lucide-react";
 
 import Loader from "@/components/common/Loader";
 import Button from "@/components/ui/Button";
+import ListenButton from "@/components/student/tts/ListenButton";
+import { buildResultSummarySpeech } from "@/lib/quizSpeech";
+import { resolveSpeechLang } from "@/lib/textToSpeech";
 
 /**
  * Shown in place of the question UI once a quiz has been submitted — an
@@ -21,6 +24,7 @@ export default function QuizResultSummary({
     passed,
     resultHref,
     onNextContent,
+    speechLanguage,
 }) {
     if (isLoading) {
         return (
@@ -55,6 +59,25 @@ export default function QuizResultSummary({
                 }`}
             >
                 {passed ? "Passed" : "Failed"}
+            </div>
+
+            <div className="mt-2 sm:mt-3 flex justify-center">
+                <ListenButton
+                    sessionKey={`quiz-result-summary:${quizTitle || ""}`}
+                    getChunks={() =>
+                        buildResultSummarySpeech({
+                            quizTitle,
+                            passed,
+                            correctCount,
+                            totalQuestions,
+                            percentage,
+                            lang: resolveSpeechLang(speechLanguage),
+                        })
+                    }
+                    lang={resolveSpeechLang(speechLanguage)}
+                    label="Listen to result"
+                    ariaLabel="Listen to quiz result"
+                />
             </div>
 
             <div className="mx-auto mt-3 sm:mt-5 grid max-w-[280px] sm:max-w-xs grid-cols-2 gap-2 sm:gap-3">

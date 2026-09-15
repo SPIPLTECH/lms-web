@@ -15,6 +15,9 @@ import {
 } from "lucide-react";
 
 import { getDisplayUrl } from "@/lib/blob";
+import { revealInScrollParent } from "@/lib/revealInScrollParent";
+import SpeechControls from "@/components/student/tts/SpeechControls";
+import usePdfReadAloud from "@/hooks/usePdfReadAloud";
 
 // Serve the PDF.js worker from this app's own static assets (bundled from the
 // installed pdfjs-dist, so its version always matches the API) rather than
@@ -48,6 +51,9 @@ export default function PdfViewer({
   // toolbar mode, which has its own page controls in its own header).
   onPageStateChange = null,
   onControlsRender,
+  // Opt-in read aloud for the student player: { sessionKey, lang }. Omitted
+  // by every other consumer (instructor views), which render as before.
+  readAloud = null,
 }) {
   const resolvedUrl = getDisplayUrl(fileUrl);
 
@@ -65,6 +71,9 @@ export default function PdfViewer({
 
   const containerRef = useRef(null);
   const viewportRef = useRef(null);
+  // The loaded pdf.js document, for text extraction (read aloud).
+  const pdfRef = useRef(null);
+  const highlightRef = useRef(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -101,8 +110,9 @@ export default function PdfViewer({
     setPageInput(String(pageNumber));
   }, [pageNumber]);
 
-  const onDocumentLoadSuccess = ({ numPages }) => {
-    setNumPages(numPages);
+  const onDocumentLoadSuccess = (pdf) => {
+    pdfRef.current = pdf;
+    setNumPages(pdf.numPages);
     setPageNumber(1);
     setLoading(false);
     setError(null);
@@ -182,6 +192,24 @@ export default function PdfViewer({
   // Calculate final page width for react-pdf Page component
   const baseWidth = containerWidth ? Math.min(containerWidth, 1400) : 600;
   const renderPageWidth = isFitToWidth ? baseWidth : Math.round(baseWidth * customScale);
+
+  const readAloudLang = readAloud?.lang || "";
+  const pdfSpeech = usePdfReadAloud({
+    enabled: Boolean(readAloud?.sessionKey),
+    sessionKey: readAloud?.sessionKey,
+    lang: readAloudLang,
+    pdfRef,
+    numPages,
+    pageNumber,
+    setPageNumber,
+    renderWidth: renderPageWidth,
+  });
+
+  // Keep the sentence being read in view inside the document's own scroller.
+  const firstHighlight = pdfSpeech.highlightRects[0];
+  useEffect(() => {
+    if (firstHighlight && highlightRef.current) revealInScrollParent(highlightRef.current, { topInset: 8 });
+  }, [firstHighlight]);
 
   // Effective display zoom percentage
   const effectiveZoomPercentage = isFitToWidth
@@ -373,6 +401,17 @@ export default function PdfViewer({
         </div>
       )}
 
+      {pdfSpeech.available && !error && (
+        <SpeechControls
+          speech={pdfSpeech.speech}
+          onListen={pdfSpeech.listen}
+          lang={readAloudLang}
+          label="document"
+          notice={pdfSpeech.notice}
+          className="shrink-0"
+        />
+      )}
+
       {/* PDF CANVAS VIEWPORT CONTAINER */}
       <div
         ref={viewportRef}
@@ -432,13 +471,29 @@ export default function PdfViewer({
                 viewer. That overflow scrolls here, inside the document, so it
                 never becomes horizontal scrolling on the page itself. */}
             <div className="my-auto py-1.5 transition-all duration-150 flex justify-center max-w-full overflow-x-auto">
-              <Page
-                pageNumber={pageNumber}
-                width={renderPageWidth}
-                renderTextLayer={false}
-                renderAnnotationLayer={false}
-                className="shadow-2xl rounded-lg overflow-hidden border border-transparent/60 bg-white"
-              />
+              <div className="relative">
+                <Page
+                  pageNumber={pageNumber}
+                  width={renderPageWidth}
+                  renderTextLayer={false}
+                  renderAnnotationLayer={false}
+                  className="shadow-2xl rounded-lg overflow-hidden border border-transparent/60 bg-white"
+                />
+                {/* Read-aloud highlight: boxes over the sentence being spoken,
+                    positioned from pdf.js text coordinates. */}
+                {pdfSpeech.highlightRects.length > 0 && (
+                  <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+                    {pdfSpeech.highlightRects.map((rect, i) => (
+                      <span
+                        key={i}
+                        ref={i === 0 ? highlightRef : undefined}
+                        className="tts-pdf-highlight absolute"
+                        style={{ left: rect.left, top: rect.top, width: rect.width, height: rect.height }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </Document>
         )}

@@ -3,8 +3,10 @@
 import { Check, X, ArrowRight, CheckCircle2, XCircle } from "lucide-react";
 
 import Card from "@/components/ui/Card";
+import ListenButton from "@/components/student/tts/ListenButton";
 import { checkAnswerCorrectness } from "@/lib/quizAnswers";
 import { resolveQuestionType } from "@/lib/questionType";
+import { buildAnswerReviewSpeech } from "@/lib/quizSpeech";
 
 // One question's row in the "Detailed Question Review" list — options review
 // for MCQ types, plus dedicated layouts for ARRANGE_TOKENS/MATCH_PAIRS/
@@ -202,8 +204,20 @@ export default function QuestionReviewCard({ question, index, userAnswer }) {
             </div>
           )}
 
+          {/* Explanation — sent with the result once the attempt is
+              submitted; shown (and read aloud) when the question has one. */}
+          {question.explanation && String(question.explanation).trim() && (
+            <div className="rounded-xl border border-border bg-muted/40 p-3 sm:p-4 space-y-1">
+              <span className="text-[9px] sm:text-[10px] text-primary font-bold uppercase tracking-wider">Explanation</span>
+              <p className="text-[11px] sm:text-xs text-foreground leading-relaxed whitespace-pre-wrap break-words">
+                {question.explanation}
+              </p>
+            </div>
+          )}
+
           {/* Result Summary Bar */}
-          <div className="flex items-center gap-2 pt-1.5 sm:pt-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 sm:pt-2.5">
+            <div className="flex items-center gap-2">
             {selectedOption ? (
               <>
                 {isCorrect ? (
@@ -224,6 +238,16 @@ export default function QuestionReviewCard({ question, index, userAnswer }) {
                 <span>Not Answered</span>
               </div>
             )}
+            </div>
+            <ListenButton
+              sessionKey={question.id ? `quiz-review:${question.id}` : null}
+              getChunks={() =>
+                buildAnswerReviewSpeech({ question, index, type: qType, selectedOption })
+              }
+              label="Listen"
+              ariaLabel={`Listen to review of question ${index + 1}`}
+              compact
+            />
           </div>
         </div>
       </div>
