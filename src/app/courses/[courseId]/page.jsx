@@ -4,6 +4,7 @@ import { getCourseById } from "@/services/course.service";
 import { getCourseReviews } from "@/services/review.service";
 import Link from "next/link";
 import CourseBuyButton from "@/components/student/course-details/CourseBuyButton";
+import CourseAiAssistantIsland from "@/features/ai-assistant/components/CourseAiAssistantIsland";
 import { getDisplayUrl } from "@/lib/blob";
 import {
   ChevronRight,
@@ -396,6 +397,12 @@ export default async function CoursePage({ params }) {
         </div>
 
       </div>
+
+      {/* AI Assistant. This page is a Server Component, so the widget is
+          mounted through a client island. Guests and signed-in-but-not-enrolled
+          visitors both receive course-overview answers only — enforced by the
+          backend's scope resolver, not by anything set here. */}
+      <CourseAiAssistantIsland courseId={courseId} courseTitle={course.title} />
     </div>
   );
 }

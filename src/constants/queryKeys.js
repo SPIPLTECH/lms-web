@@ -42,6 +42,12 @@ export const QUERY_KEYS = {
     COURSE_PROGRESS: "course-progress",
 
     // ==========================
+    // AI Assistant
+    // ==========================
+    AI_CONVERSATIONS: "ai-conversations",
+    AI_MESSAGES: "ai-messages",
+
+    // ==========================
     // Admin
     // ==========================
     ADMIN_DASHBOARD: "admin-dashboard",

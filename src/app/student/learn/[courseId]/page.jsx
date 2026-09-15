@@ -41,6 +41,7 @@ import useMediaQuery from "@/hooks/useMediaQuery";
 import Loader from "@/components/common/Loader";
 import Card from "@/components/ui/Card";
 import { ChatWidget } from "@/components/chat";
+import { AiAssistantWidget } from "@/features/ai-assistant/components";
 
 
 import { useToast } from "@/components/ui/ToastProvider";
@@ -1061,10 +1062,14 @@ export default function LearnPage() {
 
   // The side panel (Ask instructor / Sticky notes / Feedback / Reviews) —
   // one definition, two surfaces: the xl+ column at the page's right edge
-  // and the below-xl "More" popover in the lesson context row.
+  // and the below-xl "More" popover in the lesson context row. Same shape as
+  // renderCourseTree above: the options argument is the ONLY thing that
+  // differs between the two call sites, so neither surface can drift from
+  // the other's behaviour — `compact` shrinks spacing and type for the
+  // ~280px popover and nothing else.
   // Questions are tied to the one item on screen — content block, quiz or
   // assignment — and only ever listed back on that item.
-  const sidePanel = (
+  const renderSidePanel = ({ compact = false } = {}) => (
     <LearnSidePanel
       activeFeature={sidePanelFeature}
       onChangeFeature={setSidePanelFeature}
@@ -1076,6 +1081,7 @@ export default function LearnPage() {
       }
       currentTimestamp={currentTimestamp}
       onSeek={handleTranscriptSeek}
+      compact={compact}
     />
   );
 
@@ -1308,6 +1314,19 @@ export default function LearnPage() {
     onMarkComplete: handleMarkComplete,
   };
 
+  // The learning ids the AI Assistant should be aware of, read from the state
+  // this page already maintains. Deliberately a plain function, not a
+  // useCallback: it is defined below this component's early returns, where a
+  // hook would break the rules-of-hooks ordering — and AiAssistantWidget holds
+  // it in a ref, so a new identity each render costs nothing. Called lazily on
+  // send, so the assistant always sees where the student is *now*.
+  const getAiLearningPosition = () => ({
+    moduleId: selectedLesson?.moduleId || null,
+    lessonId: selectedLesson?.id || null,
+    topicId: selectedTopicId || null,
+    contentIds: activeContentIds.length > 0 ? activeContentIds : undefined,
+  });
+
   return (
     <div className="h-full bg-[#07080f] text-foreground flex overflow-x-hidden font-sans relative">
 
@@ -1501,7 +1520,7 @@ export default function LearnPage() {
                         aria-label="Learning tools"
                         className="absolute right-0 top-full z-40 mt-2 max-h-[70vh] w-[min(22rem,calc(100vw-2.5rem))] overflow-y-auto overscroll-contain rounded-2xl border border-border bg-card p-2.5 text-left shadow-2xl shadow-black/40 [&_[role=group]]:grid-cols-1"
                       >
-                        {sidePanel}
+                        {renderSidePanel({ compact: true })}
                       </div>
                     )}
                   </div>
@@ -1622,7 +1641,7 @@ export default function LearnPage() {
                 a column out of a one-column layout. */}
             {rightPanelOpen && (
               <div className="hidden xl:block min-w-0 xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:sticky xl:top-24 xl:h-fit w-full xl:w-[360px]">
-                {sidePanel}
+                {renderSidePanel()}
               </div>
             )}
 
@@ -1630,6 +1649,18 @@ export default function LearnPage() {
           </div>
         </div>
         <ChatWidget />
+        {/* AI Assistant. Reads the learning ids this page already owns — no
+            duplicate learning state. Only ids are handed over; the backend
+            refetches the material itself and re-checks enrollment per turn,
+            so `isEnrolled` here is a UI hint, never a grant. Quiz/assignment
+            ids are deliberately NOT passed: the assistant never retrieves
+            assessment material. */}
+        <AiAssistantWidget
+          courseId={courseId}
+          courseTitle={course?.title}
+          isEnrolled={isEnrolled}
+          getPosition={getAiLearningPosition}
+        />
       </div>
     </div>
   );

@@ -6,6 +6,7 @@ import LearningExperience from "@/components/home/LearningExperience";
 import OutcomeSection from "@/components/home/OutcomeSection";
 import FinalCta from "@/components/home/FinalCta";
 import Footer from "@/components/layouts/Footer";
+import { AiAssistantWidget } from "@/features/ai-assistant/components";
 
 export default function Home() {
   return (
@@ -35,6 +36,8 @@ export default function Home() {
       <FinalCta />
 
       <Footer />
+
+      <AiAssistantWidget scopeHint="GUEST" />
     </main>
   );
 }
