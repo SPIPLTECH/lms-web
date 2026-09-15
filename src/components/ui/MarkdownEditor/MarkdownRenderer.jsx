@@ -19,7 +19,7 @@ import { renderMarkdownToSafeHtml } from "@/lib/markdown";
  * renderMarkdownToSafeHtml with sentence spans added (lib/speechDocument.js)
  * so it can highlight what's being spoken. Omitted everywhere else.
  */
-export default function MarkdownRenderer({ source, renderedHtml, className = "", emptyText = "No content yet." }) {
+export default function MarkdownRenderer({ source, renderedHtml = undefined, className = "", emptyText = "No content yet." }) {
   const html = useMemo(
     () => (source ? renderedHtml ?? renderMarkdownToSafeHtml(source) : ""),
     [source, renderedHtml]
