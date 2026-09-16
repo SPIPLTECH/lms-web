@@ -1,109 +1,91 @@
 "use client";
 
+import { ClipboardList } from "lucide-react";
+
 import Card from "@/components/ui/Card";
-import DataTable from "@/components/ui/DataTable";
-import { useResults } from "@/hooks/queries/instructor/useResults";
-
-const formatDate = (value) =>
-  value
-    ? new Date(value).toLocaleString([], {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "—";
-
-const COLUMNS = [
-  {
-    key: "student",
-    header: "Student",
-    render: (r) => (
-      <div className="min-w-0">
-        <p className="truncate font-bold text-foreground">{r.studentName}</p>
-        {r.studentEmail && (
-          <p className="truncate text-[10px] font-semibold text-muted-foreground">{r.studentEmail}</p>
-        )}
-      </div>
-    ),
-  },
-  { key: "title", header: "Final test", render: (r) => <span className="font-semibold">{r.title}</span> },
-  { key: "courseTitle", header: "Course", render: (r) => r.courseTitle || "—" },
-  {
-    key: "score",
-    header: "Score",
-    align: "right",
-    render: (r) => (
-      <span className="font-bold tabular-nums">
-        {r.score}/{r.totalMarks}
-      </span>
-    ),
-  },
-  {
-    key: "percentage",
-    header: "Percent",
-    align: "right",
-    render: (r) => <span className="tabular-nums">{r.percentage}%</span>,
-  },
-  {
-    key: "passed",
-    header: "Result",
-    align: "center",
-    render: (r) =>
-      r.passed ? (
-        <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-500">
-          Passed
-        </span>
-      ) : (
-        <span className="rounded-full border border-red-500/25 bg-red-500/10 px-2 py-0.5 text-[10px] font-bold text-red-500">
-          Failed
-        </span>
-      ),
-  },
-  {
-    key: "submittedAt",
-    header: "Attempted",
-    align: "right",
-    render: (r) => <span className="text-muted-foreground">{formatDate(r.submittedAt)}</span>,
-  },
-];
+import GradableRow from "@/components/instructor/assignments/GradableRow";
+import { useFinalTestOverview } from "@/hooks/queries/instructor/useResults";
+import { DEFAULT_SORT, sortGradables } from "@/lib/gradableSort";
 
 /**
- * Students' MCQ attempts on Final tests only — Self-Test attempts are
- * practice and are excluded server-side via /results?quizTag=FINAL. Scores
- * are auto-marked at submit time, so this view is read-only.
+ * Final tests one row per TEST — where it lives and how much of the class has
+ * sat it — each opening that test's own page for the student breakdown.
+ *
+ * Grouped per test rather than per attempt, which is what GET /results returns.
  */
-export default function FinalTestResultsPanel({ courseId }) {
-  const { data, isLoading, isError } = useResults({
-    quizTag: "FINAL",
-    ...(courseId ? { courseId } : {}),
-  });
-  const rows = data?.studentResults || [];
+export default function FinalTestResultsPanel({ courseId, listQuery = "", sortKey = DEFAULT_SORT }) {
+  const { data, isLoading, isError } = useFinalTestOverview(courseId);
+  const tests = sortGradables(data || [], sortKey);
 
-  return (
-    <Card className="space-y-4 border border-slate-850 bg-background/40 p-5">
-      <div>
-        <h2 className="text-sm font-bold text-foreground">Final test results</h2>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          Each student&apos;s attempt at your Final tests, marked automatically. Self-tests aren&apos;t included.
-        </p>
-      </div>
-
-      {isError ? (
+  if (isError) {
+    return (
+      <Card className="border border-slate-850 bg-background/40 p-5">
         <p role="alert" className="py-6 text-xs font-semibold text-red-400">
           Test results couldn&apos;t be loaded. Refresh the page to try again.
         </p>
-      ) : (
-        <DataTable
-          columns={COLUMNS}
-          rows={rows}
-          rowKey="submissionId"
-          isLoading={isLoading}
-          skeletonRows={4}
-          emptyLabel="No students have attempted a Final test yet."
-        />
-      )}
-    </Card>
+      </Card>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-14 animate-pulse rounded-xl bg-muted" />
+        ))}
+      </div>
+    );
+  }
+
+  if (tests.length === 0) {
+    return (
+      <Card className="flex flex-col items-center gap-2 border border-transparent bg-background/60 p-8 text-center">
+        <ClipboardList size={22} className="text-slate-600" />
+        <p className="text-xs font-bold text-muted-foreground">No Final tests in your courses yet.</p>
+      </Card>
+    );
+  }
+
+  return (
+    <section className="space-y-2">
+      <h2 className="text-xs font-extrabold uppercase tracking-widest text-muted-foreground">
+        Final Tests
+      </h2>
+
+      <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-background/40">
+        {tests.map((test) => {
+        const badges = [];
+        if (test.notAttemptedCount > 0) {
+          badges.push({
+            label: `${test.notAttemptedCount} not attempted`,
+            tone: "border-amber-500/25 bg-amber-500/10 text-amber-500",
+          });
+        }
+        if (test.failedCount > 0) {
+          badges.push({
+            label: `${test.failedCount} failed`,
+            tone: "border-red-500/25 bg-red-500/10 text-red-500",
+          });
+        }
+
+        return (
+          <GradableRow
+            key={test.id}
+            href={`/instructor/final-tests/${test.id}${
+              listQuery ? `?from=${encodeURIComponent(listQuery)}` : ""
+            }`}
+            breadcrumb={test}
+            title={test.title}
+            gauge={{
+              value: test.attemptedCount,
+              total: test.enrolledCount,
+              label: "attempted",
+            }}
+            badges={badges}
+          />
+        );
+        })}
+      </div>
+    </section>
   );
 }

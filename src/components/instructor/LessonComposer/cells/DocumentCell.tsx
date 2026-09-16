@@ -294,7 +294,12 @@ export function DocumentCell({
       isDuplicating={isDuplicating}
       badgeText={badgeText || detectedBadgeText}
       badgeVariant={badgeVariant || "document"}
-      headerActions={isPdf && mode === "view" ? pdfControls : null}
+      // Every viewer below (PDF, PPT and the external fallback) is rendered
+      // with hideToolbar and lifts its own toolbar up through
+      // onControlsRender. Gating this on isPdf silently dropped that toolbar
+      // for PPT/PPTX decks, which is why a presentation cell showed no slide
+      // counter. pdfControls is null unless a viewer actually supplied one.
+      headerActions={mode === "view" ? pdfControls : null}
       onSettingsSelect={onSettingsSelect}
       onAddAbove={onAddAbove}
       onAddBelow={onAddBelow}
@@ -358,46 +363,56 @@ export function DocumentCell({
             />
           )}
 
-          {slides.length > 1 && (
+          {slides.length > 0 && (
             <div className="flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={() => setActiveSlideIndex(Math.max(0, activeSlideIndex - 1))}
-                disabled={activeSlideIndex === 0}
-                className="flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1 text-sm font-bold text-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 cursor-pointer shrink-0"
-                aria-label="Previous slide"
-              >
-                <ChevronLeft size={13} />
-              </button>
+              {slides.length > 1 ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveSlideIndex(Math.max(0, activeSlideIndex - 1))}
+                  disabled={activeSlideIndex === 0}
+                  className="flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1 text-sm font-bold text-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 cursor-pointer shrink-0"
+                  aria-label="Previous slide"
+                >
+                  <ChevronLeft size={13} />
+                </button>
+              ) : (
+                <span aria-hidden="true" />
+              )}
 
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="text-[13px] font-bold text-muted-foreground shrink-0">
-                  {activeSlideIndex + 1} / {slides.length}
+                  Slide {activeSlideIndex + 1} of {slides.length}
                 </span>
-                <div className="flex items-center gap-1 overflow-x-auto">
-                  {slides.map((_, dotIdx) => (
-                    <button
-                      key={dotIdx}
-                      type="button"
-                      onClick={() => setActiveSlideIndex(dotIdx)}
-                      className={`h-1.5 rounded-full transition-all cursor-pointer shrink-0 ${
-                        activeSlideIndex === dotIdx ? "w-4 bg-primary" : "w-1.5 bg-slate-700 hover:bg-slate-500"
-                      }`}
-                      title={`Go to slide ${dotIdx + 1}`}
-                    />
-                  ))}
-                </div>
+                {slides.length > 1 && (
+                  <div className="flex items-center gap-1 overflow-x-auto">
+                    {slides.map((_, dotIdx) => (
+                      <button
+                        key={dotIdx}
+                        type="button"
+                        onClick={() => setActiveSlideIndex(dotIdx)}
+                        className={`h-1.5 rounded-full transition-all cursor-pointer shrink-0 ${
+                          activeSlideIndex === dotIdx ? "w-4 bg-primary" : "w-1.5 bg-slate-700 hover:bg-slate-500"
+                        }`}
+                        title={`Go to slide ${dotIdx + 1}`}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
 
-              <button
-                type="button"
-                onClick={() => setActiveSlideIndex(Math.min(slides.length - 1, activeSlideIndex + 1))}
-                disabled={activeSlideIndex === slides.length - 1}
-                className="flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1 text-sm font-bold text-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 cursor-pointer shrink-0"
-                aria-label="Next slide"
-              >
-                <ChevronRight size={13} />
-              </button>
+              {slides.length > 1 ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveSlideIndex(Math.min(slides.length - 1, activeSlideIndex + 1))}
+                  disabled={activeSlideIndex === slides.length - 1}
+                  className="flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1 text-sm font-bold text-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 cursor-pointer shrink-0"
+                  aria-label="Next slide"
+                >
+                  <ChevronRight size={13} />
+                </button>
+              ) : (
+                <span aria-hidden="true" />
+              )}
             </div>
           )}
         </div>

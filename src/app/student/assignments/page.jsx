@@ -2,7 +2,7 @@
 
 import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, Inbox, Search, SearchX, X } from "lucide-react";
 
 import PageHeader from "@/components/layouts/PageHeader";
@@ -59,6 +59,7 @@ function SubmissionsSkeleton() {
  */
 function SubmissionsPageContent() {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   // Other pages link here scoped to one course (?course=<title>) or one
   // tab (?type=quiz|assignment). Without a tab, the page opens on assignments.
@@ -76,10 +77,33 @@ function SubmissionsPageContent() {
   const assignmentsQuery = useAssignments();
   const quizzesQuery = useQuizSubmissions();
 
-  const records = useMemo(() => {
-    const all = buildSubmissionRecords(assignmentsQuery.data ?? [], quizzesQuery.data ?? []);
-    return courseContext ? all.filter((r) => r.courseTitle === courseContext) : all;
-  }, [assignmentsQuery.data, quizzesQuery.data, courseContext]);
+  const allRecords = useMemo(
+    () => buildSubmissionRecords(assignmentsQuery.data ?? [], quizzesQuery.data ?? []),
+    [assignmentsQuery.data, quizzesQuery.data]
+  );
+
+  // Built from the UNFILTERED records, so choosing a course never removes the
+  // other courses from the dropdown. A ?course= value that no longer matches
+  // anything is kept as an option, otherwise the select would silently show
+  // the wrong course while the list stayed scoped to it.
+  const courseOptions = useMemo(() => {
+    const titles = new Set(allRecords.map((r) => r.courseTitle).filter(Boolean));
+    if (courseContext) titles.add(courseContext);
+    return [...titles].sort((a, b) => a.localeCompare(b));
+  }, [allRecords, courseContext]);
+
+  const records = useMemo(
+    () => (courseContext ? allRecords.filter((r) => r.courseTitle === courseContext) : allRecords),
+    [allRecords, courseContext]
+  );
+
+  const setCourse = (title) => {
+    const next = new URLSearchParams(searchParams.toString());
+    if (title) next.set("course", title);
+    else next.delete("course");
+    const qs = next.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  };
 
   const typeCounts = useMemo(
     () => ({
@@ -204,6 +228,21 @@ function SubmissionsPageContent() {
                 />
               </div>
               <div className="grid grid-cols-2 gap-2 sm:flex">
+                {courseOptions.length > 1 && (
+                  <select
+                    value={courseContext}
+                    onChange={(e) => setCourse(e.target.value)}
+                    aria-label="Filter by course"
+                    className={SELECT_CLASS}
+                  >
+                    <option value="">All courses</option>
+                    {courseOptions.map((title) => (
+                      <option key={title} value={title}>
+                        {title}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
