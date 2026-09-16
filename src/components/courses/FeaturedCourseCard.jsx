@@ -29,13 +29,6 @@ export default function FeaturedCourseCard({ course }) {
   const reviewsCount = course.reviewsCount ?? course._count?.reviews ?? 0;
   const instructorName = course.instructorName ?? course.creator?.name ?? null;
 
-  const isLogo = course.thumbnailUrl && (
-    course.thumbnailUrl.includes("gstatic.com") ||
-    course.thumbnailUrl.includes("miro.medium.com") ||
-    course.thumbnailUrl.includes("logo") ||
-    course.thumbnailUrl.includes("brand")
-  );
-
   return (
     <Link
       href={`/courses/${course.id}`}
@@ -44,27 +37,13 @@ export default function FeaturedCourseCard({ course }) {
       {/* Banner Image (Fixed 16:9 Aspect Ratio) */}
       <div className="relative w-full aspect-video shrink-0 overflow-hidden bg-muted">
         {course.thumbnailUrl ? (
-          isLogo ? (
-            <div className="flex h-full w-full items-center justify-center bg-muted p-6">
-              <div className="relative h-16 w-16">
-                <Image
-                  src={getDisplayUrl(course.thumbnailUrl)}
-                  alt={`${course.title} thumbnail`}
-                  fill
-                  unoptimized
-                  className="object-contain drop-shadow-sm transition-transform duration-500 group-hover:scale-105 motion-reduce:group-hover:scale-100"
-                />
-              </div>
-            </div>
-          ) : (
-            <Image
-              src={getDisplayUrl(course.thumbnailUrl)}
-              alt={`${course.title} thumbnail`}
-              fill
-              unoptimized
-              className="object-cover transition-transform duration-500 group-hover:scale-105 motion-reduce:group-hover:scale-100"
-            />
-          )
+          <Image
+            src={getDisplayUrl(course.thumbnailUrl)}
+            alt={`${course.title} thumbnail`}
+            fill
+            unoptimized
+            className="object-cover transition-transform duration-500 group-hover:scale-105 motion-reduce:group-hover:scale-100"
+          />
         ) : (
           <div className="flex h-full items-center justify-center bg-gradient-to-br from-primary/15 to-accent/20">
             <span className="text-4xl" aria-hidden="true">📚</span>
@@ -96,7 +75,10 @@ export default function FeaturedCourseCard({ course }) {
           </p>
         )}
 
-        <div className="mt-3 flex items-center gap-3 text-2xs font-semibold text-muted-foreground">
+        {/* text-2xs is not a real token in this project's Tailwind theme, so
+            every class below that used it was silently inheriting the 16px
+            body size. Replaced with explicit sizes. */}
+        <div className="mt-3 flex items-center gap-3 text-[11px] font-semibold text-muted-foreground">
           {rating !== null && (
             <span className="flex items-center gap-1">
               <Star size={12} className="fill-amber-400 text-amber-400" />
@@ -119,22 +101,22 @@ export default function FeaturedCourseCard({ course }) {
                 {instructorName.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <span className="truncate text-2xs font-medium text-muted-foreground">
+            <span className="truncate text-[11px] font-medium text-muted-foreground">
               {instructorName}
             </span>
           </div>
         )}
 
         <div className="mt-4 flex items-center justify-between gap-2 border-t border-border/60 pt-3">
-          <div className="flex items-baseline gap-1.5">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
             {/* A course with no Store row is unpriced, not free — saying
                 "Free" here contradicted the detail page this card links to,
                 which refuses to sell it. */}
             <span
               className={
                 isPriced
-                  ? "text-base font-bold text-foreground"
-                  : "text-xs font-semibold text-muted-foreground"
+                  ? "text-sm font-bold leading-tight text-foreground"
+                  : "text-[11px] font-semibold leading-tight text-muted-foreground"
               }
             >
               {!isPriced
@@ -144,15 +126,18 @@ export default function FeaturedCourseCard({ course }) {
                   : formatPrice(effectivePrice, currency)}
             </span>
             {isPriced && listPrice && (
-              <span className="text-xs text-muted-foreground line-through">
+              <span className="text-[11px] text-muted-foreground line-through">
                 {formatPrice(listPrice, currency)}
               </span>
             )}
           </div>
 
-          <span className="flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-2xs font-bold uppercase tracking-wider text-primary transition group-hover:bg-primary group-hover:text-primary-foreground">
+          {/* shrink-0 + whitespace-nowrap keep this a single-line pill: in a
+              4-column grid the price beside it used to squeeze "View Course"
+              onto two lines. */}
+          <span className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-primary transition group-hover:bg-primary group-hover:text-primary-foreground">
             View Course
-            <ArrowRight size={12} className="transition-transform duration-300 group-hover:translate-x-0.5" />
+            <ArrowRight size={11} className="transition-transform duration-300 group-hover:translate-x-0.5" />
           </span>
         </div>
       </div>
