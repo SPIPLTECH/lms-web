@@ -661,38 +661,57 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                         {/* Slide navigation — moves within THIS deck only
                             (slideIndex), never between lesson content items.
                             Labelled with its unit for that reason. */}
-                        {slideDeck.length > 1 && (
+                        {slideDeck.length > 0 && (
                             <div className="mt-6 pt-4 border-t border-border flex items-center justify-between gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setSlideIndex(prev => Math.max(0, prev - 1))}
-                                    disabled={slideIndex === 0}
-                                    className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-muted text-foreground rounded-xl text-xs font-bold disabled:opacity-50 hover:bg-muted transition"
-                                >
-                                    <ChevronLeft className="h-4 w-4" /> Prev slide
-                                </button>
+                                {slideDeck.length > 1 ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setSlideIndex(prev => Math.max(0, prev - 1))}
+                                        disabled={slideIndex === 0}
+                                        className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-muted text-foreground rounded-xl text-xs font-bold disabled:opacity-50 hover:bg-muted transition"
+                                    >
+                                        <ChevronLeft className="h-4 w-4" /> Prev slide
+                                    </button>
+                                ) : (
+                                    <span aria-hidden="true" />
+                                )}
 
-                                <div className="flex gap-1.5 overflow-x-auto py-1">
-                                    {slideDeck.map((_, i) => (
-                                        <button
-                                            key={i}
-                                            type="button"
-                                            onClick={() => setSlideIndex(i)}
-                                            className={`h-2.5 min-w-[10px] rounded-full transition-all ${
-                                                i === slideIndex ? "bg-primary w-6" : "bg-slate-700 w-2.5"
-                                            }`}
-                                        />
-                                    ))}
+                                <div className="flex flex-col items-center gap-1.5 min-w-0">
+                                    <span
+                                        aria-live="polite"
+                                        className="text-[11px] font-bold text-muted-foreground"
+                                    >
+                                        Slide {slideIndex + 1} of {slideDeck.length}
+                                    </span>
+                                    {slideDeck.length > 1 && (
+                                        <div className="flex gap-1.5 overflow-x-auto py-1">
+                                            {slideDeck.map((_, i) => (
+                                                <button
+                                                    key={i}
+                                                    type="button"
+                                                    onClick={() => setSlideIndex(i)}
+                                                    aria-label={`Go to slide ${i + 1}`}
+                                                    className={`h-2.5 min-w-[10px] rounded-full transition-all ${
+                                                        i === slideIndex ? "bg-primary w-6" : "bg-slate-700 w-2.5"
+                                                    }`}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
 
-                                <button
-                                    type="button"
-                                    onClick={() => setSlideIndex(prev => Math.min(slideDeck.length - 1, prev + 1))}
-                                    disabled={slideIndex === slideDeck.length - 1}
-                                    className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-muted text-foreground rounded-xl text-xs font-bold disabled:opacity-50 hover:bg-muted transition"
-                                >
-                                    Next slide <ChevronRight className="h-4 w-4" />
-                                </button>
+                                {slideDeck.length > 1 ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setSlideIndex(prev => Math.min(slideDeck.length - 1, prev + 1))}
+                                        disabled={slideIndex === slideDeck.length - 1}
+                                        className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-muted text-foreground rounded-xl text-xs font-bold disabled:opacity-50 hover:bg-muted transition"
+                                    >
+                                        Next slide <ChevronRight className="h-4 w-4" />
+                                    </button>
+                                ) : (
+                                    <span aria-hidden="true" />
+                                )}
                             </div>
                         )}
                     </div>
