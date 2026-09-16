@@ -5,6 +5,12 @@ export const QUERY_KEYS = {
     AUTH_SESSION: "auth-session",
 
     // ==========================
+    // Public / guest (no token required)
+    // ==========================
+    /** Guest-accessible published catalogue at /courses (GET /courses). */
+    PUBLIC_COURSES: "public-courses",
+
+    // ==========================
     // Student
     // ==========================
     COURSES: "courses",

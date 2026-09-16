@@ -86,7 +86,9 @@ export default async function CoursePage({ params }) {
         <nav className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-6 flex items-center gap-2">
           <Link href="/" className="hover:text-foreground transition">Home</Link>
           <ChevronRight size={10} className="text-muted-foreground" />
-          <Link href="/student/courses" className="hover:text-foreground transition">Courses</Link>
+          {/* The public catalogue, not /student/courses — that route is behind
+              the student guard, so a guest following it was bounced to "/". */}
+          <Link href="/courses" className="hover:text-foreground transition">Courses</Link>
           <ChevronRight size={10} className="text-muted-foreground" />
           <span className="text-primary">{course.title}</span>
         </nav>
