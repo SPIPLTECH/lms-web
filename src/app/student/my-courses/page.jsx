@@ -131,8 +131,8 @@ export default function MyCoursesPage() {
               items={pagedEnrollments}
               getKey={(enrollment) => enrollment.id || enrollment.courseId}
               renderItem={(enrollment) => <MyCourseCard enrollment={enrollment} />}
-              gridClassName="md:justify-items-center md:mx-auto md:max-w-[1504px] md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
-              itemClassName="md:max-w-72"
+              gridClassName="md:justify-items-center md:mx-auto md:max-w-[1328px] md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              itemClassName="md:max-w-[320px]"
               isLoading={isLoading}
               skeletonCount={6}
               skeleton={

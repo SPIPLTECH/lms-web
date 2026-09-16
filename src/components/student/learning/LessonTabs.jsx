@@ -25,7 +25,7 @@ export default function LessonTabs({ lesson, course }) {
 
   if (!lesson) {
     return (
-      <div className="rounded-3xl border border-border bg-[#0d0e16]/60 p-8 text-center text-xs font-semibold text-muted-foreground">
+      <div className="rounded-3xl border border-border bg-[#0d0e16]/60 p-8 text-center text-sm font-semibold text-muted-foreground">
         Select a lesson to view its details.
       </div>
     );
@@ -69,7 +69,7 @@ export default function LessonTabs({ lesson, course }) {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-extrabold transition cursor-pointer border ${
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-extrabold transition cursor-pointer border ${
                 isActive
                   ? "bg-primary text-slate-950 border-orange-400 shadow-md shadow-orange-500/20"
                   : "bg-background/40 text-muted-foreground border-border hover:text-foreground hover:border-transparent"
@@ -79,7 +79,7 @@ export default function LessonTabs({ lesson, course }) {
               <span>{tab.label}</span>
               {tab.badge && (
                 <span
-                  className={`ml-1 rounded-full px-1.5 py-0.2 text-[10px] font-mono font-bold ${
+                  className={`ml-1 rounded-full px-1.5 py-0.2 text-[12px] font-mono font-bold ${
                     isActive
                       ? "bg-background/30 text-slate-950"
                       : "bg-primary/10 text-primary border border-primary/20"
@@ -100,10 +100,10 @@ export default function LessonTabs({ lesson, course }) {
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-4">
               <div>
-                <h2 className="text-xl font-black text-foreground tracking-wide">
+                <h2 className="text-2xl font-black text-foreground tracking-wide">
                   {lesson.title}
                 </h2>
-                <p className="text-xs text-muted-foreground font-semibold mt-1">
+                <p className="text-sm text-muted-foreground font-semibold mt-1">
                   Module Concept • Objective Overview
                 </p>
               </div>
@@ -111,7 +111,7 @@ export default function LessonTabs({ lesson, course }) {
               <button
                 type="button"
                 onClick={toggleLessonBookmark}
-                className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-bold transition cursor-pointer shrink-0 ${
+                className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-bold transition cursor-pointer shrink-0 ${
                   isLessonBookmarked
                     ? "bg-primary text-slate-950 border-orange-400 shadow-md"
                     : "bg-background/60 text-foreground border-border hover:border-primary/40 hover:text-foreground"
@@ -131,7 +131,7 @@ export default function LessonTabs({ lesson, course }) {
               </button>
             </div>
 
-            <div className="prose prose-invert max-w-none text-xs leading-relaxed text-foreground font-medium">
+            <div className="prose prose-invert max-w-none text-sm leading-relaxed text-foreground font-medium">
               {lesson.description || "No specific lesson objectives provided."}
             </div>
           </div>
@@ -141,11 +141,11 @@ export default function LessonTabs({ lesson, course }) {
         {activeTab === "notes" && (
           <div className="space-y-6">
             <div className="flex items-center justify-between border-b border-border/40 pb-3">
-              <h2 className="text-sm font-black text-foreground uppercase tracking-wider flex items-center gap-2">
+              <h2 className="text-base font-black text-foreground uppercase tracking-wider flex items-center gap-2">
                 <FileText className="text-primary" size={16} />
                 <span>Class Notes & Downloadable Files</span>
               </h2>
-              <span className="text-[10px] text-muted-foreground font-mono">
+              <span className="text-[12px] text-muted-foreground font-mono">
                 {instructorAttachments.length} File Attachment(s)
               </span>
             </div>
@@ -163,10 +163,10 @@ export default function LessonTabs({ lesson, course }) {
             {/* Section 2: Personal Student Notes */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-extrabold text-foreground">
+                <label className="text-sm font-extrabold text-foreground">
                   Personal Scratchpad Notes
                 </label>
-                <span className="text-[10px] text-muted-foreground font-mono">
+                <span className="text-[12px] text-muted-foreground font-mono">
                   Auto-saved to workspace
                 </span>
               </div>
@@ -180,7 +180,7 @@ export default function LessonTabs({ lesson, course }) {
                   }
                 }}
                 placeholder="Write personal study notes, reminders, or code snippets..."
-                className="w-full rounded-2xl border border-border bg-[#07080f]/90 p-4 text-xs text-foreground placeholder-slate-500 outline-none focus:border-primary/50 transition font-mono leading-relaxed"
+                className="w-full rounded-2xl border border-border bg-[#07080f]/90 p-4 text-sm text-foreground placeholder-slate-500 outline-none focus:border-primary/50 transition font-mono leading-relaxed"
               />
             </div>
           </div>

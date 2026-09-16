@@ -51,7 +51,7 @@ export function ModuleOverviewView({
       {/* Module Header Toolbar */}
       <div className="cell-header flex items-center justify-between border-b border-border/80 pb-3 flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <span className="cell-badge rounded bg-primary/15 border border-primary/30 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-primary flex items-center gap-1.5">
+          <span className="cell-badge rounded bg-primary/15 border border-primary/30 px-2.5 py-1 text-[12px] font-black uppercase tracking-wider text-primary flex items-center gap-1.5">
             <Folder size={12} />
             Module Header
           </span>
@@ -59,7 +59,7 @@ export function ModuleOverviewView({
         <div className="cell-controls">
           <button
             type="button"
-            className="border border-border text-foreground hover:text-foreground bg-background hover:bg-muted rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+            className="border border-border text-foreground hover:text-foreground bg-background hover:bg-muted rounded-xl px-3 py-1.5 text-sm font-bold transition cursor-pointer flex items-center gap-1.5"
             onClick={() => onEditModule?.(module)}
           >
             <Pencil size={13} />
@@ -70,12 +70,12 @@ export function ModuleOverviewView({
 
       {/* Module Title & Description */}
       <div className="space-y-2">
-        <h2 className="text-xl font-bold text-foreground">{module.title || "Untitled Module"}</h2>
+        <h2 className="text-2xl font-bold text-foreground">{module.title || "Untitled Module"}</h2>
         {module.subtitle && (
-          <p className="text-xs font-semibold text-primary italic">{module.subtitle}</p>
+          <p className="text-sm font-semibold text-primary italic">{module.subtitle}</p>
         )}
         {(module.summary || module.description) && (
-          <p className="text-xs text-foreground leading-relaxed bg-background/60 p-3 rounded-xl border border-border/80">
+          <p className="text-sm text-foreground leading-relaxed bg-background/60 p-3 rounded-xl border border-border/80">
             {module.summary || module.description}
           </p>
         )}
@@ -85,11 +85,11 @@ export function ModuleOverviewView({
       {role === "INSTRUCTOR" && !isDraftMode && (
         <div className="pt-4 border-t border-border space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-foreground">Module Content</h3>
+            <h3 className="text-base font-bold text-foreground">Module Content</h3>
             <button
               type="button"
               onClick={() => setContentAutoOpenSignal((n) => n + 1)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-bold transition cursor-pointer"
             >
               <Plus size={14} />
               Add Content
@@ -109,8 +109,8 @@ export function ModuleOverviewView({
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <BookOpen size={16} className="text-primary" />
-            <h3 className="text-sm font-bold text-foreground">Lessons</h3>
-            <span className="text-xs font-mono font-bold text-muted-foreground bg-background px-2 py-0.5 rounded border border-border">
+            <h3 className="text-base font-bold text-foreground">Lessons</h3>
+            <span className="text-sm font-mono font-bold text-muted-foreground bg-background px-2 py-0.5 rounded border border-border">
               {lessons.length}
             </span>
           </div>
@@ -119,7 +119,7 @@ export function ModuleOverviewView({
             <button
               type="button"
               onClick={() => onAddLesson?.(module.id)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-bold transition cursor-pointer"
             >
               <Plus size={14} />
               Add Lesson
@@ -134,15 +134,15 @@ export function ModuleOverviewView({
               <BookOpen size={24} />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-foreground">No lessons yet</h4>
-              <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1">
+              <h4 className="text-base font-bold text-foreground">No lessons yet</h4>
+              <p className="text-sm text-muted-foreground max-w-sm mx-auto mt-1">
                 Add your first lesson to start organizing topics and learning materials.
               </p>
             </div>
             <button
               type="button"
               onClick={() => onAddLesson?.(module.id)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-orange-600 hover:bg-primary text-foreground text-xs font-bold transition shadow-lg shadow-orange-600/20 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-orange-600 hover:bg-primary text-foreground text-sm font-bold transition shadow-lg shadow-orange-600/20 cursor-pointer"
             >
               <Plus size={14} />
               Add Lesson
@@ -216,8 +216,8 @@ export function ModuleOverviewView({
             className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl border border-primary/40 bg-primary/10 hover:bg-primary/20 text-right transition group cursor-pointer max-w-[280px]"
           >
             <div className="overflow-hidden">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-primary block">Next Module</span>
-              <span className="text-xs font-bold text-foreground truncate block">{nextModule.title}</span>
+              <span className="text-[12px] font-mono font-bold uppercase tracking-wider text-primary block">Next Module</span>
+              <span className="text-sm font-bold text-foreground truncate block">{nextModule.title}</span>
             </div>
             <ChevronRight size={16} className="text-primary group-hover:translate-x-0.5 transition shrink-0" />
           </button>

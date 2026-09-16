@@ -800,6 +800,23 @@ export default function LearnPage() {
       const idx = playerBlocks.findIndex(
         (b) => b.item.id === targetId || b.item.contentIds?.includes(targetId)
       );
+      // A sidebar click within the SAME unit used to jump straight to `idx`
+      // with no check at all — unlike goToNextBlock, which already gates
+      // each step with canLeaveBlock. That let a student open Content 4 by
+      // clicking it even with Content 3 still incomplete. Walk every block
+      // strictly before the target and refuse the jump if any of them isn't
+      // leavable yet, same rule Next already enforces one step at a time.
+      if (idx > 0 && !skipGate) {
+        for (let i = 0; i < idx; i++) {
+          if (!canLeaveBlock(playerBlocks[i])) {
+            showToast(
+              BLOCK_GATE_MESSAGES[playerBlocks[i].kind] || "Finish the previous item first.",
+              "error"
+            );
+            return false;
+          }
+        }
+      }
       setBlockIndex(idx >= 0 ? idx : 0);
       return true;
     }
@@ -1224,8 +1241,12 @@ export default function LearnPage() {
   // Derived from data already in scope; desktop is unaffected (every class
   // below is max-xl:).
   const activeContentType = activeBlock?.kind === "content" ? activeBlock.item?.type : null;
+  // An uploaded .ppt/.pptx is a fixed-aspect canvas, like a video: a fitted
+  // slide on a phone is ~180px tall, so the 68dvh reading box left most of the
+  // frame as empty backdrop beneath it. Its frame sizes to the slide instead.
   const playerMode =
-    activeContentType === "VIDEO"
+    activeContentType === "VIDEO" ||
+    (activeBlock?.kind === "content" && rendersUploadedDeck(activeBlock.item))
       ? "aspect"
       : activeBlock?.kind === "assignment" || activeContentType === "ASSIGNMENT"
       ? "natural"
@@ -1366,7 +1387,7 @@ export default function LearnPage() {
               stays visible behind it) at 320px and at 430px alike. */}
           <aside className="absolute inset-y-0 left-0 flex h-full w-[85%] max-w-[340px] flex-col bg-[#07080f] shadow-2xl animate-sidebar-in-left">
             <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 shrink-0">
-              <h2 className="text-sm font-black uppercase tracking-widest text-foreground">
+              <h2 className="text-base font-black uppercase tracking-widest text-foreground">
                 Course Content
               </h2>
               <button
@@ -1464,11 +1485,11 @@ export default function LearnPage() {
                   </button>
 
                   <div className="min-w-0 text-center">
-                    <h1 className="text-base font-bold leading-snug text-foreground line-clamp-2">
+                    <h1 className="text-lg font-bold leading-snug text-foreground line-clamp-2">
                       {selectedLesson?.title || course?.title || "Lesson"}
                     </h1>
                     {hasTopics && currentTopic?.title && (
-                      <p className="text-xs text-muted-foreground line-clamp-1">Topic: {currentTopic.title}</p>
+                      <p className="text-sm text-muted-foreground line-clamp-1">Topic: {currentTopic.title}</p>
                     )}
                   </div>
 
@@ -1566,6 +1587,7 @@ export default function LearnPage() {
                         onBack={goToPreviousBlock}
                         resultReturnTo={resultReturnTo}
                         onNextContent={goToNextBlock}
+                        speechLanguage={course?.language}
                       />
                     </div>
                   ) : (
@@ -1576,6 +1598,9 @@ export default function LearnPage() {
                       onDurationChange={setVideoDuration}
                       onEnded={handleVideoEnded}
                       initialTime={!extraUnit && blockIndex === 0 ? initialTime : 0}
+                      speechLanguage={course?.language}
+                      lessonTitle={selectedLesson?.title}
+                      reserveHeaderCorner={showCompletionBar}
                     />
                   )}
                 </div>
@@ -1599,12 +1624,30 @@ export default function LearnPage() {
                   </div>
                 )}
 
-                {/* COMPLETION (xl and up) — a hover-reveal overlay in the same
-                    player frame as Prev/Next, so the frame keeps its full
-                    height for the content rather than spending a row on a bar
-                    that is idle most of the time. */}
+                {/* COMPLETION (xl and up) — always visible, NOT hover-gated
+                    like the Prev/Next corner overlay above: Prev/Next have
+                    always-visible fallbacks elsewhere (the below-frame nav,
+                    the sidebar), but this control is the ONLY way to satisfy
+                    canLeaveBlock's gate for a non-auto-completing content
+                    block, so hiding it behind hover left it undiscoverable —
+                    a student reading text with the mouse never near the top-
+                    right corner would never see it, and "Next" would just
+                    silently refuse to advance. reserveHeaderCorner (passed to
+                    LessonContentBlock/VideoPlayer below) already keeps the
+                    frame's own header controls clear of this corner
+                    regardless of hover state, so making the button itself
+                    permanently visible here doesn't introduce any overlap.
+                    z-30: the content header underneath (VideoPlayer's title
+                    bar) is `xl:sticky` with an explicit `z-20` — without a
+                    higher z-index here this overlay has no stacking value of
+                    its own (auto), so the sticky header's own layer painted
+                    on top of it and silently swallowed every click aimed at
+                    this corner. That was already true before this control
+                    became always-visible: on hover it was seen but never
+                    actually clickable in that region, which reads exactly
+                    like "Mark as Complete doesn't do anything." */}
                 {showCompletionBar && (
-                  <div className="max-xl:hidden absolute top-3 right-3 pointer-events-none opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-200">
+                  <div className="max-xl:hidden absolute top-3 right-3 z-30">
                     <ContentCompletionBar {...completionBarProps} />
                   </div>
                 )}

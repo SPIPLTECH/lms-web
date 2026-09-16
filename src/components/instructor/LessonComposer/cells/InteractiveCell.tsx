@@ -114,40 +114,40 @@ export function InteractiveCell({
       {mode === "edit" ? (
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-bold text-foreground mb-1">Title (optional)</label>
+            <label className="block text-sm font-bold text-foreground mb-1">Title (optional)</label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Simulation / Interactive Widget"
-              className="w-full rounded-lg border border-transparent bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-purple-500"
+              className="w-full rounded-lg border border-transparent bg-background px-3 py-2 text-base text-foreground outline-none focus:border-purple-500"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-foreground mb-1">Embed URL / iframe source *</label>
+            <label className="block text-sm font-bold text-foreground mb-1">Embed URL / iframe source *</label>
             <input
               type="url"
               value={embedUrl}
               onChange={(e) => setEmbedUrl(e.target.value)}
               placeholder="https://example.com/interactive"
-              className="w-full rounded-lg border border-transparent bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-purple-500"
+              className="w-full rounded-lg border border-transparent bg-background px-3 py-2 text-base text-foreground outline-none focus:border-purple-500"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-foreground mb-1">Height (px)</label>
+            <label className="block text-sm font-bold text-foreground mb-1">Height (px)</label>
             <input
               type="number"
               value={height}
               onChange={(e) => setHeight(Number(e.target.value) || 600)}
-              className="w-24 rounded-lg border border-transparent bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-purple-500"
+              className="w-24 rounded-lg border border-transparent bg-background px-3 py-2 text-base text-foreground outline-none focus:border-purple-500"
             />
           </div>
 
           {embedUrl && (
             <div className="space-y-1">
-              <span className="text-[11px] font-bold text-muted-foreground">Live Preview:</span>
+              <span className="text-[13px] font-bold text-muted-foreground">Live Preview:</span>
               <div className="rounded-xl border border-border bg-background p-2 overflow-hidden">
                 <iframe
                   src={embedUrl}
@@ -182,7 +182,7 @@ export function InteractiveCell({
               />
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground italic">No embed URL configured.</p>
+            <p className="text-sm text-muted-foreground italic">No embed URL configured.</p>
           )}
         </div>
       )}
@@ -223,40 +223,40 @@ export function CreateInteractiveForm({ parent, order, onCreated, onCancel }: Cr
   return (
     <div className="space-y-3">
       <div>
-        <label className="block text-xs font-bold text-foreground mb-1">Title (optional)</label>
+        <label className="block text-sm font-bold text-foreground mb-1">Title (optional)</label>
         <input
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="e.g. Interactive Simulation"
-          className="w-full rounded-lg border border-transparent bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-purple-500"
+          className="w-full rounded-lg border border-transparent bg-background px-3 py-2 text-base text-foreground outline-none focus:border-purple-500"
         />
       </div>
 
       <div>
-        <label className="block text-xs font-bold text-foreground mb-1">Embed URL / iframe source *</label>
+        <label className="block text-sm font-bold text-foreground mb-1">Embed URL / iframe source *</label>
         <input
           type="url"
           value={embedUrl}
           onChange={(e) => setEmbedUrl(e.target.value)}
           placeholder="https://example.com/interactive"
-          className="w-full rounded-lg border border-transparent bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-purple-500"
+          className="w-full rounded-lg border border-transparent bg-background px-3 py-2 text-base text-foreground outline-none focus:border-purple-500"
         />
       </div>
 
       <div>
-        <label className="block text-xs font-bold text-foreground mb-1">Height (px)</label>
+        <label className="block text-sm font-bold text-foreground mb-1">Height (px)</label>
         <input
           type="number"
           value={height}
           onChange={(e) => setHeight(Number(e.target.value) || 600)}
-          className="w-24 rounded-lg border border-transparent bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-purple-500"
+          className="w-24 rounded-lg border border-transparent bg-background px-3 py-2 text-base text-foreground outline-none focus:border-purple-500"
         />
       </div>
 
       {embedUrl && (
         <div className="space-y-1">
-          <span className="text-[11px] font-bold text-muted-foreground">Live Preview:</span>
+          <span className="text-[13px] font-bold text-muted-foreground">Live Preview:</span>
           <div className="rounded-xl border border-border bg-background p-2 overflow-hidden">
             <iframe
               src={embedUrl}

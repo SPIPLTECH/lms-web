@@ -146,7 +146,7 @@ const TranscriptRow = React.memo(
 
         {/* Compact Margin Timestamp (replaces bullet/pill button) */}
         <span
-          className={`shrink-0 w-12 font-mono text-[11px] pt-0.5 transition-colors ${
+          className={`shrink-0 w-12 font-mono text-[13px] pt-0.5 transition-colors ${
             isActive
               ? "text-primary font-bold"
               : "text-primary/60 group-hover:text-primary"
@@ -157,7 +157,7 @@ const TranscriptRow = React.memo(
 
         {/* Book Paragraph Text */}
         <p
-          className={`text-[13px] leading-relaxed min-w-0 flex-1 break-words transition-colors ${
+          className={`text-[15px] leading-relaxed min-w-0 flex-1 break-words transition-colors ${
             isActive ? "text-foreground font-semibold" : "text-foreground group-hover:text-foreground"
           }`}
         >
@@ -323,11 +323,11 @@ export default function TranscriptPanel({
       {/* Clean Minimal Header */}
       <div className="flex items-center justify-between border-b border-border/40 pb-3">
         <div className="flex items-center gap-2.5">
-          <h4 className="text-xs font-extrabold uppercase tracking-widest text-foreground">
+          <h4 className="text-sm font-extrabold uppercase tracking-widest text-foreground">
             Lesson Transcript
           </h4>
           {bookmarkedIndices.length > 0 && (
-            <span className="text-[10px] text-primary font-mono">
+            <span className="text-[12px] text-primary font-mono">
               ({bookmarkedIndices.length} bookmarked)
             </span>
           )}
@@ -389,7 +389,7 @@ export default function TranscriptPanel({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search words or phrases..."
-            className="w-full bg-[#07080f] border border-border rounded-lg pl-3 pr-8 py-1.5 text-xs text-foreground placeholder-slate-500 outline-none focus:border-primary/50"
+            className="w-full bg-[#07080f] border border-border rounded-lg pl-3 pr-8 py-1.5 text-sm text-foreground placeholder-slate-500 outline-none focus:border-primary/50"
             autoFocus
           />
           {searchQuery && (
@@ -406,7 +406,7 @@ export default function TranscriptPanel({
 
       {/* Loading State */}
       {status === "loading" && (
-        <div className="flex items-center justify-center gap-2 py-8 text-xs font-medium text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 py-8 text-sm font-medium text-muted-foreground">
           <Loader2 size={14} className="animate-spin text-primary" />
           Loading transcript...
         </div>
@@ -414,14 +414,14 @@ export default function TranscriptPanel({
 
       {/* Error State */}
       {status === "error" && (
-        <div className="py-6 text-center text-xs text-red-400">
+        <div className="py-6 text-center text-sm text-red-400">
           Failed to load transcript.
         </div>
       )}
 
       {/* Unavailable State */}
       {status === "unavailable" && (
-        <p className="py-4 text-center text-xs font-medium italic text-muted-foreground">
+        <p className="py-4 text-center text-sm font-medium italic text-muted-foreground">
           Transcript unavailable.
         </p>
       )}
@@ -439,7 +439,7 @@ export default function TranscriptPanel({
             }`}
           >
             {filteredSegments.length === 0 ? (
-              <div className="py-6 text-center text-xs text-muted-foreground italic">
+              <div className="py-6 text-center text-sm text-muted-foreground italic">
                 No matching lines found.
               </div>
             ) : (
@@ -469,7 +469,7 @@ export default function TranscriptPanel({
             <button
               type="button"
               onClick={handleRecenter}
-              className="absolute bottom-2 right-3 shadow-lg bg-primary hover:bg-orange-600 text-slate-950 font-bold text-[10px] px-3 py-1 rounded-full transition-all flex items-center gap-1.5 cursor-pointer z-10"
+              className="absolute bottom-2 right-3 shadow-lg bg-primary hover:bg-orange-600 text-slate-950 font-bold text-[12px] px-3 py-1 rounded-full transition-all flex items-center gap-1.5 cursor-pointer z-10"
             >
               <Target size={12} />
               <span>Re-center</span>

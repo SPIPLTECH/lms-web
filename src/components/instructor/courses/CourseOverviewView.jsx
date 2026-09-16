@@ -64,13 +64,13 @@ export function CourseOverviewView({
         <div className={`cell-header flex flex-wrap items-center justify-between gap-2 border-b border-border/80 pb-2.5 mb-3 ${hideOnMobile}`}>
           <div className="flex items-center gap-2.5">
             {role !== "STUDENT" && (
-              <span className="cell-badge rounded bg-primary/15 border border-primary/30 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-primary">
+              <span className="cell-badge rounded bg-primary/15 border border-primary/30 px-2.5 py-1 text-[12px] font-black uppercase tracking-wider text-primary">
                 Course Header
               </span>
             )}
             {role !== "STUDENT" && (
               <span
-                className={`rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider border shrink-0 ${
+                className={`rounded-full px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider border shrink-0 ${
                   isPublished
                     ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                     : isArchived
@@ -87,7 +87,7 @@ export function CourseOverviewView({
               <button
                 type="button"
                 onClick={onStartLearning}
-                className="btn bg-primary hover:bg-orange-600 text-slate-950 rounded-xl px-4 py-1.5 text-xs font-black transition cursor-pointer"
+                className="btn bg-primary hover:bg-orange-600 text-slate-950 rounded-xl px-4 py-1.5 text-sm font-black transition cursor-pointer"
               >
                 {hasProgress ? "Continue Learning" : "Start Learning"}
               </button>
@@ -99,7 +99,7 @@ export function CourseOverviewView({
             {role === "INSTRUCTOR" && !isArchived && hasUnsavedChanges && (
               <button
                 type="button"
-                className="btn shrink-0 rounded-xl border border-border bg-background hover:bg-muted text-foreground text-xs font-bold px-3 py-1.5 transition cursor-pointer disabled:opacity-50"
+                className="btn shrink-0 rounded-xl border border-border bg-background hover:bg-muted text-foreground text-sm font-bold px-3 py-1.5 transition cursor-pointer disabled:opacity-50"
                 onClick={onSaveCourse}
                 disabled={isSavingCourse}
                 title="Persist current course changes"
@@ -111,7 +111,7 @@ export function CourseOverviewView({
             {role === "INSTRUCTOR" && isDraft && onPublishClick && (
               <button
                 type="button"
-                className="btn shrink-0 rounded-xl bg-primary hover:bg-orange-600 active:scale-95 text-slate-950 font-black text-xs px-3.5 py-1.5 transition shadow-md cursor-pointer"
+                className="btn shrink-0 rounded-xl bg-primary hover:bg-orange-600 active:scale-95 text-slate-950 font-black text-sm px-3.5 py-1.5 transition shadow-md cursor-pointer"
                 onClick={onPublishClick}
               >
                 Publish
@@ -121,7 +121,7 @@ export function CourseOverviewView({
             {role === "INSTRUCTOR" && isPublished && onUnpublishClick && (
               <button
                 type="button"
-                className="btn shrink-0 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 font-bold text-xs px-3.5 py-1.5 transition cursor-pointer"
+                className="btn shrink-0 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 font-bold text-sm px-3.5 py-1.5 transition cursor-pointer"
                 onClick={onUnpublishClick}
               >
                 Unpublish
@@ -131,7 +131,7 @@ export function CourseOverviewView({
             {role === "INSTRUCTOR" && isArchived && onRestoreClick && (
               <button
                 type="button"
-                className="btn shrink-0 rounded-xl border border-purple-500/40 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 font-bold text-xs px-3.5 py-1.5 transition cursor-pointer flex items-center gap-1.5"
+                className="btn shrink-0 rounded-xl border border-purple-500/40 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 font-bold text-sm px-3.5 py-1.5 transition cursor-pointer flex items-center gap-1.5"
                 onClick={onRestoreClick}
               >
                 <Archive size={13} />
@@ -141,7 +141,7 @@ export function CourseOverviewView({
 
             {role === "INSTRUCTOR" && (
               <button
-                className={`btn ${isEditing ? "btn-primary bg-primary text-slate-950" : "btn-outline-primary border border-border text-foreground hover:text-foreground"} rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed`}
+                className={`btn ${isEditing ? "btn-primary bg-primary text-slate-950" : "btn-outline-primary border border-border text-foreground hover:text-foreground"} rounded-xl px-3 py-1.5 text-sm font-bold transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed`}
                 onClick={() => (isEditing ? onSaveCourseMeta?.() : setIsEditing(true))}
                 disabled={isEditing && isSaving}
               >
@@ -154,23 +154,23 @@ export function CourseOverviewView({
         {/* Cell Render Area */}
         <div className="cell-render-area">
           {isEditing ? (
-            <div className="space-y-4 text-xs">
+            <div className="space-y-4 text-sm">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="form-group">
-                  <label className="cell-field-label block text-[10px] font-black uppercase text-muted-foreground mb-1">Course Title</label>
+                  <label className="cell-field-label block text-[12px] font-black uppercase text-muted-foreground mb-1">Course Title</label>
                   <input
                     type="text"
-                    className="cell-input w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-bold text-foreground outline-none focus:border-primary"
+                    className="cell-input w-full bg-background border border-border rounded-xl px-3 py-2 text-sm font-bold text-foreground outline-none focus:border-primary"
                     id="courseTitleInput"
                     value={courseForm.title || ""}
                     onChange={(e) => setCourseForm({ ...courseForm, title: e.target.value })}
                   />
                 </div>
                 <div className="form-group">
-                  <label className="cell-field-label block text-[10px] font-black uppercase text-muted-foreground mb-1">Subtitle</label>
+                  <label className="cell-field-label block text-[12px] font-black uppercase text-muted-foreground mb-1">Subtitle</label>
                   <input
                     type="text"
-                    className="cell-input w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-bold text-foreground outline-none focus:border-primary"
+                    className="cell-input w-full bg-background border border-border rounded-xl px-3 py-2 text-sm font-bold text-foreground outline-none focus:border-primary"
                     id="courseSubtitleInput"
                     value={courseForm.subtitle || ""}
                     onChange={(e) => setCourseForm({ ...courseForm, subtitle: e.target.value })}
@@ -179,9 +179,9 @@ export function CourseOverviewView({
               </div>
 
               <div className="form-group">
-                <label className="cell-field-label block text-[10px] font-black uppercase text-muted-foreground mb-1">Abstract</label>
+                <label className="cell-field-label block text-[12px] font-black uppercase text-muted-foreground mb-1">Abstract</label>
                 <textarea
-                  className="cell-textarea w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground outline-none focus:border-primary resize-none"
+                  className="cell-textarea w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground outline-none focus:border-primary resize-none"
                   id="courseAbstractInput"
                   rows={3}
                   value={courseForm.description || ""}
@@ -191,21 +191,21 @@ export function CourseOverviewView({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="form-group">
-                  <label className="cell-field-label block text-[10px] font-black uppercase text-muted-foreground mb-1">Author / Instructor</label>
+                  <label className="cell-field-label block text-[12px] font-black uppercase text-muted-foreground mb-1">Author / Instructor</label>
                   <input
                     type="text"
-                    className="cell-input w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-bold text-foreground outline-none focus:border-primary"
+                    className="cell-input w-full bg-background border border-border rounded-xl px-3 py-2 text-sm font-bold text-foreground outline-none focus:border-primary"
                     id="courseAuthorInput"
                     value={courseForm.author || courseForm.instructor || ""}
                     onChange={(e) => setCourseForm({ ...courseForm, author: e.target.value })}
                   />
                 </div>
                 <div className="form-group space-y-1">
-                  <label className="cell-field-label block text-[10px] font-black uppercase text-muted-foreground">Image URL Banner</label>
+                  <label className="cell-field-label block text-[12px] font-black uppercase text-muted-foreground">Image URL Banner</label>
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
-                      className="cell-input flex-1 bg-background border border-border rounded-xl px-3 py-2 text-xs font-mono text-foreground outline-none focus:border-primary"
+                      className="cell-input flex-1 bg-background border border-border rounded-xl px-3 py-2 text-sm font-mono text-foreground outline-none focus:border-primary"
                       id="courseImageInput"
                       placeholder="https://... or click Upload"
                       value={courseForm.thumbnailUrl || ""}
@@ -221,30 +221,30 @@ export function CourseOverviewView({
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="form-group">
-                  <label className="cell-field-label block text-[10px] font-black uppercase text-muted-foreground mb-1">Audience Focus</label>
+                  <label className="cell-field-label block text-[12px] font-black uppercase text-muted-foreground mb-1">Audience Focus</label>
                   <input
                     type="text"
-                    className="cell-input w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-bold text-foreground outline-none focus:border-primary"
+                    className="cell-input w-full bg-background border border-border rounded-xl px-3 py-2 text-sm font-bold text-foreground outline-none focus:border-primary"
                     id="courseAudienceInput"
                     value={courseForm.audience || ""}
                     onChange={(e) => setCourseForm({ ...courseForm, audience: e.target.value })}
                   />
                 </div>
                 <div className="form-group">
-                  <label className="cell-field-label block text-[10px] font-black uppercase text-muted-foreground mb-1">Category</label>
+                  <label className="cell-field-label block text-[12px] font-black uppercase text-muted-foreground mb-1">Category</label>
                   <input
                     type="text"
-                    className="cell-input w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-bold text-foreground outline-none focus:border-primary"
+                    className="cell-input w-full bg-background border border-border rounded-xl px-3 py-2 text-sm font-bold text-foreground outline-none focus:border-primary"
                     id="courseCategoryInput"
                     value={courseForm.category || ""}
                     onChange={(e) => setCourseForm({ ...courseForm, category: e.target.value })}
                   />
                 </div>
                 <div className="form-group">
-                  <label className="cell-field-label block text-[10px] font-black uppercase text-muted-foreground mb-1">Duration Limit</label>
+                  <label className="cell-field-label block text-[12px] font-black uppercase text-muted-foreground mb-1">Duration Limit</label>
                   <input
                     type="text"
-                    className="cell-input w-full bg-background border border-border rounded-xl px-3 py-2 text-xs font-bold text-foreground outline-none focus:border-primary"
+                    className="cell-input w-full bg-background border border-border rounded-xl px-3 py-2 text-sm font-bold text-foreground outline-none focus:border-primary"
                     id="courseDurationInput"
                     value={courseForm.duration || ""}
                     onChange={(e) => setCourseForm({ ...courseForm, duration: e.target.value })}
@@ -255,14 +255,14 @@ export function CourseOverviewView({
               <div className="flex justify-end gap-2 pt-2 border-t border-border">
                 <button
                   type="button"
-                  className="btn btn-outline-secondary rounded-xl border border-border px-3 py-1.5 text-xs text-foreground"
+                  className="btn btn-outline-secondary rounded-xl border border-border px-3 py-1.5 text-sm text-foreground"
                   onClick={() => setIsEditing(false)}
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
-                  className="btn rounded-xl bg-primary px-4 py-1.5 text-xs font-black text-slate-950 hover:bg-orange-600"
+                  className="btn rounded-xl bg-primary px-4 py-1.5 text-sm font-black text-slate-950 hover:bg-orange-600"
                   onClick={onSaveCourseMeta}
                   disabled={isSaving}
                 >
@@ -273,9 +273,9 @@ export function CourseOverviewView({
           ) : (
             <div className="space-y-4">
               <div className={hideOnMobile}>
-                <h3 className="text-xl font-bold text-foreground">{course?.title || "Untitled Course"}</h3>
-                {course?.subtitle && <p className="text-xs font-semibold text-primary italic mt-1">{course.subtitle}</p>}
-                <p className="text-xs text-foreground leading-relaxed mt-2">{course?.description || "No description provided."}</p>
+                <h3 className="text-2xl font-bold text-foreground">{course?.title || "Untitled Course"}</h3>
+                {course?.subtitle && <p className="text-sm font-semibold text-primary italic mt-1">{course.subtitle}</p>}
+                <p className="text-sm text-foreground leading-relaxed mt-2">{course?.description || "No description provided."}</p>
               </div>
 
               {/* Summary Metrics Bar */}
@@ -304,26 +304,26 @@ export function CourseOverviewView({
                 return (
                   <div className={`grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-border/80 ${hideOnMobile}`}>
                     <div className="p-3 rounded-xl bg-background/80 border border-border">
-                      <span className="text-[10px] font-mono uppercase text-muted-foreground block">Modules</span>
-                      <span className="text-base font-bold text-primary">{modules.length}</span>
+                      <span className="text-[12px] font-mono uppercase text-muted-foreground block">Modules</span>
+                      <span className="text-lg font-bold text-primary">{modules.length}</span>
                     </div>
                     <div className="p-3 rounded-xl bg-background/80 border border-border">
-                      <span className="text-[10px] font-mono uppercase text-muted-foreground block">Lessons</span>
-                      <span className="text-base font-bold text-sky-400">{totalLessons}</span>
+                      <span className="text-[12px] font-mono uppercase text-muted-foreground block">Lessons</span>
+                      <span className="text-lg font-bold text-sky-400">{totalLessons}</span>
                     </div>
                     <div className="p-3 rounded-xl bg-background/80 border border-border">
-                      <span className="text-[10px] font-mono uppercase text-muted-foreground block">Topics</span>
-                      <span className="text-base font-bold text-purple-400">{totalTopics}</span>
+                      <span className="text-[12px] font-mono uppercase text-muted-foreground block">Topics</span>
+                      <span className="text-lg font-bold text-purple-400">{totalTopics}</span>
                     </div>
                     <div className="p-3 rounded-xl bg-background/80 border border-border">
-                      <span className="text-[10px] font-mono uppercase text-muted-foreground block">Quizzes</span>
-                      <span className="text-base font-bold text-emerald-400">{totalQuizzes}</span>
+                      <span className="text-[12px] font-mono uppercase text-muted-foreground block">Quizzes</span>
+                      <span className="text-lg font-bold text-emerald-400">{totalQuizzes}</span>
                     </div>
                   </div>
                 );
               })()}
 
-              <div className={`grid grid-cols-2 md:grid-cols-4 gap-3 pt-1 text-[11px] font-medium text-foreground ${hideOnMobile}`}>
+              <div className={`grid grid-cols-2 md:grid-cols-4 gap-3 pt-1 text-[13px] font-medium text-foreground ${hideOnMobile}`}>
                 <div><strong className="text-muted-foreground">Author:</strong> {course?.creator?.name || "LMS Architect"}</div>
                 <div><strong className="text-muted-foreground">Category:</strong> {course?.category || "Software Development"}</div>
                 <div><strong className="text-muted-foreground">Audience:</strong> {course?.audience || "Developers"}</div>
@@ -334,11 +334,11 @@ export function CourseOverviewView({
               {role === "INSTRUCTOR" && !isDraftMode && (
                 <div className="pt-4 border-t border-border/80 space-y-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-foreground">Course Content</h3>
+                    <h3 className="text-base font-bold text-foreground">Course Content</h3>
                     <button
                       type="button"
                       onClick={() => setContentAutoOpenSignal((n) => n + 1)}
-                      className="text-xs font-bold text-primary hover:text-orange-300 cursor-pointer"
+                      className="text-sm font-bold text-primary hover:text-orange-300 cursor-pointer"
                     >
                       + Add Content
                     </button>
@@ -355,8 +355,8 @@ export function CourseOverviewView({
               {/* Course-Level Quizzes (when present) */}
               {Array.isArray(course?.quizzes) && course.quizzes.length > 0 && (
                 <div className="pt-4 border-t border-border/80 space-y-3">
-                  <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase">
+                  <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[12px] font-black uppercase">
                       Course Quizzes
                     </span>
                     Course-Level Quizzes ({course.quizzes.length})
@@ -371,15 +371,15 @@ export function CourseOverviewView({
                           onClick={() => onSelectQuiz?.(quiz, null)}
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <h4 className="text-xs font-bold text-[#6C7A6D] truncate">{quiz.title}</h4>
-                            <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono shrink-0">
+                            <h4 className="text-sm font-bold text-[#6C7A6D] truncate">{quiz.title}</h4>
+                            <span className="text-[12px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono shrink-0">
                               Pass: {quiz.passingScore}%
                             </span>
                           </div>
                           {quiz.description && (
-                            <p className="text-[11px] text-muted-foreground line-clamp-2">{quiz.description}</p>
+                            <p className="text-[13px] text-muted-foreground line-clamp-2">{quiz.description}</p>
                           )}
-                          <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-mono pt-1">
+                          <div className="flex items-center gap-3 text-[12px] text-muted-foreground font-mono pt-1">
                             <span>{qCount} {qCount === 1 ? "question" : "questions"}</span>
                             {quiz.timeLimit && <span>{quiz.timeLimit} mins</span>}
                           </div>
@@ -393,11 +393,11 @@ export function CourseOverviewView({
               {/* Modules Header & Compact Card Grid */}
               <div className={`pt-4 border-t border-border/80 space-y-3 ${mobileCompact ? "max-lg:pt-0 max-lg:border-t-0" : ""}`}>
                 <div className="flex items-center justify-between">
-                  <h3 className={`text-sm font-bold text-foreground ${mobileCompact ? "max-lg:text-base" : ""}`}>
+                  <h3 className={`text-base font-bold text-foreground ${mobileCompact ? "max-lg:text-lg" : ""}`}>
                     Course Modules <span className={hideOnMobile}>({modules.length})</span>
                   </h3>
                   {mobileCompact && (
-                    <span className="lg:hidden text-sm font-semibold text-muted-foreground">
+                    <span className="lg:hidden text-base font-semibold text-muted-foreground">
                       {modules.length} {modules.length === 1 ? "module" : "modules"}
                     </span>
                   )}
@@ -405,7 +405,7 @@ export function CourseOverviewView({
                     <button
                       type="button"
                       onClick={onAddModule}
-                      className="text-xs font-bold text-primary hover:text-orange-300 cursor-pointer"
+                      className="text-sm font-bold text-primary hover:text-orange-300 cursor-pointer"
                     >
                       + Add Module
                     </button>
@@ -431,7 +431,7 @@ export function CourseOverviewView({
                           }`}
                         >
                           <span
-                            className={`text-xs font-mono font-black text-primary/90 bg-primary/10 px-2 py-1 rounded border border-primary/20 shrink-0 ${
+                            className={`text-sm font-mono font-black text-primary/90 bg-primary/10 px-2 py-1 rounded border border-primary/20 shrink-0 ${
                               mobileCompact
                                 ? "max-lg:inline-flex max-lg:h-8 max-lg:w-8 max-lg:items-center max-lg:justify-center max-lg:rounded-lg max-lg:p-0"
                                 : ""
@@ -441,17 +441,17 @@ export function CourseOverviewView({
                           </span>
                           <div className="min-w-0">
                             <h4
-                              className={`text-xs font-bold text-foreground truncate ${
+                              className={`text-sm font-bold text-foreground truncate ${
                                 mobileCompact
-                                  ? "max-lg:text-sm max-lg:leading-snug max-lg:line-clamp-2 max-lg:whitespace-normal"
+                                  ? "max-lg:text-base max-lg:leading-snug max-lg:line-clamp-2 max-lg:whitespace-normal"
                                   : ""
                               }`}
                             >
                               {mod.title || "Untitled Module"}
                             </h4>
                             <p
-                              className={`text-[10.5px] text-muted-foreground font-mono mt-0.5 ${
-                                mobileCompact ? "max-lg:font-sans max-lg:text-[11.5px] max-lg:mt-0.5" : ""
+                              className={`text-[12.5px] text-muted-foreground font-mono mt-0.5 ${
+                                mobileCompact ? "max-lg:font-sans max-lg:text-[13.5px] max-lg:mt-0.5" : ""
                               }`}
                             >
                               {lessonCount} {lessonCount === 1 ? "Lesson" : "Lessons"} · {topicCount} {topicCount === 1 ? "Topic" : "Topics"}
@@ -460,7 +460,7 @@ export function CourseOverviewView({
                           </div>
                         </div>
                         <span
-                          className={`text-muted-foreground text-xs font-bold shrink-0 ml-2 ${
+                          className={`text-muted-foreground text-sm font-bold shrink-0 ml-2 ${
                             mobileCompact ? "max-lg:hidden" : ""
                           }`}
                         >

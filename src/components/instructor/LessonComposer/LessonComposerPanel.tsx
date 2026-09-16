@@ -329,7 +329,7 @@ export function LessonComposerPanel({
   if (isError) {
     return (
       <Card className="border-border bg-background/60">
-        <CardContent className="py-12 text-center text-sm text-muted-foreground">
+        <CardContent className="py-12 text-center text-base text-muted-foreground">
           Failed to load lesson content.
         </CardContent>
       </Card>
@@ -352,10 +352,10 @@ export function LessonComposerPanel({
       {/* Canvas */}
       {!parent?.parentId ? (
         <div className="rounded-2xl border-2 border-dashed border-amber-500/30 bg-amber-500/5 p-12 text-center">
-          <p className="text-sm font-bold text-amber-400">
+          <p className="text-base font-bold text-amber-400">
             {parent?.parentType === "topic" ? "No topic found for this lesson." : "Nothing selected yet."}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-sm text-muted-foreground">
             {parent?.parentType === "topic"
               ? <>Please click <strong className="text-foreground">+ New Topic</strong> in the left Course Map sidebar to create a topic before adding content blocks.</>
               : "Select or create this item first."}
@@ -366,10 +366,10 @@ export function LessonComposerPanel({
           onClick={() => openAddCell(nextOrder)}
           className="rounded-2xl border-2 border-dashed border-border hover:border-primary/50 bg-background/40 p-12 text-center transition cursor-pointer group"
         >
-          <p className="text-sm font-bold text-foreground group-hover:text-primary transition">
+          <p className="text-base font-bold text-foreground group-hover:text-primary transition">
             No content in this {parent?.parentType || "lesson"} yet.
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-sm text-muted-foreground">
             Click here to add your first content block.
           </p>
         </div>

@@ -43,7 +43,7 @@ export function NodeBadge({ progress, nodeId, node: nodeProp }) {
 
   return (
     <span
-      className={`shrink-0 text-[9px] font-black tabular-nums px-1.5 py-0.5 rounded border ${
+      className={`shrink-0 text-[11px] font-black tabular-nums px-1.5 py-0.5 rounded border ${
         completed
           ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-500"
           : "bg-background border-border text-muted-foreground"
@@ -83,7 +83,7 @@ function ItemRow({ item, kind, onSelect, scope }) {
         <Circle size={13} className="text-muted-foreground/50 shrink-0" />
       )}
       <Icon size={12} className={`${meta.className} shrink-0`} />
-      <span className="truncate text-[11px] font-medium text-foreground flex-1">
+      <span className="truncate text-[13px] font-medium text-foreground flex-1">
         {item.title || "Untitled"}
       </span>
     </button>
@@ -155,7 +155,7 @@ export default function CourseContentAccordion({
     <div className="rounded-3xl border border-border/80 bg-[#0d0e16]/60 backdrop-blur-md shadow-xl overflow-hidden">
       <div className={`p-4 sm:p-5 ${collapsed ? "" : "border-b border-border/60"}`}>
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-black uppercase tracking-widest text-foreground">
+          <h3 className="text-base font-black uppercase tracking-widest text-foreground">
             Course Content
           </h3>
           <div className="flex items-center gap-2">
@@ -180,7 +180,7 @@ export default function CourseContentAccordion({
               their own block at the root they would be unreachable here. */}
           {hasCourseDirectItems && (
             <div className="px-2 sm:px-3 py-2">
-              <p className="px-3 pb-1 text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+              <p className="px-3 pb-1 text-[12px] font-black uppercase tracking-wider text-muted-foreground">
                 Course Materials
               </p>
               <DirectItems node={course} onSelectItem={onSelectItem} scope={{}} />
@@ -204,10 +204,10 @@ export default function CourseContentAccordion({
                   className="flex w-full items-center justify-between gap-3 px-4 sm:px-5 py-3.5 text-left transition min-h-[44px] cursor-pointer border-0 bg-transparent outline-none hover:bg-background/40"
                 >
                   <div className="min-w-0 flex-1">
-                    <h4 className="text-xs font-bold text-foreground truncate">
+                    <h4 className="text-sm font-bold text-foreground truncate">
                       Module {moduleIndex + 1}: {module.title}
                     </h4>
-                    <p className="text-[10px] text-muted-foreground font-semibold mt-0.5">
+                    <p className="text-[12px] text-muted-foreground font-semibold mt-0.5">
                       {lessonCount} {lessonCount === 1 ? "lesson" : "lessons"}
                     </p>
                   </div>
@@ -249,11 +249,11 @@ export default function CourseContentAccordion({
                               <span className="h-2 w-2 rounded-full bg-slate-700 shrink-0 ml-[3px] mr-[3px]" />
                             )}
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-medium">
+                              <p className="truncate text-sm font-medium">
                                 {lessonIndex + 1}. {lesson.title}
                               </p>
                               <p
-                                className={`truncate text-[10px] ${
+                                className={`truncate text-[12px] ${
                                   isActive ? "text-orange-400" : "text-muted-foreground"
                                 }`}
                               >
@@ -273,7 +273,7 @@ export default function CourseContentAccordion({
                               {topics.map((topic) => (
                                 <div key={topic.id}>
                                   <div className="flex items-center justify-between gap-2 px-3 pt-1.5 pb-0.5">
-                                    <span className="truncate text-[10px] font-black uppercase tracking-wider text-muted-foreground flex-1">
+                                    <span className="truncate text-[12px] font-black uppercase tracking-wider text-muted-foreground flex-1">
                                       {topic.title}
                                     </span>
                                     <NodeBadge progress={progress} nodeId={topic.id} node={topic} />
@@ -288,7 +288,7 @@ export default function CourseContentAccordion({
                     })}
 
                     {lessonCount === 0 && !hasModuleDirectItems && (
-                      <div className="px-3 py-2 text-xs text-muted-foreground italic">
+                      <div className="px-3 py-2 text-sm text-muted-foreground italic">
                         No lessons available
                       </div>
                     )}
@@ -302,7 +302,7 @@ export default function CourseContentAccordion({
             <button
               type="button"
               onClick={() => setModulesExpanded((prev) => !prev)}
-              className="w-full px-4 sm:px-5 py-3 min-h-[44px] text-[10px] font-black uppercase tracking-wider text-primary hover:text-orange-300 transition cursor-pointer border-0 bg-transparent outline-none"
+              className="w-full px-4 sm:px-5 py-3 min-h-[44px] text-[12px] font-black uppercase tracking-wider text-primary hover:text-orange-300 transition cursor-pointer border-0 bg-transparent outline-none"
             >
               {modulesExpanded
                 ? "Show Less"

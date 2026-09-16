@@ -19,6 +19,9 @@ import MarkdownRenderer from "@/components/ui/MarkdownEditor/MarkdownRenderer";
 import { unescapeFromContentApi, highlightCode } from "@/lib/markdown";
 import { PdfViewer, PptViewer, DocxViewer, ExternalDocumentViewer } from "@/components/shared/LazyDocumentViewers";
 import ContentAssignmentPanel from "@/components/student/learning/ContentAssignmentPanel";
+import SpeechControls from "@/components/student/tts/SpeechControls";
+import useLessonReadAloud from "@/hooks/useLessonReadAloud";
+import { resolveSpeechLang } from "@/lib/textToSpeech";
 import { SlideColumnsView } from "@/components/instructor/LessonComposer/cells/slideCanvas/SlideColumnsLayout";
 import { parseSlideDeckJson } from "@/components/instructor/LessonComposer/cells/slideCanvas/slideElementTypes";
 
@@ -85,7 +88,7 @@ const parseSlides = (html) => {
 };
 
 const VideoPlayer = forwardRef(function VideoPlayer(
-    { content, onTimeUpdate, onEnded, onDurationChange, initialTime = 0 },
+    { content, onTimeUpdate, onEnded, onDurationChange, initialTime = 0, speechLanguage, lessonTitle, reserveHeaderCorner = false },
     ref
 ) {
     const containerRef = useRef(null);
@@ -276,13 +279,33 @@ const VideoPlayer = forwardRef(function VideoPlayer(
         setViewerControls(null);
     }, [content]);
 
+    // Read aloud (browser speech synthesis) — only for a written text/HTML
+    // block, the one content type whose words are the lesson itself. Video,
+    // documents, slides, images and assignments keep their own UI. Same
+    // image test as isImage below, which can't be used here because hooks
+    // must run before the empty-content early return.
+    const isTextBlock =
+        (type === "TEXT" || type === "HTML") &&
+        !(htmlContent?.includes("cc-image-block") || /<img\s+/i.test(htmlContent || ""));
+    const readAloud = useLessonReadAloud({
+        enabled: isTextBlock && Boolean(htmlContent),
+        contentId: content?.id,
+        title: content?.title || lessonTitle,
+        source: htmlContent ? unescapeFromContentApi(htmlContent) : "",
+        lang: resolveSpeechLang(speechLanguage),
+    });
+    const showReadAloud = isTextBlock && readAloud.hasText && readAloud.speech.supported;
+    // PDF/Word viewers read their own extracted text; they only need to know
+    // what they're showing and in which language.
+    const documentReadAloud = content?.id ? { sessionKey: content.id, lang: resolveSpeechLang(speechLanguage) } : null;
+
     if (!content) {
         return (
             <div className="flex aspect-video min-h-[220px] max-h-[520px] w-full items-center justify-center rounded-2xl border border-border bg-background p-6 text-center">
                 <div>
                     <PlayCircle className="mx-auto mb-3 h-12 w-12 text-slate-600 animate-pulse" />
-                    <h3 className="text-base sm:text-xl font-semibold text-foreground">Select a lesson</h3>
-                    <p className="mt-1 text-xs sm:text-sm text-muted-foreground">Choose a lesson from the sidebar to begin learning.</p>
+                    <h3 className="text-lg sm:text-2xl font-semibold text-foreground">Select a lesson</h3>
+                    <p className="mt-1 text-sm sm:text-base text-muted-foreground">Choose a lesson from the sidebar to begin learning.</p>
                 </div>
             </div>
         );
@@ -427,7 +450,7 @@ const VideoPlayer = forwardRef(function VideoPlayer(
         : "flex-1 max-xl:min-h-0";
 
     return (
-        <div className={`bg-background flex flex-col w-full ${rootSizing}`}>
+        <div ref={readAloud.scopeRef} className={`bg-background flex flex-col w-full ${rootSizing}`}>
             {/* Header — skipped for VIDEO: the lesson title already shows above the
                 player, and the video's own thumbnail/embed carries its title too,
                 so this bar was just a third repeat of the same text. Also skipped
@@ -435,16 +458,42 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                 (e.g. a merged document block from an import with no block title) —
                 an icon-only bar with nothing next to it isn't useful, and we don't
                 invent a fake title just to fill it. */}
-            {type !== "VIDEO" && (content.title || isSlideShow || pdfPage || viewerControls) && (
-            <div className="shrink-0 border-b border-border px-4 sm:px-6 py-3.5 flex items-center justify-between bg-background min-h-[52px] max-xl:py-2.5 max-xl:min-h-0">
-                <h2 className="text-sm sm:text-base font-semibold text-foreground flex items-center gap-2 truncate pr-2">
+            {type !== "VIDEO" && (content.title || isSlideShow || pdfPage || viewerControls || showReadAloud) && (
+            <div
+                className={`relative shrink-0 border-b border-border px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-2 bg-background min-h-[52px] max-xl:py-2.5 max-xl:min-h-0${
+                    // At xl the learn page floats its Mark as Complete pill over
+                    // this header's top-right corner (now always visible, not
+                    // just on hover — see page.jsx); keep the header's own
+                    // controls (page, zoom, slide count, read aloud) clear of
+                    // it. The pill is ~165px wide plus its own 12px inset from
+                    // the frame edge (~177px) — pr-44 (176px) left a ~1px
+                    // sliver of real overlap, so this rounds up to the next
+                    // step instead of shaving the pill or the inset down to
+                    // fit an exact width that will just drift again later.
+                    reserveHeaderCorner && (isSlideShow || pdfPage || viewerControls || showReadAloud) ? " xl:pr-48" : ""
+                }${
+                    // With read aloud in it, the header stays pinned at xl, where
+                    // the player frame scrolls this whole block — so Pause/Stop
+                    // are always reachable in a long lesson. Below xl it already
+                    // sits outside the scrolling text.
+                    showReadAloud ? " xl:sticky xl:top-0 z-20" : ""
+                }`}
+            >
+                <h2 className="text-base sm:text-lg font-semibold text-foreground flex items-center gap-2 truncate pr-2">
                     {isSlideShow && <Presentation className="h-4 w-4 text-primary shrink-0" />}
                     {isTextLike && !isSlideShow && <BookOpen className="h-4 w-4 text-primary shrink-0" />}
                     {isFileLike && <FileText className="h-4 w-4 text-primary shrink-0" />}
-                    {content.title && <span className="truncate">{content.title}</span>}
+                    {content.title && (
+                        <span
+                            className={`truncate${showReadAloud && readAloud.readsTitle ? " tts-chunk" : ""}`}
+                            data-tts-chunk={showReadAloud && readAloud.readsTitle ? 0 : undefined}
+                        >
+                            {content.title}
+                        </span>
+                    )}
                 </h2>
                 {isSlideShow && slideCount > 1 && (
-                    <span className="text-xs font-medium text-muted-foreground bg-muted px-2.5 py-1 rounded-full shrink-0">
+                    <span className="text-sm font-medium text-muted-foreground bg-muted px-2.5 py-1 rounded-full shrink-0">
                         Slide {slideIndex + 1} / {slideCount}
                     </span>
                 )}
@@ -469,7 +518,7 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                             <ChevronLeft size={15} />
                         </button>
 
-                        <span className="px-1 text-[11px] font-bold tabular-nums text-muted-foreground whitespace-nowrap">
+                        <span className="px-1 text-[13px] font-bold tabular-nums text-muted-foreground whitespace-nowrap">
                             <span className="sm:hidden">
                                 {pdfPage.page} / {pdfPage.total}
                             </span>
@@ -492,6 +541,17 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                 )}
 
                 {viewerControls}
+
+                {/* Read aloud — in the title row, beside the lesson title. */}
+                {showReadAloud && (
+                    <SpeechControls
+                        variant="inline"
+                        speech={readAloud.speech}
+                        onListen={readAloud.listen}
+                        lang={resolveSpeechLang(speechLanguage)}
+                        className="min-w-0"
+                    />
+                )}
             </div>
             )}
 
@@ -521,8 +581,8 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                     ) : (
                         <div className="flex h-80 w-full flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-[#0B101D] p-6 text-center">
                             <PlayCircle className="h-10 w-10 text-amber-500 animate-pulse" />
-                            <h4 className="text-sm font-bold text-foreground">No Video Source Provided</h4>
-                            <p className="text-xs text-muted-foreground max-w-sm leading-relaxed">
+                            <h4 className="text-base font-bold text-foreground">No Video Source Provided</h4>
+                            <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">
                                 No video URL or video file was configured for this video item.
                             </p>
                         </div>
@@ -538,13 +598,15 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                        scrolls. */
                     <div className="w-full flex-1 min-h-0 flex flex-col">
                         {isPdfUrl(displayFileUrl) ? (
-                            <PdfViewer fileUrl={displayFileUrl} title={content?.title} hideToolbar fillHeight onPageStateChange={reportPdfPage} />
+                            <PdfViewer fileUrl={displayFileUrl} title={content?.title} hideToolbar fillHeight onPageStateChange={reportPdfPage} readAloud={documentReadAloud} />
                         ) : isPptUrl(displayFileUrl) ? (
+                            /* No fillHeight: the slide area sizes itself from
+                               the deck's aspect ratio at every width, and the
+                               learn page's frame hugs it (player mode "aspect"). */
                             <PptViewer
                                 fileUrl={displayFileUrl}
                                 title={content?.title}
                                 hideToolbar
-                                fillHeight
                                 showDownload={false}
                                 onControlsRender={setViewerControls}
                             />
@@ -563,9 +625,10 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                                 hideToolbar
                                 showDownload={false}
                                 onControlsRender={setViewerControls}
+                                readAloud={documentReadAloud}
                             />
                         ) : displayFileUrl ? (
-                            <ExternalDocumentViewer fileUrl={displayFileUrl} title={content?.title} fillHeight />
+                            <ExternalDocumentViewer fileUrl={displayFileUrl} title={content?.title} fillHeight readAloud={documentReadAloud} />
                         ) : htmlContent ? (
                             <div className="p-4 sm:p-8 select-text min-w-0 max-w-full">
                                 <MarkdownRenderer
@@ -607,7 +670,7 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                                     type="button"
                                     onClick={() => setSlideIndex(prev => Math.max(0, prev - 1))}
                                     disabled={slideIndex === 0}
-                                    className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-muted text-foreground rounded-xl text-xs font-bold disabled:opacity-50 hover:bg-muted transition"
+                                    className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-muted text-foreground rounded-xl text-sm font-bold disabled:opacity-50 hover:bg-muted transition"
                                 >
                                     <ChevronLeft className="h-4 w-4" /> Prev slide
                                 </button>
@@ -629,7 +692,7 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                                     type="button"
                                     onClick={() => setSlideIndex(prev => Math.min(slideDeck.length - 1, prev + 1))}
                                     disabled={slideIndex === slideDeck.length - 1}
-                                    className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-muted text-foreground rounded-xl text-xs font-bold disabled:opacity-50 hover:bg-muted transition"
+                                    className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-muted text-foreground rounded-xl text-sm font-bold disabled:opacity-50 hover:bg-muted transition"
                                 >
                                     Next slide <ChevronRight className="h-4 w-4" />
                                 </button>
@@ -669,7 +732,7 @@ const VideoPlayer = forwardRef(function VideoPlayer(
 
                 {/* CODE / CODING_EXERCISE */}
                 {(type === "CODE" || type === "CODING_EXERCISE") && (
-                    <pre className="m-4 sm:m-8 rounded-xl border border-border overflow-hidden text-xs sm:text-sm select-text">
+                    <pre className="m-4 sm:m-8 rounded-xl border border-border overflow-hidden text-sm sm:text-base select-text">
                         <code
                             className={`hljs${content?.data?.language ? ` language-${content.data.language}` : ""}`}
                             dangerouslySetInnerHTML={{ __html: highlightCode(htmlContent || "", content?.data?.language) }}
@@ -708,7 +771,7 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                             );
                         }
                         return (
-                            <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
+                            <div className="flex h-[220px] items-center justify-center text-base text-muted-foreground">
                                 No embed URL configured
                             </div>
                         );
@@ -723,7 +786,7 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                         <div className="flex-1 flex flex-col justify-between p-4 sm:p-8 min-h-[320px] max-xl:flex-none max-xl:min-h-0">
                             <div
                                 onClick={handleSlideAreaClick}
-                                className={`prose prose-invert max-w-none text-foreground text-base sm:text-lg leading-relaxed flex-1 flex flex-col justify-center select-text ${
+                                className={`prose prose-invert max-w-none text-foreground text-lg sm:text-xl leading-relaxed flex-1 flex flex-col justify-center select-text ${
                                     legacySlides.length > 1 ? "cursor-pointer" : ""
                                 }`}
                                 dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(legacySlides[slideIndex] || "") }}
@@ -737,7 +800,7 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                                     type="button"
                                     onClick={() => setSlideIndex(prev => Math.max(0, prev - 1))}
                                     disabled={slideIndex === 0}
-                                    className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-muted text-foreground rounded-xl text-xs font-bold disabled:opacity-50 hover:bg-muted transition"
+                                    className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-muted text-foreground rounded-xl text-sm font-bold disabled:opacity-50 hover:bg-muted transition"
                                 >
                                     <ChevronLeft className="h-4 w-4" /> Prev slide
                                 </button>
@@ -759,7 +822,7 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                                     type="button"
                                     onClick={() => setSlideIndex(prev => Math.min(legacySlides.length - 1, prev + 1))}
                                     disabled={slideIndex === legacySlides.length - 1}
-                                    className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-muted text-foreground rounded-xl text-xs font-bold disabled:opacity-50 hover:bg-muted transition"
+                                    className="flex items-center gap-1.5 px-3 py-2 min-h-[44px] bg-muted text-foreground rounded-xl text-sm font-bold disabled:opacity-50 hover:bg-muted transition"
                                 >
                                     Next slide <ChevronRight className="h-4 w-4" />
                                 </button>
@@ -769,6 +832,7 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                         <div className="p-4 sm:p-8 select-text min-w-0 max-w-full w-full">
                             <MarkdownRenderer
                                 source={unescapeFromContentApi(htmlContent || "")}
+                                renderedHtml={showReadAloud ? readAloud.html : undefined}
                                 emptyText="No content yet."
                                 className="max-w-4xl mx-auto w-full min-w-0"
                             />
@@ -807,15 +871,15 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                     ) : (
                         <div className="flex h-[320px] sm:h-[420px] md:h-[520px] flex-col items-center justify-center gap-4 p-6 text-center">
                             <ExternalLink className="h-16 w-16 text-primary animate-pulse" />
-                            <h3 className="text-lg font-semibold text-foreground">External Resource</h3>
-                            <p className="text-xs sm:text-sm text-muted-foreground max-w-md">
+                            <h3 className="text-xl font-semibold text-foreground">External Resource</h3>
+                            <p className="text-sm sm:text-base text-muted-foreground max-w-md">
                                 This content is hosted externally. Click below to open it in a new tab.
                             </p>
                             <a
                                 href={externalUrl}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="rounded-xl bg-orange-600 px-5 py-2.5 min-h-[44px] flex items-center justify-center font-bold text-xs uppercase tracking-wider text-foreground transition hover:bg-orange-700 shadow-lg"
+                                className="rounded-xl bg-orange-600 px-5 py-2.5 min-h-[44px] flex items-center justify-center font-bold text-sm uppercase tracking-wider text-foreground transition hover:bg-orange-700 shadow-lg"
                             >
                                 Visit Website
                             </a>

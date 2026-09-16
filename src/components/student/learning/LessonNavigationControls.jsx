@@ -72,7 +72,7 @@ export default function LessonNavigationControls({
           onClick={onSelectPrevious}
           aria-label="Previous content"
           title={`Previous ${unitLabel}`}
-          className={`inline-flex items-center gap-1.5 rounded-xl border border-border bg-card/90 px-3.5 py-2 min-h-[44px] text-xs font-bold text-foreground transition hover:border-primary hover:text-primary cursor-pointer ${
+          className={`inline-flex items-center gap-1.5 rounded-xl border border-border bg-card/90 px-3.5 py-2 min-h-[44px] text-sm font-bold text-foreground transition hover:border-primary hover:text-primary cursor-pointer ${
             !previousItem ? "opacity-30 cursor-not-allowed hover:border-border hover:text-foreground" : ""
           }`}
         >
@@ -86,7 +86,7 @@ export default function LessonNavigationControls({
           onClick={onSelectNext}
           aria-label="Next content"
           title={`Next ${unitLabel}`}
-          className={`inline-flex items-center gap-1.5 rounded-xl bg-primary hover:bg-orange-600 px-3.5 py-2 min-h-[44px] text-xs font-bold text-slate-950 transition cursor-pointer ${
+          className={`inline-flex items-center gap-1.5 rounded-xl bg-primary hover:bg-orange-600 px-3.5 py-2 min-h-[44px] text-sm font-bold text-slate-950 transition cursor-pointer ${
             !nextItem ? "opacity-40 cursor-not-allowed bg-primary/40 text-muted-foreground" : ""
           }`}
         >
@@ -104,7 +104,7 @@ export default function LessonNavigationControls({
           type="button"
           disabled={!previousItem}
           onClick={onSelectPrevious}
-          className={`relative flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded-xl border border-transparent font-bold text-[10px] uppercase tracking-wide text-foreground hover:text-foreground hover:border-primary transition cursor-pointer before:content-[''] before:absolute before:-inset-y-[8px] before:inset-x-0 ${
+          className={`relative flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded-xl border border-transparent font-bold text-[12px] uppercase tracking-wide text-foreground hover:text-foreground hover:border-primary transition cursor-pointer before:content-[''] before:absolute before:-inset-y-[8px] before:inset-x-0 ${
             !previousItem ? "opacity-30 cursor-not-allowed hover:border-transparent hover:text-foreground" : ""
           }`}
         >
@@ -116,7 +116,7 @@ export default function LessonNavigationControls({
           type="button"
           disabled={!nextItem}
           onClick={onSelectNext}
-          className={`relative flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded-xl bg-primary hover:bg-orange-600 font-bold text-[10px] uppercase tracking-wide text-slate-950 transition cursor-pointer before:content-[''] before:absolute before:-inset-y-[8px] before:inset-x-0 ${
+          className={`relative flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded-xl bg-primary hover:bg-orange-600 font-bold text-[12px] uppercase tracking-wide text-slate-950 transition cursor-pointer before:content-[''] before:absolute before:-inset-y-[8px] before:inset-x-0 ${
             !nextItem ? "opacity-40 cursor-not-allowed bg-primary/40 text-muted-foreground" : ""
           }`}
         >
@@ -132,7 +132,7 @@ export default function LessonNavigationControls({
       <button
         disabled={!previousItem}
         onClick={onSelectPrevious}
-        className={`w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl border border-transparent font-extrabold text-xs text-foreground hover:text-foreground hover:border-primary transition cursor-pointer ${
+        className={`w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl border border-transparent font-extrabold text-sm text-foreground hover:text-foreground hover:border-primary transition cursor-pointer ${
           !previousItem ? "opacity-30 cursor-not-allowed hover:border-transparent text-muted-foreground" : ""
         }`}
       >
@@ -141,10 +141,10 @@ export default function LessonNavigationControls({
       </button>
 
       <div className="text-center font-mono py-1 sm:py-0 truncate max-w-full">
-        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block">
+        <span className="text-[12px] font-black uppercase tracking-widest text-muted-foreground block">
           Active {unitLabel} Pathway
         </span>
-        <p className="text-xs font-bold text-primary truncate max-w-[200px] sm:max-w-[280px]">
+        <p className="text-sm font-bold text-primary truncate max-w-[200px] sm:max-w-[280px]">
           {currentTitle || `Course ${unitLabel}`}
         </p>
       </div>
@@ -152,7 +152,7 @@ export default function LessonNavigationControls({
       <button
         disabled={!nextItem}
         onClick={onSelectNext}
-        className={`w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 min-h-[44px] rounded-xl bg-primary hover:bg-orange-600 font-black text-xs text-slate-950 transition shadow-lg shadow-orange-500/20 active:scale-95 cursor-pointer ${
+        className={`w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 min-h-[44px] rounded-xl bg-primary hover:bg-orange-600 font-black text-sm text-slate-950 transition shadow-lg shadow-orange-500/20 active:scale-95 cursor-pointer ${
           !nextItem ? "opacity-40 cursor-not-allowed bg-primary/40 text-muted-foreground" : ""
         }`}
       >

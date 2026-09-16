@@ -99,6 +99,10 @@ export default function MyCourseCard({ enrollment, course: rawCourse }) {
           {course.title}
         </h3>
 
+        <p className="text-[12px] leading-snug text-muted-foreground line-clamp-2 min-h-[2.25rem] mb-3">
+          {course.description || "No description provided."}
+        </p>
+
         {/* No flex-wrap: a long instructor name must truncate, not wrap to a
             second line — otherwise that one card grows taller than its
             siblings in the grid. */}
@@ -115,6 +119,12 @@ export default function MyCourseCard({ enrollment, course: rawCourse }) {
           <span className="flex items-center gap-1 shrink-0">
             <BookOpen size={12} className="text-muted-foreground/70" />
             {lessonsTotal} Lessons
+          </span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <span className="rounded-full bg-primary/10 px-2 py-[3px] text-[10px] font-bold text-primary">
+            {course.level || "Beginner"}
           </span>
         </div>
 

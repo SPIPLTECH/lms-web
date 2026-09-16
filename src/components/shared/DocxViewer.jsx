@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import axios from "axios";
 import {
   FileText,
@@ -14,6 +14,10 @@ import {
 
 import { getDisplayUrl } from "@/lib/blob";
 import { parseDocxArrayBuffer } from "@/lib/docxParser";
+import { buildDocxSpeech } from "@/lib/documentSpeech";
+import SpeechControls from "@/components/student/tts/SpeechControls";
+import useChunkHighlight from "@/hooks/useChunkHighlight";
+import useTextToSpeech from "@/hooks/useTextToSpeech";
 
 export default function DocxViewer({
   fileUrl,
@@ -30,6 +34,9 @@ export default function DocxViewer({
   // Same opt-out PptViewer takes: drops the Download button from the controls
   // for hosts that don't want the file offered for download.
   showDownload = true,
+  // Opt-in read aloud for the student player: { sessionKey, lang }. Omitted
+  // by every other consumer (instructor views), which render as before.
+  readAloud = null,
 }) {
   const resolvedUrl = getDisplayUrl(fileUrl);
 
@@ -48,6 +55,21 @@ export default function DocxViewer({
   const [isMounted, setIsMounted] = useState(false);
 
   const viewportRef = useRef(null);
+  const paperRef = useRef(null);
+
+  // Read aloud — sentences come straight from the parsed paragraphs/tables,
+  // and each rendered sentence carries its chunk number for highlighting.
+  const readAloudLang = readAloud?.lang || "";
+  const readAloudEnabled = Boolean(readAloud?.sessionKey);
+  const speech = useTextToSpeech(readAloudEnabled ? `docx:${readAloud.sessionKey}` : null);
+  const docSpeech = useMemo(
+    () => (readAloudEnabled && elements.length > 0 ? buildDocxSpeech(elements, readAloudLang) : null),
+    [readAloudEnabled, elements, readAloudLang]
+  );
+  const showReadAloud = readAloudEnabled && speech.supported && (docSpeech?.chunks.length ?? 0) > 0;
+  useChunkHighlight(paperRef, showReadAloud && (speech.isPlaying || speech.isPaused) ? speech.index : -1, docSpeech, {
+    topInset: 16,
+  });
 
   useEffect(() => {
     setIsMounted(true);
@@ -141,7 +163,7 @@ export default function DocxViewer({
           <ZoomOut size={15} />
         </button>
 
-        <span className="text-[11px] font-semibold text-foreground min-w-[36px] text-center font-mono">
+        <span className="text-[13px] font-semibold text-foreground min-w-[36px] text-center font-mono">
           {Math.round(zoomScale * 100)}%
         </span>
 
@@ -159,7 +181,7 @@ export default function DocxViewer({
           <button
             type="button"
             onClick={handleResetZoom}
-            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold text-primary hover:bg-primary/10 border border-primary/30 transition cursor-pointer"
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[13px] font-bold text-primary hover:bg-primary/10 border border-primary/30 transition cursor-pointer"
             title="Reset Zoom"
           >
             <Maximize2 size={12} />
@@ -175,7 +197,7 @@ export default function DocxViewer({
           download
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1.5 rounded-xl bg-primary hover:bg-orange-600 px-3 py-1.5 text-xs font-extrabold text-slate-950 transition cursor-pointer shadow-md"
+          className="flex items-center gap-1.5 rounded-xl bg-primary hover:bg-orange-600 px-3 py-1.5 text-sm font-extrabold text-slate-950 transition cursor-pointer shadow-md"
           title="Download Word Document"
         >
           <Download size={14} />
@@ -230,13 +252,23 @@ export default function DocxViewer({
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500/15 border border-blue-500/30 text-blue-400 shrink-0">
               <FileText size={15} />
             </div>
-            <span className="text-xs font-bold text-foreground truncate max-w-[160px] sm:max-w-xs md:max-w-md">
+            <span className="text-sm font-bold text-foreground truncate max-w-[160px] sm:max-w-xs md:max-w-md">
               {title || "Word Document"}
             </span>
           </div>
 
           {controlsNode}
         </div>
+      )}
+
+      {showReadAloud && (
+        <SpeechControls
+          speech={speech}
+          onListen={() => speech.start(docSpeech.chunks, { lang: readAloudLang })}
+          lang={readAloudLang}
+          label="document"
+          className="shrink-0"
+        />
       )}
 
       {/* DOCUMENT PAPER VIEWPORT */}
@@ -249,7 +281,7 @@ export default function DocxViewer({
         {loadingStep && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#060913]/90 z-20 rounded-2xl">
             <Loader2 className="h-9 w-9 animate-spin text-primary" />
-            <p className="text-xs font-bold text-foreground">{loadingStep}</p>
+            <p className="text-sm font-bold text-foreground">{loadingStep}</p>
           </div>
         )}
 
@@ -260,8 +292,8 @@ export default function DocxViewer({
               <AlertCircle size={24} />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-foreground mb-1">Document preview unavailable</h4>
-              <p className="text-xs text-muted-foreground leading-relaxed mb-4">
+              <h4 className="text-base font-bold text-foreground mb-1">Document preview unavailable</h4>
+              <p className="text-sm text-muted-foreground leading-relaxed mb-4">
                 This Word document cannot be rendered directly in the browser preview.
                 {hasDownloadAffordance
                   ? " Use Download at the top of this document to view it on your device."
@@ -278,7 +310,7 @@ export default function DocxViewer({
                 download
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl bg-primary hover:bg-orange-600 px-5 py-2.5 text-xs font-bold text-slate-950 transition shadow-lg"
+                className="inline-flex items-center gap-2 rounded-xl bg-primary hover:bg-orange-600 px-5 py-2.5 text-sm font-bold text-slate-950 transition shadow-lg"
               >
                 <Download size={15} />
                 <span>Download Document</span>
@@ -288,6 +320,7 @@ export default function DocxViewer({
         ) : elements.length > 0 ? (
           /* Render Document Paper Container */
           <div
+            ref={paperRef}
             className="w-full max-w-4xl bg-background border border-border text-foreground p-6 sm:p-12 shadow-2xl rounded-2xl transition-transform duration-150 origin-top"
             style={{
               transform: `scale(${zoomScale})`,
@@ -307,13 +340,13 @@ export default function DocxViewer({
               }
 
               if (elem.type === "paragraph") {
-                let textClass = "text-sm text-foreground leading-relaxed mb-3";
+                let textClass = "text-base text-foreground leading-relaxed mb-3";
                 if (elem.style === "h1") {
-                  textClass = "text-2xl font-bold text-foreground mb-4 mt-6 border-b border-border pb-2";
+                  textClass = "text-3xl font-bold text-foreground mb-4 mt-6 border-b border-border pb-2";
                 } else if (elem.style === "h2") {
-                  textClass = "text-xl font-bold text-foreground mb-3 mt-5";
+                  textClass = "text-2xl font-bold text-foreground mb-3 mt-5";
                 } else if (elem.style === "h3") {
-                  textClass = "text-lg font-semibold text-foreground mb-2 mt-4";
+                  textClass = "text-xl font-semibold text-foreground mb-2 mt-4";
                 }
 
                 return (
@@ -322,7 +355,26 @@ export default function DocxViewer({
                     className={textClass}
                     style={{ textAlign: elem.alignment || "left" }}
                   >
-                    {elem.runs?.map((run, rIdx) => (
+                    {showReadAloud && docSpeech.paragraphs[idx]
+                      ? docSpeech.paragraphs[idx].map((segment, sIdx) => {
+                          const run = elem.runs?.[segment.runIndex] || {};
+                          return (
+                            <span
+                              key={sIdx}
+                              className={segment.chunkIndex != null ? "tts-chunk" : undefined}
+                              data-tts-chunk={segment.chunkIndex ?? undefined}
+                              style={{
+                                fontWeight: run.bold ? "bold" : "normal",
+                                fontStyle: run.italic ? "italic" : "normal",
+                                textDecoration: run.underline ? "underline" : "none",
+                                color: run.color || undefined,
+                              }}
+                            >
+                              {segment.text}
+                            </span>
+                          );
+                        })
+                      : elem.runs?.map((run, rIdx) => (
                       <span
                         key={rIdx}
                         style={{
@@ -342,10 +394,14 @@ export default function DocxViewer({
               if (elem.type === "table") {
                 return (
                   <div key={idx} className="my-6 overflow-x-auto rounded-xl border border-border bg-background/60 p-2">
-                    <table className="w-full text-xs text-foreground border-collapse">
+                    <table className="w-full text-sm text-foreground border-collapse">
                       <tbody>
                         {elem.rows?.map((row, rIdx) => (
-                          <tr key={rIdx} className="border-b border-border/80">
+                          <tr
+                            key={rIdx}
+                            className={`border-b border-border/80${showReadAloud && docSpeech.rows[`${idx}:${rIdx}`] != null ? " tts-chunk" : ""}`}
+                            data-tts-chunk={showReadAloud ? docSpeech.rows[`${idx}:${rIdx}`] : undefined}
+                          >
                             {row?.map((cell, cIdx) => (
                               <td key={cIdx} className="p-2 border-r border-border/80">
                                 {cell}

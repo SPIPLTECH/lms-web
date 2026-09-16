@@ -166,7 +166,7 @@ export function AddCellModal({ parent, order, open, onOpenChange, onAddQuiz }: A
           <button
             type="button"
             onClick={handleBack}
-            className="mb-3 shrink-0 flex items-center gap-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-foreground cursor-pointer"
+            className="mb-3 shrink-0 flex items-center gap-1.5 text-sm font-bold text-muted-foreground transition-colors hover:text-foreground cursor-pointer"
           >
             <ArrowLeft className="size-3.5" />
             Back
@@ -175,7 +175,7 @@ export function AddCellModal({ parent, order, open, onOpenChange, onAddQuiz }: A
 
         {!selectedCellOption ? (
           <>
-            <p className="mb-2.5 text-xs text-muted-foreground">Select Cell Type</p>
+            <p className="mb-2.5 text-sm text-muted-foreground">Select Cell Type</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {visibleOptions.map((option) => {
                 const Icon = option.icon;
@@ -190,8 +190,8 @@ export function AddCellModal({ parent, order, open, onOpenChange, onAddQuiz }: A
                       <Icon className="size-4" />
                     </span>
                     <div className="min-w-0 flex-1 space-y-0.5">
-                      <span className="block text-sm font-bold text-foreground truncate">{option.label}</span>
-                      <span className="block text-xs text-muted-foreground truncate">{option.sublabel}</span>
+                      <span className="block text-base font-bold text-foreground truncate">{option.label}</span>
+                      <span className="block text-sm text-muted-foreground truncate">{option.sublabel}</span>
                     </div>
                   </button>
                 );
@@ -200,7 +200,7 @@ export function AddCellModal({ parent, order, open, onOpenChange, onAddQuiz }: A
           </>
         ) : awaitingDocChoice ? (
           <>
-            <p className="mb-2.5 text-xs text-muted-foreground">Select Document Format</p>
+            <p className="mb-2.5 text-sm text-muted-foreground">Select Document Format</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <button
                 type="button"
@@ -211,8 +211,8 @@ export function AddCellModal({ parent, order, open, onOpenChange, onAddQuiz }: A
                   <File className="size-4" />
                 </span>
                 <div className="min-w-0 flex-1 space-y-0.5">
-                  <span className="block text-sm font-bold text-foreground">PDF Document</span>
-                  <span className="block text-xs text-muted-foreground">Upload Adobe PDF file (.pdf)</span>
+                  <span className="block text-base font-bold text-foreground">PDF Document</span>
+                  <span className="block text-sm text-muted-foreground">Upload Adobe PDF file (.pdf)</span>
                 </div>
               </button>
 
@@ -225,15 +225,15 @@ export function AddCellModal({ parent, order, open, onOpenChange, onAddQuiz }: A
                   <FileText className="size-4" />
                 </span>
                 <div className="min-w-0 flex-1 space-y-0.5">
-                  <span className="block text-sm font-bold text-foreground">DOC / DOCX</span>
-                  <span className="block text-xs text-muted-foreground">Upload Word document (.doc, .docx)</span>
+                  <span className="block text-base font-bold text-foreground">DOC / DOCX</span>
+                  <span className="block text-sm text-muted-foreground">Upload Word document (.doc, .docx)</span>
                 </div>
               </button>
             </div>
           </>
         ) : awaitingPresentationChoice ? (
           <>
-            <p className="mb-2.5 text-xs text-muted-foreground">How do you want to create it?</p>
+            <p className="mb-2.5 text-sm text-muted-foreground">How do you want to create it?</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <button
                 type="button"
@@ -244,8 +244,8 @@ export function AddCellModal({ parent, order, open, onOpenChange, onAddQuiz }: A
                   <Layers className="size-4" />
                 </span>
                 <div className="min-w-0 flex-1 space-y-0.5">
-                  <span className="block text-sm font-bold text-foreground">Create Slides</span>
-                  <span className="block text-xs text-muted-foreground">Build presentation inside LMS</span>
+                  <span className="block text-base font-bold text-foreground">Create Slides</span>
+                  <span className="block text-sm text-muted-foreground">Build presentation inside LMS</span>
                 </div>
               </button>
 
@@ -258,8 +258,8 @@ export function AddCellModal({ parent, order, open, onOpenChange, onAddQuiz }: A
                   <Upload className="size-4" />
                 </span>
                 <div className="min-w-0 flex-1 space-y-0.5">
-                  <span className="block text-sm font-bold text-foreground">Upload PPTX</span>
-                  <span className="block text-xs text-muted-foreground">Upload existing PowerPoint file</span>
+                  <span className="block text-base font-bold text-foreground">Upload PPTX</span>
+                  <span className="block text-sm text-muted-foreground">Upload existing PowerPoint file</span>
                 </div>
               </button>
             </div>

@@ -31,9 +31,9 @@ export function formatTimestamp(dateStr) {
 export default function AnnouncementCard({ item, onMarkRead }) {
   return (
     <div
-      onClick={() => !item.read && onMarkRead(item.id)}
+      onClick={() => !item.isRead && onMarkRead(item.id)}
       className={`p-4 rounded-2xl border transition duration-200 flex items-start justify-between gap-4 cursor-pointer ${
-        !item.read
+        !item.isRead
           ? "bg-background/90 border-primary/30 shadow-md shadow-orange-500/5"
           : "bg-background/40 border-border/60 hover:border-transparent/60 opacity-80"
       }`}
@@ -50,7 +50,7 @@ export default function AnnouncementCard({ item, onMarkRead }) {
               {item.title || "Course Announcement"}
             </h3>
 
-            {!item.read && (
+            {!item.isRead && (
               <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-primary/20 text-primary border border-primary/30 shrink-0">
                 New
               </span>
@@ -76,7 +76,7 @@ export default function AnnouncementCard({ item, onMarkRead }) {
       </div>
 
       {/* Right Side: Mark Read Action */}
-      {!item.read && (
+      {!item.isRead && (
         <button
           onClick={(e) => {
             e.stopPropagation();

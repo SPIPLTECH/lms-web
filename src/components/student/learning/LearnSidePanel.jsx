@@ -46,7 +46,7 @@ export default function LearnSidePanel({
               onClick={() => toggle(id)}
               aria-expanded={isOpen}
               aria-controls={`learn-side-${id}`}
-              className={`flex min-h-[44px] items-center gap-2 rounded-xl border px-3 text-left text-sm font-semibold transition-colors cursor-pointer ${
+              className={`flex min-h-[44px] items-center gap-2 rounded-xl border px-3 text-left text-base font-semibold transition-colors cursor-pointer ${
                 isOpen
                   ? "border-primary/60 bg-primary/10 text-primary"
                   : "border-border bg-card text-foreground hover:border-primary/40 hover:text-primary"

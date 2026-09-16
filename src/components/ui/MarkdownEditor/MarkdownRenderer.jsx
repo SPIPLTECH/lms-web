@@ -2,6 +2,8 @@
 
 import "highlight.js/styles/vs2015.css";
 
+import { useMemo } from "react";
+
 import { renderMarkdownToSafeHtml } from "@/lib/markdown";
 
 /**
@@ -11,13 +13,27 @@ import { renderMarkdownToSafeHtml } from "@/lib/markdown";
  * `marked` passes untouched HTML blocks straight through, so no per-row
  * migration is needed. Single shared render path for every "view mode" of
  * Markdown content across the Composer and the student learning view.
+ *
+ * `renderedHtml` (optional) is that same render, already produced by the
+ * caller from `source` — the student read-aloud reader passes the output of
+ * renderMarkdownToSafeHtml with sentence spans added (lib/speechDocument.js)
+ * so it can highlight what's being spoken. Omitted everywhere else.
  */
-export default function MarkdownRenderer({ source, className = "", emptyText = "No content yet." }) {
+export default function MarkdownRenderer({ source, renderedHtml = undefined, className = "", emptyText = "No content yet." }) {
+  const html = useMemo(
+    () => (source ? renderedHtml ?? renderMarkdownToSafeHtml(source) : ""),
+    [source, renderedHtml]
+  );
+
+  // The same element instance for the same HTML, so a parent re-render never
+  // re-assigns innerHTML (React 19 does whenever the __html object is new).
+  // That reset would wipe DOM state inside the content — a text selection,
+  // or the read-aloud highlight class on the sentence being spoken.
+  const body = useMemo(() => <div dangerouslySetInnerHTML={{ __html: html }} />, [html]);
+
   if (!source) {
     return <p className="text-sm italic text-muted-foreground">{emptyText}</p>;
   }
-
-  const html = renderMarkdownToSafeHtml(source);
 
   // max-w-none is the default (existing callers rely on filling whatever
   // container they're in) — but it's a Tailwind utility, so appending a
@@ -29,7 +45,7 @@ export default function MarkdownRenderer({ source, className = "", emptyText = "
   const widthClass = className || "max-w-none";
 
   return (
-    <div className={`md-prose prose prose-sm w-full max-w-full min-w-0 break-words [overflow-wrap:anywhere] ${widthClass}`}>
+    <div className={`md-prose prose prose-base w-full max-w-full min-w-0 break-words [overflow-wrap:anywhere] ${widthClass}`}>
       <style>{`
         .md-prose {
           width: 100%;
@@ -39,7 +55,7 @@ export default function MarkdownRenderer({ source, className = "", emptyText = "
           word-break: break-word;
         }
         .md-prose h1 {
-          font-size: 1.5rem;
+          font-size: 1.75rem;
           font-weight: 800;
           color: var(--foreground);
           margin-top: 1.5rem;
@@ -50,7 +66,7 @@ export default function MarkdownRenderer({ source, className = "", emptyText = "
           word-break: break-word;
         }
         .md-prose h2 {
-          font-size: 1.25rem;
+          font-size: 1.5rem;
           font-weight: 700;
           color: var(--primary);
           margin-top: 1.5rem;
@@ -63,7 +79,7 @@ export default function MarkdownRenderer({ source, className = "", emptyText = "
           word-break: break-word;
         }
         .md-prose h3 {
-          font-size: 1.125rem;
+          font-size: 1.25rem;
           font-weight: 700;
           color: var(--foreground);
           margin-top: 1.25rem;
@@ -74,7 +90,7 @@ export default function MarkdownRenderer({ source, className = "", emptyText = "
           word-break: break-word;
         }
         .md-prose h4, .md-prose h5, .md-prose h6 {
-          font-size: 1rem;
+          font-size: 1.125rem;
           font-weight: 600;
           color: var(--foreground);
           margin-top: 1rem;
@@ -85,22 +101,22 @@ export default function MarkdownRenderer({ source, className = "", emptyText = "
         }
         @media (max-width: 640px) {
           .md-prose h1 {
-            font-size: 1.375rem;
+            font-size: 1.5rem;
             margin-top: 1.125rem;
             margin-bottom: 0.5rem;
           }
           .md-prose h2 {
-            font-size: 1.125rem;
+            font-size: 1.25rem;
             margin-top: 1.125rem;
             margin-bottom: 0.5rem;
           }
           .md-prose h3 {
-            font-size: 1rem;
+            font-size: 1.125rem;
             margin-top: 1rem;
             margin-bottom: 0.375rem;
           }
           .md-prose h4, .md-prose h5, .md-prose h6 {
-            font-size: 0.9375rem;
+            font-size: 1.0625rem;
             margin-top: 0.875rem;
             margin-bottom: 0.375rem;
           }
@@ -109,7 +125,7 @@ export default function MarkdownRenderer({ source, className = "", emptyText = "
           color: var(--muted-foreground);
           line-height: 1.7;
           margin-bottom: 0.875rem;
-          font-size: 0.9375rem;
+          font-size: 1.0625rem;
           overflow-wrap: anywhere;
           word-break: break-word;
         }
@@ -136,7 +152,7 @@ export default function MarkdownRenderer({ source, className = "", emptyText = "
           color: var(--muted-foreground);
           margin-bottom: 0.375rem;
           line-height: 1.6;
-          font-size: 0.9375rem;
+          font-size: 1.0625rem;
           overflow-wrap: anywhere;
           word-break: break-word;
         }
@@ -202,7 +218,7 @@ export default function MarkdownRenderer({ source, className = "", emptyText = "
           background-color: transparent;
           padding: 0;
           border-radius: 0;
-          font-size: 0.8125rem;
+          font-size: 0.9375rem;
           line-height: 1.6;
           white-space: pre;
           overflow-wrap: normal;
@@ -264,7 +280,7 @@ export default function MarkdownRenderer({ source, className = "", emptyText = "
           background-color: var(--muted);
           color: var(--primary);
           font-weight: 700;
-          font-size: 0.75rem;
+          font-size: 0.875rem;
           text-transform: uppercase;
           letter-spacing: 0.05em;
           padding: 0.75rem 1rem;
@@ -275,12 +291,12 @@ export default function MarkdownRenderer({ source, className = "", emptyText = "
           padding: 0.75rem 1rem;
           border-bottom: 1px solid var(--border);
           color: var(--card-foreground);
-          font-size: 0.875rem;
+          font-size: 1rem;
         }
         .md-prose tr:last-child td { border-bottom: none; }
         .md-prose tr:hover td { background-color: var(--muted); }
       `}</style>
-      <div dangerouslySetInnerHTML={{ __html: html }} />
+      {body}
     </div>
   );
 }

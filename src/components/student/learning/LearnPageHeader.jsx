@@ -46,14 +46,14 @@ export default function LearnPageHeader({
           </button>
         )}
         <div className="hidden xl:block min-w-0">
-          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground truncate block">
+          <span className="text-[12px] font-black uppercase tracking-widest text-muted-foreground truncate block">
             LEARNING WORKSPACE
           </span>
-          <h2 className="text-sm font-bold text-foreground truncate">
+          <h2 className="text-base font-bold text-foreground truncate">
             {selectedLesson ? `Lesson: ${selectedLesson.title}` : course?.title || "Course Overview"}
           </h2>
           {topicTitle && (
-            <p className="text-xs text-muted-foreground truncate">Topic: {topicTitle}</p>
+            <p className="text-sm text-muted-foreground truncate">Topic: {topicTitle}</p>
           )}
         </div>
       </div>
@@ -64,7 +64,7 @@ export default function LearnPageHeader({
           here. Hidden below sm, where the header only has room for the
           lesson title and the notes toggle. */}
       {isProgressUnavailable && (
-        <span className="hidden sm:block shrink-0 mr-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+        <span className="hidden sm:block shrink-0 mr-3 text-[12px] font-bold uppercase tracking-wider text-muted-foreground">
           Progress unavailable
         </span>
       )}
@@ -72,14 +72,14 @@ export default function LearnPageHeader({
       {showProgress && (
         <div className="hidden sm:flex shrink-0 items-center gap-3 mr-3 min-w-0">
           <div className="text-right min-w-0">
-            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block leading-none">
+            <span className="text-[12px] font-black uppercase tracking-widest text-muted-foreground block leading-none">
               Topic Progress
             </span>
             {/* The backend denominator is every applicable Content, Quiz and
                 Assignment this Topic/Lesson owns — not Content alone — so
                 the count is labelled "items". Calling it anything narrower
                 would misdescribe what it counts. */}
-            <span className="text-xs font-bold text-foreground leading-none whitespace-nowrap">
+            <span className="text-sm font-bold text-foreground leading-none whitespace-nowrap">
               {percent}%
               <span className="text-muted-foreground font-semibold">
                 {" "}
@@ -113,7 +113,7 @@ export default function LearnPageHeader({
           }`}
         />
         <span
-          className={`relative flex h-9 items-center gap-2 rounded-full px-3 sm:px-3.5 text-xs font-bold tracking-wide transition-colors duration-200 ${
+          className={`relative flex h-9 items-center gap-2 rounded-full px-3 sm:px-3.5 text-sm font-bold tracking-wide transition-colors duration-200 ${
             isStickyNotesOpen
               ? "bg-primary text-primary-foreground"
               : "bg-background text-foreground/80 group-hover:text-foreground"

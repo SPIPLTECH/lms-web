@@ -45,7 +45,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/shadcn/dropdown-menu";
 import { NodeBadge } from "@/components/student/learning/CourseContentAccordion";
-import { getNodeProgress } from "@/lib/progressIndex";
+import { getNodeProgress, isNodeLeavable } from "@/lib/progressIndex";
 import { useContents } from "@/hooks/queries/instructor/useContents";
 import { useReorderModules } from "@/hooks/queries/instructor/useReorderModules";
 import { useReorderLessons } from "@/hooks/queries/instructor/useReorderLessons";
@@ -345,18 +345,18 @@ function ParentContentRows({
   return (
     <div className={containerClass}>
       {isLoading ? (
-        <div className="flex items-center gap-1.5 py-1.5 px-2 text-[12px] text-muted-foreground">
+        <div className="flex items-center gap-1.5 py-1.5 px-2 text-[14px] text-muted-foreground">
           <Loader2 size={11} className="animate-spin shrink-0" />
           Loading contents…
         </div>
       ) : isError ? (
-        <div className="flex items-center gap-1.5 py-1.5 px-2 text-[12px] text-red-700 dark:text-red-400/80">
+        <div className="flex items-center gap-1.5 py-1.5 px-2 text-[14px] text-red-700 dark:text-red-400/80">
           <AlertCircle size={11} className="shrink-0" />
           Failed to load contents.
         </div>
       ) : mergedRows.length === 0 ? (
         emptyMessage ? (
-          <div className="py-1.5 px-2 text-[12px] text-muted-foreground italic">
+          <div className="py-1.5 px-2 text-[14px] text-muted-foreground italic">
             {emptyMessage}
           </div>
         ) : null
@@ -390,12 +390,12 @@ function ParentContentRows({
               >
                 <div className="flex items-center gap-1.5 min-w-0 flex-1">
                   <HelpCircle size={12} className={`shrink-0 ${tagStyle.icon}`} />
-                  <span className="truncate text-[12.5px] leading-snug">
+                  <span className="truncate text-[14.5px] leading-snug">
                     {row.title || "Untitled Quiz"}
                   </span>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <span className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded shrink-0 ${tagStyle.badge}`}>
+                  <span className={`text-[13px] font-mono font-bold px-1.5 py-0.5 rounded shrink-0 ${tagStyle.badge}`}>
                     {questions.length} Qs
                   </span>
                   {role === "INSTRUCTOR" && (
@@ -440,7 +440,7 @@ function ParentContentRows({
             >
               <div className="flex items-center gap-1.5 min-w-0 flex-1">
                 <Icon size={12} className={`shrink-0 ${isContentActive ? "text-primary" : meta.color}`} />
-                <span className="truncate text-[12.5px] leading-snug">
+                <span className="truncate text-[14.5px] leading-snug">
                   {content.title || `Untitled ${meta.label}`}
                 </span>
               </div>
@@ -518,11 +518,11 @@ function AssignmentRows({
                 ) : (
                   <ClipboardList size={13} className="text-yellow-700 dark:text-yellow-400 shrink-0" />
                 )}
-                <span className="truncate text-[12.5px] leading-snug font-semibold">{asgn.title || "Assignment"}</span>
+                <span className="truncate text-[14.5px] leading-snug font-semibold">{asgn.title || "Assignment"}</span>
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 {asgn.marks ? (
-                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-700 dark:text-yellow-300 shrink-0">
+                  <span className="text-[11px] font-mono font-bold px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-700 dark:text-yellow-300 shrink-0">
                     {asgn.marks} Marks
                   </span>
                 ) : null}
@@ -698,7 +698,7 @@ export function CourseComposerSidebar({
         <>
         {/* Panel Title */}
         <div className="flex items-center justify-between gap-2 mb-1 shrink-0">
-          <div className="font-black text-sm uppercase tracking-widest text-foreground flex items-center gap-2">
+          <div className="font-black text-base uppercase tracking-widest text-foreground flex items-center gap-2">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary-accent, #f97316)" strokeWidth="2">
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
             </svg>
@@ -716,7 +716,7 @@ export function CourseComposerSidebar({
         </div>
 
         {/* Compact subtitle */}
-        <div className="text-[12.5px] text-muted-foreground mb-3 pb-3 border-b border-border/80">
+        <div className="text-[14.5px] text-muted-foreground mb-3 pb-3 border-b border-border/80">
           Course structure
         </div>
         </>
@@ -726,7 +726,7 @@ export function CourseComposerSidebar({
       {role === "INSTRUCTOR" && (
         <button
           type="button"
-          className="w-full py-2 mb-3 flex items-center justify-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-bold transition cursor-pointer shrink-0"
+          className="w-full py-2 mb-3 flex items-center justify-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary text-base font-bold transition cursor-pointer shrink-0"
           onClick={onAddModule}
         >
           <Plus size={14} />
@@ -737,7 +737,7 @@ export function CourseComposerSidebar({
       {/* Course Overview Root Item */}
       <div className="flex items-center justify-between gap-1 mb-1 shrink-0 group/module">
         <div
-          className={`flex items-center gap-2 px-3 py-2.5 rounded-xl transition cursor-pointer text-sm flex-1 border-l-[3px] ${
+          className={`flex items-center gap-2 px-3 py-2.5 rounded-xl transition cursor-pointer text-base flex-1 border-l-[3px] ${
             composerMode === "course"
               ? "bg-primary/15 border-primary text-primary font-bold"
               : "border-transparent text-foreground hover:bg-background"
@@ -793,9 +793,9 @@ export function CourseComposerSidebar({
       />
 
       {/* Modules Tree — no scroll container of its own; the region above scrolls. */}
-      <div className="space-y-0.5 pr-1 text-sm">
+      <div className="space-y-0.5 pr-1 text-base">
         {modules.length === 0 ? (
-          <div className="py-8 text-center text-muted-foreground text-sm italic">
+          <div className="py-8 text-center text-muted-foreground text-base italic">
             No modules available in this course.
           </div>
         ) : (
@@ -805,6 +805,13 @@ export function CourseComposerSidebar({
             const moduleHasActiveChild = !isModuleActive && composeModuleId === mod.id;
             const modLessons = mod.lessons || [];
             const modQuizzes = mod.quizzes || [];
+            // Sequential locking (STUDENT only — instructors keep full access):
+            // a Module can't be expanded until the previous one is leavable per
+            // the existing progress roll-up — the same check the player's own
+            // Prev/Next crossing gate uses (isNodeLeavable), so the sidebar can
+            // never disagree with what clicking Next would allow.
+            const isModuleLocked =
+              role === "STUDENT" && mIdx > 0 && !isNodeLeavable(progress, modules[mIdx - 1]?.id);
 
             return (
               <div key={mod.id}>
@@ -824,21 +831,29 @@ export function CourseComposerSidebar({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (isModuleLocked) {
+                          showToast("Complete the previous module to unlock this one.", "error");
+                          return;
+                        }
                         toggleModule(mod.id);
                       }}
                       className="p-0.5 text-muted-foreground hover:text-slate-50 transition cursor-pointer shrink-0"
-                      aria-label={moduleOpen ? "Collapse module" : "Expand module"}
+                      aria-label={isModuleLocked ? "Locked" : moduleOpen ? "Collapse module" : "Expand module"}
                     >
                       <ChevronRight
                         size={14}
                         className={`transition-transform duration-200 ${moduleOpen ? "rotate-90 text-primary" : ""}`}
                       />
                     </button>
-                    <Layers size={14} className={`shrink-0 ${isModuleActive ? "text-primary" : "text-primary/80"}`} />
-                    <span className="text-[11px] font-black text-muted-foreground tabular-nums shrink-0">
+                    {isModuleLocked ? (
+                      <Lock size={14} className="shrink-0 text-muted-foreground" />
+                    ) : (
+                      <Layers size={14} className={`shrink-0 ${isModuleActive ? "text-primary" : "text-primary/80"}`} />
+                    )}
+                    <span className="text-[13px] font-black text-muted-foreground tabular-nums shrink-0">
                       M{mIdx + 1}
                     </span>
-                    <span className="truncate text-sm font-bold" title={mod.title}>
+                    <span className={`truncate text-base font-bold ${isModuleLocked ? "text-muted-foreground" : ""}`} title={mod.title}>
                       {mod.title}
                     </span>
                     <NodeBadge progress={progress} nodeId={mod.id} node={mod} />
@@ -907,7 +922,15 @@ export function CourseComposerSidebar({
                         const lessonTopics = lesson.topics || [];
                         const lessonQuizzes = lesson.quizzes || [];
                         const isCompleted = getNodeProgress(progress, lesson.id)?.completed ?? false;
-                        const isLessonLocked = role !== "INSTRUCTOR" && lesson.isPublished === false;
+                        // Same sequential rule as Module locking, one level down:
+                        // previous Lesson (in render order, matching the L{n}
+                        // numeral above) must be leavable first.
+                        const isLessonSequenceLocked =
+                          role === "STUDENT" &&
+                          lIdx > 0 &&
+                          !isNodeLeavable(progress, sortByRenderOrder(modLessons)[lIdx - 1]?.id);
+                        const isLessonLocked =
+                          (role !== "INSTRUCTOR" && lesson.isPublished === false) || isLessonSequenceLocked;
 
                         return (
                           <div key={lesson.id}>
@@ -927,10 +950,16 @@ export function CourseComposerSidebar({
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    if (isLessonLocked) {
+                                      if (isLessonSequenceLocked) {
+                                        showToast("Complete the previous lesson to unlock this one.", "error");
+                                      }
+                                      return;
+                                    }
                                     toggleLesson(lesson.id);
                                   }}
                                   className="p-0.5 text-muted-foreground hover:text-slate-50 transition cursor-pointer shrink-0"
-                                  aria-label={lessonOpen ? "Collapse lesson" : "Expand lesson"}
+                                  aria-label={isLessonLocked ? "Locked" : lessonOpen ? "Collapse lesson" : "Expand lesson"}
                                 >
                                   <ChevronRight
                                     size={12}
@@ -944,10 +973,10 @@ export function CourseComposerSidebar({
                                 ) : (
                                   <BookOpen size={12} className={`shrink-0 ${isLessonActive ? "text-primary" : "text-muted-foreground"}`} />
                                 )}
-                                <span className="text-[10.5px] font-black text-muted-foreground tabular-nums shrink-0">
+                                <span className="text-[12.5px] font-black text-muted-foreground tabular-nums shrink-0">
                                   L{lIdx + 1}
                                 </span>
-                                <span className="truncate text-[13px] leading-snug" title={lesson.title}>
+                                <span className="truncate text-[15px] leading-snug" title={lesson.title}>
                                   {lesson.title}
                                 </span>
                                 <NodeBadge progress={progress} nodeId={lesson.id} node={lesson} />
@@ -1016,6 +1045,13 @@ export function CourseComposerSidebar({
                                     const topicMeta = getTopicTypeMeta(topic.title);
                                     const TopicIcon = topicMeta.icon;
                                     const displayTitle = formatTopicDisplayTitle(topic.title, tIdx);
+                                    // Same sequential rule, one level further down:
+                                    // previous Topic (in render order) must be
+                                    // leavable before this one can be expanded.
+                                    const isTopicLocked =
+                                      role === "STUDENT" &&
+                                      tIdx > 0 &&
+                                      !isNodeLeavable(progress, sortByRenderOrder(lessonTopics)[tIdx - 1]?.id);
 
                                     return (
                                       <div key={topic.id}>
@@ -1033,22 +1069,30 @@ export function CourseComposerSidebar({
                                               type="button"
                                               onClick={(e) => {
                                                 e.stopPropagation();
+                                                if (isTopicLocked) {
+                                                  showToast("Complete the previous topic to unlock this one.", "error");
+                                                  return;
+                                                }
                                                 toggleTopic(topic.id);
                                               }}
                                               className="p-0.5 text-muted-foreground hover:text-slate-50 transition cursor-pointer shrink-0"
-                                              aria-label={topicOpen ? "Collapse topic" : "Expand topic"}
+                                              aria-label={isTopicLocked ? "Locked" : topicOpen ? "Collapse topic" : "Expand topic"}
                                             >
                                               <ChevronRight
                                                 size={11}
                                                 className={`transition-transform duration-200 ${topicOpen ? "rotate-90 text-primary" : ""}`}
                                               />
                                             </button>
-                                            <TopicIcon size={12} className={`shrink-0 ${isTopicActive ? "text-primary" : topicMeta.color}`} />
-                                            <span className="truncate text-[13px] leading-snug" title={topic.title}>
+                                            {isTopicLocked ? (
+                                              <Lock size={12} className="shrink-0 text-muted-foreground" />
+                                            ) : (
+                                              <TopicIcon size={12} className={`shrink-0 ${isTopicActive ? "text-primary" : topicMeta.color}`} />
+                                            )}
+                                            <span className={`truncate text-[15px] leading-snug ${isTopicLocked ? "text-muted-foreground" : ""}`} title={topic.title}>
                                               {displayTitle}
                                             </span>
                                             {topicMeta.type !== "theory" && (
-                                              <span className={`text-[11px] font-mono font-bold px-1.5 py-0.2 rounded border uppercase shrink-0 ${topicMeta.bgClass}`}>
+                                              <span className={`text-[13px] font-mono font-bold px-1.5 py-0.2 rounded border uppercase shrink-0 ${topicMeta.bgClass}`}>
                                                 {topicMeta.badge}
                                               </span>
                                             )}

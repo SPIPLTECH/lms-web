@@ -144,7 +144,7 @@ export function VideoCell({
       {mode === "edit" ? (
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-foreground mb-1.5">
+            <label className="block text-sm font-semibold text-foreground mb-1.5">
               Video Title
             </label>
             <input
@@ -152,12 +152,12 @@ export function VideoCell({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Video title"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground outline-none focus:border-primary"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-foreground mb-1.5">
+            <label className="block text-sm font-semibold text-foreground mb-1.5">
               Video URL
             </label>
             <input
@@ -165,7 +165,7 @@ export function VideoCell({
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
               placeholder="https://youtube.com/watch?v=… or direct video file URL"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary font-mono"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground outline-none focus:border-primary font-mono"
             />
           </div>
 
@@ -174,7 +174,7 @@ export function VideoCell({
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-border/60" />
             </div>
-            <span className="relative bg-card px-2 text-[10px] font-bold text-muted-foreground uppercase">
+            <span className="relative bg-card px-2 text-[12px] font-bold text-muted-foreground uppercase">
               OR
             </span>
           </div>
@@ -192,7 +192,7 @@ export function VideoCell({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 hover:bg-primary/20 px-3.5 py-2 text-xs font-bold text-primary transition cursor-pointer disabled:opacity-50"
+              className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 hover:bg-primary/20 px-3.5 py-2 text-sm font-bold text-primary transition cursor-pointer disabled:opacity-50"
             >
               {isUploading ? (
                 <>
@@ -208,10 +208,10 @@ export function VideoCell({
             </button>
           </div>
 
-          {uploadError && <p className="text-xs text-destructive">{uploadError}</p>}
+          {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
 
           {videoUrl && (
-            <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-foreground">
+            <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-sm text-foreground">
               <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />
               <span className="truncate flex-1 font-mono">{videoUrl}</span>
               <button
@@ -262,11 +262,11 @@ export function VideoCell({
                  URL is shown because it is usually the thing that is wrong. */
               <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
                 <AlertTriangle className="size-6 text-amber-600 dark:text-amber-400" />
-                <p className="text-sm font-semibold text-foreground">This video couldn&apos;t be played</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-base font-semibold text-foreground">This video couldn&apos;t be played</p>
+                <p className="text-sm text-muted-foreground">
                   The file may be missing, still uploading, or not a format this browser supports.
                 </p>
-                <code className="mt-1 block max-w-full truncate rounded bg-muted px-2 py-1 text-[11px] text-muted-foreground">
+                <code className="mt-1 block max-w-full truncate rounded bg-muted px-2 py-1 text-[13px] text-muted-foreground">
                   {content.videoUrl}
                 </code>
               </div>
@@ -282,7 +282,7 @@ export function VideoCell({
           </div>
         </div>
       ) : (
-        <p className="text-xs italic text-muted-foreground">No video URL set yet.</p>
+        <p className="text-sm italic text-muted-foreground">No video URL set yet.</p>
       )}
     </CellShell>
   );
@@ -337,7 +337,7 @@ export function CreateVideoForm({ parent, order, onCreated, onCancel }: CreateCe
   return (
     <div className="space-y-4 pt-1">
       <div>
-        <label className="block text-xs font-semibold text-foreground mb-1.5">
+        <label className="block text-sm font-semibold text-foreground mb-1.5">
           Video Title
         </label>
         <input
@@ -345,12 +345,12 @@ export function CreateVideoForm({ parent, order, onCreated, onCancel }: CreateCe
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Video title"
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground outline-none focus:border-primary"
         />
       </div>
 
       <div>
-        <label className="block text-xs font-semibold text-foreground mb-1.5">
+        <label className="block text-sm font-semibold text-foreground mb-1.5">
           Video URL
         </label>
         <input
@@ -358,7 +358,7 @@ export function CreateVideoForm({ parent, order, onCreated, onCancel }: CreateCe
           value={videoUrl}
           onChange={(e) => setVideoUrl(e.target.value)}
           placeholder="https://youtube.com/watch?v=… or direct video file URL"
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary font-mono"
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground outline-none focus:border-primary font-mono"
         />
       </div>
 
@@ -367,7 +367,7 @@ export function CreateVideoForm({ parent, order, onCreated, onCancel }: CreateCe
         <div className="absolute inset-0 flex items-center">
           <div className="w-full border-t border-border/60" />
         </div>
-        <span className="relative bg-background px-2 text-[10px] font-bold text-muted-foreground uppercase">
+        <span className="relative bg-background px-2 text-[12px] font-bold text-muted-foreground uppercase">
           OR
         </span>
       </div>
@@ -385,7 +385,7 @@ export function CreateVideoForm({ parent, order, onCreated, onCancel }: CreateCe
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={isUploading}
-          className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 hover:bg-primary/20 px-3.5 py-2 text-xs font-bold text-primary transition cursor-pointer disabled:opacity-50"
+          className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 hover:bg-primary/20 px-3.5 py-2 text-sm font-bold text-primary transition cursor-pointer disabled:opacity-50"
         >
           {isUploading ? (
             <>
@@ -401,10 +401,10 @@ export function CreateVideoForm({ parent, order, onCreated, onCancel }: CreateCe
         </button>
       </div>
 
-      {uploadError && <p className="text-xs text-destructive">{uploadError}</p>}
+      {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
 
       {videoUrl && (
-        <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-foreground">
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-sm text-foreground">
           <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />
           <span className="truncate flex-1 font-mono">{videoUrl}</span>
           <button

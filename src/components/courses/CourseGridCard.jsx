@@ -71,8 +71,10 @@ export default function CourseGridCard({ course }) {
       onClick={() => router.push(`/instructor/courses/${course.id}`)}
       className="bg-card group relative flex w-[85%] shrink-0 snap-center max-md:first:ml-[5%] max-md:last:mr-[5%] md:w-full md:shrink-0 flex-col overflow-hidden rounded-2xl border border-border shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer"
     >
-      {/* Flush image wrapper */}
-      <div className="relative h-32 md:h-36 shrink-0 w-full overflow-hidden bg-muted">
+      {/* Flush image wrapper — 16:9 so the banner scales with the card's
+          width instead of a fixed pixel height that looked squat once cards
+          widened to 4-per-row. */}
+      <div className="relative aspect-video shrink-0 w-full overflow-hidden bg-muted">
         {course.thumbnailUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -105,6 +107,10 @@ export default function CourseGridCard({ course }) {
         <h3 className="text-[15px] font-semibold leading-tight line-clamp-1 text-foreground mb-1.5">
           {course.title}
         </h3>
+
+        <p className="text-[12px] leading-snug text-muted-foreground line-clamp-2 min-h-[2.25rem] mb-3">
+          {course.description || "No description provided."}
+        </p>
 
         <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-muted-foreground mb-3">
           <span className="flex items-center gap-1">

@@ -22,7 +22,7 @@ export default function AssignmentWorkspacePanel({ assignmentId, completed = fal
 
   if (isError || !assignment) {
     return (
-      <Card className="p-6 text-center text-sm text-muted-foreground">
+      <Card className="p-6 text-center text-base text-muted-foreground">
         This assignment could not be loaded. Please try again.
       </Card>
     );

@@ -227,11 +227,11 @@ export function PresentationUploadPanel({ fileUrl, onFileUrlChange }: Presentati
     <div className="space-y-3">
       {/* Compact Source Selector */}
       <div>
-        <label className="block text-xs font-semibold text-foreground mb-1.5">Source</label>
+        <label className="block text-sm font-semibold text-foreground mb-1.5">Source</label>
         <select
           value={sourceType}
           onChange={(e) => handleSourceTypeChange(e.target.value as PresentationSourceType)}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary font-medium cursor-pointer"
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground outline-none focus:border-primary font-medium cursor-pointer"
         >
           <option value="UPLOAD">Upload File</option>
           <option value="EXTERNAL_URL">External URL</option>
@@ -243,7 +243,7 @@ export function PresentationUploadPanel({ fileUrl, onFileUrlChange }: Presentati
       {sourceType === "UPLOAD" && (
         <div className="space-y-2">
           {fileUrl && !isUploading && (fileUrl.includes("blob.vercel-storage.com") || fileUrl.includes("/content-uploads/")) ? (
-            <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2.5 text-xs text-foreground">
+            <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2.5 text-sm text-foreground">
               <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />
               <span className="truncate flex-1 font-medium">{fileName || "Presentation uploaded"}</span>
               <button
@@ -276,57 +276,57 @@ export function PresentationUploadPanel({ fileUrl, onFileUrlChange }: Presentati
               {isUploading ? (
                 <>
                   <Loader2 className="size-6 animate-spin text-primary" />
-                  <p className="text-xs font-bold text-foreground">Uploading {fileName}…</p>
+                  <p className="text-sm font-bold text-foreground">Uploading {fileName}…</p>
                 </>
               ) : (
                 <>
                   <Upload className="size-6 text-muted-foreground" />
-                  <p className="text-xs font-bold text-foreground">Drag &amp; drop your PPTX file</p>
-                  <p className="text-[11px] text-muted-foreground">or click to browse — Supported: .pptx only</p>
+                  <p className="text-sm font-bold text-foreground">Drag &amp; drop your PPTX file</p>
+                  <p className="text-[13px] text-muted-foreground">or click to browse — Supported: .pptx only</p>
                 </>
               )}
             </div>
           )}
-          {uploadError && <p className="text-xs text-destructive font-medium">{uploadError}</p>}
+          {uploadError && <p className="text-sm text-destructive font-medium">{uploadError}</p>}
         </div>
       )}
 
       {sourceType === "EXTERNAL_URL" && (
         <div className="space-y-1.5">
-          <label className="block text-xs font-semibold text-foreground mb-1">Paste PPT/PPTX URL</label>
+          <label className="block text-sm font-semibold text-foreground mb-1">Paste PPT/PPTX URL</label>
           <input
             type="text"
             value={urlInput}
             onChange={(e) => handleExternalUrlInput(e.target.value)}
             placeholder="https://example.com/presentation.pptx"
-            className={`w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground outline-none font-mono transition ${
+            className={`w-full rounded-lg border bg-background px-3 py-2 text-base text-foreground outline-none font-mono transition ${
               validationError ? "border-rose-500 focus:border-rose-500" : "border-border focus:border-primary"
             }`}
           />
           {validationError ? (
-            <p className="text-xs text-rose-500 font-medium">{validationError}</p>
+            <p className="text-sm text-rose-500 font-medium">{validationError}</p>
           ) : (
-            <p className="text-[11px] text-muted-foreground">Example: https://example.com/presentation.pptx</p>
+            <p className="text-[13px] text-muted-foreground">Example: https://example.com/presentation.pptx</p>
           )}
         </div>
       )}
 
       {sourceType === "GOOGLE_DRIVE" && (
         <div className="space-y-1.5">
-          <label className="block text-xs font-semibold text-foreground mb-1">Paste Google Drive presentation link</label>
+          <label className="block text-sm font-semibold text-foreground mb-1">Paste Google Drive presentation link</label>
           <input
             type="text"
             value={urlInput}
             onChange={(e) => handleGoogleDriveInput(e.target.value)}
             placeholder="https://drive.google.com/file/d/FILE_ID/view"
-            className={`w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground outline-none font-mono transition ${
+            className={`w-full rounded-lg border bg-background px-3 py-2 text-base text-foreground outline-none font-mono transition ${
               validationError ? "border-rose-500 focus:border-rose-500" : "border-border focus:border-primary"
             }`}
           />
           {validationError ? (
-            <p className="text-xs text-rose-500 font-medium">{validationError}</p>
+            <p className="text-sm text-rose-500 font-medium">{validationError}</p>
           ) : (
-            <p className="text-[11px] text-muted-foreground">Example: https://drive.google.com/file/d/FILE_ID/view</p>
+            <p className="text-[13px] text-muted-foreground">Example: https://drive.google.com/file/d/FILE_ID/view</p>
           )}
         </div>
       )}

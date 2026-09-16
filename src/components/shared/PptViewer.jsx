@@ -261,13 +261,13 @@ export default function PptViewer({
             <ChevronLeft size={16} />
           </button>
 
-          <div className="flex items-center gap-1 text-xs font-semibold text-foreground font-mono">
+          <div className="flex items-center gap-1 text-sm font-semibold text-foreground font-mono">
             <input
               type="text"
               value={pageInput}
               onChange={(e) => setPageInput(e.target.value)}
               onKeyDown={handlePageInputSubmit}
-              className="w-7 rounded bg-background border border-transparent px-1 py-0.5 text-center text-xs font-bold text-foreground focus:outline-none focus:border-primary font-mono"
+              className="w-7 rounded bg-background border border-transparent px-1 py-0.5 text-center text-sm font-bold text-foreground focus:outline-none focus:border-primary font-mono"
               title="Type slide number and press Enter"
             />
             <span className="text-muted-foreground">/</span>
@@ -298,7 +298,7 @@ export default function PptViewer({
           <ZoomOut size={15} />
         </button>
 
-        <span className="text-[11px] font-semibold text-foreground min-w-[36px] text-center font-mono">
+        <span className="text-[13px] font-semibold text-foreground min-w-[36px] text-center font-mono">
           {isFit ? "Fit" : `${Math.round(zoomScale * 100)}%`}
         </span>
 
@@ -316,7 +316,7 @@ export default function PptViewer({
           <button
             type="button"
             onClick={handleFit}
-            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold text-primary hover:bg-primary/10 border border-primary/30 transition cursor-pointer"
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[13px] font-bold text-primary hover:bg-primary/10 border border-primary/30 transition cursor-pointer"
             title="Reset to Fit View"
           >
             <Maximize2 size={12} />
@@ -332,7 +332,7 @@ export default function PptViewer({
           download
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1.5 rounded-xl bg-primary hover:bg-orange-600 px-3 py-1.5 text-xs font-extrabold text-slate-950 transition cursor-pointer shadow-md"
+          className="flex items-center gap-1.5 rounded-xl bg-primary hover:bg-orange-600 px-3 py-1.5 text-sm font-extrabold text-slate-950 transition cursor-pointer shadow-md"
           title="Download Presentation"
         >
           <Download size={14} />
@@ -376,7 +376,7 @@ export default function PptViewer({
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/15 border border-primary/30 text-primary shrink-0">
               <Presentation size={15} />
             </div>
-            <span className="text-xs font-bold text-foreground truncate max-w-[160px] sm:max-w-xs md:max-w-md">
+            <span className="text-sm font-bold text-foreground truncate max-w-[160px] sm:max-w-xs md:max-w-md">
               {title || "Presentation"}
             </span>
           </div>
@@ -402,7 +402,7 @@ export default function PptViewer({
         {loadingStep && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#060913]/90 z-20 rounded-2xl">
             <Loader2 className="h-9 w-9 animate-spin text-primary" />
-            <p className="text-xs font-bold text-foreground">{loadingStep}</p>
+            <p className="text-sm font-bold text-foreground">{loadingStep}</p>
           </div>
         )}
 
@@ -411,8 +411,8 @@ export default function PptViewer({
           <div className="my-12 flex flex-col items-center justify-center gap-4 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-8 text-center max-w-md">
             <AlertCircle className="h-10 w-10 text-amber-400" />
             <div>
-              <h4 className="text-sm font-bold text-foreground mb-1">Presentation preview unavailable</h4>
-              <p className="text-xs text-muted-foreground leading-relaxed mb-4">
+              <h4 className="text-base font-bold text-foreground mb-1">Presentation preview unavailable</h4>
+              <p className="text-sm text-muted-foreground leading-relaxed mb-4">
                 We couldn't render this presentation in the browser. You can download the file to view it in Microsoft PowerPoint.
               </p>
             </div>
@@ -421,7 +421,7 @@ export default function PptViewer({
               download
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-xl bg-primary hover:bg-orange-600 px-5 py-2.5 text-xs font-bold text-slate-950 transition shadow-lg"
+              className="inline-flex items-center gap-2 rounded-xl bg-primary hover:bg-orange-600 px-5 py-2.5 text-sm font-bold text-slate-950 transition shadow-lg"
             >
               <Download size={15} />
               <span>Download Presentation</span>
@@ -442,6 +442,22 @@ export default function PptViewer({
               backgroundColor: currentSlide.background || "#FFFFFF",
             }}
           >
+            {/* The slide is laid out once at its own canvas size and shrunk
+                (or grown) as a whole. Scaling each font size separately — with
+                a minimum so text stayed legible — let text outgrow its boxes
+                on a phone while positions and padding kept shrinking, so it
+                spilled into neighbouring shapes and was cut off at the edge.
+                One transform keeps every proportion the deck was authored
+                with; the zoom controls are there for reading small text. */}
+            <div
+              className="absolute left-0 top-0"
+              style={{
+                width: `${baseSlideWidth}px`,
+                height: `${baseSlideHeight}px`,
+                transform: `scale(${renderedWidth / baseSlideWidth})`,
+                transformOrigin: "0 0",
+              }}
+            >
             {/* Slide Elements */}
             {currentSlide.elements?.map((elem) => {
               if (elem.type === "image") {
@@ -484,7 +500,7 @@ export default function PptViewer({
                           <span
                             key={rIdx}
                             style={{
-                              fontSize: `${Math.max(10, Math.round(run.fontSize * effectiveScale))}px`,
+                              fontSize: `${run.fontSize}px`,
                               fontWeight: run.bold ? "bold" : "normal",
                               fontStyle: run.italic ? "italic" : "normal",
                               color: run.color || currentSlide.defaultTextColor || "#000000",
@@ -548,12 +564,11 @@ export default function PptViewer({
                                     color: c.color || currentSlide.defaultTextColor || "#000000",
                                     fontWeight: c.bold ? 700 : 400,
                                     fontStyle: c.italic ? "italic" : "normal",
-                                    // Scaled exactly like a text run's size, so
-                                    // a table reads at the same size as the
-                                    // prose around it at every zoom level.
-                                    fontSize: `${Math.max(8, Math.round((c.fontSize || 14) * effectiveScale))}px`,
+                                    // Canvas units, like a text run's size — the
+                                    // slide's transform scales both together.
+                                    fontSize: `${c.fontSize || 14}px`,
                                     textAlign: c.textAlign || "left",
-                                    padding: `${Math.max(1, Math.round(3 * effectiveScale))}px ${Math.max(2, Math.round(5 * effectiveScale))}px`,
+                                    padding: "3px 5px",
                                     border: "1px solid rgba(255, 255, 255, 0.25)",
                                     verticalAlign: "middle",
                                     overflow: "hidden",
@@ -573,6 +588,7 @@ export default function PptViewer({
 
               return null;
             })}
+            </div>
           </div>
         ) : null}
       </div>

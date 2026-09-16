@@ -26,6 +26,8 @@ import useQuizResult from "@/hooks/queries/student/useQuizResult";
 import QuestionReviewCard from "@/components/student/quiz-result/QuestionReviewCard";
 import AttemptHistory from "@/components/student/quiz-result/AttemptHistory";
 import SubmissionStatusBadge from "@/components/student/submissions/SubmissionStatusBadge";
+import ListenButton from "@/components/student/tts/ListenButton";
+import { buildResultOverviewSpeech } from "@/lib/quizSpeech";
 import { formatDate, formatDuration, formatTime } from "@/features/student/constants/submissionsConfig";
 
 const SUBMISSIONS_HREF = "/student/assignments";
@@ -204,6 +206,13 @@ function QuizResultPageContent() {
               <p className="mt-0.5 text-xs text-muted-foreground sm:mt-1 sm:text-sm">{quiz.course.title}</p>
             )}
             <p className="mt-2 text-xs font-semibold text-foreground sm:mt-3 sm:text-sm">{attemptLabel}</p>
+            <ListenButton
+              sessionKey={`quiz-result:${submission.attemptId || quizId}`}
+              getChunks={() => buildResultOverviewSpeech({ submission })}
+              label="Listen to result"
+              ariaLabel="Listen to quiz result"
+              className="mt-3"
+            />
           </div>
 
           <div className="flex shrink-0 items-center gap-4 sm:gap-5 md:flex-col md:items-end md:gap-2 md:text-right">

@@ -171,7 +171,7 @@ export function ImageCell({
         <div className="space-y-4">
           {/* Image URL Field */}
           <div>
-            <label className="block text-xs font-semibold text-foreground mb-1.5">
+            <label className="block text-sm font-semibold text-foreground mb-1.5">
               Image URL
             </label>
             <input
@@ -179,7 +179,7 @@ export function ImageCell({
               value={src}
               onChange={(e) => setSrc(e.target.value)}
               placeholder="https://example.com/image.jpg"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary font-mono"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground outline-none focus:border-primary font-mono"
             />
           </div>
 
@@ -188,7 +188,7 @@ export function ImageCell({
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-border/60" />
             </div>
-            <span className="relative bg-card px-2 text-[10px] font-bold text-muted-foreground uppercase">
+            <span className="relative bg-card px-2 text-[12px] font-bold text-muted-foreground uppercase">
               OR
             </span>
           </div>
@@ -206,7 +206,7 @@ export function ImageCell({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 hover:bg-primary/20 px-3.5 py-2 text-xs font-bold text-primary transition cursor-pointer disabled:opacity-50"
+              className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 hover:bg-primary/20 px-3.5 py-2 text-sm font-bold text-primary transition cursor-pointer disabled:opacity-50"
             >
               {isUploading ? (
                 <>
@@ -223,12 +223,12 @@ export function ImageCell({
           </div>
 
           {/* Upload Error */}
-          {uploadError && <p className="text-xs text-destructive">{uploadError}</p>}
+          {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
 
           {/* Thumbnail Preview */}
           {src && (
             <div className="space-y-2 pt-1">
-              <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-foreground">
+              <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-sm text-foreground">
                 <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />
                 <span className="truncate flex-1 font-mono">{src}</span>
                 <button
@@ -246,7 +246,7 @@ export function ImageCell({
 
           {/* Caption Input */}
           <div>
-            <label className="block text-xs font-semibold text-foreground mb-1.5">
+            <label className="block text-sm font-semibold text-foreground mb-1.5">
               Caption (optional)
             </label>
             <input
@@ -254,7 +254,7 @@ export function ImageCell({
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
               placeholder="Optional caption"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground outline-none focus:border-primary"
             />
           </div>
 
@@ -281,11 +281,11 @@ export function ImageCell({
             className="mx-auto max-h-80 w-auto rounded-xl border border-border object-contain shadow-md"
           />
           {view.caption && (
-            <figcaption className="text-xs text-muted-foreground italic">{view.caption}</figcaption>
+            <figcaption className="text-sm text-muted-foreground italic">{view.caption}</figcaption>
           )}
         </figure>
       ) : (
-        <p className="text-xs italic text-muted-foreground">No image set yet.</p>
+        <p className="text-sm italic text-muted-foreground">No image set yet.</p>
       )}
     </CellShell>
   );
@@ -349,7 +349,7 @@ export function CreateImageForm({ parent, order, onCreated, onCancel }: CreateCe
     <div className="space-y-4 pt-1">
       {/* Image URL Input */}
       <div>
-        <label className="block text-xs font-semibold text-foreground mb-1.5">
+        <label className="block text-sm font-semibold text-foreground mb-1.5">
           Image URL
         </label>
         <input
@@ -357,7 +357,7 @@ export function CreateImageForm({ parent, order, onCreated, onCancel }: CreateCe
           value={src}
           onChange={(e) => setSrc(e.target.value)}
           placeholder="https://example.com/image.jpg"
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary font-mono"
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground outline-none focus:border-primary font-mono"
         />
       </div>
 
@@ -366,7 +366,7 @@ export function CreateImageForm({ parent, order, onCreated, onCancel }: CreateCe
         <div className="absolute inset-0 flex items-center">
           <div className="w-full border-t border-border/60" />
         </div>
-        <span className="relative bg-background px-2 text-[10px] font-bold text-muted-foreground uppercase">
+        <span className="relative bg-background px-2 text-[12px] font-bold text-muted-foreground uppercase">
           OR
         </span>
       </div>
@@ -384,7 +384,7 @@ export function CreateImageForm({ parent, order, onCreated, onCancel }: CreateCe
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={isUploading}
-          className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 hover:bg-primary/20 px-3.5 py-2 text-xs font-bold text-primary transition cursor-pointer disabled:opacity-50"
+          className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 hover:bg-primary/20 px-3.5 py-2 text-sm font-bold text-primary transition cursor-pointer disabled:opacity-50"
         >
           {isUploading ? (
             <>
@@ -401,12 +401,12 @@ export function CreateImageForm({ parent, order, onCreated, onCancel }: CreateCe
       </div>
 
       {/* Upload Error */}
-      {uploadError && <p className="text-xs text-destructive">{uploadError}</p>}
+      {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
 
       {/* Image Preview if src is present */}
       {src && (
         <div className="space-y-2 pt-1">
-          <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-foreground">
+          <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-sm text-foreground">
             <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />
             <span className="truncate flex-1 font-mono">{src}</span>
             <button
@@ -424,7 +424,7 @@ export function CreateImageForm({ parent, order, onCreated, onCancel }: CreateCe
 
       {/* Caption Input */}
       <div>
-        <label className="block text-xs font-semibold text-foreground mb-1.5">
+        <label className="block text-sm font-semibold text-foreground mb-1.5">
           Caption (optional)
         </label>
         <input
@@ -432,7 +432,7 @@ export function CreateImageForm({ parent, order, onCreated, onCancel }: CreateCe
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
           placeholder="Optional caption"
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground outline-none focus:border-primary"
         />
       </div>
 

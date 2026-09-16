@@ -165,7 +165,7 @@ export default function InstructorCoursesPage() {
             <div
               ref={sliderRef}
               onScroll={courses.length > 0 ? handleSliderScroll : undefined}
-              className="flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth [-webkit-overflow-scrolling:touch] scrollbar-none pb-4 md:pb-0 md:grid md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 md:gap-4 md:overflow-visible md:snap-none"
+              className="flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth [-webkit-overflow-scrolling:touch] scrollbar-none pb-4 md:pb-0 md:grid md:justify-items-center md:mx-auto md:max-w-[1328px] md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 md:gap-4 md:overflow-visible md:snap-none"
             >
               {courses.length === 0 ? (
                 <div className="w-full col-span-full">
@@ -178,7 +178,11 @@ export default function InstructorCoursesPage() {
                   />
                 </div>
               ) : (
-                courses.map((course, index) => <CourseGridCard key={course.id} course={course} index={index} />)
+                courses.map((course, index) => (
+                  <div key={course.id} className="max-md:contents md:w-full md:max-w-[320px]">
+                    <CourseGridCard course={course} index={index} />
+                  </div>
+                ))
               )}
             </div>
 
