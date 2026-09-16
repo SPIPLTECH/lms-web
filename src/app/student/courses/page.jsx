@@ -10,6 +10,7 @@ import StoreCourseCard from "@/components/student/store/StoreCourseCard";
 import useCourses from "@/hooks/queries/student/useCourses";
 import useMyCourses from "@/hooks/queries/student/useMyCourses";
 import useAvailableCourseFilters from "@/hooks/queries/student/useAvailableCourseFilters";
+import { AiAssistantWidget } from "@/features/ai-assistant/components";
 
 export default function StudentCoursesPage() {
     const {data: courses = [], isLoading, isError} = useCourses();
@@ -73,6 +74,8 @@ export default function StudentCoursesPage() {
                     }
                 />
             </div>
+
+            <AiAssistantWidget scopeHint="BROWSING" />
         </div>
     );
 }

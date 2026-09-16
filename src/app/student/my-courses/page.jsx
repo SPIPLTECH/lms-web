@@ -11,6 +11,7 @@ import SnapCardSlider from "@/components/ui/SnapCardSlider";
 import MyCourseCard from "@/components/student/my-courses/MyCourseCard";
 import StudentWelcomeCard from "@/components/student/my-courses/StudentWelcomeCard";
 import useMyCourses from "@/hooks/queries/student/useMyCourses";
+import { AiAssistantWidget } from "@/features/ai-assistant/components";
 
 export default function MyCoursesPage() {
   const router = useRouter();
@@ -35,6 +36,10 @@ export default function MyCoursesPage() {
       return enrollB - enrollA;
     });
   }, [myEnrollments]);
+
+  const primaryCourse = sortedEnrollments[0];
+  const primaryCourseId = primaryCourse?.courseId || primaryCourse?.course?.id || null;
+  const primaryCourseTitle = primaryCourse?.course?.title || null;
 
   // Years the student has an enrollment in, newest first — drives the Year filter.
   const enrollmentYears = useMemo(() => {
@@ -156,6 +161,13 @@ export default function MyCoursesPage() {
           </div>
         </div>
       )}
+
+      <AiAssistantWidget
+        courseId={primaryCourseId}
+        courseTitle={primaryCourseTitle}
+        isEnrolled={Boolean(primaryCourseId)}
+        scopeHint="ENROLLED"
+      />
     </div>
   );
 }

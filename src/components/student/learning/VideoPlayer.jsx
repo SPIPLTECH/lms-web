@@ -462,9 +462,15 @@ const VideoPlayer = forwardRef(function VideoPlayer(
             <div
                 className={`relative shrink-0 border-b border-border px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-2 bg-background min-h-[52px] max-xl:py-2.5 max-xl:min-h-0${
                     // At xl the learn page floats its Mark as Complete pill over
-                    // this header's top-right corner; keep the header's own
-                    // controls (page, zoom, slide count, read aloud) clear of it.
-                    reserveHeaderCorner && (isSlideShow || pdfPage || viewerControls || showReadAloud) ? " xl:pr-44" : ""
+                    // this header's top-right corner (now always visible, not
+                    // just on hover — see page.jsx); keep the header's own
+                    // controls (page, zoom, slide count, read aloud) clear of
+                    // it. The pill is ~165px wide plus its own 12px inset from
+                    // the frame edge (~177px) — pr-44 (176px) left a ~1px
+                    // sliver of real overlap, so this rounds up to the next
+                    // step instead of shaving the pill or the inset down to
+                    // fit an exact width that will just drift again later.
+                    reserveHeaderCorner && (isSlideShow || pdfPage || viewerControls || showReadAloud) ? " xl:pr-48" : ""
                 }${
                     // With read aloud in it, the header stays pinned at xl, where
                     // the player frame scrolls this whole block — so Pause/Stop

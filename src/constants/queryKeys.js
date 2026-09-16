@@ -5,6 +5,12 @@ export const QUERY_KEYS = {
     AUTH_SESSION: "auth-session",
 
     // ==========================
+    // Public / guest (no token required)
+    // ==========================
+    /** Guest-accessible published catalogue at /courses (GET /courses). */
+    PUBLIC_COURSES: "public-courses",
+
+    // ==========================
     // Student
     // ==========================
     COURSES: "courses",
@@ -40,6 +46,12 @@ export const QUERY_KEYS = {
     COURSE_REVIEW_STATS: "course-review-stats",
     PROGRESS: "progress",
     COURSE_PROGRESS: "course-progress",
+
+    // ==========================
+    // AI Assistant
+    // ==========================
+    AI_CONVERSATIONS: "ai-conversations",
+    AI_MESSAGES: "ai-messages",
 
     // ==========================
     // Admin

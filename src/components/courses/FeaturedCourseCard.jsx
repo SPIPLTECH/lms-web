@@ -11,9 +11,23 @@ import { getPriceInfo, formatPrice } from "@/lib/pricing";
 export default function FeaturedCourseCard({ course }) {
   if (!course) return null;
 
-  const sessionsCount = course.lessonsCount ?? course.modules?.length ?? course.modulesCount ?? 0;
-  const { isFree, effectivePrice, listPrice, currency } = getPriceInfo(course.store);
-  const rating = course.rating ? Number(course.rating) : null;
+  // Two payload shapes reach this card and both are public:
+  //   - GET /public/landing-data, which pre-flattens (instructorName, rating,
+  //     reviewsCount, lessonsCount)
+  //   - GET /courses, the paginated catalogue, which returns the raw course
+  //     row (creator.name, stats.avgRating, _count.reviews, stats.lessonsCount)
+  // The flattened names are read first so the landing page is unaffected.
+  const sessionsCount =
+    course.lessonsCount ??
+    course.stats?.lessonsCount ??
+    course.modules?.length ??
+    course.modulesCount ??
+    0;
+  const { isPriced, isFree, effectivePrice, listPrice, currency } = getPriceInfo(course.store);
+  const ratingValue = course.rating ?? course.stats?.avgRating;
+  const rating = ratingValue ? Number(ratingValue) : null;
+  const reviewsCount = course.reviewsCount ?? course._count?.reviews ?? 0;
+  const instructorName = course.instructorName ?? course.creator?.name ?? null;
 
   const isLogo = course.thumbnailUrl && (
     course.thumbnailUrl.includes("gstatic.com") ||
@@ -87,7 +101,7 @@ export default function FeaturedCourseCard({ course }) {
             <span className="flex items-center gap-1">
               <Star size={12} className="fill-amber-400 text-amber-400" />
               {rating.toFixed(1)}
-              {course.reviewsCount ? ` (${course.reviewsCount})` : ""}
+              {reviewsCount ? ` (${reviewsCount})` : ""}
             </span>
           )}
           {sessionsCount > 0 && (
@@ -98,25 +112,38 @@ export default function FeaturedCourseCard({ course }) {
           )}
         </div>
 
-        {course.instructorName && (
+        {instructorName && (
           <div className="mt-3 flex items-center gap-2">
             <Avatar className="size-5 shrink-0">
               <AvatarFallback className="text-[9px] font-bold">
-                {course.instructorName.charAt(0).toUpperCase()}
+                {instructorName.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <span className="truncate text-2xs font-medium text-muted-foreground">
-              {course.instructorName}
+              {instructorName}
             </span>
           </div>
         )}
 
         <div className="mt-4 flex items-center justify-between gap-2 border-t border-border/60 pt-3">
           <div className="flex items-baseline gap-1.5">
-            <span className="text-base font-bold text-foreground">
-              {isFree ? "Free" : formatPrice(effectivePrice, currency)}
+            {/* A course with no Store row is unpriced, not free — saying
+                "Free" here contradicted the detail page this card links to,
+                which refuses to sell it. */}
+            <span
+              className={
+                isPriced
+                  ? "text-base font-bold text-foreground"
+                  : "text-xs font-semibold text-muted-foreground"
+              }
+            >
+              {!isPriced
+                ? "Pricing unavailable"
+                : isFree
+                  ? "Free"
+                  : formatPrice(effectivePrice, currency)}
             </span>
-            {listPrice && (
+            {isPriced && listPrice && (
               <span className="text-xs text-muted-foreground line-through">
                 {formatPrice(listPrice, currency)}
               </span>

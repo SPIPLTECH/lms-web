@@ -4,6 +4,7 @@ import { getCourseById } from "@/services/course.service";
 import { getCourseReviews } from "@/services/review.service";
 import Link from "next/link";
 import CourseBuyButton from "@/components/student/course-details/CourseBuyButton";
+import CourseAiAssistantIsland from "@/features/ai-assistant/components/CourseAiAssistantIsland";
 import { getDisplayUrl } from "@/lib/blob";
 import {
   ChevronRight,
@@ -85,7 +86,9 @@ export default async function CoursePage({ params }) {
         <nav className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-6 flex items-center gap-2">
           <Link href="/" className="hover:text-foreground transition">Home</Link>
           <ChevronRight size={10} className="text-muted-foreground" />
-          <Link href="/student/courses" className="hover:text-foreground transition">Courses</Link>
+          {/* The public catalogue, not /student/courses — that route is behind
+              the student guard, so a guest following it was bounced to "/". */}
+          <Link href="/courses" className="hover:text-foreground transition">Courses</Link>
           <ChevronRight size={10} className="text-muted-foreground" />
           <span className="text-primary">{course.title}</span>
         </nav>
@@ -396,6 +399,12 @@ export default async function CoursePage({ params }) {
         </div>
 
       </div>
+
+      {/* AI Assistant. This page is a Server Component, so the widget is
+          mounted through a client island. Guests and signed-in-but-not-enrolled
+          visitors both receive course-overview answers only — enforced by the
+          backend's scope resolver, not by anything set here. */}
+      <CourseAiAssistantIsland courseId={courseId} courseTitle={course.title} />
     </div>
   );
 }

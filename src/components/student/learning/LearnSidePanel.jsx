@@ -17,6 +17,11 @@ const FEATURES = [
  * `activeFeature` / `onChangeFeature` are owned by the learn page, so the
  * header's Notes button can open the panel straight onto Sticky notes.
  * `null` means every section is collapsed.
+ *
+ * `compact` is the phone presentation: this same panel is what the Learn
+ * Page's mobile "More" popover shows, where it has ~280px instead of the
+ * desktop column's 360px. It only shrinks spacing and type — the sections,
+ * state and handlers are identical on both surfaces.
  */
 export default function LearnSidePanel({
   activeFeature,
@@ -25,6 +30,7 @@ export default function LearnSidePanel({
   askTarget,
   currentTimestamp,
   onSeek,
+  compact = false,
 }) {
   const toggle = (id) => onChangeFeature(activeFeature === id ? null : id);
 
@@ -63,7 +69,12 @@ export default function LearnSidePanel({
           {activeFeature === "ask" && <AskInstructorCard inline lessonId={lessonId} target={askTarget} />}
 
           {activeFeature === "notes" && (
-            <StickyNotesPanel lessonId={lessonId} currentTimestamp={currentTimestamp} onSeek={onSeek} />
+            <StickyNotesPanel
+              lessonId={lessonId}
+              currentTimestamp={currentTimestamp}
+              onSeek={onSeek}
+              compact={compact}
+            />
           )}
         </div>
       )}

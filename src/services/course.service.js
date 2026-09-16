@@ -44,12 +44,14 @@ export const getAllCoursesForReview = async () => {
 };
 
 /**
- * Get instructor's courses for the My Courses table/grid — server-side
- * search, filter, sort, and pagination. Kept separate from getCourses()
- * above since that function is used everywhere expecting a flat unpaginated
- * array; this one returns { courses, pagination } for this page only.
+ * One page of GET /courses, with its pagination block.
+ *
+ * Shared by every caller that drives a server-paginated course list (the
+ * instructor My Courses table, the instructor Browse catalogue, the public
+ * catalogue) so the querystring building and the `{ courses, pagination }`
+ * shape live in exactly one place.
  */
-export const getInstructorCoursesTable = async (filters = {}, config = {}) => {
+const getCoursesPage = async (filters = {}, config = {}) => {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== "") {
@@ -63,6 +65,28 @@ export const getInstructorCoursesTable = async (filters = {}, config = {}) => {
         pagination: data.pagination ?? { page: 1, limit: 10, total: data.data?.length ?? 0, totalPages: 1 },
     };
 };
+
+/**
+ * Get instructor's courses for the My Courses table/grid — server-side
+ * search, filter, sort, and pagination. Kept separate from getCourses()
+ * above since that function is used everywhere expecting a flat unpaginated
+ * array; this one returns { courses, pagination } for this page only.
+ */
+export const getInstructorCoursesTable = async (filters = {}, config = {}) => getCoursesPage(filters, config);
+
+/**
+ * One page of the PUBLIC published catalogue, for the guest-facing /courses
+ * route. No token is attached for a signed-out visitor and none is needed:
+ * GET /courses runs behind optionalToken, and for a GUEST (or STUDENT) the
+ * backend forces `status = PUBLISHED` itself and ignores any status the
+ * client sends — so drafts and archived courses can never come back here.
+ *
+ * `status: "PUBLISHED"` is still sent explicitly so a signed-in ADMIN or
+ * INSTRUCTOR browsing this public page sees the same published-only
+ * catalogue a guest does, rather than their own drafts.
+ */
+export const getPublicCourses = async (filters = {}, config = {}) =>
+    getCoursesPage({ ...filters, status: "PUBLISHED" }, config);
 
 /**
  * Get Course By ID.

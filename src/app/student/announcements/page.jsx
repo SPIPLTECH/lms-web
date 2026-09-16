@@ -41,14 +41,14 @@ export default function StudentAnnouncementsPage() {
 
       if (!matchesSearch) return false;
 
-      if (filterTab === "unread") return !item.read;
+      if (filterTab === "unread") return !item.isRead;
       if (filterTab === "announcement") return item.type === "ANNOUNCEMENT" || item.type === "COURSE";
       if (filterTab === "system") return item.type === "SYSTEM" || item.type === "ALERT";
       return true;
     });
   }, [notifications, searchQuery, filterTab]);
 
-  const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
+  const unreadCount = useMemo(() => notifications.filter((n) => !n.isRead).length, [notifications]);
 
   if (isLoading) return <Loader />;
 
