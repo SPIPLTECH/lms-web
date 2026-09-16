@@ -1378,7 +1378,10 @@ export default function CourseDetailsPage() {
             lessonId: composeLessonId || null,
             topicId: composeTopicId || null,
             order: pendingQuizOrder ?? undefined,
-            questions: updatedQuizData.questions || [],
+            // No `questions` here: syncQuizQuestions below saves them (with the
+            // same mapping an edit uses). Sending them in this request too made
+            // the backend create each question, and then the sync create it
+            // again, so every new quiz came back with doubled questions.
           });
           setPendingQuizOrder(null);
 
