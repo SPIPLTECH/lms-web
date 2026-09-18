@@ -450,12 +450,14 @@ export default function LearnPage() {
 
 
   const trackAccessMutation = useTrackCourseAccess();
-  // Track course access whenever the student enters the course or navigates between lessons, topics, or content blocks
+  // Tracks entering the course. This is per-course (it backs
+  // Enrollment.lastAccessedAt), so it must not re-fire as the student moves
+  // between lessons, topics, or content blocks within that same course.
   useEffect(() => {
     if (courseId) {
       trackAccessMutation.mutate(courseId);
     }
-  }, [courseId, selectedLesson?.id, selectedTopicId, blockIndex]);
+  }, [courseId]);
 
   // Content nests under Topic for legacy/imported lessons, but the current
   // (Composer v2) authoring path attaches Content directly to the Lesson
