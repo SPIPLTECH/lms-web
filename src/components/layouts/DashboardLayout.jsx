@@ -1,29 +1,13 @@
 "use client";
 
-import { useState } from "react";
 import { ChatWidget } from "@/components/chat";
-import Sidebar from "@/components/layouts/Sidebar";
 import DashboardNavbar from "@/components/layouts/DashboardNavbar";
 
+// Students, Instructors, and Admins all navigate via top headers, role nav
+// drawers, or on-page widgets — there is no side rail for any role.
 export default function DashboardLayout({ children, role, title }) {
-  const [open, setOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
-
-  // Students, Instructors, and Admins navigate via top headers or on-page widgets instead of a side rail.
-  const showSidebar = !['STUDENT', 'INSTRUCTOR', 'ADMIN'].includes(role);
-
   return (
     <div className={`flex min-h-screen bg-background`}>
-      {showSidebar && (
-        <Sidebar
-          role={role}
-          open={open}
-          setOpen={setOpen}
-          collapsed={collapsed}
-          setCollapsed={setCollapsed}
-        />
-      )}
-
       <div
         className="
           flex-1
@@ -34,13 +18,7 @@ export default function DashboardLayout({ children, role, title }) {
           duration-300
         "
       >
-        <DashboardNavbar
-          title={title}
-          role={role}
-          setOpen={setOpen}
-          collapsed={collapsed}
-          setCollapsed={setCollapsed}
-        />
+        <DashboardNavbar title={title} role={role} />
 
         <main className="p-2 sm:p-6 md:p-16 flex-1 w-full max-w-[1800px] mx-auto pb-32">
           {children}

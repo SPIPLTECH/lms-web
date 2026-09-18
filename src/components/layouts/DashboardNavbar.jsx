@@ -101,7 +101,7 @@ function ProfileDropdown({ user, onLogoutRequest, role }) {
   );
 }
 
-export default function Navbar({ title = "Dashboard", setOpen, role }) {
+export default function Navbar({ title = "Dashboard", role }) {
   const router = useRouter();
   const { logout, user: currentUser } = useAuth();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -409,9 +409,7 @@ export default function Navbar({ title = "Dashboard", setOpen, role }) {
         <div className="px-2 sm:px-6 py-3 flex items-center gap-1.5 sm:gap-4">
           <div className="flex items-center gap-2 sm:gap-6 shrink-0">
             {/* Mobile menu toggle — opens the role's nav drawer (see
-                Instructor/AdminNavDrawer); this used to call the unrelated
-                `setOpen` prop, which controls a Sidebar that never renders for
-                these roles, so the button silently did nothing on mobile. */}
+                Instructor/AdminNavDrawer). */}
             <button
               type="button"
               onClick={openRoleNavDrawer}
@@ -531,19 +529,6 @@ export default function Navbar({ title = "Dashboard", setOpen, role }) {
       >
         <div className="px-2 sm:px-6 py-3 flex items-center gap-1.5 sm:gap-4">
           <div className="flex items-center gap-3 sm:gap-4 shrink-0">
-            {!isStudentRole && (
-              <button
-                onClick={() => setOpen?.(true)}
-                className="
-                  md:hidden
-                  text-xl
-                  text-foreground
-                  shrink-0
-                "
-              >
-                <FaBars />
-              </button>
-            )}
             {isStudentRole && (
               <>
                 <button
