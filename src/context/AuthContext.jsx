@@ -13,15 +13,14 @@ import {
 } from "@/services/auth.service";
 import { defaultQueryOptions } from "@/lib/queryOptions";
 import { QUERY_KEYS } from "@/constants/queryKeys";
-import { PALETTE_STORAGE_KEY } from "@/lib/palettes";
 
 const AuthContext = createContext();
 
 // next-themes (see src/providers/ThemeProvider.tsx) is mounted with no
 // custom `storageKey`, so it persists under its library default, "theme".
-// Theme/palette are device UI preferences, not session state — logging out
-// must not reset them.
-const PRESERVED_ON_LOGOUT_KEYS = ["theme", PALETTE_STORAGE_KEY];
+// Theme is a device UI preference, not session state — logging out must not
+// reset it.
+const PRESERVED_ON_LOGOUT_KEYS = ["theme"];
 
 // Shared with any future consumer that wants the current identity without
 // re-fetching it (React Query dedupes/caches on this key).
