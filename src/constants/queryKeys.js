@@ -37,7 +37,6 @@ export const QUERY_KEYS = {
     ACHIEVEMENTS: "achievements",
     MY_ACHIEVEMENTS: "my-achievements",
     DASHBOARD: "dashboard",
-    ENTRY_ASSESSMENT: "entry-assessment",
     CALENDAR: "calendar_events",
     NOTIFICATIONS: "notifications",
     COURSE_STATE: "course-state",
