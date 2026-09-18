@@ -1,9 +1,10 @@
 "use client";
 
 /**
- * Where a gradable item lives: Course / Module / Lesson / Topic.
+ * Where a gradable item lives: Course / Module / Lesson / Topic / SubTopic /
+ * Concept.
  *
- * An item attaches at exactly one of those four levels, so the segments above
+ * An item attaches at exactly one of those six levels, so the segments above
  * it resolve and the ones below are absent — this renders whatever came back
  * rather than padding out empty crumbs. Shared by the list rows and by the
  * detail page each row opens, so the two always read identically.
@@ -14,6 +15,8 @@ export default function GradableBreadcrumb({ item, size = "sm" }) {
     item?.moduleTitle,
     item?.lessonTitle,
     item?.topicTitle,
+    item?.subTopicTitle,
+    item?.conceptTitle,
   ].filter(Boolean);
 
   if (crumbs.length === 0) {

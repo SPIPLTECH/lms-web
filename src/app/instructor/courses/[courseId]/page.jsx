@@ -21,6 +21,10 @@ import { useArchiveCourse } from "@/hooks/queries/instructor/useArchiveCourse";
 import { useRestoreCourse } from "@/hooks/queries/instructor/useRestoreCourse";
 import { useDeleteLesson } from "@/hooks/queries/instructor/useDeleteLesson";
 import { useDeleteTopic } from "@/hooks/queries/instructor/useDeleteTopic";
+import { useDeleteSubTopic } from "@/hooks/queries/instructor/useDeleteSubTopic";
+import { useDeleteConcept } from "@/hooks/queries/instructor/useDeleteConcept";
+import { useSubTopic } from "@/hooks/queries/instructor/useSubTopic";
+import { useConcept } from "@/hooks/queries/instructor/useConcept";
 import { useDeleteContent } from "@/hooks/queries/instructor/useDeleteContent";
 import useTrackCourseView from "@/hooks/queries/instructor/useTrackCourseView";
 import { useQueryClient } from "@tanstack/react-query";
@@ -44,6 +48,8 @@ import { LessonOverviewView } from "@/components/instructor/courses/LessonOvervi
 import { QuizOverviewView } from "@/components/instructor/courses/QuizOverviewView";
 import { AssignmentOverviewView } from "@/components/instructor/courses/AssignmentOverviewView";
 import { EntityFormModal } from "@/components/instructor/courses/EntityFormModal";
+import { AssignmentFormModal } from "@/components/instructor/courses/AssignmentFormModal";
+import { useUpdateAssignment, useDeleteAssignment } from "@/hooks/queries/instructor/useAssignments";
 import { UnpublishModal } from "@/components/instructor/courses/UnpublishModal";
 import { DeleteCourseModal } from "@/components/instructor/courses/DeleteCourseModal";
 import AiComposerModal from "@/components/instructor/composer/AiComposerModal";
@@ -106,7 +112,17 @@ function withDraftItemIds(items, prefix) {
 // The workspace selections the URL is allowed to restore. Anything else in
 // `?view=` is ignored and the page opens on the course overview, so a
 // hand-edited or stale link can't drop the composer into an unknown mode.
-const COMPOSER_MODES = new Set(["course", "module", "lesson", "topic", "quiz"]);
+const COMPOSER_MODES = new Set(["course", "module", "lesson", "topic", "subTopic", "concept", "quiz"]);
+
+/** The workspace view for a selection's deepest selected level (used when leaving a quiz/assignment view). */
+function composerModeForSelection({ conceptId, subTopicId, topicId, lessonId, moduleId }) {
+  if (conceptId) return "concept";
+  if (subTopicId) return "subTopic";
+  if (topicId) return "topic";
+  if (lessonId) return "lesson";
+  if (moduleId) return "module";
+  return "course";
+}
 
 export default function CourseDetailsPage() {
   const params = useParams();
@@ -140,6 +156,8 @@ export default function CourseDetailsPage() {
   const restoreCourseMutation = useRestoreCourse();
   const deleteLessonMutation = useDeleteLesson();
   const deleteTopicMutation = useDeleteTopic();
+  const deleteSubTopicMutation = useDeleteSubTopic();
+  const deleteConceptMutation = useDeleteConcept();
   const deleteContentMutation = useDeleteContent();
   const updateCourseMutation = useUpdateCourse();
   const updateLessonMutation = useUpdateLesson();
@@ -167,12 +185,28 @@ export default function CourseDetailsPage() {
   );
   const [composeModuleId, setComposeModuleId] = useState(searchParams.get("module") || null);
   const [composeTopicId, setComposeTopicId] = useState(searchParams.get("topic") || null);
+  // SubTopic/Concept aren't in the modules tree (GET /modules stops at Topic),
+  // so the selected ones are loaded by id further down (useSubTopic/useConcept).
+  const [composeSubTopicId, setComposeSubTopicId] = useState(searchParams.get("subTopic") || null);
+  const [composeConceptId, setComposeConceptId] = useState(searchParams.get("concept") || null);
+  // Titles of SubTopics/Concepts picked in the Course Map, known the moment
+  // they're clicked — the by-id fetch can still be in flight, and a title
+  // that only appears later would re-run QuizOverviewView's create-mode reset.
+  const [knownNodeTitles, setKnownNodeTitles] = useState({});
+  const rememberNodeTitle = (node) => {
+    if (node?.id && node.title) setKnownNodeTitles((prev) => (prev[node.id] === node.title ? prev : { ...prev, [node.id]: node.title }));
+  };
   const [composeQuizId, setComposeQuizId] = useState(searchParams.get("quiz") || null);
   const [composeAssignmentId, setComposeAssignmentId] = useState(null);
+  // The row that was clicked (or just created), used until the refetched tree
+  // carries it — the same fallback selectedQuizState gives a new quiz.
+  const [selectedAssignmentState, setSelectedAssignmentState] = useState(null);
   const [assignmentStartEditing, setAssignmentStartEditing] = useState(false);
   const [selectedQuizState, setSelectedQuizState] = useState(null);
   const [quizStartEditing, setQuizStartEditing] = useState(false);
   const [pendingQuizOrder, setPendingQuizOrder] = useState(null);
+  const updateAssignmentMutation = useUpdateAssignment();
+  const deleteAssignmentMutation = useDeleteAssignment();
   const [selectedCellId, setSelectedCellId] = useState(searchParams.get("content") || null);
 
   // Edit Mode for Metadata Headers
@@ -184,6 +218,9 @@ export default function CourseDetailsPage() {
   const [lessonForm, setLessonForm] = useState({});
 
   // Module/Lesson/Topic modal
+  // Create-an-Assignment dialog (saved courses only — a draft's assignments
+  // come from the import file, and there is nothing to POST them to yet).
+  const [assignmentModalOpen, setAssignmentModalOpen] = useState(false);
   const [entityModalState, setEntityModalState] = useState(null);
   const openEntityModal = (config) => setEntityModalState(config);
   const closeEntityModal = () => setEntityModalState(null);
@@ -654,6 +691,11 @@ export default function CourseDetailsPage() {
           return;
         }
 
+        // Ask OTree AI generates at Course/Module/Lesson/Topic scope only —
+        // a previously selected SubTopic/Concept must not become this quiz's parent.
+        setComposeSubTopicId(null);
+        setComposeConceptId(null);
+
         const newQuizData = {
           title: quizTitle,
           description: quizDesc,
@@ -684,7 +726,7 @@ export default function CourseDetailsPage() {
           setComposeTopicId(null);
         }
 
-        await handleSaveQuiz(newQuizData);
+        await handleSaveQuiz(newQuizData, { topicScopeOnly: true });
         if (skippedCount > 0) {
           showToast(
             `${targetLevel} quiz created from AI! ${skippedCount} question${skippedCount === 1 ? "" : "s"} ${skippedCount === 1 ? "was" : "were"} skipped because ${skippedCount === 1 ? "it had" : "they had"} no correct answer.`,
@@ -739,13 +781,13 @@ export default function CourseDetailsPage() {
     // only in the import draft, so its level is what a reload can reopen.
     const restorableView =
       (composerMode === "quiz" && !composeQuizId) || composerMode === "assignment"
-        ? composeTopicId
-          ? "topic"
-          : composeLessonId
-            ? "lesson"
-            : composeModuleId
-              ? "module"
-              : "course"
+        ? composerModeForSelection({
+            conceptId: composeConceptId,
+            subTopicId: composeSubTopicId,
+            topicId: composeTopicId,
+            lessonId: composeLessonId,
+            moduleId: composeModuleId,
+          })
         : composerMode;
 
     const next = new URLSearchParams(window.location.search);
@@ -758,6 +800,8 @@ export default function CourseDetailsPage() {
     put("module", composeModuleId);
     put("lesson", composeLessonId);
     put("topic", composeTopicId);
+    put("subTopic", composeSubTopicId);
+    put("concept", composeConceptId);
     put("quiz", restorableView === "quiz" ? composeQuizId : null);
     put("content", selectedCellId);
     next.delete("compose"); // superseded by `lesson`
@@ -767,12 +811,28 @@ export default function CourseDetailsPage() {
     if (url !== `${window.location.pathname}${window.location.search}`) {
       window.history.replaceState(null, "", url);
     }
-  }, [composerMode, composeModuleId, composeLessonId, composeTopicId, composeQuizId, selectedCellId]);
+  }, [composerMode, composeModuleId, composeLessonId, composeTopicId, composeSubTopicId, composeConceptId, composeQuizId, selectedCellId]);
 
   // Desktop Course Map collapse state
   const [isCourseMapOpen, setIsCourseMapOpen] = useState(true);
 
   const isDraftMode = courseId === "draft" || courseId === "new";
+
+  // The selected SubTopic/Concept records (import drafts have none). Their
+  // loading state matters beyond display: URL restoration must wait for them
+  // before deciding a ?subTopic=/?concept= id is invalid.
+  const subTopicQuery = useSubTopic(isDraftMode ? null : composeSubTopicId);
+  const conceptQuery = useConcept(isDraftMode ? null : composeConceptId);
+  const activeSubTopic =
+    subTopicQuery.data && String(subTopicQuery.data.id) === String(composeSubTopicId) ? subTopicQuery.data : null;
+  const activeConcept =
+    conceptQuery.data && String(conceptQuery.data.id) === String(composeConceptId) ? conceptQuery.data : null;
+  const composingSubTopicTitle = composeSubTopicId
+    ? knownNodeTitles[composeSubTopicId] ?? activeSubTopic?.title ?? null
+    : null;
+  const composingConceptTitle = composeConceptId
+    ? knownNodeTitles[composeConceptId] ?? activeConcept?.title ?? null
+    : null;
 
   // Marks the course as viewed (Course.lastViewedAt). Skipped in draft mode —
   // an unsaved import preview isn't a real course yet.
@@ -935,8 +995,11 @@ export default function CourseDetailsPage() {
     }
   }, [isDraftMode, course]);
 
+  // Quiz rows carry every ancestor id they were created with, so each level
+  // excludes quizzes placed deeper (down to SubTopic/Concept) — those are
+  // shown on their own lazily loaded Course Map rows via `quizPool`.
   const effectiveCourseQuizzes = (isDraftMode ? draftQuizzes : (course?.quizzes || [])).filter(
-    (q) => !q.moduleId && !q.lessonId && !q.topicId
+    (q) => !q.moduleId && !q.lessonId && !q.topicId && !q.subTopicId && !q.conceptId
   );
 
   const effectiveCourse = isDraftMode
@@ -991,7 +1054,7 @@ export default function CourseDetailsPage() {
 
     return {
       ...mod,
-      quizzes: rawModQuizzes.filter((q) => !q.lessonId && !q.topicId),
+      quizzes: rawModQuizzes.filter((q) => !q.lessonId && !q.topicId && !q.subTopicId && !q.conceptId),
       lessons: (mod.lessons || []).map((lesson) => {
         const rawLesQuizzes = (lesson.quizzes && lesson.quizzes.length > 0)
           ? lesson.quizzes
@@ -1001,7 +1064,7 @@ export default function CourseDetailsPage() {
 
         return {
           ...lesson,
-          quizzes: rawLesQuizzes.filter((q) => !q.topicId),
+          quizzes: rawLesQuizzes.filter((q) => !q.topicId && !q.subTopicId && !q.conceptId),
           topics: (lesson.topics || []).map((topic) => {
             const rawTopQuizzes = (topic.quizzes && topic.quizzes.length > 0)
               ? topic.quizzes
@@ -1011,7 +1074,7 @@ export default function CourseDetailsPage() {
 
             return {
               ...topic,
-              quizzes: rawTopQuizzes,
+              quizzes: rawTopQuizzes.filter((q) => !q.subTopicId && !q.conceptId),
             };
           }),
         };
@@ -1028,6 +1091,8 @@ export default function CourseDetailsPage() {
     setComposeLessonId(null);
     setComposeModuleId(null);
     setComposeTopicId(null);
+    setComposeSubTopicId(null);
+    setComposeConceptId(null);
     setComposeQuizId(null);
     setSelectedQuizState(null);
     setQuizStartEditing(false);
@@ -1036,7 +1101,10 @@ export default function CourseDetailsPage() {
     setMobileSidebarOpen(false);
   };
 
-  const handleSelectQuiz = (quiz, mod = null, lesson = null, topic = null, options = {}) => {
+  // The Course Map appends a context object ({ module, lesson, topic,
+  // subTopic, concept }) after the positional arguments; a quiz opened from
+  // anywhere else falls back to its own parent ids.
+  const handleSelectQuiz = (quiz, mod = null, lesson = null, topic = null, options = {}, context = null) => {
     if (!quiz) return;
 
     if (topic && typeof topic === "object" && ("startEditing" in topic || "isEditing" in topic || "mode" in topic)) {
@@ -1052,9 +1120,16 @@ export default function CourseDetailsPage() {
     const targetLessonId = lesson?.id || lesson?._id || quiz.lessonId || null;
     const targetTopicId = topic?.id || topic?._id || quiz.topicId || null;
 
+    const targetSubTopic = context?.subTopic || null;
+    const targetConcept = context?.concept || null;
+    rememberNodeTitle(targetSubTopic);
+    rememberNodeTitle(targetConcept);
+
     setComposeModuleId(targetModuleId);
     setComposeLessonId(targetLessonId);
     setComposeTopicId(targetTopicId);
+    setComposeSubTopicId(targetSubTopic?.id || quiz.subTopicId || null);
+    setComposeConceptId(targetConcept?.id || quiz.conceptId || null);
     setSelectedCellId(null);
 
     const startEdit = Boolean(options?.startEditing);
@@ -1069,9 +1144,12 @@ export default function CourseDetailsPage() {
   const handleSelectAssignment = (assignment, mod = null, lesson = null, topic = null, options = {}) => {
     if (!assignment) return;
     setComposeAssignmentId(assignment.id);
+    setSelectedAssignmentState(assignment);
     setComposeModuleId(mod?.id || null);
     setComposeLessonId(lesson?.id || null);
     setComposeTopicId(topic?.id || null);
+    setComposeSubTopicId(null);
+    setComposeConceptId(null);
     setComposeQuizId(null);
     setSelectedQuizState(null);
     setSelectedCellId(null);
@@ -1080,17 +1158,22 @@ export default function CourseDetailsPage() {
     setMobileSidebarOpen(false);
   };
 
-  const handleAddCourseQuiz = (order) => {
+  // No `order` parameter: a Course-level quiz is always appended to the end of
+  // the course sequence (see backend contentOrder.util.js), unlike every other
+  // level, where "Add Quiz here" can position the new quiz.
+  const handleAddCourseQuiz = () => {
     setComposeModuleId(null);
     setComposeLessonId(null);
     setComposeTopicId(null);
+    setComposeSubTopicId(null);
+    setComposeConceptId(null);
     setComposeQuizId(null);
     setSelectedQuizState(null);
     setQuizMode("create");
     setComposerMode("quiz");
     setQuizStartEditing(true);
     setSelectedCellId(null);
-    setPendingQuizOrder(order ?? null);
+    setPendingQuizOrder(null);
     setMobileSidebarOpen(false);
   };
 
@@ -1099,6 +1182,8 @@ export default function CourseDetailsPage() {
     setComposeModuleId(targetModuleId);
     setComposeLessonId(null);
     setComposeTopicId(null);
+    setComposeSubTopicId(null);
+    setComposeConceptId(null);
     setComposeQuizId(null);
     setSelectedQuizState(null);
     setQuizMode("create");
@@ -1114,6 +1199,8 @@ export default function CourseDetailsPage() {
     setComposeModuleId(targetModuleId || null);
     setComposeLessonId(lesson?.id || lesson?._id || null);
     setComposeTopicId(null);
+    setComposeSubTopicId(null);
+    setComposeConceptId(null);
     setComposeQuizId(null);
     setSelectedQuizState(null);
     setQuizMode("create");
@@ -1130,6 +1217,48 @@ export default function CourseDetailsPage() {
     setComposeModuleId(targetModuleId || null);
     setComposeLessonId(targetLessonId || null);
     setComposeTopicId(topic?.id || topic?._id || null);
+    setComposeSubTopicId(null);
+    setComposeConceptId(null);
+    setComposeQuizId(null);
+    setSelectedQuizState(null);
+    setQuizMode("create");
+    setComposerMode("quiz");
+    setQuizStartEditing(true);
+    setSelectedCellId(null);
+    setPendingQuizOrder(order ?? null);
+    setMobileSidebarOpen(false);
+  };
+
+  // A SubTopic/Concept quiz keeps every ancestor id alongside its own, the
+  // same way Topic quizzes are created — the backend validates the chain and
+  // places the quiz at its most specific parent. `context` comes from the
+  // Course Map; the in-panel Add Quiz passes none and relies on the current
+  // selection instead.
+  const handleAddSubTopicQuiz = (subTopic, context = {}, order) => {
+    rememberNodeTitle(subTopic);
+    setComposeModuleId(context.module?.id || composeModuleId || null);
+    setComposeLessonId(context.lesson?.id || composeLessonId || null);
+    setComposeTopicId(context.topic?.id || subTopic?.topicId || composeTopicId || null);
+    setComposeSubTopicId(subTopic?.id || null);
+    setComposeConceptId(null);
+    setComposeQuizId(null);
+    setSelectedQuizState(null);
+    setQuizMode("create");
+    setComposerMode("quiz");
+    setQuizStartEditing(true);
+    setSelectedCellId(null);
+    setPendingQuizOrder(order ?? null);
+    setMobileSidebarOpen(false);
+  };
+
+  const handleAddConceptQuiz = (concept, context = {}, order) => {
+    rememberNodeTitle(context.subTopic);
+    rememberNodeTitle(concept);
+    setComposeModuleId(context.module?.id || composeModuleId || null);
+    setComposeLessonId(context.lesson?.id || composeLessonId || null);
+    setComposeTopicId(context.topic?.id || composeTopicId || null);
+    setComposeSubTopicId(context.subTopic?.id || concept?.subTopicId || composeSubTopicId || null);
+    setComposeConceptId(concept?.id || null);
     setComposeQuizId(null);
     setSelectedQuizState(null);
     setQuizMode("create");
@@ -1193,7 +1322,7 @@ export default function CourseDetailsPage() {
     }
   };
 
-  const handleSaveQuiz = async (updatedQuizData) => {
+  const handleSaveQuiz = async (updatedQuizData, { topicScopeOnly = false } = {}) => {
     if (isDraftMode) {
       let createdQuiz;
       if (quizMode === "create" || !selectedQuizState) {
@@ -1365,7 +1494,7 @@ export default function CourseDetailsPage() {
       if (quizMode === "create" || !selectedQuizState) {
         try {
           const resQuiz = await createQuizService({
-            title: updatedQuizData.title || (composeTopicId ? "Topic Quiz" : composeLessonId ? "Lesson Quiz" : "Module Quiz"),
+            title: updatedQuizData.title || (!topicScopeOnly && composeConceptId ? "Concept Quiz" : !topicScopeOnly && composeSubTopicId ? "SubTopic Quiz" : composeTopicId ? "Topic Quiz" : composeLessonId ? "Lesson Quiz" : "Module Quiz"),
             description: updatedQuizData.description || "",
             quizTag: updatedQuizData.quizTag,
             passingScore: Number(updatedQuizData.passingScore) || 70,
@@ -1377,6 +1506,10 @@ export default function CourseDetailsPage() {
             moduleId: composeModuleId || null,
             lessonId: composeLessonId || null,
             topicId: composeTopicId || null,
+            // Only sent when set, so a Course/Module/Lesson/Topic quiz's
+            // payload is exactly what it was before SubTopics existed.
+            ...(!topicScopeOnly && composeSubTopicId ? { subTopicId: composeSubTopicId } : {}),
+            ...(!topicScopeOnly && composeConceptId ? { conceptId: composeConceptId } : {}),
             order: pendingQuizOrder ?? undefined,
           });
           setPendingQuizOrder(null);
@@ -1419,7 +1552,18 @@ export default function CourseDetailsPage() {
             queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.QUIZZES] }),
           ]);
 
-          showToast(composeTopicId ? "Topic quiz created successfully!" : composeLessonId ? "Lesson quiz created successfully!" : "Module quiz created successfully!", "success");
+          showToast(
+            !topicScopeOnly && composeConceptId
+              ? "Concept quiz created successfully!"
+              : !topicScopeOnly && composeSubTopicId
+              ? "SubTopic quiz created successfully!"
+              : composeTopicId
+              ? "Topic quiz created successfully!"
+              : composeLessonId
+              ? "Lesson quiz created successfully!"
+              : "Module quiz created successfully!",
+            "success"
+          );
           setSelectedQuizState(freshQuiz);
           setComposeQuizId(resQuiz.id);
           setQuizMode("view");
@@ -1490,7 +1634,11 @@ export default function CourseDetailsPage() {
   };
 
   const handleCancelQuizEdit = () => {
-    if (composeTopicId) {
+    if (composeConceptId) {
+      setComposerMode("concept");
+    } else if (composeSubTopicId) {
+      setComposerMode("subTopic");
+    } else if (composeTopicId) {
       setComposerMode("topic");
     } else if (composeLessonId) {
       setComposerMode("lesson");
@@ -1678,6 +1826,8 @@ export default function CourseDetailsPage() {
   const handleSelectLesson = (lessonId) => {
     setComposeLessonId(lessonId);
     setComposeTopicId(null);
+    setComposeSubTopicId(null);
+    setComposeConceptId(null);
     setComposeQuizId(null);
     setComposerMode("lesson");
     setSelectedCellId(null);
@@ -1701,6 +1851,8 @@ export default function CourseDetailsPage() {
     setComposeModuleId(mod.id);
     setComposeLessonId(lessonId);
     setComposeTopicId(null);
+    setComposeSubTopicId(null);
+    setComposeConceptId(null);
     setComposeQuizId(null);
     setComposerMode("module");
     setSelectedCellId(null);
@@ -1710,6 +1862,8 @@ export default function CourseDetailsPage() {
 
   const handleSelectTopic = (topicId, lessonId, moduleId) => {
     setComposeTopicId(topicId);
+    setComposeSubTopicId(null);
+    setComposeConceptId(null);
     setComposeLessonId(lessonId);
     setComposeModuleId(moduleId);
     setComposeQuizId(null);
@@ -1731,6 +1885,8 @@ export default function CourseDetailsPage() {
 
   const handleSelectContent = (content, topic, lesson, mod) => {
     setComposeTopicId(topic.id);
+    setComposeSubTopicId(null);
+    setComposeConceptId(null);
     setComposeLessonId(lesson.id);
     setComposeModuleId(mod.id);
     setComposeQuizId(null);
@@ -1745,6 +1901,8 @@ export default function CourseDetailsPage() {
 
   const handleAddContentFromSidebar = (topicId, lessonId, moduleId) => {
     setComposeTopicId(topicId);
+    setComposeSubTopicId(null);
+    setComposeConceptId(null);
     if (lessonId) setComposeLessonId(lessonId);
     if (moduleId) setComposeModuleId(moduleId);
     setComposerMode("topic");
@@ -1769,24 +1927,34 @@ export default function CourseDetailsPage() {
     setLessonContentAutoOpenSignal((n) => n + 1);
   };
 
-  const handleEntityCreated = ({ entity, parentId, moduleId, created }) => {
+  const handleEntityCreated = ({ entity, parentId, moduleId, created, context }) => {
     if (!created?.id) return;
     if (entity === "module") {
       setComposeModuleId(created.id);
       setComposeLessonId(null);
       setComposeTopicId(null);
+      setComposeSubTopicId(null);
+      setComposeConceptId(null);
       setComposerMode("module");
     } else if (entity === "lesson") {
       setComposeModuleId(parentId);
       setComposeLessonId(created.id);
       setComposeTopicId(null);
+      setComposeSubTopicId(null);
+      setComposeConceptId(null);
       setComposerMode("lesson");
     } else if (entity === "topic") {
       if (moduleId) setComposeModuleId(moduleId);
       setComposeLessonId(parentId);
       setComposeTopicId(created.id);
+      setComposeSubTopicId(null);
+      setComposeConceptId(null);
       setComposerMode("topic");
       setAutoOpenAddSignal(0);
+    } else if (entity === "subTopic") {
+      handleSelectSubTopic({ ...created, topicId: created.topicId || parentId }, context || {});
+    } else if (entity === "concept") {
+      handleSelectConcept({ ...created, subTopicId: created.subTopicId || parentId }, context || {});
     }
   };
 
@@ -1841,9 +2009,11 @@ export default function CourseDetailsPage() {
     ? (quizzesById.get(String(composeQuizId)) || (selectedQuizState && (String(selectedQuizState.id) === String(composeQuizId) || String(selectedQuizState._id) === String(composeQuizId)) ? selectedQuizState : null))
     : null;
 
-  // Assignments only exist in the Composer for import drafts: on the course
-  // itself and on any module, lesson or topic.
-  const draftAssignmentLists = isDraftMode
+  // Every assignment the Composer can show, from whichever tree it is reading:
+  // an import draft's lists, or — for a saved course — the course's own
+  // assignments plus the ones on its modules, lessons and topics (GET /courses
+  // and GET /modules both carry them now).
+  const assignmentLists = isDraftMode
     ? [
         draftData?.canonicalJson?.assignments,
         ...draftModules.flatMap((m) => [
@@ -1851,9 +2021,16 @@ export default function CourseDetailsPage() {
           ...(m.lessons || []).flatMap((l) => [l.assignments, ...(l.topics || []).map((t) => t.assignments)]),
         ]),
       ]
-    : [];
+    : [
+        course?.assignments,
+        ...effectiveModules.flatMap((m) => [
+          m.assignments,
+          ...(m.lessons || []).flatMap((l) => [l.assignments, ...(l.topics || []).map((t) => t.assignments)]),
+        ]),
+      ];
   const activeAssignmentObj = composeAssignmentId
-    ? draftAssignmentLists.flatMap((list) => list || []).find((a) => String(a.id) === String(composeAssignmentId)) || null
+    ? assignmentLists.flatMap((list) => list || []).find((a) => String(a.id) === String(composeAssignmentId)) ||
+      (String(selectedAssignmentState?.id) === String(composeAssignmentId) ? selectedAssignmentState : null)
     : null;
 
   // Applies `updateList` to whichever draft list holds the assignment, then
@@ -1899,15 +2076,63 @@ export default function CourseDetailsPage() {
     showToast("Draft assignment updated locally!", "success", "Saved");
   };
 
-  const handleDeleteAssignment = (e, assignment) => {
+  // Saved course: the same edit the draft path applies locally, through the
+  // existing PUT /assignments/:id. That endpoint never moves a row between
+  // levels, so the assignment keeps its place in its parent's sequence.
+  const handleSaveAssignment = async (payload) => {
+    const current = activeAssignmentObj;
+    if (!current) return;
+    const sameDay = current.dueDate && new Date(current.dueDate).toISOString().slice(0, 10) === payload.dueDate;
+    try {
+      await updateAssignmentMutation.mutateAsync({
+        id: current.id,
+        payload: {
+          title: payload.title,
+          description: payload.description || "",
+          assessmentType: payload.assessmentType || null,
+          marks: payload.marks,
+          // Left out when the day itself did not change, so the original time
+          // of day survives the edit.
+          ...(sameDay ? {} : { dueDate: payload.dueDate }),
+          totalQuestions: payload.totalQuestions,
+          estimatedTime: payload.estimatedTime,
+          resources: payload.resources,
+          attachments: payload.attachments || [],
+          isPublished: payload.isPublished !== false,
+        },
+      });
+      showToast("Assignment updated!", "success", "Saved");
+    } catch (err) {
+      showToast(err?.response?.data?.message || "Failed to update assignment", "error");
+    }
+  };
+
+  const handleDeleteAssignment = async (e, assignment) => {
     if (e) e.stopPropagation();
     if (!assignment || !window.confirm(`Are you sure you want to delete "${assignment.title || "this assignment"}"?`)) return;
-    updateDraftAssignments((list) => list.filter((a) => String(a.id) !== String(assignment.id)));
+    if (isDraftMode) {
+      updateDraftAssignments((list) => list.filter((a) => String(a.id) !== String(assignment.id)));
+    } else {
+      try {
+        await deleteAssignmentMutation.mutateAsync(assignment.id);
+      } catch (err) {
+        showToast(err?.response?.data?.message || "Failed to delete assignment", "error");
+        return;
+      }
+    }
     if (composerMode === "assignment" && String(composeAssignmentId) === String(assignment.id)) {
-      setComposerMode(composeTopicId ? "topic" : composeLessonId ? "lesson" : composeModuleId ? "module" : "course");
+      setComposerMode(
+        composerModeForSelection({
+          conceptId: composeConceptId,
+          subTopicId: composeSubTopicId,
+          topicId: composeTopicId,
+          lessonId: composeLessonId,
+          moduleId: composeModuleId,
+        })
+      );
       setComposeAssignmentId(null);
     }
-    showToast("Assignment removed from the draft", "success");
+    showToast(isDraftMode ? "Assignment removed from the draft" : "Assignment deleted", "success");
   };
 
   // Ids restored from the URL may name something that has since been deleted —
@@ -1917,18 +2142,38 @@ export default function CourseDetailsPage() {
   // an empty panel the instructor can't get out of. Guarded on the loading
   // flags so a slow fetch is never mistaken for a missing entity.
   const treeLoaded = !effectiveLoading;
+  // Where the selected SubTopic's parent Topic sits in THIS course's tree —
+  // empty when it isn't loaded yet or belongs to another course.
+  const activeSubTopicParent = findHierarchyByTopicId(effectiveModules, activeSubTopic?.topicId);
+  const activeSubTopicParentTopicId = activeSubTopicParent.topic?.id ?? null;
+  const activeSubTopicParentLessonId = activeSubTopicParent.lesson?.id ?? null;
+  const activeSubTopicParentModuleId = activeSubTopicParent.module?.id ?? null;
   useEffect(() => {
     if (!treeLoaded) return;
 
     if (composeQuizId && !activeQuizObj) {
       setComposeQuizId(null);
-      if (composerMode === "quiz") setComposerMode(composeTopicId ? "topic" : composeLessonId ? "lesson" : composeModuleId ? "module" : "course");
+      if (composerMode === "quiz") {
+        setComposerMode(
+          composerModeForSelection({
+            conceptId: composeConceptId,
+            subTopicId: composeSubTopicId,
+            topicId: composeTopicId,
+            lessonId: composeLessonId,
+            moduleId: composeModuleId,
+          })
+        );
+      }
       return;
     }
     if (composeTopicId && !composingTopic) {
       setComposeTopicId(null);
+      setComposeSubTopicId(null);
+      setComposeConceptId(null);
       setSelectedCellId(null);
-      if (composerMode === "topic") setComposerMode(composingLesson ? "lesson" : "course");
+      if (composerMode === "topic" || composerMode === "subTopic" || composerMode === "concept") {
+        setComposerMode(composingLesson ? "lesson" : "course");
+      }
       return;
     }
     if (composeLessonId && !composingLesson) {
@@ -1936,7 +2181,62 @@ export default function CourseDetailsPage() {
       if (composerMode === "lesson") setComposerMode(activeModuleObj ? "module" : "course");
       return;
     }
-    if (selectedCellId && composingTopic && !(composingTopic.contents || []).some((c) => String(c.id || c._id) === String(selectedCellId))) {
+
+    // SubTopic/Concept are loaded by id on demand, not with the modules tree.
+    // "Not loaded yet" must never be read as "doesn't exist": wait for the
+    // query to settle before judging a ?concept= or ?subTopic= id.
+    if (composeConceptId) {
+      if (conceptQuery.isLoading) return;
+      if (!activeConcept) {
+        setComposeConceptId(null);
+        setSelectedCellId(null);
+        if (composerMode === "concept") setComposerMode(composeSubTopicId ? "subTopic" : composeTopicId ? "topic" : "course");
+        return;
+      }
+      if (!composeSubTopicId) {
+        // A link (or a quiz) that named only the Concept — adopt its SubTopic.
+        setComposeSubTopicId(activeConcept.subTopicId);
+        return;
+      }
+      if (String(activeConcept.subTopicId) !== String(composeSubTopicId)) {
+        setComposeConceptId(null);
+        setSelectedCellId(null);
+        if (composerMode === "concept") setComposerMode("subTopic");
+        return;
+      }
+    }
+    if (composeSubTopicId) {
+      if (subTopicQuery.isLoading) return;
+      const belongsToSelection =
+        activeSubTopic &&
+        activeSubTopicParentTopicId &&
+        (!composeTopicId || String(activeSubTopic.topicId) === String(composeTopicId));
+      if (!belongsToSelection) {
+        setComposeSubTopicId(null);
+        setComposeConceptId(null);
+        setSelectedCellId(null);
+        if (composerMode === "subTopic" || composerMode === "concept") {
+          setComposerMode(composeTopicId ? "topic" : composingLesson ? "lesson" : "course");
+        }
+        return;
+      }
+      if (!composeTopicId) {
+        // Adopt the SubTopic's real parents so the Course Map expands to it.
+        setComposeTopicId(activeSubTopicParentTopicId);
+        setComposeLessonId(activeSubTopicParentLessonId);
+        setComposeModuleId(activeSubTopicParentModuleId);
+        return;
+      }
+    }
+
+    // The Topic tree carries no SubTopic/Concept contents, so this check only
+    // applies while a Topic (not one of its SubTopics/Concepts) is selected.
+    if (
+      selectedCellId &&
+      !composeSubTopicId &&
+      composingTopic &&
+      !(composingTopic.contents || []).some((c) => String(c.id || c._id) === String(selectedCellId))
+    ) {
       setSelectedCellId(null);
     }
   }, [
@@ -1951,6 +2251,15 @@ export default function CourseDetailsPage() {
     composeModuleId,
     activeModuleObj,
     selectedCellId,
+    composeSubTopicId,
+    composeConceptId,
+    subTopicQuery.isLoading,
+    conceptQuery.isLoading,
+    activeSubTopic,
+    activeConcept,
+    activeSubTopicParentTopicId,
+    activeSubTopicParentLessonId,
+    activeSubTopicParentModuleId,
   ]);
 
   // Delete Handlers for structural children
@@ -2042,6 +2351,8 @@ export default function CourseDetailsPage() {
       showToast("Topic deleted successfully", "success");
       if (composeTopicId === topic.id) {
         setComposeTopicId(null);
+        setComposeSubTopicId(null);
+        setComposeConceptId(null);
         setComposerMode("lesson");
       }
     } catch (err) {
@@ -2098,6 +2409,57 @@ export default function CourseDetailsPage() {
     }
   };
 
+  // The backend deletes a SubTopic together with its Concepts and every
+  // Content/Quiz under both; a Concept together with its Content/Quizzes.
+  const handleDeleteSubTopic = async (e, subTopic, context = {}) => {
+    if (e) e.stopPropagation();
+    if (
+      !window.confirm(
+        `Delete "${subTopic.title || "this subtopic"}"? Its concepts, contents and quizzes will be deleted too.`
+      )
+    )
+      return;
+    try {
+      await deleteSubTopicMutation.mutateAsync({
+        subTopicId: subTopic.id,
+        topicId: subTopic.topicId || context.topic?.id,
+      });
+      showToast("SubTopic deleted successfully", "success");
+      if (composeSubTopicId === subTopic.id) {
+        setComposeSubTopicId(null);
+        setComposeConceptId(null);
+        setSelectedCellId(null);
+        if (composerMode === "subTopic" || composerMode === "concept") setComposerMode("topic");
+      }
+    } catch (err) {
+      showToast(err?.response?.data?.message || "Failed to delete subtopic", "error");
+    }
+  };
+
+  const handleDeleteConcept = async (e, concept, context = {}) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm(`Delete "${concept.title || "this concept"}"? Its contents and quizzes will be deleted too.`)) return;
+    try {
+      await deleteConceptMutation.mutateAsync({
+        conceptId: concept.id,
+        subTopicId: concept.subTopicId || context.subTopic?.id,
+      });
+      showToast("Concept deleted successfully", "success");
+      if (composeConceptId === concept.id) {
+        setComposeConceptId(null);
+        setSelectedCellId(null);
+        if (composerMode === "concept") setComposerMode("subTopic");
+      }
+    } catch (err) {
+      showToast(err?.response?.data?.message || "Failed to delete concept", "error");
+    }
+  };
+
+  const handleDeleteSubTopicContent = (e, content, context = {}) =>
+    handleDeleteContentAtParent(e, content, { parentType: "subTopic", parentId: context.subTopic?.id || content.subTopicId });
+  const handleDeleteConceptContent = (e, content, context = {}) =>
+    handleDeleteContentAtParent(e, content, { parentType: "concept", parentId: context.concept?.id || content.conceptId });
+
   const handleDeleteCourseContent = (e, content) =>
     handleDeleteContentAtParent(e, content, { parentType: "course", parentId: courseId });
   const handleDeleteModuleContent = (e, content, mod) =>
@@ -2117,6 +2479,61 @@ export default function CourseDetailsPage() {
     handleSelectLesson(lesson.id);
     if (mod?.id) setComposeModuleId(mod.id);
     setSelectedCellId(content.id);
+  };
+
+  // SubTopic / Concept selection. The Course Map passes the row plus its
+  // parent chain ({ module, lesson, topic[, subTopic] }); every ancestor id is
+  // kept selected so the tree stays expanded down to the row.
+  const handleSelectSubTopic = (subTopic, context = {}) => {
+    if (!subTopic?.id) return;
+    rememberNodeTitle(subTopic);
+    setComposeModuleId(context.module?.id || composeModuleId || null);
+    setComposeLessonId(context.lesson?.id || composeLessonId || null);
+    setComposeTopicId(context.topic?.id || subTopic.topicId || composeTopicId || null);
+    setComposeSubTopicId(subTopic.id);
+    setComposeConceptId(null);
+    setComposeQuizId(null);
+    setComposerMode("subTopic");
+    setSelectedCellId(null);
+    // Same stale-auto-open guard as handleSelectTopic.
+    setAutoOpenAddSignal(0);
+    setMobileSidebarOpen(false);
+  };
+
+  const handleSelectConcept = (concept, context = {}) => {
+    if (!concept?.id) return;
+    rememberNodeTitle(context.subTopic);
+    rememberNodeTitle(concept);
+    setComposeModuleId(context.module?.id || composeModuleId || null);
+    setComposeLessonId(context.lesson?.id || composeLessonId || null);
+    setComposeTopicId(context.topic?.id || composeTopicId || null);
+    setComposeSubTopicId(context.subTopic?.id || concept.subTopicId || composeSubTopicId || null);
+    setComposeConceptId(concept.id);
+    setComposeQuizId(null);
+    setComposerMode("concept");
+    setSelectedCellId(null);
+    setAutoOpenAddSignal(0);
+    setMobileSidebarOpen(false);
+  };
+
+  const handleSelectSubTopicContent = (content, context = {}) => {
+    handleSelectSubTopic(context.subTopic, context);
+    setSelectedCellId(content.id);
+  };
+
+  const handleSelectConceptContent = (content, context = {}) => {
+    handleSelectConcept(context.concept, context);
+    setSelectedCellId(content.id);
+  };
+
+  const handleAddContentToSubTopic = (subTopic, context = {}) => {
+    handleSelectSubTopic(subTopic, context);
+    setAutoOpenAddSignal((n) => n + 1);
+  };
+
+  const handleAddContentToConcept = (concept, context = {}) => {
+    handleSelectConcept(concept, context);
+    setAutoOpenAddSignal((n) => n + 1);
   };
 
   const handleSaveCourse = async () => {
@@ -2362,14 +2779,17 @@ export default function CourseDetailsPage() {
             // An import draft can carry content and assignments on the course
             // itself (and on modules/lessons, which travel inside effectiveModules).
             courseContents={isDraftMode ? draftData?.canonicalJson?.contents : undefined}
-            courseAssignments={isDraftMode ? draftData?.canonicalJson?.assignments || [] : undefined}
+            courseAssignments={isDraftMode ? draftData?.canonicalJson?.assignments || [] : course?.assignments || []}
             composeAssignmentId={composeAssignmentId}
-            onSelectAssignment={isDraftMode ? closingDrawer(handleSelectAssignment) : undefined}
-            onDeleteAssignment={isDraftMode ? handleDeleteAssignment : undefined}
+            onSelectAssignment={closingDrawer(handleSelectAssignment)}
+            onDeleteAssignment={handleDeleteAssignment}
+            onAddAssignmentToCourse={isDraftMode ? undefined : () => setAssignmentModalOpen(true)}
             composerMode={composerMode}
             composeModuleId={composeModuleId}
             composeLessonId={composeLessonId}
             composeTopicId={composeTopicId}
+            composeSubTopicId={composeSubTopicId}
+            composeConceptId={composeConceptId}
             composeQuizId={composeQuizId}
             selectedCellId={selectedCellId}
             isOpen={courseMapEffectivelyOpen}
@@ -2417,6 +2837,47 @@ export default function CourseDetailsPage() {
             onDeleteModule={handleDeleteModule}
             onDeleteTopic={handleDeleteTopic}
             onDeleteContent={handleDeleteContent}
+            // SubTopic / Concept. GET /modules stops at Topic, so the map
+            // loads them per expanded row and places their quizzes from the
+            // course-wide list. Import drafts are Topic-only: no lazy loading.
+            loadChildrenLazily={!isDraftMode}
+            quizPool={isDraftMode ? [] : course?.quizzes || []}
+            onSelectSubTopic={closingDrawer(handleSelectSubTopic)}
+            onSelectConcept={closingDrawer(handleSelectConcept)}
+            onSelectSubTopicContent={closingDrawer(handleSelectSubTopicContent)}
+            onSelectConceptContent={closingDrawer(handleSelectConceptContent)}
+            onDeleteSubTopicContent={handleDeleteSubTopicContent}
+            onDeleteConceptContent={handleDeleteConceptContent}
+            onAddSubTopic={(topic, context) =>
+              openEntityModal({ entity: "subTopic", mode: "create", parentId: topic.id, context: { ...context, topic } })
+            }
+            onEditSubTopic={(subTopic, context) =>
+              openEntityModal({
+                entity: "subTopic",
+                mode: "edit",
+                entityData: subTopic,
+                parentId: subTopic.topicId || context?.topic?.id,
+                context,
+              })
+            }
+            onDeleteSubTopic={handleDeleteSubTopic}
+            onAddConcept={(subTopic, context) =>
+              openEntityModal({ entity: "concept", mode: "create", parentId: subTopic.id, context: { ...context, subTopic } })
+            }
+            onEditConcept={(concept, context) =>
+              openEntityModal({
+                entity: "concept",
+                mode: "edit",
+                entityData: concept,
+                parentId: concept.subTopicId || context?.subTopic?.id,
+                context,
+              })
+            }
+            onDeleteConcept={handleDeleteConcept}
+            onAddContentToSubTopic={closingDrawer(handleAddContentToSubTopic)}
+            onAddContentToConcept={closingDrawer(handleAddContentToConcept)}
+            onAddQuizToSubTopic={closingDrawer(handleAddSubTopicQuiz)}
+            onAddQuizToConcept={closingDrawer(handleAddConceptQuiz)}
             isDraftMode={isDraftMode}
           />
         </div>
@@ -2473,7 +2934,11 @@ export default function CourseDetailsPage() {
                 modules={effectiveModules}
                 onSelectModule={handleSelectModule}
                 onSelectQuiz={handleSelectQuiz}
-                onAddQuiz={(order) => handleAddCourseQuiz(order)}
+                // Course-level quizzes are always appended — the backend keeps
+                // every course quiz after all course content, assignments and
+                // modules — so the "Add Quiz here" position is deliberately
+                // dropped here instead of asking for a slot that can't exist.
+                onAddQuiz={() => handleAddCourseQuiz()}
                 onAddModule={() => openEntityModal({ entity: "module", mode: "create", courseId })}
                 isDraftMode={isDraftMode}
                 contentAutoOpenSignal={courseContentAutoOpenSignal}
@@ -2489,13 +2954,15 @@ export default function CourseDetailsPage() {
 
             {composerMode === "quiz" && (
               <QuizOverviewView
-                key={composeQuizId || `new-quiz-${composeTopicId || composeLessonId || composeModuleId || "course"}`}
+                key={composeQuizId || `new-quiz-${composeConceptId || composeSubTopicId || composeTopicId || composeLessonId || composeModuleId || "course"}`}
                 quiz={activeQuizObj}
                 quizMode={quizMode}
                 courseId={courseId}
                 moduleTitle={activeModuleObj?.title}
                 lessonTitle={composeLessonId ? composingLesson?.title : null}
                 topicTitle={composeTopicId ? composingTopic?.title : null}
+                subTopicTitle={composingSubTopicTitle}
+                conceptTitle={composingConceptTitle}
                 onSaveQuiz={handleSaveQuiz}
                 onCancel={handleCancelQuizEdit}
                 startEditing={quizStartEditing}
@@ -2513,8 +2980,8 @@ export default function CourseDetailsPage() {
                     : "Course-Level Assignment"
                 }
                 startEditing={assignmentStartEditing}
-                onSave={isDraftMode ? handleSaveDraftAssignment : undefined}
-                onDelete={isDraftMode ? () => handleDeleteAssignment(null, activeAssignmentObj) : undefined}
+                onSave={isDraftMode ? handleSaveDraftAssignment : handleSaveAssignment}
+                onDelete={() => handleDeleteAssignment(null, activeAssignmentObj)}
               />
             )}
 
@@ -2606,6 +3073,32 @@ export default function CourseDetailsPage() {
                 }}
               />
             )}
+
+            {composerMode === "subTopic" && !isDraftMode && (
+              <LessonComposerPanel
+                parent={{ parentType: "subTopic", parentId: composeSubTopicId }}
+                selectedCellId={selectedCellId}
+                onSelectCell={setSelectedCellId}
+                autoOpenAddSignal={autoOpenAddSignal}
+                onAutoOpenConsumed={() => setAutoOpenAddSignal(0)}
+                onAddQuiz={(order) =>
+                  handleAddSubTopicQuiz({ id: composeSubTopicId, title: composingSubTopicTitle }, {}, order)
+                }
+              />
+            )}
+
+            {composerMode === "concept" && !isDraftMode && (
+              <LessonComposerPanel
+                parent={{ parentType: "concept", parentId: composeConceptId }}
+                selectedCellId={selectedCellId}
+                onSelectCell={setSelectedCellId}
+                autoOpenAddSignal={autoOpenAddSignal}
+                onAutoOpenConsumed={() => setAutoOpenAddSignal(0)}
+                onAddQuiz={(order) =>
+                  handleAddConceptQuiz({ id: composeConceptId, title: composingConceptTitle }, {}, order)
+                }
+              />
+            )}
           </div>
         </main>
       </div>
@@ -2615,6 +3108,14 @@ export default function CourseDetailsPage() {
         state={entityModalState}
         onClose={closeEntityModal}
         onCreated={handleEntityCreated}
+      />
+
+      {/* Course-level Assignment (the real entity, placed after every Module). */}
+      <AssignmentFormModal
+        open={assignmentModalOpen}
+        onClose={() => setAssignmentModalOpen(false)}
+        courseId={courseId}
+        onCreated={(assignment) => handleSelectAssignment(assignment)}
       />
 
       {/* Unpublish Confirmation Modal */}

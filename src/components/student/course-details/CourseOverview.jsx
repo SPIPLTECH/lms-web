@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 
 import Card from "@/components/ui/Card";
+import { getTopicTreeContents } from "@/lib/courseMapper";
 
 function formatDuration(hours) {
     if (!hours || hours <= 0) return "Self-paced";
@@ -45,7 +46,7 @@ export default function CourseOverview({
                     (lessonCount, lesson) =>
                         lessonCount +
                         (lesson.topics?.reduce(
-                            (topicCount, topic) => topicCount + (topic.contents?.length || 0),
+                            (topicCount, topic) => topicCount + getTopicTreeContents(topic).length,
                             0
                         ) || 0),
                     0

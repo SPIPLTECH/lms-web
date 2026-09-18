@@ -13,7 +13,10 @@ export default function LearnPageHeader({
   courseSidebarOpen,
   onOpenSidebar,
   selectedLesson,
+  // Title of the most specific level the player is in (a Topic, SubTopic or
+  // Concept) and that level's name — one line, never a breadcrumb stack.
   topicTitle,
+  levelLabel = "Topic",
   course,
   unitProgress,
   isProgressUnavailable,
@@ -53,7 +56,7 @@ export default function LearnPageHeader({
             {selectedLesson ? `Lesson: ${selectedLesson.title}` : course?.title || "Course Overview"}
           </h2>
           {topicTitle && (
-            <p className="text-sm text-muted-foreground truncate">Topic: {topicTitle}</p>
+            <p className="text-sm text-muted-foreground truncate">{levelLabel}: {topicTitle}</p>
           )}
         </div>
       </div>
@@ -73,7 +76,7 @@ export default function LearnPageHeader({
         <div className="hidden sm:flex shrink-0 items-center gap-3 mr-3 min-w-0">
           <div className="text-right min-w-0">
             <span className="text-[12px] font-black uppercase tracking-widest text-muted-foreground block leading-none">
-              Topic Progress
+              {topicTitle ? levelLabel : "Topic"} Progress
             </span>
             {/* The backend denominator is every applicable Content, Quiz and
                 Assignment this Topic/Lesson owns — not Content alone — so

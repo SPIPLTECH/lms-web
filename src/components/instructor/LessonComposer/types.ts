@@ -11,6 +11,8 @@ export interface ContentRow {
   moduleId?: string | null;
   lessonId?: string | null;
   topicId?: string | null;
+  subTopicId?: string | null;
+  conceptId?: string | null;
   type: string;
   title?: string | null;
   videoUrl?: string | null;
@@ -23,8 +25,13 @@ export interface ContentRow {
   data?: Record<string, unknown> | null;
 }
 
-/** Which hierarchy level a Content Cell is attached to. */
-export type ContentParentType = "course" | "module" | "lesson" | "topic";
+/**
+ * Which hierarchy level a Content Cell is attached to. `subTopic`/`concept`
+ * are spelled exactly as the backend's `subTopicId`/`conceptId` fields — the
+ * content list query is built as `?${parentType}Id=`, so any other spelling
+ * would silently send a filter the backend ignores.
+ */
+export type ContentParentType = "course" | "module" | "lesson" | "topic" | "subTopic" | "concept";
 
 /** Identifies a single parent — exactly one Content Cell owner. */
 export interface ContentParent {
@@ -32,28 +39,42 @@ export interface ContentParent {
   parentId: string;
 }
 
-const PARENT_FIELD_BY_TYPE: Record<ContentParentType, "courseId" | "moduleId" | "lessonId" | "topicId"> = {
+type ContentParentField = "courseId" | "moduleId" | "lessonId" | "topicId" | "subTopicId" | "conceptId";
+
+const PARENT_FIELD_BY_TYPE: Record<ContentParentType, ContentParentField> = {
   course: "courseId",
   module: "moduleId",
   lesson: "lessonId",
   topic: "topicId",
+  subTopic: "subTopicId",
+  concept: "conceptId",
 };
 
-/** Builds the single wire field (`{ courseId }` / `{ moduleId }` / `{ lessonId }` / `{ topicId }`) a create/update payload sends for this parent. */
-export function toParentField(parent: ContentParent): { courseId?: string; moduleId?: string; lessonId?: string; topicId?: string } {
+/** Builds the single wire field (`{ courseId }` / … / `{ conceptId }`) a create/update payload sends for this parent — never an ancestor id alongside it, since Content accepts exactly one parent. */
+export function toParentField(parent: ContentParent): Partial<Record<ContentParentField, string>> {
   return { [PARENT_FIELD_BY_TYPE[parent.parentType]]: parent.parentId };
 }
 
-/** Reads whichever of courseId/moduleId/lessonId/topicId is set on a Content row (or any object with the same shape) and returns it as a ContentParent. Defaults to "topic" when only topicId is present, matching every row that existed before this feature. */
+/**
+ * Reads the parent id set on a Content row (or any object with the same shape) and returns it as a ContentParent.
+ * Checked most-specific first (concept → subTopic → topic → lesson → module → course), so a SubTopic or Concept row
+ * is never mistaken for a Topic one. Still defaults to "topic" when no parent id is present at all, matching every row
+ * that existed before parents other than Topic were introduced.
+ */
 export function getContentParent(row: {
   courseId?: string | null;
   moduleId?: string | null;
   lessonId?: string | null;
   topicId?: string | null;
+  subTopicId?: string | null;
+  conceptId?: string | null;
 }): ContentParent {
-  if (row.courseId) return { parentType: "course", parentId: row.courseId };
-  if (row.moduleId) return { parentType: "module", parentId: row.moduleId };
+  if (row.conceptId) return { parentType: "concept", parentId: row.conceptId };
+  if (row.subTopicId) return { parentType: "subTopic", parentId: row.subTopicId };
+  if (row.topicId) return { parentType: "topic", parentId: row.topicId };
   if (row.lessonId) return { parentType: "lesson", parentId: row.lessonId };
+  if (row.moduleId) return { parentType: "module", parentId: row.moduleId };
+  if (row.courseId) return { parentType: "course", parentId: row.courseId };
   return { parentType: "topic", parentId: row.topicId as string };
 }
 

@@ -51,7 +51,7 @@ interface LessonComposerPanelProps {
   draftContents?: ContentRow[];
   isDraftMode?: boolean;
   onUpdateDraftContents?: (contents: ContentRow[]) => void;
-  /** Opens the lesson-quiz creation flow for this topic's parent lesson — a Quiz isn't a Content row, so picking it from the Add Content grid hands off to that flow instead of an in-panel form. Only ever passed when parent.parentType === "topic". Omit to hide the Quiz option. */
+  /** Opens the lesson-quiz creation flow for this topic's parent lesson — a Quiz isn't a Content row, so picking it from the Add Content grid hands off to that flow instead of an in-panel form. Passed for "topic", "subTopic" and "concept" parents. Omit to hide the Quiz option. */
   onAddQuiz?: () => void;
 }
 
@@ -367,7 +367,7 @@ export function LessonComposerPanel({
           className="rounded-2xl border-2 border-dashed border-border hover:border-primary/50 bg-background/40 p-12 text-center transition cursor-pointer group"
         >
           <p className="text-base font-bold text-foreground group-hover:text-primary transition">
-            No content in this {parent?.parentType || "lesson"} yet.
+            No content in this {(parent?.parentType === "subTopic" ? "subtopic" : parent?.parentType) || "lesson"} yet.
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             Click here to add your first content block.

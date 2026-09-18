@@ -6,6 +6,7 @@ import { ChevronDown, ChevronRight, Layers } from "lucide-react";
 import Card from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
 import LessonList from "./LessonList";
+import { getTopicTreeContents } from "@/lib/courseMapper";
 
 function formatDuration(totalMinutes) {
     if (!totalMinutes || totalMinutes <= 0) return null;
@@ -25,10 +26,10 @@ function getModuleDuration(module) {
             (lesson.topics || []).reduce(
                 (topicSum, topic) =>
                     topicSum +
-                    (topic.contents?.reduce(
+                    getTopicTreeContents(topic).reduce(
                         (contentSum, content) => contentSum + (content.duration || 0),
                         0
-                    ) || 0),
+                    ),
                 0
             ),
         0

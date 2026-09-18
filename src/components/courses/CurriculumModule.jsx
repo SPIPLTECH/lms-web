@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/reactIcons";
 
 import Card from "@/components/ui/Card";
+import { getTopicTreeContents } from "@/lib/courseMapper";
 import Button from "@/components/ui/Button";
 
 const getContentIcon = (type) => {
@@ -243,7 +244,7 @@ export default function CurriculumModule({
                                             <div
                                                 className="rounded-full bg-blue-500/10 px-3 py-1 text-sm text-blue-400">
 
-                                                {(lesson.topics || []).reduce((sum, topic) => sum + (topic.contents?.length || 0), 0)} Contents
+                                                {(lesson.topics || []).reduce((sum, topic) => sum + getTopicTreeContents(topic).length, 0)} Contents
 
                                             </div>
 
@@ -262,7 +263,7 @@ export default function CurriculumModule({
 
                                     <div className="mt-6 rounded-xl bg-background/40 p-4 space-y-3">
                                         {(() => {
-                                            const lessonContents = (lesson.topics || []).flatMap((topic) => topic.contents || []);
+                                            const lessonContents = (lesson.topics || []).flatMap((topic) => getTopicTreeContents(topic));
                                             return lessonContents.length ? (
 
                                             lessonContents.map(

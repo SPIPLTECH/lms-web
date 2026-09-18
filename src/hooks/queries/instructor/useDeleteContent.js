@@ -5,6 +5,7 @@ import {
 
 import { deleteContent } from "@/services/content.service";
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { parentFromIdFields } from "./useCreateContent";
 
 export function useDeleteContent() {
     const queryClient = useQueryClient();
@@ -14,9 +15,9 @@ export function useDeleteContent() {
             deleteContent(contentId),
 
         onSuccess: (_, variables) => {
-            const parentType = variables.parent?.parentType
-                ?? (variables.topicId ? "topic" : undefined);
-            const parentId = variables.parent?.parentId ?? variables.topicId;
+            const [fallbackType, fallbackId] = parentFromIdFields(variables);
+            const parentType = variables.parent?.parentType ?? fallbackType;
+            const parentId = variables.parent?.parentId ?? fallbackId;
 
             // refetchType: "all" forces an immediate background refetch even
             // for queries with no currently-mounted observer — otherwise the

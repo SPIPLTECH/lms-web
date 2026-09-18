@@ -101,6 +101,12 @@ export const QUERY_KEYS = {
     TOPICS: "topics",
     TOPIC: "topic",
 
+    SUBTOPICS: "subtopics",
+    SUBTOPIC: "subtopic",
+
+    CONCEPTS: "concepts",
+    CONCEPT: "concept",
+
     CONTENTS: "contents",
     CONTENT: "content",
     CONTENT_SUBMISSION: "content-submission",

@@ -59,36 +59,59 @@ Do not assume a file exists only because it is mentioned in documentation. Inspe
 
 ```text
 Course
+├── CQA
 └── Module
+    ├── CQA
     └── Lesson
+        ├── CQA
         └── Topic
-            └── Content
+            ├── CQA
+            └── SubTopic
+                ├── CQA
+                └── Concept
+                    └── CQA
 ```
+
+CQA = Content, Quiz, Assignment. CQA is supported at all six levels.
+
+SubTopic and Concept are **optional**, and CQA and child levels can coexist:
+
+- OLD: `Course → Module → Lesson → Topic → CQA` (a Topic with no SubTopics) must keep working unchanged.
+- NEW: `Course → Module → Lesson → Topic → SubTopic → Concept → CQA`.
+- MIXED: a Topic (or SubTopic) with its own CQA **and** child SubTopics (or Concepts).
 
 ### Current State
 
-`Topic` is already implemented across the stack:
+`Topic`, `SubTopic` and `Concept` are implemented across the stack:
 
-- Prisma schema
-- Backend `/topics` API
-- `topic.service.js`
-- Topic React Query hooks
-- Instructor Course Composer
-- Student Learning Player
+- Prisma schema (`Topic.subTopics`, `SubTopic.concepts`; Content/Quiz/Assignment carry `subTopicId`/`conceptId`)
+- Backend `/topics`, `/subtopics`, `/concepts` APIs
+- `topic.service.js`, `subTopic.service.js`, `concept.service.js`
+- Topic, SubTopic and Concept React Query hooks (`src/hooks/queries/instructor/`)
+- Instructor Course Composer (Course Map rows, CRUD, reorder, content and quizzes at every level)
+- Student Learning Player (Course Map, Prev/Next, gates, resume, progress)
 
-Do **not** reimplement Topic as a new feature.
+Do **not** reimplement Topic, SubTopic or Concept as new features, and do not introduce a generic `children` property — the real nesting keys are `topic.subTopics[]` and `subTopic.concepts[]`.
+
+### Rules for hierarchy-aware code
+
+- Walk the hierarchy through the shared helpers rather than new loops: `lib/courseMapper.js` (normalization, quiz placement), `lib/courseUnits.js` (Prev/Next units, `resolveLessonPathway`), `lib/progressIndex.js`, `lib/resumeTarget.js`. `courseUnits.js` and `resumeTarget.js` must traverse in the same order — `src/lib/__tests__/resumeTarget.test.js` checks this.
+- Quiz rows may carry every ancestor id. Place a quiz at its most specific parent (concept > subTopic > topic > lesson > module > course) and never show it at an ancestor level.
+- Content and Assignment carry exactly one parent id. Content parent types are `course | module | lesson | topic | subTopic | concept` (exact spelling — the list query is `?${parentType}Id=`).
+- The instructor modules tree (`GET /modules`) stops at Topic; the Composer loads SubTopics/Concepts lazily (`useSubTopics`, `useConcepts`) and must not treat "still loading" as "invalid" when restoring `?subTopic=`/`?concept=` from the URL.
+- Import drafts and the AI composer are Topic-only; do not expose SubTopic/Concept actions there until the backend supports them.
 
 ### Target State
 
-Maintain a seamless Topic-level experience across:
+Maintain a seamless experience at every level across:
 
 - Instructor course composition
-- Topic management
+- Topic, SubTopic and Concept management
 - Content management
-- Student lesson/topic navigation
+- Student lesson/topic/subtopic/concept navigation
 - Student learning experience
 
-If a Topic-related defect is found, modify the existing implementation rather than creating a parallel Topic architecture.
+If a hierarchy-related defect is found, modify the existing implementation rather than creating a parallel architecture.
 
 ---
 
