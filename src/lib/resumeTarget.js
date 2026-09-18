@@ -35,6 +35,7 @@ function buildLeafSequence(hierarchy) {
       kind,
       id: raw.id,
       visited: raw.visited === true,
+      visitedAt: raw.visitedAt ?? null,
       completed: raw.completed === true,
       ...scope,
     });
@@ -90,21 +91,26 @@ function buildLeafSequence(hierarchy) {
  * purely from the backend's visited/completed roll-up (GET
  * /progress/courses/:courseId) — no DB-saved "last lesson" state involved.
  *
- * Finds the LAST leaf, in course order, that has been visited at all (a
- * container's own rolled-up `visited` flag isn't usable for this: it only
- * turns true once EVERY descendant is visited, which tells you a level is
- * finished, not where the student currently is — so this walks the actual
- * Content/Quiz leaves' own visited flags instead, which is exactly the
- * module -> content/lesson/quiz -> lesson -> content/quiz/topic -> topic
- * content drill-down collapses to when done in course order).
+ * Anchored on the MOST RECENTLY visited leaf (`visitedAt`), not the one
+ * furthest along in course order. Those two answer different questions, and
+ * the difference is user-visible: a student who peeks ahead at a later
+ * lesson and then goes back to finish an earlier one is, by the course-order
+ * rule, pinned to that peek forever — Continue Learning keeps throwing them
+ * past the work they are actually doing. Container roll-up flags are no help
+ * either (a container's `visited` only turns true once EVERY descendant is
+ * visited, and it is sticky once set), so this walks the Content/Quiz leaves'
+ * own flags.
  *
- *   - visited && !completed -> that leaf IS the resume target.
- *   - visited && completed  -> nothing left to do there, so the NEXT leaf
- *     (course order) is the target instead.
+ *   - anchor not completed -> the anchor IS the resume target (they were
+ *     mid-way through it).
+ *   - anchor completed -> the next INCOMPLETE leaf after it in course order.
+ *   - nothing incomplete after it -> the first incomplete leaf anywhere,
+ *     so work stranded behind the anchor (content added to a topic after
+ *     the student already passed through it) stays reachable instead of
+ *     holding the course below 100% forever.
  *   - nothing visited anywhere -> the course's very first leaf (a fresh
  *     student's first visit).
- *   - the whole course's last leaf is visited+completed -> that same leaf
- *     (review mode; there is no "next").
+ *   - every leaf completed -> the anchor itself (review mode).
  *
  * @returns {{kind: 'content'|'quiz', id: string, moduleId: string|null,
  *   lessonId: string|null, topicId: string|null}|null} null when progress
@@ -117,15 +123,31 @@ export function resolveResumeTarget(progressData) {
   const leaves = buildLeafSequence(hierarchy);
   if (leaves.length === 0) return null;
 
-  let lastVisitedIndex = -1;
+  // Newest visitedAt wins. Ties break toward course order (`>=`): one screen
+  // of grouped content is marked visited in a single batch, so those rows
+  // share a timestamp to the millisecond and the later one is the true edge.
+  // Roll-up rows written before visitedAt existed carry no timestamp at all
+  // — they all score -Infinity, which collapses this back to the original
+  // "furthest visited leaf in course order" rule for that legacy data.
+  let anchorIndex = -1;
+  let anchorTime = -Infinity;
   for (let i = 0; i < leaves.length; i++) {
-    if (leaves[i].visited) lastVisitedIndex = i;
+    if (!leaves[i].visited) continue;
+    const parsed = Date.parse(leaves[i].visitedAt ?? "");
+    const time = Number.isNaN(parsed) ? -Infinity : parsed;
+    if (time >= anchorTime) {
+      anchorTime = time;
+      anchorIndex = i;
+    }
   }
 
-  if (lastVisitedIndex === -1) return leaves[0];
+  if (anchorIndex === -1) return leaves[0];
 
-  const lastVisited = leaves[lastVisitedIndex];
-  if (!lastVisited.completed) return lastVisited;
+  const anchor = leaves[anchorIndex];
+  if (!anchor.completed) return anchor;
 
-  return leaves[lastVisitedIndex + 1] || lastVisited;
+  const isIncomplete = (leaf) => !leaf.completed;
+  return (
+    leaves.slice(anchorIndex + 1).find(isIncomplete) || leaves.find(isIncomplete) || anchor
+  );
 }
