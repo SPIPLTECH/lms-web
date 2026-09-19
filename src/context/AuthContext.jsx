@@ -30,13 +30,13 @@ const AUTH_SESSION_KEY = [QUERY_KEYS.PROFILE];
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   // loading: true only while we genuinely don't know who's asking yet
-  // (no cookie, or a cookie with nothing cached to render with). It no
-  // longer waits on the getProfile() network round-trip in the common case.
+  // (no cookie, or a cookie with nothing cached to render with).
   const [loading, setLoading] = useState(true);
-  // isVerifying: background getProfile() confirmation in flight. Never
-  // gates rendering — exposed for optional future UI (e.g. a subtle
-  // "syncing" indicator), unused today.
+  // isVerifying: background getProfile() confirmation in flight.
   const [isVerifying, setIsVerifying] = useState(false);
+  // isVerified: true only after server confirmation (or confirmed unauthenticated status).
+  // A cached localStorage user alone DOES NOT set isVerified to true.
+  const [isVerified, setIsVerified] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
@@ -79,6 +79,7 @@ export const AuthProvider = ({ children }) => {
     // 4. Reset auth state
     setUser(null);
     setLoading(false);
+    setIsVerified(true);
   };
 
   // Confirms the session against the server. Goes through React Query so
@@ -97,10 +98,12 @@ export const AuthProvider = ({ children }) => {
       if (typeof window !== "undefined") {
         localStorage.setItem("user", JSON.stringify(response.data));
       }
+      setIsVerified(true);
       return true;
     } catch (error) {
       console.error("Session verification failed:", error);
       logoutLocal();
+      setIsVerified(true);
       return false;
     } finally {
       setIsVerifying(false);
@@ -129,9 +132,8 @@ export const AuthProvider = ({ children }) => {
     }
 
     if (hasCachedUser) {
-      // We already know who this browser was last authenticated as — unblock
-      // rendering now and confirm the session with the server in the
-      // background instead of making every page wait on the network.
+      // Unblock initial layout rendering with cached user, but DO NOT consider session
+      // verified until verifySession() completes with the server.
       setLoading(false);
       verifySession();
     } else {
@@ -147,9 +149,11 @@ export const AuthProvider = ({ children }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Automatic startup dashboard redirects for authenticated users on guest pages
+  // Automatic startup dashboard redirects for authenticated users on guest pages.
+  // Requires isVerified === true so unverified localStorage cache NEVER triggers guest redirects.
   useEffect(() => {
-    if (!loading && user) {
+    console.log("[AUTH] check:", { pathname, loading, isVerified, user: user ? user.role : null });
+    if (!loading && isVerified && user) {
       const guestRoutes = [
         "/",
         "/login",
@@ -173,10 +177,12 @@ export const AuthProvider = ({ children }) => {
             : user.role === "INSTRUCTOR"
             ? "/instructor/courses"
             : "/student/my-courses";
-        router.replace(returnTo || defaultDashboard);
+        const target = returnTo || defaultDashboard;
+        console.log("[REDIRECT] from:", pathname, "to:", target, "reason: authenticated user on guest route");
+        router.replace(target);
       }
     }
-  }, [user, loading, pathname, router]);
+  }, [user, loading, isVerified, pathname, router]);
 
   const register = async (data) => {
     return await registerUser(data);
@@ -219,6 +225,7 @@ export const AuthProvider = ({ children }) => {
     queryClient.setQueryData(AUTH_SESSION_KEY, { success: true, data: user });
 
     setUser(user);
+    setIsVerified(true);
     return user;
   };
 
@@ -248,6 +255,7 @@ export const AuthProvider = ({ children }) => {
         user,
         loading,
         isVerifying,
+        isVerified,
         login,
         register,
         logout,
