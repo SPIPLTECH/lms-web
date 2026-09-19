@@ -7,8 +7,6 @@ import { ListTree, MoreHorizontal, X } from "lucide-react";
 import LessonContentBlock from "@/components/student/learning/LessonContentBlock";
 import ContentCompletionBar from "@/components/student/learning/ContentCompletionBar";
 import AssignmentWorkspacePanel from "@/components/student/learning/AssignmentWorkspacePanel";
-import LessonOverviewPanel from "@/components/student/learning/LessonOverviewPanel";
-import LessonResourcesPanel from "@/components/student/learning/LessonResourcesPanel";
 import LessonQuizPanel from "@/components/student/learning/LessonQuizPanel";
 import QuizExperience from "@/components/student/attempt/QuizExperience";
 import LearnSidePanel from "@/components/student/learning/LearnSidePanel";
@@ -21,7 +19,7 @@ import {
   buildCourseUnits,
   findUnitContaining,
   HIERARCHY_LEVEL_LABELS,
-  pathwayUnitKey,
+  pathwayUnitKey, 
   resolveLessonPathway,
   scopeLevel,
 } from "@/lib/courseUnits";
@@ -196,6 +194,17 @@ export default function LearnPage() {
   // Below xl the course map is a temporary sheet, so it starts closed.
   const [courseMapOpen, setCourseMapOpen] = useState(false);
 
+  // Whether the Course Map's last close was the inactivity timeout below
+  // (automatic) rather than the student closing it (the collapse button, the
+  // drawer's X / scrim / Escape, or picking a lesson). Only the timeout sets
+  // it, and auto-opening clears it, so a manual close never reopens itself.
+  // A ref, not state: it is read inside window listeners and must not cause a
+  // render of its own.
+  const autoClosedRef = useRef(false);
+  // Where the pointer was when the auto-close happened, so a single stray
+  // mousemove (a layout shift under a still cursor) cannot count as activity.
+  const autoOpenAnchorRef = useRef(null);
+
   // Right-hand utility column (Ask Instructor / Sticky Notes / Feedback)
   // collapse state — mirrors the left Course Map sidebar's collapse
   // behavior. Closed by default to match the Course Index being open on
@@ -287,6 +296,9 @@ export default function LearnPage() {
     let lastResetTime = 0;
 
     const closeMap = () => {
+      // Read by the auto-open effect below: this close was not the student's.
+      autoClosedRef.current = true;
+      autoOpenAnchorRef.current = null;
       if (isDesktop) {
         setCourseSidebarOpen(false);
       } else {
@@ -332,6 +344,79 @@ export default function LearnPage() {
 
     return () => {
       if (timerId) clearTimeout(timerId);
+      activityEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, handleActivity, { capture: true });
+      });
+    };
+  }, [isDesktop, courseSidebarOpen, courseMapOpen]);
+
+  // Reopens the Course Map on the next genuine interaction — but only when
+  // the inactivity timeout above is what closed it. A close the student
+  // performed leaves autoClosedRef false, so it stays closed until they open
+  // it again. Reopening starts a fresh 30-second timer through the effect
+  // above (the map is open again, so it binds), which is what makes the
+  // close -> activity -> open -> close cycle repeat.
+  //
+  // One mechanism for both surfaces, the same way the timeout is: desktop
+  // collapses the in-flow rail (courseSidebarOpen), below xl it is the
+  // off-canvas drawer (courseMapOpen). Nothing else about either is touched.
+  useEffect(() => {
+    const isMapActive = isDesktop ? courseSidebarOpen : courseMapOpen;
+    if (isMapActive || !autoClosedRef.current) return;
+
+    // Pointer movement only counts once it has actually travelled: a
+    // re-render, a video frame or a layout shift can emit a single mousemove
+    // under a motionless cursor, and none of those are the student.
+    const MOVE_THRESHOLD_PX = 8;
+
+    const reopen = () => {
+      autoClosedRef.current = false;
+      autoOpenAnchorRef.current = null;
+      if (isDesktop) {
+        setCourseSidebarOpen(true);
+      } else {
+        setCourseMapOpen(true);
+      }
+    };
+
+    const handleActivity = (event) => {
+      if (event.type === "mousemove" || event.type === "pointermove") {
+        const point = { x: event.clientX, y: event.clientY };
+        const anchor = autoOpenAnchorRef.current;
+        if (!anchor) {
+          autoOpenAnchorRef.current = point;
+          return;
+        }
+        if (
+          Math.abs(point.x - anchor.x) < MOVE_THRESHOLD_PX &&
+          Math.abs(point.y - anchor.y) < MOVE_THRESHOLD_PX
+        ) {
+          return;
+        }
+      }
+      reopen();
+    };
+
+    // Same gestures the timer resets on, minus `scroll`: that one also fires
+    // for programmatic scrolling (restoring a position, revealing a block),
+    // while real scrolling still arrives as wheel / touchmove / keydown.
+    const activityEvents = [
+      "mousemove",
+      "mousedown",
+      "pointermove",
+      "pointerdown",
+      "touchstart",
+      "touchmove",
+      "keydown",
+      "wheel",
+      "click",
+    ];
+
+    activityEvents.forEach((eventName) => {
+      window.addEventListener(eventName, handleActivity, { capture: true, passive: true });
+    });
+
+    return () => {
       activityEvents.forEach((eventName) => {
         window.removeEventListener(eventName, handleActivity, { capture: true });
       });
