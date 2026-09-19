@@ -16,38 +16,9 @@ import useQuiz from "@/hooks/queries/student/useQuiz";
 import useSubmitQuiz from "@/hooks/queries/student/useSubmitQuiz";
 import useQuizResult from "@/hooks/queries/student/useQuizResult";
 import useTrackCourseAccess from "@/hooks/queries/student/useTrackCourseAccess";
+import useQuizAttemptTracker from "@/hooks/useQuizAttemptTracker";
 import { checkAnswerCorrectness } from "@/lib/quizAnswers";
 import { resolveQuestionType } from "@/lib/questionType";
-
-// One sessionStorage key per quiz attempt — same scoping convention as
-// getQuizTimerStorageKey — so a refresh resumes the same answers/position,
-// while a new attempt (attemptsUsed incremented server-side) never inherits
-// a previous attempt's progress.
-function getQuizProgressStorageKey(quizId, attemptsUsed = 0) {
-    if (!quizId) return undefined;
-    return `quiz-progress:${quizId}:${attemptsUsed + 1}`;
-}
-
-function readStoredProgress(storageKey) {
-    if (typeof window === "undefined" || !storageKey) return null;
-    try {
-        const raw = window.sessionStorage.getItem(storageKey);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        return {
-            currentQuestionIndex: Number(parsed.currentQuestionIndex) || 0,
-            answers:
-                parsed.answers && typeof parsed.answers === "object"
-                    ? parsed.answers
-                    : {},
-            visitedIndices: Array.isArray(parsed.visitedIndices)
-                ? parsed.visitedIndices
-                : [0],
-        };
-    } catch {
-        return null;
-    }
-}
 
 /**
  * The actual quiz-taking experience (timer, questions, navigation, submit) —
@@ -60,12 +31,23 @@ function readStoredProgress(storageKey) {
  * has used all their attempts is stopped — before answering, rather than
  * after the server refuses the submission.
  */
-export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextContent, speechLanguage }) {
+// `onSubmitted` fires once an attempt has been accepted by the server. It is
+// how a caller that needs to react to the submission itself — the learning
+// page, which swaps a qualifying test for its pass/fail outcome — finds out,
+// without this component knowing anything about qualification.
+// `autoReattempt` skips the "you have already completed this quiz" landing
+// card and opens a fresh attempt straight away, for a caller that has already
+// asked the student whether they want another go — the qualifying-test retake
+// does exactly that, and a second confirmation there would just be the same
+// question twice.
+//
+// It skips the CONFIRMATION only, never the allowance — see showCompletedCard.
+export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextContent, speechLanguage, onSubmitted, autoReattempt = false }) {
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [submitError, setSubmitError] = useState("");
     // Dismisses the "already completed" landing card below in favor of the
     // normal quiz-taking view, for a student who still has an attempt left.
-    const [reattempting, setReattempting] = useState(false);
+    const [reattempting, setReattempting] = useState(autoReattempt);
     // When the questions were first shown — the start of this attempt's
     // time taken.
     const startedAtRef = useRef(null);
@@ -90,121 +72,65 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
         [quiz]
     );
 
-    const [currentQuestionIndex, setCurrentQuestionIndex] =
-        useState(0);
-
-    const [answers, setAnswers] = useState({});
-
-    const [visitedIndices, setVisitedIndices] = useState(
-        () => new Set([0])
-    );
-
     const [showSubmitModal, setShowSubmitModal] =
         useState(false);
 
-    // Flips true once this attempt's stored progress (if any) has been
-    // applied to state, so the persistence effect below never fires with
-    // pre-hydration defaults and clobbers what was just read.
-    const [progressHydrated, setProgressHydrated] = useState(false);
+    // Present for students only (see GET /quizzes/:id).
+    const allowance = quiz?.attemptStatus;
+    const hasPriorAttempt = Boolean(allowance && allowance.attemptsUsed > 0);
 
-    const currentQuestion =
-        questions[currentQuestionIndex];
+    // The server's own answer, never recomputed here: attemptStatus.canAttempt
+    // is buildAttemptAllowance(effectiveMaxAttempts(quiz), used). It defaults
+    // to true only while the quiz is still loading, so a slow response never
+    // flashes "no attempts left" at a student who has some.
+    const canTakeAnother = allowance ? allowance.canAttempt === true : true;
 
-    const answeredQuestions =
-        Object.keys(answers).length;
+    // Show the "already completed" card when the student hasn't chosen to
+    // retake, OR when they have no attempt left to spend. autoReattempt sets
+    // `reattempting` true up front and so used to satisfy this on its own —
+    // which walked a student with a spent allowance into a quiz the server
+    // would always refuse, under a header reading "Attempt 2 of 1". The
+    // allowance is now part of the gate and autoReattempt cannot override it.
+    const showCompletedCard = hasPriorAttempt && (!reattempting || !canTakeAnother);
+
+    // Whether an attempt is actually being taken right now, as opposed to the
+    // "already completed" card or the post-submit summary being shown over the
+    // quiz. The tracker tracks and persists nothing outside that window — see
+    // useQuizAttemptTracker.
+    const isAttemptActive = Boolean(quiz) && !isSubmitted && !showCompletedCard;
+
+    // Question-level state for this attempt: answer, status, visited/skipped/
+    // hint history per question, plus which question is open and the
+    // per-attempt sessionStorage persistence behind a refresh. Everything the
+    // UI below reads about the attempt's progress comes from here.
+    const {
+        questionStates,
+        currentQuestionIndex,
+        currentQuestion,
+        currentAnswer,
+        summary,
+        goToQuestion,
+        goToNext,
+        goToPrevious,
+        answerCurrentQuestion,
+        viewCurrentHint,
+        skipCurrentQuestion,
+        buildSubmitPayload,
+        clearStoredProgress,
+    } = useQuizAttemptTracker({
+        quizId: quiz?.id,
+        questions,
+        attemptsUsed: quiz?.attemptStatus?.attemptsUsed ?? 0,
+        active: isAttemptActive,
+    });
+
+    const answeredQuestions = summary.answeredCount;
 
     useEffect(() => {
         if (quiz && startedAtRef.current === null) {
             startedAtRef.current = Date.now();
         }
     }, [quiz]);
-
-    useEffect(() => {
-        setVisitedIndices((prev) => {
-            if (prev.has(currentQuestionIndex)) return prev;
-            return new Set(prev).add(currentQuestionIndex);
-        });
-    }, [currentQuestionIndex]);
-
-    // Restores answers/position from a previous visit to this same attempt.
-    // Runs once quiz data (and therefore attemptsUsed, part of the storage
-    // key) is available; the progressHydrated guard keeps it from re-running.
-    useEffect(() => {
-        if (!quiz || progressHydrated) return;
-
-        const storageKey = getQuizProgressStorageKey(
-            quiz.id,
-            quiz.attemptStatus?.attemptsUsed ?? 0
-        );
-        const stored = readStoredProgress(storageKey);
-
-        if (stored) {
-            setAnswers(stored.answers);
-            setVisitedIndices(new Set(stored.visitedIndices));
-            const maxIndex = Math.max(0, questions.length - 1);
-            setCurrentQuestionIndex(
-                Math.min(Math.max(stored.currentQuestionIndex, 0), maxIndex)
-            );
-        }
-
-        setProgressHydrated(true);
-    }, [quiz, questions.length, progressHydrated]);
-
-    // Persists answers/position after every change, once hydration above has
-    // run — so a refresh mid-attempt lands back on the same question with
-    // the same options ticked.
-    useEffect(() => {
-        if (!progressHydrated || !quiz || typeof window === "undefined") return;
-
-        const storageKey = getQuizProgressStorageKey(
-            quiz.id,
-            quiz.attemptStatus?.attemptsUsed ?? 0
-        );
-        if (!storageKey) return;
-
-        window.sessionStorage.setItem(
-            storageKey,
-            JSON.stringify({
-                currentQuestionIndex,
-                answers,
-                visitedIndices: Array.from(visitedIndices),
-            })
-        );
-    }, [progressHydrated, quiz, answers, currentQuestionIndex, visitedIndices]);
-
-    const handlePrevious = () => {
-        if (currentQuestionIndex > 0) {
-            setCurrentQuestionIndex(
-                (prev) => prev - 1
-            );
-        }
-    };
-
-    const handleNext = () => {
-        if (
-            currentQuestionIndex <
-            questions.length - 1
-        ) {
-            setCurrentQuestionIndex(
-                (prev) => prev + 1
-            );
-        }
-    };
-
-    const handleJumpToQuestion = (index) => {
-        if (index >= 0 && index < questions.length) {
-            setCurrentQuestionIndex(index);
-        }
-    };
-
-    const handleSelectAnswer = (
-        answer
-    ) => {
-        setAnswers((prev) => ({
-            ...prev,
-            [currentQuestion.id]: answer,
-        }));
-    };
 
     const submitQuizMutation =
         useSubmitQuiz();
@@ -232,16 +158,11 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
 
         const startedAt = startedAtRef.current;
 
+        // answers (graded server-side) plus the per-question visit/skip/hint
+        // activity only the attempt UI can know — see useQuizAttemptTracker.
         const submitPayload = {
             quizId,
-            answers: Object.entries(
-                answers
-            ).map(
-                ([questionId, selectedOption]) => ({
-                    questionId,
-                    answer: selectedOption,
-                })
-            ),
+            ...buildSubmitPayload(),
             timeTakenSeconds: startedAt
                 ? Math.round((Date.now() - startedAt) / 1000)
                 : undefined,
@@ -258,12 +179,10 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
                     if (timerKey) {
                         window.sessionStorage.removeItem(timerKey);
                     }
-                    const progressKey = getQuizProgressStorageKey(quiz?.id, attemptsUsed);
-                    if (progressKey) {
-                        window.sessionStorage.removeItem(progressKey);
-                    }
+                    clearStoredProgress();
                     setShowSubmitModal(false);
                     setIsSubmitted(true);
+                    onSubmitted?.();
                 },
 
                 onError: (error) => {
@@ -383,11 +302,7 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
         );
     }
 
-    // Present for students only (see GET /quizzes/:id).
-    const allowance = quiz.attemptStatus;
-    const hasPriorAttempt = allowance && allowance.attemptsUsed > 0;
-
-    if (hasPriorAttempt && !reattempting) {
+    if (showCompletedCard) {
         // submissionResult is only known once its fetch (enabled above for
         // any prior attempt) resolves — the icon/badge stay neutral until then.
         const knowsOutcome = !isResultLoading && submissionResult != null;
@@ -475,23 +390,28 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
 
                 <QuestionCard
                     question={currentQuestion}
-                    selectedAnswer={answers[currentQuestion?.id]}
-                    onSelectAnswer={handleSelectAnswer}
+                    selectedAnswer={currentAnswer}
+                    onSelectAnswer={answerCurrentQuestion}
                     questionNumber={currentQuestionIndex + 1}
                     totalQuestions={questions.length}
                     speechLanguage={speechLanguage}
+                    // The server's decision, not this component's: it is true
+                    // only for a qualifying test on the student's second or
+                    // later attempt, and the hint text is absent otherwise.
+                    hintsUnlocked={quiz.hintsUnlocked === true}
+                    onViewHint={viewCurrentHint}
                 />
 
                 <QuizNavigation
                     questions={questions}
                     currentQuestionIndex={currentQuestionIndex}
-                    answers={answers}
-                    visitedIndices={visitedIndices}
+                    questionStates={questionStates}
                     canGoPrevious={currentQuestionIndex > 0}
                     canGoNext={currentQuestionIndex < questions.length - 1}
-                    onPrevious={handlePrevious}
-                    onNext={handleNext}
-                    onJumpTo={handleJumpToQuestion}
+                    onPrevious={goToPrevious}
+                    onNext={goToNext}
+                    onJumpTo={goToQuestion}
+                    onSkip={skipCurrentQuestion}
                     onSubmit={() => setShowSubmitModal(true)}
                     isSubmitting={submitQuizMutation.isPending}
                 />
@@ -503,6 +423,7 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
                 onConfirm={handleSubmitQuiz}
                 totalQuestions={questions.length}
                 answeredQuestions={answeredQuestions}
+                skippedQuestions={summary.skippedUnansweredCount}
                 isSubmitting={
                     submitQuizMutation.isPending
                 }

@@ -77,6 +77,13 @@ export function useCompleteContent() {
       // query that's currently mounted, so this doesn't force extra network
       // calls unless one of those views also happens to be on screen.
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.PROGRESS] });
+      // Completing content can settle the node the student is on and open
+      // the next one, so the gate has to be refetched alongside the numbers.
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_PATH] });
+      // The next action is derived from the path and the evidence, so it
+      // moves whenever either does.
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.NEXT_ACTION] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.RECOMMENDATIONS] });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.STUDENT_DASHBOARD] });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.MY_COURSES] });
     }
@@ -142,6 +149,13 @@ export function useCompleteLesson() {
         queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.COURSE_PROGRESS] });
       }
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.PROGRESS] });
+      // Completing content can settle the node the student is on and open
+      // the next one, so the gate has to be refetched alongside the numbers.
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_PATH] });
+      // The next action is derived from the path and the evidence, so it
+      // moves whenever either does.
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.NEXT_ACTION] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.RECOMMENDATIONS] });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.STUDENT_DASHBOARD] });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.MY_COURSES] });
     }

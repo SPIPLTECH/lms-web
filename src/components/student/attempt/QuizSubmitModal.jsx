@@ -8,6 +8,7 @@ export default function QuizSubmitModal({
     onConfirm,
     totalQuestions = 0,
     answeredQuestions = 0,
+    skippedQuestions = 0,
     isSubmitting = false,
     errorMessage = null,
 }) {
@@ -110,6 +111,17 @@ export default function QuizSubmitModal({
                                     : "questions"}
                                 . Please answer all questions before submitting.
                             </p>
+
+                            {/* Only questions still outstanding — one the student
+                                skipped and later went back and answered is not
+                                something they need reminding about. */}
+                            {skippedQuestions > 0 && (
+                                <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm text-muted-foreground">
+                                    <strong className="text-foreground">{skippedQuestions}</strong> of
+                                    those {skippedQuestions === 1 ? "was" : "were"} skipped — marked
+                                    in red in the question strip.
+                                </p>
+                            )}
                         </div>
                     ) : (
                         <div className="rounded-lg sm:rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 sm:p-4">

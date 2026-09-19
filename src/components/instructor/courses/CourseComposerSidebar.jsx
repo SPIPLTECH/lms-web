@@ -85,6 +85,18 @@ const QUIZ_TAG_STYLES = {
     icon: "text-purple-600 dark:text-purple-400",
     badge: "bg-purple-500/15 text-purple-800 dark:bg-purple-500/20 dark:text-purple-300",
   },
+  // Students never see these rows — a qualifying test is filtered out of the
+  // student course tree, because it is the way past a lesson rather than part
+  // of it. This styling is for the instructor composer, where the distinction
+  // has to be obvious at a glance: mislabelling it "Final Quiz" would hide the
+  // one quiz in the tree that changes what students are required to do.
+  QUALIFYING: {
+    label: "Qualifying Test",
+    active: "bg-violet-500/10 text-violet-800 dark:bg-violet-500/15 dark:text-violet-400 font-semibold",
+    idle: "text-violet-700 hover:text-violet-900 hover:bg-violet-500/10 dark:text-violet-300/80 dark:hover:text-violet-300 dark:hover:bg-background/70",
+    icon: "text-violet-600 dark:text-violet-400",
+    badge: "bg-violet-500/15 text-violet-800 dark:bg-violet-500/20 dark:text-violet-300",
+  },
 };
 
 /** Falls back to Final Quiz, mirroring the Quiz.quizTag column default. */

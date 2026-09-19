@@ -57,6 +57,27 @@ export const getCourseProgress = async (courseId, studentId = null) => {
 };
 
 /**
+ * The student's ordered path through a course: every module/lesson/topic in
+ * course order, each with its status (COMPLETED / QUALIFIED / CURRENT /
+ * AVAILABLE / LOCKED) and the qualifying test on offer where one exists.
+ *
+ * The server decides all of it — this is the same computation the API
+ * enforces on access, so the player never has to derive locking itself.
+ * Returns { path, nextItem, lockedCount, skippableCount }.
+ */
+export const getLearningPath = async (courseId, studentId = null) => {
+  const { data } = await api.get("/progress/learning-path", {
+    params: { courseId, ...(studentId && { studentId }) },
+  });
+  return {
+    path: data.data ?? [],
+    nextItem: data.nextItem ?? null,
+    lockedCount: data.lockedCount ?? 0,
+    skippableCount: data.skippableCount ?? 0,
+  };
+};
+
+/**
  * Fetch overall progress across enrolled courses (Student or Instructor viewing a student)
  */
 export const getOverallProgress = async (studentId = null) => {

@@ -25,10 +25,16 @@ export const SUBMISSION_STATUS_FILTERS = [
 
 // Quizzes-tab-only filter — quizTag on the Quiz model, not a submission
 // property, so it's a separate list from SUBMISSION_STATUS_FILTERS.
+const QUIZ_TAG_TO_FILTER = { SELF_TEST: "self", FINAL: "final", QUALIFYING: "qualifying" };
+
 export const SUBMISSION_QUIZ_TYPE_FILTERS = [
   { key: "all", label: "All quiz types" },
   { key: "self", label: "Self-Test" },
   { key: "final", label: "Final Quiz" },
+  // A qualifying test is a real attempt with a real result, so it belongs in
+  // the student's submissions — but it is neither practice nor the formal
+  // assessment, and the old two-way mapping filed it under "Final Quiz".
+  { key: "qualifying", label: "Qualifying Test" },
 ];
 
 export const SUBMISSION_SORTS = [
@@ -150,7 +156,7 @@ function quizRecord(q) {
     title: q.title || "Quiz",
     courseTitle: q.course?.title || null,
     moduleTitle: q.moduleTitle || null,
-    quizType: q.quizTag === "SELF_TEST" ? "self" : "final",
+    quizType: QUIZ_TAG_TO_FILTER[q.quizTag] || "final",
     status: !graded ? "submitted" : latest.passed ? "passed" : "failed",
     submitted: true,
     submittedAt: latest?.submittedAt || null,

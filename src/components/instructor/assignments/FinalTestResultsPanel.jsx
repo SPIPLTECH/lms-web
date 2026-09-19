@@ -47,11 +47,9 @@ export default function FinalTestResultsPanel({ courseId, listQuery = "", sortKe
   }
 
   return (
-    <section className="space-y-2">
-      <h2 className="text-xs font-extrabold uppercase tracking-widest text-muted-foreground">
-        Final Tests
-      </h2>
-
+    // No heading here: the page toolbar already names whichever list is
+    // showing, and a second "Final Tests" under it would just repeat.
+    <section>
       <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-background/40">
         {tests.map((test) => {
         const badges = [];
