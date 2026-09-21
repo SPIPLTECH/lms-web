@@ -13,7 +13,8 @@ import {
 } from "lucide-react";
 import DOMPurify from "isomorphic-dompurify";
 
-import { getYouTubeVideoId, isYouTubeUrl as isYoutubeUrl } from "@/lib/youtube";
+import { resolveVideoSource } from "@/lib/videoSource";
+import VideoSurface from "@/components/shared/video/VideoSurface";
 import { getDisplayUrl } from "@/lib/blob";
 import MarkdownRenderer from "@/components/ui/MarkdownEditor/MarkdownRenderer";
 import { unescapeFromContentApi, highlightCode } from "@/lib/markdown";
@@ -91,9 +92,9 @@ const VideoPlayer = forwardRef(function VideoPlayer(
     { content, onTimeUpdate, onEnded, onDurationChange, initialTime = 0, speechLanguage, lessonTitle, reserveHeaderCorner = false },
     ref
 ) {
-    const containerRef = useRef(null);
-    const playerRef = useRef(null);
-    const localVideoRef = useRef(null);
+    // The video itself is drawn by the shared VideoSurface; this ref is only
+    // how the learn page's seek-to-timestamp reaches it.
+    const surfaceRef = useRef(null);
     const [slideIndex, setSlideIndex] = useState(0);
     // A file viewer's own toolbar carries the same title this player already
     // shows above it, so the deck rendered its name twice. The viewers can
@@ -111,168 +112,30 @@ const VideoPlayer = forwardRef(function VideoPlayer(
     const reportPdfPage = (state) => setPdfPage(state);
 
     const type = content?.type;
-    const videoUrl = content?.videoUrl;
     const fileUrl = content?.fileUrl;
     const htmlContent = content?.htmlContent;
     const externalUrl = content?.externalUrl;
 
-    const effectiveVideoUrl = videoUrl || fileUrl || externalUrl;
-
-    // Private Vercel Blob URLs 403 unless routed through /api/blob-proxy.
-    const displayVideoUrl = getDisplayUrl(effectiveVideoUrl);
+    // How this video renders (YouTube embed vs. our own hosted file) is decided
+    // once, in the shared resolver, so the student and the instructor cannot
+    // disagree about the same row. Private Vercel Blob URLs are routed through
+    // /api/blob-proxy by the resolver.
+    const videoSource = resolveVideoSource(content);
     const displayFileUrl = getDisplayUrl(fileUrl);
 
-    const isYoutube = type === "VIDEO" && isYoutubeUrl(effectiveVideoUrl);
-
-    const initialTimeRef = useRef(initialTime);
-
-    const onTimeUpdateRef = useRef(onTimeUpdate);
-    const onEndedRef = useRef(onEnded);
-    const onDurationChangeRef = useRef(onDurationChange);
     useEffect(() => {
         setPdfPage(null);
     }, [content?.id]);
-
-    useEffect(() => {
-        onTimeUpdateRef.current = onTimeUpdate;
-    }, [onTimeUpdate]);
-    useEffect(() => {
-        onEndedRef.current = onEnded;
-    }, [onEnded]);
-    useEffect(() => {
-        onDurationChangeRef.current = onDurationChange;
-    }, [onDurationChange]);
-
-    useEffect(() => {
-        initialTimeRef.current = initialTime;
-    }, [effectiveVideoUrl, initialTime]);
 
     useImperativeHandle(
         ref,
         () => ({
             seekTo(seconds) {
-                if (isYoutube) {
-                    playerRef.current?.seekTo?.(seconds, true);
-                    playerRef.current?.playVideo?.();
-                } else if (localVideoRef.current) {
-                    localVideoRef.current.currentTime = seconds;
-                    localVideoRef.current.play?.().catch(() => {});
-                }
+                surfaceRef.current?.seekTo?.(seconds);
             },
         }),
-        [isYoutube]
+        []
     );
-
-    // YouTube API Integration with responsive width & height
-    useEffect(() => {
-        if (!isYoutube || !effectiveVideoUrl) return;
-
-        const videoId = getYouTubeVideoId(effectiveVideoUrl);
-        if (!videoId) return;
-
-        let player;
-        let intervalId;
-
-        const onPlayerStateChange = (event) => {
-            if (event.data === window.YT.PlayerState.PLAYING) {
-                if (player && typeof player.getDuration === "function") {
-                    onDurationChangeRef.current?.(player.getDuration());
-                }
-                intervalId = setInterval(() => {
-                    if (player && typeof player.getCurrentTime === "function") {
-                        onTimeUpdateRef.current?.(Math.floor(player.getCurrentTime()));
-                    }
-                }, 500);
-            } else if (event.data === window.YT.PlayerState.ENDED) {
-                clearInterval(intervalId);
-                onEndedRef.current?.();
-            } else {
-                clearInterval(intervalId);
-            }
-        };
-
-        const initializePlayer = () => {
-            if (!containerRef.current) return;
-            // A shared/hardcoded id here would collide across every VideoPlayer
-            // instance mounted at once (a lesson typically renders one per
-            // topic's video) — YT.Player would then only ever find the first
-            // one in the document. Passing the element itself sidesteps that.
-            containerRef.current.innerHTML = "";
-            const target = document.createElement("div");
-            target.className = "w-full h-full";
-            containerRef.current.appendChild(target);
-            player = new window.YT.Player(target, {
-                height: "100%",
-                width: "100%",
-                videoId: videoId,
-                playerVars: {
-                    start: initialTimeRef.current || 0,
-                    rel: 0,
-                    modestbranding: 1,
-                    playsinline: 1,
-                    enablejsapi: 1,
-                    ...(typeof window !== "undefined"
-                        ? { origin: window.location.origin }
-                        : {}),
-                },
-                events: {
-                    onStateChange: onPlayerStateChange,
-                },
-            });
-            playerRef.current = player;
-        };
-
-        if (window.YT && window.YT.Player) {
-            initializePlayer();
-        } else {
-            if (!document.getElementById("youtube-iframe-api")) {
-                const tag = document.createElement("script");
-                tag.id = "youtube-iframe-api";
-                tag.src = "https://www.youtube.com/iframe_api";
-                document.body.appendChild(tag);
-            }
-
-            const checkTimer = setInterval(() => {
-                if (window.YT && window.YT.Player) {
-                    clearInterval(checkTimer);
-                    initializePlayer();
-                }
-            }, 100);
-
-            return () => {
-                clearInterval(checkTimer);
-                clearInterval(intervalId);
-                if (playerRef.current && typeof playerRef.current.destroy === "function") {
-                    playerRef.current.destroy();
-                }
-            };
-        }
-
-        return () => {
-            clearInterval(intervalId);
-            if (playerRef.current && typeof playerRef.current.destroy === "function") {
-                playerRef.current.destroy();
-            }
-        };
-    }, [effectiveVideoUrl, isYoutube]);
-
-    useEffect(() => {
-        const videoEl = localVideoRef.current;
-        if (!videoEl || isYoutube) return;
-
-        const applyInitialTime = () => {
-            if (initialTimeRef.current > 0) {
-                videoEl.currentTime = initialTimeRef.current;
-            }
-        };
-
-        if (videoEl.readyState >= 1) {
-            applyInitialTime();
-        } else {
-            videoEl.addEventListener("loadedmetadata", applyInitialTime);
-            return () => videoEl.removeEventListener("loadedmetadata", applyInitialTime);
-        }
-    }, [effectiveVideoUrl, isYoutube]);
 
     useEffect(() => {
         setSlideIndex(0);
@@ -559,31 +422,35 @@ const VideoPlayer = forwardRef(function VideoPlayer(
             <div className={`relative w-full flex flex-col bg-background ${contentAreaSizing}`}>
                 {/* VIDEO */}
                 {type === "VIDEO" && (
-                    isYoutube ? (
-                        <div
-                            ref={containerRef}
-                            className="relative w-full h-full bg-black overflow-hidden max-xl:h-auto max-xl:aspect-video [&>iframe]:absolute [&>iframe]:inset-0 [&>iframe]:h-full [&>iframe]:w-full"
-                        />
-                    ) : displayVideoUrl ? (
-                        <video
-                            ref={localVideoRef}
-                            controls
-                            src={displayVideoUrl}
+                    videoSource.kind !== "none" && videoSource.kind !== "invalid" ? (
+                        /* The player and nothing else — no title bar, no share
+                           control, no external link. The frame keeps its own
+                           responsive sizing: it fills the player at xl and
+                           falls back to a 16:9 box below it, so the video
+                           never overflows its container or distorts. */
+                        <VideoSurface
+                            ref={surfaceRef}
+                            source={videoSource}
+                            initialTime={initialTime}
+                            onTimeUpdate={onTimeUpdate}
                             onEnded={onEnded}
-                            onLoadedMetadata={(event) =>
-                                onDurationChange?.(event.currentTarget.duration)
-                            }
-                            onTimeUpdate={(event) =>
-                                onTimeUpdate?.(Math.floor(event.currentTarget.currentTime))
-                            }
-                            className="w-full h-full bg-black object-contain max-xl:h-auto max-xl:aspect-video"
+                            onDurationChange={onDurationChange}
+                            title={content?.title}
+                            className="relative w-full h-full bg-black overflow-hidden max-xl:h-auto max-xl:aspect-video [&_iframe]:absolute [&_iframe]:inset-0 [&_iframe]:h-full [&_iframe]:w-full"
+                            videoClassName="w-full h-full bg-black object-contain"
                         />
                     ) : (
                         <div className="flex h-80 w-full flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-[#0B101D] p-6 text-center">
                             <PlayCircle className="h-10 w-10 text-amber-500 animate-pulse" />
-                            <h4 className="text-base font-bold text-foreground">No Video Source Provided</h4>
+                            <h4 className="text-base font-bold text-foreground">
+                                {videoSource.kind === "invalid"
+                                    ? "This Video Can't Be Played"
+                                    : "No Video Source Provided"}
+                            </h4>
                             <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">
-                                No video URL or video file was configured for this video item.
+                                {videoSource.kind === "invalid"
+                                    ? "The video link saved for this item doesn't point at a playable video. Please let your instructor know."
+                                    : "No video URL or video file was configured for this video item."}
                             </p>
                         </div>
                     )

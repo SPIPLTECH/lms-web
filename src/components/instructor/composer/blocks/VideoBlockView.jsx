@@ -2,32 +2,42 @@
 
 import { marked } from "marked";
 import DOMPurify from "isomorphic-dompurify";
-import { resolveVideoEmbed } from "@/components/instructor/composer/utils/videoEmbed";
+
+import { resolveVideoSource } from "@/lib/videoSource";
+import VideoSurface from "@/components/shared/video/VideoSurface";
 
 export default function VideoBlockView({ block }) {
-  const embed = resolveVideoEmbed(block.url);
+  const source = resolveVideoSource(block.url);
   const captionHtml = block.caption
     ? DOMPurify.sanitize(marked.parse(block.caption))
     : "";
 
+  const isEmbed = source.kind === "youtube" || source.kind === "vimeo";
+
   return (
     <div className="space-y-3">
-      {embed.kind === "iframe" && (
-        <iframe
-          src={embed.src}
-          className="w-full aspect-video rounded-lg border border-border bg-black"
-          allowFullScreen
+      {isEmbed && (
+        <VideoSurface
+          source={source}
+          title="Video"
+          className="relative w-full aspect-video overflow-hidden rounded-lg border border-border bg-black [&_iframe]:absolute [&_iframe]:inset-0 [&_iframe]:h-full [&_iframe]:w-full [&_iframe]:border-0"
         />
       )}
-      {embed.kind === "video" && (
-        <video
-          src={embed.src}
-          controls
-          className="w-full max-h-[420px] rounded-lg bg-black"
+      {source.kind === "file" && (
+        <VideoSurface
+          source={source}
+          title="Video"
+          className="w-full"
+          videoClassName="w-full max-h-[420px] rounded-lg bg-black"
         />
       )}
-      {embed.kind === "none" && (
+      {source.kind === "none" && (
         <p className="text-slate-600 text-sm">No video URL set</p>
+      )}
+      {source.kind === "invalid" && (
+        <p className="text-slate-600 text-sm">
+          This YouTube link has no video in it — paste the link to a single video
+        </p>
       )}
       {captionHtml && (
         <div

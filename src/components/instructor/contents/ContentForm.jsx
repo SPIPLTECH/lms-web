@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Upload, X, CheckCircle, Loader2 } from "lucide-react";
-import Cookies from "js-cookie";
 
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
@@ -93,7 +92,11 @@ export default function ContentForm({
                 throw new Error("Upload failed. No file URL returned.");
             }
 
-            setFormData((prev) => ({ ...prev, fileUrl: data.fileUrl }));
+            setFormData((prev) => ({
+                ...prev,
+                fileUrl: data.fileUrl,
+                ...(prev.type === "VIDEO" ? { videoUrl: data.fileUrl } : {}),
+            }));
             setUploadState({
                 uploading: false,
                 error: null,
@@ -186,16 +189,61 @@ export default function ContentForm({
                     </select>
                 </div>
 
-                {/* Video URL */}
+                {/* Video URL or File Upload */}
                 {formData.type === "VIDEO" && (
-                    <Input
-                        label="Video URL"
-                        name="videoUrl"
-                        value={formData.videoUrl}
-                        onChange={handleChange}
-                        placeholder="https://youtube.com/watch?v=..."
-                        required
-                    />
+                    <div className="space-y-4">
+                        <div>
+                            <label className="mb-2 block text-sm font-medium text-foreground">
+                                Upload Video File (Direct Player — Zero YouTube Chrome)
+                            </label>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="video/*"
+                                onChange={handleFileChange}
+                                className="hidden"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={uploadState.uploading}
+                                className="flex w-full items-center justify-center gap-2 rounded-lg border border-primary/40 bg-primary/10 hover:bg-primary/20 px-3.5 py-3 text-sm font-bold text-primary transition cursor-pointer disabled:opacity-50"
+                            >
+                                {uploadState.uploading ? (
+                                    <>
+                                        <Loader2 className="size-4 animate-spin text-primary" />
+                                        <span>Uploading Video File…</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Upload className="size-4" />
+                                        <span>Choose Video File (.mp4, .webm, .mov)</span>
+                                    </>
+                                )}
+                            </button>
+                            <p className="mt-1.5 text-xs text-muted-foreground">
+                                Plays in Orange Tree&apos;s own video player with zero YouTube chrome.
+                            </p>
+                        </div>
+
+                        <div className="relative flex items-center justify-center my-1">
+                            <div className="absolute inset-0 flex items-center">
+                                <div className="w-full border-t border-border/60" />
+                            </div>
+                            <span className="relative bg-card px-2 text-[11px] font-bold text-muted-foreground uppercase">
+                                OR
+                            </span>
+                        </div>
+
+                        <Input
+                            label="Video URL (YouTube or Direct File Link)"
+                            name="videoUrl"
+                            value={formData.videoUrl}
+                            onChange={handleChange}
+                            placeholder="https://youtu.be/… or direct .mp4 link"
+                            required={!formData.fileUrl}
+                        />
+                    </div>
                 )}
 
                 {/* File Picker (DOCUMENT / PRESENTATION) */}
