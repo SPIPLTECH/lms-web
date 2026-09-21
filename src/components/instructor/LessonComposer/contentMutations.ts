@@ -12,6 +12,8 @@ export interface CreateContentVariables {
   moduleId?: string;
   lessonId?: string;
   topicId?: string;
+  subTopicId?: string;
+  conceptId?: string;
   type: ContentType;
   order: number;
   title?: string;

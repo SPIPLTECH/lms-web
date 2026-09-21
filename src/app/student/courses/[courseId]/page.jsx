@@ -253,7 +253,11 @@ export default function CourseDetailsPage({ params }) {
             }}
             onSelectModule={(mod) => handleSelectModule(mod)}
             onSelectTopic={(topicId, lessonId) => handleStartLearning(lessonId)}
+            onSelectSubTopic={(subTopic, context) => handleStartLearning(context?.lesson?.id)}
+            onSelectConcept={(concept, context) => handleStartLearning(context?.lesson?.id)}
             onSelectContent={(content, topic, lesson) => handleStartLearning(lesson?.id)}
+            onSelectSubTopicContent={(content, context) => handleStartLearning(context?.lesson?.id)}
+            onSelectConceptContent={(content, context) => handleStartLearning(context?.lesson?.id)}
             onSelectQuiz={(quiz) => {
               const returnTo = `/student/courses/${courseId}`;
               router.push(`/student/attempt/${quiz.id}?from=${encodeURIComponent(returnTo)}`);

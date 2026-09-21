@@ -2,6 +2,8 @@
 
 import { useMemo } from "react";
 
+import { resolveLessonPathway } from "@/lib/courseUnits";
+
 // Topic list + prev/next derivations across the whole course, plus the
 // single gated entry point (selectTopic) every topic-navigation control
 // routes through. Mirrors useLessonNavigation.js one level down: Lessons
@@ -9,7 +11,21 @@ import { useMemo } from "react";
 // getCourseById already empties `lesson.topics` for a locked lesson, so
 // crossing into locked content is impossible by construction — no
 // separate lock check is needed the way useLessonNavigation needs one.
-export default function useTopicNavigation(course, selectedLesson, selectedTopicId, setSelectedLesson, setSelectedTopicId, lessons) {
+//
+// `pathway` resolves the selected Lesson down to its deepest container
+// (Topic → SubTopic → Concept, each defaulting to its first child) — the
+// node whose own contents/quizzes the player shows, with the matching
+// courseUnits placeholder key. The trailing options object keeps the
+// existing positional signature intact.
+export default function useTopicNavigation(
+  course,
+  selectedLesson,
+  selectedTopicId,
+  setSelectedLesson,
+  setSelectedTopicId,
+  lessons,
+  { selectedSubTopicId = null, selectedConceptId = null } = {}
+) {
   const topics = useMemo(() => {
     const modules = course?.modules || [];
     return modules.flatMap((module) =>
@@ -55,9 +71,22 @@ export default function useTopicNavigation(course, selectedLesson, selectedTopic
     setSelectedTopicId(topic.id);
   };
 
+  const pathway = useMemo(
+    () =>
+      resolveLessonPathway(selectedLesson, {
+        topicId: selectedTopicId,
+        subTopicId: selectedSubTopicId,
+        conceptId: selectedConceptId,
+      }),
+    [selectedLesson, selectedTopicId, selectedSubTopicId, selectedConceptId]
+  );
+
   return {
     topics,
     currentTopic,
+    currentSubTopic: pathway.subTopic,
+    currentConcept: pathway.concept,
+    pathway,
     currentTopicIndex,
     previousTopic,
     nextTopic,

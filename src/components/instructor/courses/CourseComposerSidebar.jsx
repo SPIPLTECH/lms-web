@@ -17,10 +17,12 @@ import {
   FileStack,
   FileText,
   FlaskConical,
+  GitBranch,
   HelpCircle,
   Home,
   Image as ImageIcon,
   Layers,
+  Lightbulb,
   Link2,
   Loader2,
   Lock,
@@ -50,6 +52,12 @@ import { useContents } from "@/hooks/queries/instructor/useContents";
 import { useReorderModules } from "@/hooks/queries/instructor/useReorderModules";
 import { useReorderLessons } from "@/hooks/queries/instructor/useReorderLessons";
 import { useReorderTopics } from "@/hooks/queries/instructor/useReorderTopics";
+import { useSubTopics } from "@/hooks/queries/instructor/useSubTopics";
+import { useConcepts } from "@/hooks/queries/instructor/useConcepts";
+import { useReorderSubTopics } from "@/hooks/queries/instructor/useReorderSubTopics";
+import { useReorderConcepts } from "@/hooks/queries/instructor/useReorderConcepts";
+import { filterQuizzesPlacedAt } from "@/lib/courseMapper";
+import { courseGroupRank } from "@/lib/courseUnits";
 import { useReorderContents } from "@/hooks/queries/instructor/useReorderContents";
 import { useUpdateQuizOrder } from "@/hooks/queries/instructor/useUpdateQuizOrder";
 import { useReorderQuizzes } from "@/hooks/queries/instructor/useReorderQuizzes";
@@ -230,6 +238,8 @@ const HOVER_VISIBLE_CLASSES = {
   module: "[@media(hover:hover)]:opacity-0 group-hover/module:opacity-100 focus:opacity-100 data-[state=open]:opacity-100",
   lesson: "[@media(hover:hover)]:opacity-0 group-hover/lesson:opacity-100 focus:opacity-100 data-[state=open]:opacity-100",
   topic: "[@media(hover:hover)]:opacity-0 group-hover/topic:opacity-100 focus:opacity-100 data-[state=open]:opacity-100",
+  subtopic: "[@media(hover:hover)]:opacity-0 group-hover/subtopic:opacity-100 focus:opacity-100 data-[state=open]:opacity-100",
+  concept: "[@media(hover:hover)]:opacity-0 group-hover/concept:opacity-100 focus:opacity-100 data-[state=open]:opacity-100",
   content: "[@media(hover:hover)]:opacity-0 group-hover/content:opacity-100 focus:opacity-100 data-[state=open]:opacity-100",
 };
 
@@ -277,12 +287,39 @@ function RowMenu({ groupName, items }) {
 /**
  * Lazily fetches and renders one parent's Content Cell rows in the sidebar
  * tree — only mounted once that node is expanded. Used under the Course
- * root, every Module row, every Lesson row, and every Topic row, each
+ * root and every Module, Lesson, Topic, SubTopic and Concept row, each
  * passing its own `parent` ({parentType, parentId}) — the same generic
  * shape the rest of the Content Cell system already uses (see
  * LessonComposer/types.ts's ContentParent), so this is one component
- * reused at all 4 levels rather than a parallel per-level implementation.
+ * reused at all 6 levels rather than a parallel per-level implementation.
  */
+
+// Child container rows a level's `extraItems` can hold, rendered through
+// renderExtraItem and sorted between that level's content and its quizzes.
+const CHILD_ROW_KINDS = new Set(["extra", "module", "lesson", "topic", "subTopic", "concept", "assignment"]);
+
+/** One level's row order: `order`, createdAt, then content before child rows before quizzes. */
+function compareMergedRows(a, b) {
+  const orderA = a.order ?? 0;
+  const orderB = b.order ?? 0;
+  if (orderA !== orderB) return orderA - orderB;
+  if (a.createdAt && b.createdAt) {
+    const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    if (diff !== 0) return diff;
+  }
+  const rank = (k) => (k === "content" ? 1 : CHILD_ROW_KINDS.has(k) ? 2 : 3);
+  return rank(a.kind) - rank(b.kind);
+}
+
+/**
+ * COURSE LEVEL ONLY: the Course groups the backend keeps — Content, then
+ * Modules, then Assignments, then Quizzes (a course Assignment is the work
+ * that follows every Module) — then the usual rule within a group. Reading
+ * the group from the row kind means a course still holding pre-grouping
+ * orders never renders a Quiz or Assignment between two Modules.
+ */
+const compareCourseRows = (a, b) =>
+  courseGroupRank(a.kind) - courseGroupRank(b.kind) || compareMergedRows(a, b);
 function ParentContentRows({
   parent,
   isActive,
@@ -302,6 +339,10 @@ function ParentContentRows({
   renderExtraItem,
   emptyMessage = null,
   className = "",
+  // Course level passes its group comparator and group key; every other level
+  // keeps one plain sequence, so both default to "no groups".
+  compareRows = compareMergedRows,
+  groupOf = null,
 }) {
   const { data: apiContents = [], isLoading: isApiLoading, isError: isApiError } = useContents(isDraftMode ? undefined : parent);
 
@@ -320,17 +361,16 @@ function ParentContentRows({
     ...contents.map((c) => ({ ...c, kind: "content" })),
     ...quizzes.map((q) => ({ ...q, kind: "quiz" })),
     ...extraItems.map((item) => ({ ...item, kind: item.kind || "extra" })),
-  ].sort((a, b) => {
-    const orderA = a.order ?? 0;
-    const orderB = b.order ?? 0;
-    if (orderA !== orderB) return orderA - orderB;
-    if (a.createdAt && b.createdAt) {
-      const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-      if (diff !== 0) return diff;
-    }
-    const rank = (k) => (k === "content" ? 1 : k === "extra" || k === "lesson" || k === "topic" ? 2 : 3);
-    return rank(a.kind) - rank(b.kind);
-  });
+  ].sort(compareRows);
+
+  // A row may only swap with a neighbour in its own group: at Course level the
+  // backend rejects anything that crosses a group boundary, so the menu entry
+  // is disabled rather than offering a move that would fail.
+  const canMove = (rIdx, direction) => {
+    const neighbor = mergedRows[direction === "up" ? rIdx - 1 : rIdx + 1];
+    if (!neighbor) return false;
+    return !groupOf || groupOf(mergedRows[rIdx]) === groupOf(neighbor);
+  };
 
   const handleMove = async (id, direction) => {
     const plan = swapSiblingOrder(mergedRows, id, direction);
@@ -374,7 +414,7 @@ function ParentContentRows({
         ) : null
       ) : (
         mergedRows.map((row, rIdx) => {
-          if (row.kind === "extra" || row.kind === "lesson" || row.kind === "topic") {
+          if (CHILD_ROW_KINDS.has(row.kind)) {
             return renderExtraItem ? renderExtraItem(row, rIdx) : null;
           }
           if (row.kind === "quiz") {
@@ -417,8 +457,8 @@ function ParentContentRows({
                         { label: "Edit Quiz", icon: Pencil, onSelect: () => onSelectQuiz?.(row, { startEditing: true }) },
                         { label: "Preview Quiz", icon: Eye, onSelect: () => onSelectQuiz?.(row, { startEditing: false }) },
                         { separator: true },
-                        { label: "Move Up", icon: ArrowUp, disabled: rIdx === 0, onSelect: () => handleMove(row.id, "up") },
-                        { label: "Move Down", icon: ArrowDown, disabled: rIdx === mergedRows.length - 1, onSelect: () => handleMove(row.id, "down") },
+                        { label: "Move Up", icon: ArrowUp, disabled: !canMove(rIdx, "up"), onSelect: () => handleMove(row.id, "up") },
+                        { label: "Move Down", icon: ArrowDown, disabled: !canMove(rIdx, "down"), onSelect: () => handleMove(row.id, "down") },
                         { separator: true },
                         {
                           label: "Delete Quiz",
@@ -467,8 +507,8 @@ function ParentContentRows({
                        composer. The row itself already opens the content on
                        click (onSelectContent above), so the menu entry was a
                        second door to the same place. */
-                    { label: "Move Up", icon: ArrowUp, disabled: rIdx === 0, onSelect: () => handleMove(content.id, "up") },
-                    { label: "Move Down", icon: ArrowDown, disabled: rIdx === mergedRows.length - 1, onSelect: () => handleMove(content.id, "down") },
+                    { label: "Move Up", icon: ArrowUp, disabled: !canMove(rIdx, "up"), onSelect: () => handleMove(content.id, "up") },
+                    { label: "Move Down", icon: ArrowDown, disabled: !canMove(rIdx, "down"), onSelect: () => handleMove(content.id, "down") },
                     { separator: true },
                     {
                       label: "Delete Content",
@@ -497,6 +537,8 @@ function AssignmentRows({
   mod = null,
   lesson = null,
   topic = null,
+  subTopic = null,
+  concept = null,
 }) {
   if (!assignments || assignments.length === 0) return null;
 
@@ -504,6 +546,9 @@ function AssignmentRows({
   // listing: it neither looks clickable nor offers menu actions that do nothing.
   const isSelectable = Boolean(onSelectAssignment);
   const hasActions = role === "INSTRUCTOR" && Boolean(onSelectAssignment || onDeleteAssignment);
+  // The full parent chain, appended AFTER the existing positional arguments
+  // so every current handler keeps receiving exactly what it did before.
+  const context = { module: mod, lesson, topic, subTopic, concept };
 
   return (
     <div className="mb-1 space-y-0.5">
@@ -522,7 +567,7 @@ function AssignmentRows({
                   ? "bg-yellow-500/15 border-yellow-500 text-yellow-700 dark:text-yellow-400 font-bold"
                   : `border-transparent text-yellow-700 dark:text-yellow-400 ${isSelectable ? "hover:bg-background/60" : ""}`
               }`}
-              onClick={isSelectable ? () => onSelectAssignment(asgn, mod, lesson, topic) : undefined}
+              onClick={isSelectable ? () => onSelectAssignment(asgn, mod, lesson, topic, undefined, context) : undefined}
             >
               <div className="flex items-center gap-1.5 min-w-0 flex-1">
                 {asgn.completed ? (
@@ -545,14 +590,14 @@ function AssignmentRows({
                       {
                         label: "Edit Assignment",
                         icon: Pencil,
-                        onSelect: () => onSelectAssignment?.(asgn, mod, lesson, topic, { startEditing: true }),
+                        onSelect: () => onSelectAssignment?.(asgn, mod, lesson, topic, { startEditing: true }, context),
                       },
                       { separator: true },
                       {
                         label: "Delete Assignment",
                         icon: Trash2,
                         destructive: true,
-                        onSelect: (e) => onDeleteAssignment?.(e, asgn, mod, lesson, topic),
+                        onSelect: (e) => onDeleteAssignment?.(e, asgn, mod, lesson, topic, context),
                       },
                     ]}
                   />
@@ -566,6 +611,46 @@ function AssignmentRows({
   );
 }
 
+/**
+ * Hands a Topic's SubTopics to `children` (a render function). The student
+ * course tree already embeds them (`topic.subTopics`); the instructor modules
+ * tree stops at Topic, so with `lazy` they are fetched instead — and only once
+ * this is rendered, which happens when the Topic is expanded.
+ */
+function SubTopicList({ topic, lazy, children }) {
+  const { data, isLoading, isError } = useSubTopics(lazy ? topic.id : undefined);
+  const subTopics = lazy ? (Array.isArray(data) ? data : []) : topic.subTopics || [];
+  return children(sortByRenderOrder(subTopics), { isLoading: lazy && isLoading, isError: lazy && isError });
+}
+
+/** Same as SubTopicList, one level down: a SubTopic's Concepts. */
+function ConceptList({ subTopic, lazy, children }) {
+  const { data, isLoading, isError } = useConcepts(lazy ? subTopic.id : undefined);
+  const concepts = lazy ? (Array.isArray(data) ? data : []) : subTopic.concepts || [];
+  return children(sortByRenderOrder(concepts), { isLoading: lazy && isLoading, isError: lazy && isError });
+}
+
+/** Loading/error line for a lazily loaded child list — same look as ParentContentRows' own states. */
+function ChildListStatus({ state, label }) {
+  if (state.isLoading) {
+    return (
+      <div className="flex items-center gap-1.5 py-1.5 px-2 text-[14px] text-muted-foreground">
+        <Loader2 size={11} className="animate-spin shrink-0" />
+        Loading {label}…
+      </div>
+    );
+  }
+  if (state.isError) {
+    return (
+      <div className="flex items-center gap-1.5 py-1.5 px-2 text-[14px] text-red-700 dark:text-red-400/80">
+        <AlertCircle size={11} className="shrink-0" />
+        Failed to load {label}.
+      </div>
+    );
+  }
+  return null;
+}
+
 export function CourseComposerSidebar({
   modules = [],
   courseQuizzes = [],
@@ -576,6 +661,8 @@ export function CourseComposerSidebar({
   composeModuleId,
   composeLessonId,
   composeTopicId,
+  composeSubTopicId,
+  composeConceptId,
   composeQuizId,
   composeAssignmentId,
   selectedCellId,
@@ -604,6 +691,7 @@ export function CourseComposerSidebar({
   onAddTopic,
   onAddContentToTopic,
   onAddContentToCourse,
+  onAddAssignmentToCourse,
   onAddContentToModule,
   onAddContentToLesson,
   onEditModule,
@@ -613,6 +701,31 @@ export function CourseComposerSidebar({
   onDeleteModule,
   onDeleteTopic,
   onDeleteContent,
+  // SubTopic / Concept rows. Every callback receives the row plus a context
+  // object ({ module, lesson, topic[, subTopic] }) instead of new positional
+  // arguments, so none of the existing callbacks above change shape.
+  onSelectSubTopic,
+  onSelectConcept,
+  onSelectSubTopicContent,
+  onSelectConceptContent,
+  onDeleteSubTopicContent,
+  onDeleteConceptContent,
+  onAddSubTopic,
+  onEditSubTopic,
+  onDeleteSubTopic,
+  onAddConcept,
+  onEditConcept,
+  onDeleteConcept,
+  onAddContentToSubTopic,
+  onAddContentToConcept,
+  onAddQuizToSubTopic,
+  onAddQuizToConcept,
+  // Instructor Composer: the modules tree it passes stops at Topic, so
+  // SubTopics/Concepts are fetched per expanded row, and their quizzes are
+  // picked out of `quizPool` (every quiz in the course). Student callers pass
+  // the full course tree instead and leave this off.
+  loadChildrenLazily = false,
+  quizPool = [],
   role = "INSTRUCTOR",
   isDraftMode = false,
   // Flattened backend progress roll-up (see lib/progressIndex). Student-only:
@@ -629,11 +742,15 @@ export function CourseComposerSidebar({
   const [expandedModules, setExpandedModules] = useState({});
   const [expandedLessons, setExpandedLessons] = useState({});
   const [expandedTopics, setExpandedTopics] = useState({});
+  const [expandedSubTopics, setExpandedSubTopics] = useState({});
+  const [expandedConcepts, setExpandedConcepts] = useState({});
 
   const { showToast } = useToast();
   const reorderModules = useReorderModules();
   const reorderLessons = useReorderLessons();
   const reorderTopics = useReorderTopics();
+  const reorderSubTopics = useReorderSubTopics();
+  const reorderConcepts = useReorderConcepts();
 
   // Undefined = no explicit user choice yet -> default to expanded only
   // along the path to whatever is currently selected. Keeps the tree
@@ -641,6 +758,8 @@ export function CourseComposerSidebar({
   const isModuleOpen = (moduleId) => expandedModules[moduleId] ?? moduleId === composeModuleId;
   const isLessonOpen = (lessonId) => expandedLessons[lessonId] ?? lessonId === composeLessonId;
   const isTopicOpen = (topicId) => expandedTopics[topicId] ?? topicId === composeTopicId;
+  const isSubTopicOpen = (subTopicId) => expandedSubTopics[subTopicId] ?? subTopicId === composeSubTopicId;
+  const isConceptOpen = (conceptId) => expandedConcepts[conceptId] ?? conceptId === composeConceptId;
 
   const toggleModule = (moduleId) =>
     setExpandedModules((prev) => ({ ...prev, [moduleId]: !isModuleOpen(moduleId) }));
@@ -648,9 +767,24 @@ export function CourseComposerSidebar({
     setExpandedLessons((prev) => ({ ...prev, [lessonId]: !isLessonOpen(lessonId) }));
   const toggleTopic = (topicId) =>
     setExpandedTopics((prev) => ({ ...prev, [topicId]: !isTopicOpen(topicId) }));
+  const toggleSubTopic = (subTopicId) =>
+    setExpandedSubTopics((prev) => ({ ...prev, [subTopicId]: !isSubTopicOpen(subTopicId) }));
+  const toggleConcept = (conceptId) =>
+    setExpandedConcepts((prev) => ({ ...prev, [conceptId]: !isConceptOpen(conceptId) }));
+
+  // The Course level is one sequence in four groups — Content, then Modules,
+  // then Assignments, then Quizzes (see compareCourseRows): the course's own
+  // Content/Quiz rows (loaded by ParentContentRows) merged with its Modules
+  // and course-direct Assignments. The backend writes and enforces those
+  // groups (see the API's contentOrder.util.js).
+  const orderedModules = sortByRenderOrder(modules);
+  const courseRowItems = [
+    ...orderedModules.map((mod, mIdx) => ({ ...mod, kind: "module", mIdx })),
+    ...(courseAssignments || []).map((assignment) => ({ ...assignment, kind: "assignment" })),
+  ];
 
   const handleMoveModule = async (mod, direction) => {
-    const plan = swapSiblingOrder(modules, mod.id, direction);
+    const plan = swapSiblingOrder(orderedModules, mod.id, direction);
     if (!plan) return;
     try {
       await reorderModules.mutateAsync({ courseId: mod.courseId, modules: plan });
@@ -677,6 +811,268 @@ export function CourseComposerSidebar({
     } catch {
       showToast("Failed to reorder topic", "error");
     }
+  };
+
+  // `siblings` are already in render order (SubTopicList/ConceptList sort
+  // them), which is what swapSiblingOrder's neighbor lookup relies on.
+  const handleMoveSubTopic = async (topic, siblings, subTopicId, direction) => {
+    const plan = swapSiblingOrder(siblings, subTopicId, direction);
+    if (!plan) return;
+    try {
+      await reorderSubTopics.mutateAsync({ topicId: topic.id, subTopics: plan });
+    } catch {
+      showToast("Failed to reorder subtopic", "error");
+    }
+  };
+
+  const handleMoveConcept = async (subTopic, siblings, conceptId, direction) => {
+    const plan = swapSiblingOrder(siblings, conceptId, direction);
+    if (!plan) return;
+    try {
+      await reorderConcepts.mutateAsync({ subTopicId: subTopic.id, concepts: plan });
+    } catch {
+      showToast("Failed to reorder concept", "error");
+    }
+  };
+
+  // SubTopic/Concept quizzes: embedded on the student course tree (already
+  // narrowed to their own level by normalizeCourseHierarchy); picked out of
+  // the course-wide pool for the instructor's lazily loaded rows.
+  const quizzesFor = (node, level) =>
+    loadChildrenLazily ? filterQuizzesPlacedAt(quizPool, level, node.id) : node.quizzes || [];
+
+  // An Assignment belongs in its level's ONE sequence, exactly like a Content
+  // or a Quiz: it is merged into ParentContentRows by `order` instead of being
+  // listed in a block above it, which pinned every assignment to the top of
+  // its level whatever position it was actually added at.
+  const assignmentItems = (entity) =>
+    (entity?.assignments || []).map((assignment) => ({ ...assignment, kind: "assignment" }));
+
+  // One row through the shared component, so a merged assignment looks and
+  // behaves exactly like the rows the standalone blocks used to render.
+  const renderAssignmentRow = (assignment, context = {}) => (
+    <AssignmentRows
+      key={assignment.id}
+      assignments={[assignment]}
+      composerMode={composerMode}
+      composeAssignmentId={composeAssignmentId}
+      onSelectAssignment={onSelectAssignment}
+      onDeleteAssignment={onDeleteAssignment}
+      role={role}
+      mod={context.module || null}
+      lesson={context.lesson || null}
+      topic={context.topic || null}
+      subTopic={context.subTopic || null}
+      concept={context.concept || null}
+    />
+  );
+
+  // SubTopic and Concept rows mirror the Topic row one and two levels down,
+  // with tighter indentation (ml-2 pl-1.5 per level instead of ml-3 pl-3) so
+  // two more levels still leave room for a title in the ~250px mobile drawer.
+  const renderConcept = (concept, parentContext, siblings) => {
+    const { module: mod, lesson, topic, subTopic } = parentContext;
+    const context = { ...parentContext, concept };
+    const cIdx = siblings.findIndex((c) => c.id === concept.id);
+    const conceptOpen = isConceptOpen(concept.id);
+    const isConceptActive = composerMode === "concept" && composeConceptId === concept.id;
+    const isConceptLocked =
+      role === "STUDENT" && cIdx > 0 && !isNodeLeavable(progress, siblings[cIdx - 1]?.id);
+
+    return (
+      <div key={concept.id} className="ml-2 pl-1.5 border-l border-border/50">
+        <div
+          className={`group/concept flex items-center justify-between gap-1 pl-1 pr-1 py-1.5 rounded-lg cursor-pointer transition-colors ${
+            isConceptActive
+              ? "bg-primary/15 text-primary font-semibold"
+              : "text-foreground/75 hover:text-foreground hover:bg-background/40"
+          }`}
+          onClick={() => onSelectConcept?.(concept, parentContext)}
+        >
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isConceptLocked) {
+                  showToast("Complete the previous concept to unlock this one.", "error");
+                  return;
+                }
+                toggleConcept(concept.id);
+              }}
+              className="p-0.5 text-muted-foreground hover:text-slate-50 transition cursor-pointer shrink-0"
+              aria-label={isConceptLocked ? "Locked" : conceptOpen ? "Collapse concept" : "Expand concept"}
+            >
+              <ChevronRight
+                size={11}
+                className={`transition-transform duration-200 ${conceptOpen ? "rotate-90 text-primary" : ""}`}
+              />
+            </button>
+            {isConceptLocked ? (
+              <Lock size={12} className="shrink-0 text-muted-foreground" />
+            ) : (
+              <Lightbulb size={12} className={`shrink-0 ${isConceptActive ? "text-primary" : "text-amber-700 dark:text-amber-400"}`} />
+            )}
+            <span className={`truncate text-[14.5px] leading-snug ${isConceptLocked ? "text-muted-foreground" : ""}`} title={concept.title}>
+              {concept.title}
+            </span>
+            <NodeBadge progress={progress} nodeId={concept.id} node={concept} />
+          </div>
+
+          {role === "INSTRUCTOR" && !isDraftMode && (
+            <RowMenu
+              groupName="concept"
+              items={[
+                { label: "Edit Concept", icon: Pencil, onSelect: () => onEditConcept?.(concept, parentContext) },
+                { label: "Add Content", icon: Plus, onSelect: () => onAddContentToConcept?.(concept, parentContext) },
+                { label: "Add Quiz", icon: Plus, onSelect: () => onAddQuizToConcept?.(concept, parentContext) },
+                { separator: true },
+                { label: "Move Up", icon: ArrowUp, disabled: cIdx === 0, onSelect: () => handleMoveConcept(subTopic, siblings, concept.id, "up") },
+                { label: "Move Down", icon: ArrowDown, disabled: cIdx === siblings.length - 1, onSelect: () => handleMoveConcept(subTopic, siblings, concept.id, "down") },
+                { separator: true },
+                {
+                  label: "Delete Concept",
+                  icon: Trash2,
+                  destructive: true,
+                  onSelect: (e) => onDeleteConcept?.(e, concept, parentContext),
+                },
+              ]}
+            />
+          )}
+        </div>
+
+        <Collapsible open={conceptOpen}>
+          <ParentContentRows
+            parent={{ parentType: "concept", parentId: concept.id }}
+            isActive={composerMode === "concept" && composeConceptId === concept.id}
+            selectedCellId={selectedCellId}
+            onSelectContent={(content) => onSelectConceptContent?.(content, context)}
+            onDeleteContent={(e, content) => onDeleteConceptContent?.(e, content, context)}
+            quizzes={quizzesFor(concept, "concept")}
+            composerMode={composerMode}
+            composeQuizId={composeQuizId}
+            onSelectQuiz={(quiz, opts) => onSelectQuiz?.(quiz, mod, lesson, topic, opts, context)}
+            onDeleteQuiz={(e, quiz) => onDeleteQuiz?.(e, quiz, mod, lesson, topic, context)}
+            role={role}
+            progress={progress}
+            isDraftMode={isDraftMode}
+            draftContents={concept.contents}
+            extraItems={assignmentItems(concept)}
+            renderExtraItem={(row) => renderAssignmentRow(row, context)}
+          />
+        </Collapsible>
+      </div>
+    );
+  };
+
+  const renderSubTopic = (subTopic, parentContext, siblings) => {
+    const { module: mod, lesson, topic } = parentContext;
+    const context = { ...parentContext, subTopic };
+    const sIdx = siblings.findIndex((s) => s.id === subTopic.id);
+    const subTopicOpen = isSubTopicOpen(subTopic.id);
+    const isSubTopicActive = composerMode === "subTopic" && composeSubTopicId === subTopic.id;
+    const isSubTopicLocked =
+      role === "STUDENT" && sIdx > 0 && !isNodeLeavable(progress, siblings[sIdx - 1]?.id);
+
+    return (
+      <div key={subTopic.id} className="ml-2 pl-1.5 border-l border-border/50">
+        <div
+          className={`group/subtopic flex items-center justify-between gap-1 pl-1 pr-1 py-1.5 rounded-lg cursor-pointer transition-colors ${
+            isSubTopicActive
+              ? "bg-primary/15 text-primary font-semibold"
+              : "text-foreground/75 hover:text-foreground hover:bg-background/40"
+          }`}
+          onClick={() => onSelectSubTopic?.(subTopic, parentContext)}
+        >
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isSubTopicLocked) {
+                  showToast("Complete the previous subtopic to unlock this one.", "error");
+                  return;
+                }
+                toggleSubTopic(subTopic.id);
+              }}
+              className="p-0.5 text-muted-foreground hover:text-slate-50 transition cursor-pointer shrink-0"
+              aria-label={isSubTopicLocked ? "Locked" : subTopicOpen ? "Collapse subtopic" : "Expand subtopic"}
+            >
+              <ChevronRight
+                size={11}
+                className={`transition-transform duration-200 ${subTopicOpen ? "rotate-90 text-primary" : ""}`}
+              />
+            </button>
+            {isSubTopicLocked ? (
+              <Lock size={12} className="shrink-0 text-muted-foreground" />
+            ) : (
+              <GitBranch size={12} className={`shrink-0 ${isSubTopicActive ? "text-primary" : "text-blue-700 dark:text-blue-400"}`} />
+            )}
+            <span className={`truncate text-[14.5px] leading-snug ${isSubTopicLocked ? "text-muted-foreground" : ""}`} title={subTopic.title}>
+              {subTopic.title}
+            </span>
+            <NodeBadge progress={progress} nodeId={subTopic.id} node={subTopic} />
+          </div>
+
+          {role === "INSTRUCTOR" && !isDraftMode && (
+            <RowMenu
+              groupName="subtopic"
+              items={[
+                { label: "Edit SubTopic", icon: Pencil, onSelect: () => onEditSubTopic?.(subTopic, parentContext) },
+                { label: "Add Concept", icon: Plus, onSelect: () => onAddConcept?.(subTopic, parentContext) },
+                { label: "Add Content", icon: Plus, onSelect: () => onAddContentToSubTopic?.(subTopic, parentContext) },
+                { label: "Add Quiz", icon: Plus, onSelect: () => onAddQuizToSubTopic?.(subTopic, parentContext) },
+                { separator: true },
+                { label: "Move Up", icon: ArrowUp, disabled: sIdx === 0, onSelect: () => handleMoveSubTopic(topic, siblings, subTopic.id, "up") },
+                { label: "Move Down", icon: ArrowDown, disabled: sIdx === siblings.length - 1, onSelect: () => handleMoveSubTopic(topic, siblings, subTopic.id, "down") },
+                { separator: true },
+                {
+                  label: "Delete SubTopic",
+                  icon: Trash2,
+                  destructive: true,
+                  onSelect: (e) => onDeleteSubTopic?.(e, subTopic, parentContext),
+                },
+              ]}
+            />
+          )}
+        </div>
+
+        <Collapsible open={subTopicOpen}>
+          <ConceptList subTopic={subTopic} lazy={loadChildrenLazily && !isDraftMode}>
+            {(concepts, conceptsState) => (
+              <>
+                <ParentContentRows
+                  parent={{ parentType: "subTopic", parentId: subTopic.id }}
+                  isActive={composerMode === "subTopic" && composeSubTopicId === subTopic.id}
+                  selectedCellId={selectedCellId}
+                  onSelectContent={(content) => onSelectSubTopicContent?.(content, context)}
+                  onDeleteContent={(e, content) => onDeleteSubTopicContent?.(e, content, context)}
+                  quizzes={quizzesFor(subTopic, "subTopic")}
+                  composerMode={composerMode}
+                  composeQuizId={composeQuizId}
+                  onSelectQuiz={(quiz, opts) => onSelectQuiz?.(quiz, mod, lesson, topic, opts, context)}
+                  onDeleteQuiz={(e, quiz) => onDeleteQuiz?.(e, quiz, mod, lesson, topic, context)}
+                  role={role}
+                  progress={progress}
+                  isDraftMode={isDraftMode}
+                  draftContents={subTopic.contents}
+                  extraItems={[
+                    ...concepts.map((concept) => ({ ...concept, kind: "concept" })),
+                    ...assignmentItems(subTopic),
+                  ]}
+                  renderExtraItem={(row) =>
+                    row.kind === "assignment"
+                      ? renderAssignmentRow(row, context)
+                      : renderConcept(row, context, concepts)
+                  }
+                />
+                <ChildListStatus state={conceptsState} label="concepts" />
+              </>
+            )}
+          </ConceptList>
+        </Collapsible>
+      </div>
+    );
   };
 
   if (!isOpen) {
@@ -765,6 +1161,11 @@ export function CourseComposerSidebar({
             groupName="module"
             items={[
               { label: "Add Content", icon: Plus, onSelect: () => onAddContentToCourse?.() },
+              // A real Assignment entity, which the backend places after every
+              // Module and before the Course Quizzes.
+              ...(onAddAssignmentToCourse
+                ? [{ label: "Add Assignment", icon: Plus, onSelect: () => onAddAssignmentToCourse() }]
+                : []),
             ]}
           />
         )}
@@ -773,7 +1174,9 @@ export function CourseComposerSidebar({
       {/* Scroll region — everything from the course-level rows down. */}
       <div className="flex-1 min-h-0 overflow-y-auto -mr-1 pr-1">
 
-      {/* Course-Level Content Cells (course-level quizzes are merged into this list) */}
+      {/* Course-Level rows — the course's own content and quizzes merged with
+          its Modules and course-direct Assignments, in the Course groups:
+          Content -> Modules -> Assignments -> Quizzes. */}
       {(courseId || modules[0]?.courseId) && (
         <ParentContentRows
           parent={{ parentType: "course", parentId: courseId || modules[0]?.courseId }}
@@ -784,34 +1187,21 @@ export function CourseComposerSidebar({
           quizzes={courseQuizzes}
           composerMode={composerMode}
           composeQuizId={composeQuizId}
-          onSelectQuiz={(quiz, opts) => onSelectQuiz?.(quiz, null, null, null, opts)}
+          onSelectQuiz={(quiz, opts) => onSelectQuiz?.(quiz, null, null, null, opts, {})}
           onDuplicateQuiz={(quiz) => onDuplicateQuiz?.(quiz, null, null, null)}
-          onDeleteQuiz={(e, quiz) => onDeleteQuiz?.(e, quiz, null, null, null)}
+          onDeleteQuiz={(e, quiz) => onDeleteQuiz?.(e, quiz, null, null, null, {})}
           role={role}
           progress={progress}
           isDraftMode={isDraftMode}
           draftContents={courseContents}
-        />
-      )}
-
-      {/* Course-Level Assignments (when present) */}
-      <AssignmentRows
-        assignments={courseAssignments}
-        composerMode={composerMode}
-        composeAssignmentId={composeAssignmentId}
-        onSelectAssignment={onSelectAssignment}
-        onDeleteAssignment={onDeleteAssignment}
-        role={role}
-      />
-
-      {/* Modules Tree — no scroll container of its own; the region above scrolls. */}
-      <div className="space-y-0.5 pr-1 text-base">
-        {modules.length === 0 ? (
-          <div className="py-8 text-center text-muted-foreground text-base italic">
-            No modules available in this course.
-          </div>
-        ) : (
-          modules.map((mod, mIdx) => {
+          className="space-y-0.5 pr-1 text-base"
+          compareRows={compareCourseRows}
+          groupOf={(row) => courseGroupRank(row.kind)}
+          extraItems={courseRowItems}
+          renderExtraItem={(row) => {
+            if (row.kind === "assignment") return renderAssignmentRow(row);
+            const mod = row;
+            const mIdx = row.mIdx;
             const moduleOpen = isModuleOpen(mod.id);
             const isModuleActive = composerMode === "module" && composeModuleId === mod.id;
             const moduleHasActiveChild = !isModuleActive && composeModuleId === mod.id;
@@ -823,7 +1213,7 @@ export function CourseComposerSidebar({
             // Prev/Next crossing gate uses (isNodeLeavable), so the sidebar can
             // never disagree with what clicking Next would allow.
             const isModuleLocked =
-              role === "STUDENT" && mIdx > 0 && !isNodeLeavable(progress, modules[mIdx - 1]?.id);
+              role === "STUDENT" && mIdx > 0 && !isNodeLeavable(progress, orderedModules[mIdx - 1]?.id);
 
             return (
               <div key={mod.id}>
@@ -881,7 +1271,7 @@ export function CourseComposerSidebar({
                         { label: "Add Content", icon: Plus, onSelect: () => onAddContentToModule?.(mod) },
                         { separator: true },
                         { label: "Move Up", icon: ArrowUp, disabled: mIdx === 0, onSelect: () => handleMoveModule(mod, "up") },
-                        { label: "Move Down", icon: ArrowDown, disabled: mIdx === modules.length - 1, onSelect: () => handleMoveModule(mod, "down") },
+                        { label: "Move Down", icon: ArrowDown, disabled: mIdx === orderedModules.length - 1, onSelect: () => handleMoveModule(mod, "down") },
                         { separator: true },
                         {
                           label: "Delete Module",
@@ -897,17 +1287,8 @@ export function CourseComposerSidebar({
                 {/* Module Children: Module Content + Module Quizzes + Module Assignments + Lessons */}
                 <Collapsible open={moduleOpen}>
                   <div className="ml-3.5 pl-3 py-0.5 space-y-0.5 border-l border-border/70">
-                    {/* Module Assignments (when present) */}
-                    <AssignmentRows
-                      assignments={mod.assignments}
-                      composerMode={composerMode}
-                      composeAssignmentId={composeAssignmentId}
-                      onSelectAssignment={onSelectAssignment}
-                      onDeleteAssignment={onDeleteAssignment}
-                      role={role}
-                      mod={mod}
-                    />
-                    {/* Unified Module Items (contents, quizzes, and lessons sorted by creation/order) */}
+                    {/* Unified Module Items (contents, quizzes, assignments and lessons
+                        sorted by creation/order) */}
                     <ParentContentRows
                       parent={{ parentType: "module", parentId: mod.id }}
                       isActive={composerMode === "module" && composeModuleId === mod.id}
@@ -917,16 +1298,21 @@ export function CourseComposerSidebar({
                       quizzes={modQuizzes}
                       composerMode={composerMode}
                       composeQuizId={composeQuizId}
-                      onSelectQuiz={(quiz, opts) => onSelectQuiz?.(quiz, mod, null, null, opts)}
+                      onSelectQuiz={(quiz, opts) => onSelectQuiz?.(quiz, mod, null, null, opts, { module: mod })}
                       onDuplicateQuiz={(quiz) => onDuplicateQuiz?.(quiz, mod, null, null)}
-                      onDeleteQuiz={(e, quiz) => onDeleteQuiz?.(e, quiz, mod, null, null)}
+                      onDeleteQuiz={(e, quiz) => onDeleteQuiz?.(e, quiz, mod, null, null, { module: mod })}
                       role={role}
                       progress={progress}
                       isDraftMode={isDraftMode}
                       draftContents={mod.contents}
-                      extraItems={sortByRenderOrder(modLessons).map((lesson, lIdx) => ({ ...lesson, kind: "lesson", lIdx }))}
+                      extraItems={[
+                        ...sortByRenderOrder(modLessons).map((lesson, lIdx) => ({ ...lesson, kind: "lesson", lIdx })),
+                        ...assignmentItems(mod),
+                      ]}
                       emptyMessage={modLessons.length === 0 ? "No lessons in this module." : null}
-                      renderExtraItem={(lesson) => {
+                      renderExtraItem={(row) => {
+                        if (row.kind === "assignment") return renderAssignmentRow(row, { module: mod });
+                        const lesson = row;
                         const lIdx = lesson.lIdx;
                         const lessonOpen = isLessonOpen(lesson.id);
                         const isLessonActive = composerMode === "lesson" && composeLessonId === lesson.id;
@@ -1020,18 +1406,8 @@ export function CourseComposerSidebar({
                             {/* Lesson Content + Lesson Quizzes + Lesson Assignments + Topics */}
                             <Collapsible open={lessonOpen}>
                               <div className="ml-3 pl-3 py-0.5 space-y-0.5 border-l border-border/60">
-                                {/* Lesson Assignments (when present) */}
-                                <AssignmentRows
-                                  assignments={lesson.assignments}
-                                  composerMode={composerMode}
-                                  composeAssignmentId={composeAssignmentId}
-                                  onSelectAssignment={onSelectAssignment}
-                                  onDeleteAssignment={onDeleteAssignment}
-                                  role={role}
-                                  mod={mod}
-                                  lesson={lesson}
-                                />
-                                {/* Unified Lesson Items (contents, quizzes, and topics sorted by creation/order) */}
+                                {/* Unified Lesson Items (contents, quizzes, assignments and topics
+                                    sorted by creation/order) */}
                                 <ParentContentRows
                                   parent={{ parentType: "lesson", parentId: lesson.id }}
                                   isActive={composerMode === "lesson" && composeLessonId === lesson.id}
@@ -1041,16 +1417,21 @@ export function CourseComposerSidebar({
                                   quizzes={lessonQuizzes}
                                   composerMode={composerMode}
                                   composeQuizId={composeQuizId}
-                                  onSelectQuiz={(quiz, opts) => onSelectQuiz?.(quiz, mod, lesson, null, opts)}
+                                  onSelectQuiz={(quiz, opts) => onSelectQuiz?.(quiz, mod, lesson, null, opts, { module: mod, lesson })}
                                   onDuplicateQuiz={(quiz) => onDuplicateQuiz?.(quiz, mod, lesson, null)}
-                                  onDeleteQuiz={(e, quiz) => onDeleteQuiz?.(e, quiz, mod, lesson, null)}
+                                  onDeleteQuiz={(e, quiz) => onDeleteQuiz?.(e, quiz, mod, lesson, null, { module: mod, lesson })}
                                   role={role}
                                   progress={progress}
                                   isDraftMode={isDraftMode}
                                   draftContents={lesson.contents}
-                                  extraItems={sortByRenderOrder(lessonTopics).map((topic, tIdx) => ({ ...topic, kind: "topic", tIdx }))}
+                                  extraItems={[
+                                    ...sortByRenderOrder(lessonTopics).map((topic, tIdx) => ({ ...topic, kind: "topic", tIdx })),
+                                    ...assignmentItems(lesson),
+                                  ]}
                                   emptyMessage={lessonTopics.length === 0 ? "No topics in this lesson." : null}
-                                  renderExtraItem={(topic) => {
+                                  renderExtraItem={(row) => {
+                                    if (row.kind === "assignment") return renderAssignmentRow(row, { module: mod, lesson });
+                                    const topic = row;
                                     const tIdx = topic.tIdx;
                                     const topicOpen = isTopicOpen(topic.id);
                                     const isTopicActive = composerMode === "topic" && composeTopicId === topic.id;
@@ -1117,6 +1498,10 @@ export function CourseComposerSidebar({
                                               items={[
                                                 { label: "Edit Topic", icon: Pencil, onSelect: () => onEditTopic?.(topic, lesson.id, mod.id) },
                                                 { label: "Add Content", icon: Plus, onSelect: () => onAddContentToTopic?.(topic.id, lesson.id, mod.id) },
+                                                // Import drafts are Topic-only, so no SubTopic can be added there.
+                                                ...(onAddSubTopic && !isDraftMode
+                                                  ? [{ label: "Add SubTopic", icon: Plus, onSelect: () => onAddSubTopic(topic, { module: mod, lesson }) }]
+                                                  : []),
                                                 { separator: true },
                                                 { label: "Move Up", icon: ArrowUp, disabled: tIdx === 0, onSelect: () => handleMoveTopic(lesson, topic.id, "up") },
                                                 { label: "Move Down", icon: ArrowDown, disabled: tIdx === lessonTopics.length - 1, onSelect: () => handleMoveTopic(lesson, topic.id, "down") },
@@ -1134,37 +1519,41 @@ export function CourseComposerSidebar({
 
                                         {/* Topic Quizzes + Topic Assignments + Contents */}
                                         <Collapsible open={topicOpen}>
-                                          <div className="ml-3 pl-3 py-0.5 space-y-0.5 border-l border-border/60">
-                                            {/* Topic Assignments (when present) */}
-                                            <AssignmentRows
-                                              assignments={topic.assignments}
-                                              composerMode={composerMode}
-                                              composeAssignmentId={composeAssignmentId}
-                                              onSelectAssignment={onSelectAssignment}
-                                              onDeleteAssignment={onDeleteAssignment}
-                                              role={role}
-                                              mod={mod}
-                                              lesson={lesson}
-                                              topic={topic}
-                                            />
-                                          </div>
-                                          <ParentContentRows
-                                            parent={{ parentType: "topic", parentId: topic.id }}
-                                            isActive={composerMode === "topic"}
-                                            selectedCellId={selectedCellId}
-                                            onSelectContent={(content) => onSelectContent?.(content, topic, lesson, mod)}
-                                            onDeleteContent={(e, content) => onDeleteContent?.(e, content, topic.id)}
-                                            quizzes={topic.quizzes || []}
-                                            composerMode={composerMode}
-                                            composeQuizId={composeQuizId}
-                                            onSelectQuiz={(quiz, opts) => onSelectQuiz?.(quiz, mod, lesson, topic, opts)}
-                                            onDuplicateQuiz={(quiz) => onDuplicateQuiz?.(quiz, mod, lesson, topic)}
-                                            onDeleteQuiz={(e, quiz) => onDeleteQuiz?.(e, quiz, mod, lesson, topic)}
-                                            role={role}
-                                            progress={progress}
-                                            isDraftMode={isDraftMode}
-                                            draftContents={topic.contents}
-                                          />
+                                          {/* Topic Contents + Quizzes + Assignments + SubTopics, interleaved
+                                              by order. A Topic without SubTopics renders exactly as before. */}
+                                          <SubTopicList topic={topic} lazy={loadChildrenLazily && !isDraftMode}>
+                                            {(subTopics, subTopicsState) => (
+                                              <>
+                                                <ParentContentRows
+                                                  parent={{ parentType: "topic", parentId: topic.id }}
+                                                  isActive={composerMode === "topic"}
+                                                  selectedCellId={selectedCellId}
+                                                  onSelectContent={(content) => onSelectContent?.(content, topic, lesson, mod)}
+                                                  onDeleteContent={(e, content) => onDeleteContent?.(e, content, topic.id)}
+                                                  quizzes={topic.quizzes || []}
+                                                  composerMode={composerMode}
+                                                  composeQuizId={composeQuizId}
+                                                  onSelectQuiz={(quiz, opts) => onSelectQuiz?.(quiz, mod, lesson, topic, opts, { module: mod, lesson, topic })}
+                                                  onDuplicateQuiz={(quiz) => onDuplicateQuiz?.(quiz, mod, lesson, topic)}
+                                                  onDeleteQuiz={(e, quiz) => onDeleteQuiz?.(e, quiz, mod, lesson, topic, { module: mod, lesson, topic })}
+                                                  role={role}
+                                                  progress={progress}
+                                                  isDraftMode={isDraftMode}
+                                                  draftContents={topic.contents}
+                                                  extraItems={[
+                                                    ...subTopics.map((subTopic) => ({ ...subTopic, kind: "subTopic" })),
+                                                    ...assignmentItems(topic),
+                                                  ]}
+                                                  renderExtraItem={(row) =>
+                                                    row.kind === "assignment"
+                                                      ? renderAssignmentRow(row, { module: mod, lesson, topic })
+                                                      : renderSubTopic(row, { module: mod, lesson, topic }, subTopics)
+                                                  }
+                                                />
+                                                <ChildListStatus state={subTopicsState} label="subtopics" />
+                                              </>
+                                            )}
+                                          </SubTopicList>
                                         </Collapsible>
                                       </div>
                                     );
@@ -1180,9 +1569,15 @@ export function CourseComposerSidebar({
                 </Collapsible>
               </div>
             );
-          })
-        )}
-      </div>
+          }}
+        />
+      )}
+
+      {modules.length === 0 && (
+        <div className="py-8 text-center text-muted-foreground text-base italic">
+          No modules available in this course.
+        </div>
+      )}
 
       </div>
     </aside>

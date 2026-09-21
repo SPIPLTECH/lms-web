@@ -15,7 +15,8 @@
  */
 
 /**
- * Per-node roll-up, keyed by Course / Module / Lesson / Topic id.
+ * Per-node roll-up, keyed by Course / Module / Lesson / Topic / SubTopic /
+ * Concept id.
  *
  * `applicable` is the backend's own "this node has items that count" flag. It
  * is NOT the same as `totalItems > 0` for a Course, and callers should prefer
@@ -90,6 +91,8 @@ export function buildProgressIndex(progressData) {
       ...(node.modules || []),
       ...(node.lessons || []),
       ...(node.topics || []),
+      ...(node.subTopics || []),
+      ...(node.concepts || []),
     ]) {
       ids = ids.concat(indexNode(child));
     }
@@ -128,8 +131,10 @@ export function isItemSubmitted(progressIndex, itemId) {
 }
 
 /**
- * True when a student may cross out of this Topic/Lesson/Module to the next
- * one — every quiz under it (direct or in a descendant) only needs an
+ * True when a student may cross out of this Concept/SubTopic/Topic/Lesson/
+ * Module to the next one. Every item under it counts, direct or in a
+ * descendant (so a Topic's SubTopic and Concept items count toward that
+ * Topic). Every quiz under it only needs an
  * attempt on file, same as isItemSubmitted's quiz rule; a failed attempt no
  * longer blocks moving on. Non-quiz items (content, assignments) still need
  * their own `completed` flag, unchanged from before.
@@ -156,7 +161,7 @@ export function isNodeLeavable(progressIndex, nodeId) {
   });
 }
 
-/** The backend's roll-up for a Course/Module/Lesson/Topic id, or null. */
+/** The backend's roll-up for a Course/Module/Lesson/Topic/SubTopic/Concept id, or null. */
 export function getNodeProgress(progressIndex, nodeId) {
   if (!progressIndex || !nodeId) return null;
   return progressIndex.nodes.get(nodeId) || null;
@@ -198,7 +203,15 @@ export function decorateCourseWithProgress(course, progressIndex) {
       withNode(mod, {
         lessons: (mod.lessons || []).map((lesson) =>
           withNode(lesson, {
-            topics: (lesson.topics || []).map((topic) => withNode(topic)),
+            topics: (lesson.topics || []).map((topic) =>
+              withNode(topic, {
+                subTopics: (topic.subTopics || []).map((subTopic) =>
+                  withNode(subTopic, {
+                    concepts: (subTopic.concepts || []).map((concept) => withNode(concept)),
+                  })
+                ),
+              })
+            ),
           })
         ),
       })

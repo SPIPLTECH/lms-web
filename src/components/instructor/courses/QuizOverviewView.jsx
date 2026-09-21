@@ -102,6 +102,9 @@ export function QuizOverviewView({
   moduleTitle = null,
   lessonTitle = null,
   topicTitle = null,
+  // The two levels below Topic. Scope labels use the most specific title set.
+  subTopicTitle = null,
+  conceptTitle = null,
   onSaveQuiz,
   onCancel,
   startEditing = false,
@@ -148,7 +151,7 @@ export function QuizOverviewView({
     if (quizMode === "create") {
       setIsEditing(true);
       setQuizForm({
-        title: topicTitle ? `Quiz - ${topicTitle}` : lessonTitle ? `Quiz - ${lessonTitle}` : moduleTitle ? `Quiz - ${moduleTitle}` : "Course Quiz",
+        title: conceptTitle ? `Quiz - ${conceptTitle}` : subTopicTitle ? `Quiz - ${subTopicTitle}` : topicTitle ? `Quiz - ${topicTitle}` : lessonTitle ? `Quiz - ${lessonTitle}` : moduleTitle ? `Quiz - ${moduleTitle}` : "Course Quiz",
         description: "",
         // Deliberately unselected — the instructor must choose practice or
         // assessment rather than inherit a default.
@@ -166,7 +169,7 @@ export function QuizOverviewView({
     } else {
       setIsEditing(false);
     }
-  }, [quizMode, startEditing, moduleTitle, lessonTitle, topicTitle]);
+  }, [quizMode, startEditing, moduleTitle, lessonTitle, topicTitle, subTopicTitle, conceptTitle]);
 
   useEffect(() => {
     if (quiz && quizMode !== "create") {
@@ -479,7 +482,7 @@ export function QuizOverviewView({
         <div className="flex items-center space-x-2">
           <span className="rounded bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 text-[12px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
             <HelpCircle size={12} />
-            {topicTitle ? `Topic Quiz — ${topicTitle}` : lessonTitle ? `Lesson Quiz — ${lessonTitle}` : moduleTitle ? `Module Quiz — ${moduleTitle}` : "Course-Level Quiz"}
+            {conceptTitle ? `Concept Quiz — ${conceptTitle}` : subTopicTitle ? `SubTopic Quiz — ${subTopicTitle}` : topicTitle ? `Topic Quiz — ${topicTitle}` : lessonTitle ? `Lesson Quiz — ${lessonTitle}` : moduleTitle ? `Module Quiz — ${moduleTitle}` : "Course-Level Quiz"}
           </span>
 
           {/* Tag sits beside the scope badge, not inside it — the two are

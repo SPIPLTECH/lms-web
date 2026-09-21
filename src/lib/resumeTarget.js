@@ -1,19 +1,18 @@
-import { mapOrder } from "./courseUnits.js";
-
-const byOrder = (list) => [...(list || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+import { mapOrder, courseMapOrder } from "./courseUnits.js";
 
 // Same three-way merge courseUnits.js's walkLevel uses: a level's own
 // content and quizzes interleaved with its child containers (lessons under a
 // module, topics under a lesson), sorted by `order` with mapOrder's
-// content-before-child-before-quiz tie-break. Reusing mapOrder (rather than a
-// parallel copy) is what keeps this in permanent lockstep with the player.
-const mergeByOrder = (contents, quizzes, children) => {
+// content-before-child-before-quiz tie-break — or, at Course level, by
+// courseMapOrder's groups. Reusing those comparators (rather than a parallel
+// copy) is what keeps this in permanent lockstep with the player.
+const mergeByOrder = (contents, quizzes, children, compare = mapOrder) => {
   const rows = [
     ...(contents || []).map((item) => ({ kind: "content", item })),
     ...(quizzes || []).map((item) => ({ kind: "quiz", item })),
     ...(children || []).map((item) => ({ kind: "child", item })),
   ];
-  return rows.sort(mapOrder);
+  return rows.sort(compare);
 };
 
 /**
@@ -22,7 +21,9 @@ const mergeByOrder = (contents, quizzes, children) => {
  * then each Module with its own content/quizzes interleaved (by `order`)
  * with its Lessons, each Lesson's own content/quizzes interleaved with its
  * Topics (or, with no Topics, just merged together), each Topic's own
- * content merged with its own quizzes. Built from the Progress roll-up's
+ * content/quizzes interleaved with its SubTopics (or just merged together
+ * when it has none), and each SubTopic's own content/quizzes interleaved
+ * with its Concepts the same way. Built from the Progress roll-up's
  * shape instead of the course tree, since this is the only place
  * visited/completed live per item. Assignments are excluded — they aren't
  * reachable in the content player's block sequence yet.
@@ -40,15 +41,35 @@ function buildLeafSequence(hierarchy) {
     });
   };
 
-  const noScope = { moduleId: null, lessonId: null, topicId: null };
-  // Course level has no child containers — modules always follow every
-  // course-direct item, regardless of order value (matches courseUnits.js).
-  for (const row of mergeByOrder(hierarchy.contents, hierarchy.quizzes, [])) {
-    pushLeaf(row.kind, row.item, noScope);
-  }
+  // One container's own leaves interleaved with its child containers, each
+  // child handed to `onChild`. A container with no children (a Topic with no
+  // SubTopics, a Concept) degenerates to its own items merged by order —
+  // exactly what the pre-SubTopic walk did for every Topic.
+  const pushContainerLeaves = (container, children, scope, onChild, compare) => {
+    for (const row of mergeByOrder(container.contents, container.quizzes, children, compare)) {
+      if (row.kind !== "child") {
+        pushLeaf(row.kind, row.item, scope);
+        continue;
+      }
+      onChild(row.item);
+    }
+  };
 
-  for (const mod of byOrder(hierarchy.modules)) {
-    const moduleScope = { moduleId: mod.id, lessonId: null, topicId: null };
+  const pushConceptLeaves = (concept, subTopicScope) => {
+    pushContainerLeaves(concept, [], { ...subTopicScope, conceptId: concept.id }, () => {});
+  };
+
+  const pushSubTopicLeaves = (subTopic, topicScope) => {
+    const subTopicScope = { ...topicScope, subTopicId: subTopic.id };
+    pushContainerLeaves(subTopic, subTopic.concepts, subTopicScope, (concept) =>
+      pushConceptLeaves(concept, subTopicScope)
+    );
+  };
+
+  const noScope = { moduleId: null, lessonId: null, topicId: null, subTopicId: null, conceptId: null };
+
+  const pushModuleLeaves = (mod) => {
+    const moduleScope = { ...noScope, moduleId: mod.id };
 
     for (const row of mergeByOrder(mod.contents, mod.quizzes, mod.lessons)) {
       if (row.kind !== "child") {
@@ -57,7 +78,7 @@ function buildLeafSequence(hierarchy) {
       }
 
       const lesson = row.item;
-      const lessonScope = { moduleId: mod.id, lessonId: lesson.id, topicId: null };
+      const lessonScope = { ...moduleScope, lessonId: lesson.id };
       const hasTopics = (lesson.topics?.length ?? 0) > 0;
 
       if (!hasTopics) {
@@ -74,13 +95,18 @@ function buildLeafSequence(hierarchy) {
         }
 
         const topic = leafRow.item;
-        const topicScope = { moduleId: mod.id, lessonId: lesson.id, topicId: topic.id };
-        for (const topicRow of mergeByOrder(topic.contents, topic.quizzes, [])) {
-          pushLeaf(topicRow.kind, topicRow.item, topicScope);
-        }
+        const topicScope = { ...lessonScope, topicId: topic.id };
+        pushContainerLeaves(topic, topic.subTopics, topicScope, (subTopic) =>
+          pushSubTopicLeaves(subTopic, topicScope)
+        );
       }
     }
-  }
+  };
+
+  // Course level: its own content/quizzes and its Modules are ONE sequence,
+  // walked in the Course groups (Content -> Modules -> Assignments -> Quizzes)
+  // by the very comparator the player uses.
+  pushContainerLeaves(hierarchy, hierarchy.modules, noScope, pushModuleLeaves, courseMapOrder);
 
   return leaves;
 }
@@ -107,8 +133,9 @@ function buildLeafSequence(hierarchy) {
  *     (review mode; there is no "next").
  *
  * @returns {{kind: 'content'|'quiz', id: string, moduleId: string|null,
- *   lessonId: string|null, topicId: string|null}|null} null when progress
- *   data isn't available or the course has no trackable leaves at all.
+ *   lessonId: string|null, topicId: string|null, subTopicId: string|null,
+ *   conceptId: string|null}|null} null when progress data isn't available or
+ *   the course has no trackable leaves at all.
  */
 export function resolveResumeTarget(progressData) {
   const hierarchy = progressData?.hierarchy;

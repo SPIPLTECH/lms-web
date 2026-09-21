@@ -19,7 +19,14 @@ import QualificationResultPanel from "@/components/student/learning/Qualificatio
 import { rendersUploadedDeck } from "@/components/student/learning/VideoPlayer";
 
 import { groupLessonContentForDocumentView } from "@/lib/contentDocument";
-import { buildCourseUnits, findUnitContaining } from "@/lib/courseUnits";
+import {
+  buildCourseUnits,
+  findUnitContaining,
+  HIERARCHY_LEVEL_LABELS,
+  pathwayUnitKey,
+  resolveLessonPathway,
+  scopeLevel,
+} from "@/lib/courseUnits";
 import { CourseStructureSidebar } from "@/components/instructor/courses/CourseComposerSidebar";
 import { normalizeCourseHierarchy } from "@/lib/courseMapper";
 import { buildProgressIndex, decorateCourseWithProgress, isItemComplete, isItemSubmitted, isNodeLeavable, getNodeProgress } from "@/lib/progressIndex";
@@ -257,6 +264,12 @@ export default function LearnPage() {
   } = useLessonNavigation(course, selectedLesson, setSelectedLesson);
 
   const [selectedTopicId, setSelectedTopicId] = useState(null);
+  // One and two levels below the selected Topic. Either may be null (or stale
+  // after the Topic changes) — useTopicNavigation's `pathway` resolves them to
+  // that Topic's first SubTopic/Concept when they don't match, so these never
+  // need resetting in lockstep with selectedTopicId.
+  const [selectedSubTopicId, setSelectedSubTopicId] = useState(null);
+  const [selectedConceptId, setSelectedConceptId] = useState(null);
 
   // SKIP / QUALIFYING TEST
   //
@@ -341,7 +354,7 @@ export default function LearnPage() {
   // sheet covering what was just chosen.
   useEffect(() => {
     setCourseMapOpen(false);
-  }, [selectedLesson?.id, selectedTopicId]);
+  }, [selectedLesson?.id, selectedTopicId, selectedSubTopicId, selectedConceptId]);
 
   // Escape closes the off-canvas course map, the same as its X and its scrim.
   // Bound only while it is open, so nothing listens on the desktop layout.
@@ -353,6 +366,67 @@ export default function LearnPage() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [courseMapOpen]);
+
+  // Automatically close/collapse the active Course Map after 30 seconds of inactivity.
+  // Desktop Course Map is controlled by courseSidebarOpen, Mobile Course Map by courseMapOpen.
+  useEffect(() => {
+    const isMapActive = isDesktop ? courseSidebarOpen : courseMapOpen;
+    if (!isMapActive) return;
+
+    let timerId = null;
+    let lastResetTime = 0;
+
+    const closeMap = () => {
+      if (isDesktop) {
+        setCourseSidebarOpen(false);
+      } else {
+        setCourseMapOpen(false);
+      }
+    };
+
+    const startTimer = () => {
+      if (timerId) clearTimeout(timerId);
+      timerId = setTimeout(() => {
+        closeMap();
+      }, 30000);
+    };
+
+    const handleActivity = (event) => {
+      const now = Date.now();
+      // Throttle high-frequency movement events so continuous jitter does not thrash timer resets
+      if (event && (event.type === "mousemove" || event.type === "pointermove")) {
+        if (now - lastResetTime < 1000) return;
+      }
+      lastResetTime = now;
+      startTimer();
+    };
+
+    startTimer();
+
+    const activityEvents = [
+      "mousemove",
+      "mousedown",
+      "pointermove",
+      "pointerdown",
+      "touchstart",
+      "touchmove",
+      "keydown",
+      "scroll",
+      "wheel",
+      "click",
+    ];
+
+    activityEvents.forEach((eventName) => {
+      window.addEventListener(eventName, handleActivity, { capture: true, passive: true });
+    });
+
+    return () => {
+      if (timerId) clearTimeout(timerId);
+      activityEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, handleActivity, { capture: true });
+      });
+    };
+  }, [isDesktop, courseSidebarOpen, courseMapOpen]);
 
   // The below-xl "More" popover dismisses on a tap outside it or Escape —
   // the same idiom AskInstructorCard's own popover uses. moreMenuRef wraps
@@ -383,13 +457,20 @@ export default function LearnPage() {
   // course, Topics included. currentTopic is still read for display
   // (topicTitle in the header) and for the current Topic's own completion
   // gate id.
-  const { currentTopic } = useTopicNavigation(
+  //
+  // `pathway` is where the placeholder pathway actually is: the selected
+  // Lesson resolved down through Topic → SubTopic → Concept to the deepest
+  // container, whose own contents/quizzes are the blocks on screen. For a
+  // Topic with no SubTopics that container is the Topic itself, exactly as
+  // before.
+  const { currentTopic, pathway } = useTopicNavigation(
     course,
     selectedLesson,
     selectedTopicId,
     setSelectedLesson,
     setSelectedTopicId,
-    lessons
+    lessons,
+    { selectedSubTopicId, selectedConceptId }
   );
 
   // Whenever the selected Lesson changes to one whose Topics don't include
@@ -458,7 +539,10 @@ export default function LearnPage() {
     const stillWaitingForFirstTopic = hasTopics && selectedTopicId === null;
     if (stillWaitingForFirstTopic) return;
 
-    const unitKey = `${selectedLesson.id}::${selectedTopicId ?? ""}`;
+    // pathway.unitKey (not selectedTopicId alone) so moving between two
+    // SubTopics or Concepts of the same Topic is also a unit switch. For a
+    // Topic without SubTopics it changes exactly when selectedTopicId does.
+    const unitKey = `${selectedLesson.id}::${pathway.unitKey ?? ""}`;
     if (!hasSettledInitialUnitRef.current) {
       hasSettledInitialUnitRef.current = true;
       previousUnitKeyRef.current = unitKey;
@@ -481,7 +565,7 @@ export default function LearnPage() {
       }
       previousUnitKeyRef.current = unitKey;
     }
-  }, [selectedLesson?.id, selectedTopicId, hasTopics]);
+  }, [selectedLesson?.id, selectedTopicId, pathway.unitKey, hasTopics]);
 
   const [, setVideoDuration] = useState(0);
 
@@ -545,7 +629,7 @@ export default function LearnPage() {
     if (courseId) {
       trackAccessMutation.mutate(courseId);
     }
-  }, [courseId, selectedLesson?.id, selectedTopicId, blockIndex]);
+  }, [courseId, selectedLesson?.id, selectedTopicId, selectedSubTopicId, selectedConceptId, blockIndex]);
 
   // Content nests under Topic for legacy/imported lessons, but the current
   // (Composer v2) authoring path attaches Content directly to the Lesson
@@ -558,15 +642,17 @@ export default function LearnPage() {
   }, [selectedLesson]);
 
   // The primary content pane (video + document blocks) shows only the
-  // currently selected Topic's contents, not the whole Lesson's — that's
-  // the point of Topic-scoped navigation. A zero-Topic lesson has no Topic
-  // to scope to, so it falls back to the Lesson-wide list above unchanged.
+  // current pathway container's OWN contents, not the whole Lesson's — that's
+  // the point of Topic-scoped navigation. The container is the selected
+  // Topic, or its selected SubTopic/Concept when it has those; a SubTopic's
+  // or Concept's contents are never shown as the Topic's. A zero-Topic lesson
+  // has no Topic to scope to, so it falls back to the Lesson-wide list above
+  // unchanged.
+  const pathwayContainer = pathway.container;
   const selectedTopicContents = useMemo(() => {
     if (!hasTopics) return selectedLessonContents;
-    const effectiveTopicId = selectedTopicId ?? selectedLesson?.topics?.[0]?.id;
-    const topic = (selectedLesson?.topics || []).find((t) => t.id === effectiveTopicId);
-    return topic?.contents || [];
-  }, [selectedLesson, selectedTopicId, hasTopics, selectedLessonContents]);
+    return pathwayContainer?.contents || [];
+  }, [hasTopics, selectedLessonContents, pathwayContainer]);
 
   // Imported courses store each markdown block (heading/paragraph/table/...)
   // as its own HTML content row — dozens per lesson/topic. Merge consecutive
@@ -584,13 +670,9 @@ export default function LearnPage() {
   // showing it in a separate section, so the player does the same: a quiz
   // takes its real position among the blocks around it.
   const activeQuizzes = useMemo(() => {
-    if (hasTopics) {
-      const effectiveTopicId = selectedTopicId ?? selectedLesson?.topics?.[0]?.id;
-      const topic = (selectedLesson?.topics || []).find((t) => t.id === effectiveTopicId);
-      return topic?.quizzes || [];
-    }
+    if (hasTopics) return pathwayContainer?.quizzes || [];
     return selectedLesson?.quizzes || [];
-  }, [selectedLesson, selectedTopicId, hasTopics]);
+  }, [selectedLesson, pathwayContainer, hasTopics]);
 
   // The full one-at-a-time sequence the player steps through for the
   // Topic/Lesson pathway — content blocks and this scope's quizzes merged
@@ -618,11 +700,12 @@ export default function LearnPage() {
   // level unit (and back) works.
   const courseUnits = useMemo(() => buildCourseUnits(course), [course]);
 
-  // Where the placeholder (Topic / zero-Topic-Lesson) pathway currently is,
-  // as a courseUnits key — used only to find this position's neighbors for
-  // crossing purposes; the pathway's own state (selectedLesson/
-  // selectedTopicId) still drives everything it actually renders.
-  const placeholderUnitKey = hasTopics ? `topic:${currentTopic?.id}` : `lesson:${selectedLesson?.id}`;
+  // Where the placeholder (Topic / SubTopic / Concept / zero-Topic-Lesson)
+  // pathway currently is, as a courseUnits key — used only to find this
+  // position's neighbors for crossing purposes; the pathway's own state
+  // (selectedLesson/selectedTopicId/selectedSubTopicId/selectedConceptId)
+  // still drives everything it actually renders.
+  const placeholderUnitKey = hasTopics ? pathway.unitKey : `lesson:${selectedLesson?.id}`;
   const currentUnitKey = extraUnit?.key ?? placeholderUnitKey;
   const currentUnitIndex = courseUnits.findIndex((u) => u.key === currentUnitKey);
   const activeExtraUnitDef = extraUnit ? courseUnits.find((u) => u.key === extraUnit.key) || null : null;
@@ -645,6 +728,8 @@ export default function LearnPage() {
   const canLeaveUnit = (nodeId) => isNodeLeavable(progressIndexRef.current, nodeId);
 
   const GATE_MESSAGES = {
+    conceptId: "Complete every item in this concept and submit its quiz before moving to the next concept.",
+    subTopicId: "Complete every item and concept in this subtopic before moving to the next subtopic.",
     topicId: "Complete every item in this topic and submit its quiz before moving to the next topic.",
     lessonId: "Complete every topic and lesson-level item in this lesson before moving to the next lesson.",
     moduleId: "Complete every lesson and module-level item in this module before moving to the next module.",
@@ -685,7 +770,7 @@ export default function LearnPage() {
     for (let i = 0; i < targetIndex; i++) {
       const current = courseUnits[i];
       const next = courseUnits[i + 1];
-      for (const level of ["topicId", "lessonId", "moduleId"]) {
+      for (const level of ["conceptId", "subTopicId", "topicId", "lessonId", "moduleId"]) {
         const currentId = current.scope[level];
         if (!currentId || currentId === next.scope[level]) continue;
         if (!canLeaveUnit(currentId)) {
@@ -700,12 +785,13 @@ export default function LearnPage() {
   // (rather than one specific item inside it) actually lands on, matching
   // what onSelectModule/onSelectLesson below (and the reset effect they
   // trigger) actually navigate to — a Lesson with Topics always lands on
-  // its first Topic, even for a legacy Lesson that also has its own
+  // its first Topic (and, when that Topic has SubTopics/Concepts, on its
+  // first SubTopic/Concept), even for a legacy Lesson that also has its own
   // lesson-content unit ahead of that Topic in course order.
   const firstUnitKeyFor = ({ moduleId = null, lessonId = null } = {}) => {
     if (lessonId) {
-      const firstTopicId = lessons.find((l) => l.id === lessonId)?.topics?.[0]?.id;
-      if (firstTopicId) return `topic:${firstTopicId}`;
+      const lesson = lessons.find((l) => l.id === lessonId);
+      if ((lesson?.topics?.length ?? 0) > 0) return resolveLessonPathway(lesson).unitKey;
     }
     const match = courseUnits.find(
       (u) =>
@@ -795,12 +881,28 @@ export default function LearnPage() {
 
     if (unit.placeholder) {
       setExtraUnit(null);
+      // The pathway can already be sitting on this placeholder while an extra
+      // unit is on screen — e.g. a mixed Topic's own content run followed by
+      // its first SubTopic, which the pathway defaults to. The unit key then
+      // doesn't change, so the reset effect never runs; position the block
+      // here directly instead of leaving a stale blockIndex.
+      const alreadyOnPlaceholder =
+        unit.scope.lessonId === selectedLesson?.id && unit.key === placeholderUnitKey;
       if (unit.scope.lessonId && unit.scope.lessonId !== selectedLesson?.id) {
         const lessonMatch = lessons.find((l) => l.id === unit.scope.lessonId);
         if (lessonMatch) selectLesson(lessonMatch);
       }
       setSelectedTopicId(unit.scope.topicId || null);
-      if (atEnd) landOnLastBlockRef.current = true;
+      setSelectedSubTopicId(unit.scope.subTopicId || null);
+      setSelectedConceptId(unit.scope.conceptId || null);
+      if (alreadyOnPlaceholder) {
+        const idx = targetItemId
+          ? playerBlocks.findIndex((b) => b.item.id === targetItemId || b.item.contentIds?.includes(targetItemId))
+          : atEnd
+          ? playerBlocks.length - 1
+          : 0;
+        setBlockIndex(Math.max(0, idx));
+      } else if (atEnd) landOnLastBlockRef.current = true;
       else if (targetItemId) pendingBlockTargetIdRef.current = targetItemId;
       return true;
     }
@@ -903,11 +1005,18 @@ export default function LearnPage() {
   // the gate never blocks — see findBlockingGate); a click that crosses a
   // boundary moved only if runGated let it through; skipGate skips the gate
   // entirely, so it moved by construction.
-  const jumpToBlock = (targetId, { lesson, topic, skipGate = false } = {}) => {
+  const jumpToBlock = (targetId, { lesson, topic, subTopic, concept, skipGate = false } = {}) => {
     setExtraUnit(null);
     setOpenAssignmentItem(null);
+    // The placeholder this row lives in — its deepest given container.
+    const targetUnitKey = pathwayUnitKey({
+      lessonId: lesson?.id,
+      topicId: topic?.id,
+      subTopicId: subTopic?.id,
+      conceptId: concept?.id,
+    });
     const alreadyOnUnit =
-      lesson?.id === selectedLesson?.id && (topic ? topic.id === selectedTopicId : true);
+      lesson?.id === selectedLesson?.id && (topic ? targetUnitKey === placeholderUnitKey : true);
     if (alreadyOnUnit) {
       const idx = playerBlocks.findIndex(
         (b) => b.item.id === targetId || b.item.contentIds?.includes(targetId)
@@ -933,18 +1042,41 @@ export default function LearnPage() {
       return true;
     }
 
-    const targetUnitKey = topic ? `topic:${topic.id}` : `lesson:${lesson?.id}`;
     const proceed = () => {
       pendingBlockTargetIdRef.current = targetId;
       const match = lesson?.id ? lessons.find((l) => l.id === lesson.id) : null;
       if (match) selectLesson(match);
       if (topic?.id) setSelectedTopicId(topic.id);
+      setSelectedSubTopicId(subTopic?.id || null);
+      setSelectedConceptId(concept?.id || null);
     };
     if (skipGate) {
       proceed();
       return true;
     }
     return runGated(targetUnitKey, proceed);
+  };
+
+  // Opens a Content/Quiz row at whatever level owns it. A row belongs to a
+  // placeholder unit only when its owner is the deepest container on its
+  // branch (a Lesson with no Topics, a Topic with no SubTopics, a SubTopic
+  // with no Concepts, or a Concept); an owner WITH children — or a Module or
+  // the Course — puts its own items in their own courseUnits entry instead.
+  // Same decision the Lesson-level handler below already makes, extended
+  // down the hierarchy. Returns whether the player moved, like its callees.
+  const openCourseMapItem = (itemId, { lesson, topic, subTopic, concept } = {}, { skipGate = false } = {}) => {
+    const ownerHasChildren = concept
+      ? false
+      : subTopic
+      ? (subTopic.concepts?.length ?? 0) > 0
+      : topic
+      ? (topic.subTopics?.length ?? 0) > 0
+      : (lesson?.topics?.length ?? 0) > 0;
+
+    if (!lesson || ownerHasChildren) {
+      return enterUnit(findUnitContaining(courseUnits, itemId), { targetItemId: itemId, skipGate });
+    }
+    return jumpToBlock(itemId, { lesson, topic, subTopic, concept, skipGate });
   };
 
   // Once, on initial load with no explicit ?lessonId= (a Continue Learning
@@ -990,12 +1122,21 @@ export default function LearnPage() {
     if (!resumeTarget) return;
 
     hasAppliedResumeTargetRef.current = true;
-    const { id, lessonId, topicId } = resumeTarget;
+    const { id, lessonId, topicId, subTopicId, conceptId } = resumeTarget;
 
     if (topicId) {
+      // Down to the leaf's own container: a Topic-, SubTopic- or Concept-level
+      // item. openCourseMapItem then picks the placeholder pathway or the
+      // container's own unit, exactly like a Course Map click on that row.
       const lessonMatch = lessons.find((l) => l.id === lessonId);
       const topicMatch = lessonMatch?.topics?.find((t) => t.id === topicId);
-      jumpToBlock(id, { lesson: lessonMatch, topic: topicMatch, skipGate: true });
+      const subTopicMatch = subTopicId ? topicMatch?.subTopics?.find((s) => s.id === subTopicId) : undefined;
+      const conceptMatch = conceptId ? subTopicMatch?.concepts?.find((c) => c.id === conceptId) : undefined;
+      openCourseMapItem(
+        id,
+        { lesson: lessonMatch, topic: topicMatch, subTopic: subTopicMatch, concept: conceptMatch },
+        { skipGate: true }
+      );
       return;
     }
 
@@ -1098,22 +1239,28 @@ export default function LearnPage() {
   // uses Topics, the Lesson itself otherwise — instead of the whole course,
   // so a student partway through one lesson isn't shown the entire course's
   // (from their vantage point, near-zero) roll-up.
-  const headerProgress = getNodeProgress(progressIndex, hasTopics ? currentTopic?.id : selectedLesson?.id);
+  // With SubTopics/Concepts the "current Topic" is the deepest pathway
+  // container (pathway.container), so the readout follows the SubTopic or
+  // Concept the student is actually in — for a Topic without SubTopics that
+  // container is currentTopic itself.
+  const headerProgress = getNodeProgress(
+    progressIndex,
+    hasTopics ? (pathway.subTopic ? pathwayContainer?.id : currentTopic?.id) : selectedLesson?.id
+  );
+  const pathwayLevelLabel = HIERARCHY_LEVEL_LABELS[pathway.level] || "Topic";
+  const pathwayTitle = hasTopics ? (pathway.subTopic ? pathwayContainer?.title : currentTopic?.title) : null;
 
   // Course Map sidebar highlighting — mirrors the instructor Composer's
   // composerMode/composeXId contract (see CourseComposerSidebar), derived
   // from whatever's actually on screen rather than tracked as separate
-  // state. An extra unit (Course/Module-direct, or a Lesson's own quiz) has
-  // its own scope to report; the Topic/Lesson pathway still reports the
-  // current lesson's module so that ancestor row stays expanded.
+  // state. An extra unit (Course/Module-direct, a Lesson's own quiz, or a
+  // Topic's/SubTopic's own items when it has children) has its own scope to
+  // report; the Topic/Lesson pathway still reports the current lesson's
+  // module so that ancestor row stays expanded.
   const sidebarComposerMode = activeExtraUnitDef
-    ? activeExtraUnitDef.scope.lessonId
-      ? "lesson"
-      : activeExtraUnitDef.scope.moduleId
-      ? "module"
-      : "course"
+    ? scopeLevel(activeExtraUnitDef.scope)
     : hasTopics
-    ? "topic"
+    ? pathway.level
     : "lesson";
   const sidebarComposeModuleId = activeExtraUnitDef
     ? activeExtraUnitDef.scope.moduleId
@@ -1121,7 +1268,17 @@ export default function LearnPage() {
   const sidebarComposeLessonId = activeExtraUnitDef
     ? activeExtraUnitDef.scope.lessonId
     : selectedLesson?.id ?? null;
-  const sidebarComposeTopicId = activeExtraUnitDef ? null : hasTopics ? selectedTopicId : null;
+  const sidebarComposeTopicId = activeExtraUnitDef
+    ? activeExtraUnitDef.scope.topicId ?? null
+    : hasTopics
+    ? selectedTopicId
+    : null;
+  const sidebarComposeSubTopicId = activeExtraUnitDef
+    ? activeExtraUnitDef.scope.subTopicId ?? null
+    : pathway.subTopic?.id ?? null;
+  const sidebarComposeConceptId = activeExtraUnitDef
+    ? activeExtraUnitDef.scope.conceptId ?? null
+    : pathway.concept?.id ?? null;
   const sidebarComposeQuizId = activeBlock?.kind === "quiz" ? activeBlock.item.id : null;
   const sidebarSelectedCellId = activeBlock?.kind === "content" ? activeBlock.item.id : null;
 
@@ -1252,6 +1409,8 @@ export default function LearnPage() {
       composeLessonId={sidebarComposeLessonId}
       composeModuleId={sidebarComposeModuleId}
       composeTopicId={sidebarComposeTopicId}
+      composeSubTopicId={sidebarComposeSubTopicId}
+      composeConceptId={sidebarComposeConceptId}
       composeQuizId={sidebarComposeQuizId}
       selectedCellId={sidebarSelectedCellId}
       onSelectCourseOverview={() => router.push(`/student/courses/${courseId}`)}
@@ -1287,15 +1446,59 @@ export default function LearnPage() {
         setOpenAssignmentItem(null);
         const match = lessons.find((l) => l.id === lessonId);
         if (!match) return;
-        const navigated = runGated(`topic:${topicId}`, () => {
+        // A Topic with SubTopics lands on its first SubTopic/Concept — gate
+        // against that stop, since `topic:<id>` is not a unit for it.
+        const navigated = runGated(resolveLessonPathway(match, { topicId }).unitKey, () => {
           setExtraUnit(null);
           selectLesson(match);
           setSelectedTopicId(topicId);
+          setSelectedSubTopicId(null);
+          setSelectedConceptId(null);
         });
         if (navigated) setCourseMapOpen(false);
       }}
+      onSelectSubTopic={(subTopic, { lesson, topic } = {}) => {
+        setExtraUnit(null);
+        setOpenAssignmentItem(null);
+        const match = lessons.find((l) => l.id === lesson?.id);
+        if (!match || !topic) return;
+        const navigated = runGated(
+          resolveLessonPathway(match, { topicId: topic.id, subTopicId: subTopic.id }).unitKey,
+          () => {
+            setExtraUnit(null);
+            selectLesson(match);
+            setSelectedTopicId(topic.id);
+            setSelectedSubTopicId(subTopic.id);
+            setSelectedConceptId(null);
+          }
+        );
+        if (navigated) setCourseMapOpen(false);
+      }}
+      onSelectConcept={(concept, { lesson, topic, subTopic } = {}) => {
+        setExtraUnit(null);
+        setOpenAssignmentItem(null);
+        const match = lessons.find((l) => l.id === lesson?.id);
+        if (!match || !topic || !subTopic) return;
+        const navigated = runGated(
+          pathwayUnitKey({ lessonId: match.id, topicId: topic.id, subTopicId: subTopic.id, conceptId: concept.id }),
+          () => {
+            setExtraUnit(null);
+            selectLesson(match);
+            setSelectedTopicId(topic.id);
+            setSelectedSubTopicId(subTopic.id);
+            setSelectedConceptId(concept.id);
+          }
+        );
+        if (navigated) setCourseMapOpen(false);
+      }}
       onSelectContent={(content, topic, lesson) => {
-        if (jumpToBlock(content.id, { lesson, topic })) setCourseMapOpen(false);
+        if (openCourseMapItem(content.id, { lesson, topic })) setCourseMapOpen(false);
+      }}
+      onSelectSubTopicContent={(content, { lesson, topic, subTopic } = {}) => {
+        if (openCourseMapItem(content.id, { lesson, topic, subTopic })) setCourseMapOpen(false);
+      }}
+      onSelectConceptContent={(content, { lesson, topic, subTopic, concept } = {}) => {
+        if (openCourseMapItem(content.id, { lesson, topic, subTopic, concept })) setCourseMapOpen(false);
       }}
       onSelectLessonContent={(content, lesson) => {
         // A Lesson's own direct content is only ever a distinct
@@ -1318,16 +1521,17 @@ export default function LearnPage() {
           setCourseMapOpen(false);
         }
       }}
-      onSelectQuiz={(quiz, mod, lesson, topic) => {
-        let navigated;
-        if (topic) {
-          navigated = jumpToBlock(quiz.id, { lesson, topic });
-        } else if (lesson && (lesson.topics?.length ?? 0) === 0) {
-          navigated = jumpToBlock(quiz.id, { lesson });
-        } else {
-          // A topic-Lesson's, Module's or Course's own quiz — its own unit.
-          navigated = enterUnit(findUnitContaining(courseUnits, quiz.id), { targetItemId: quiz.id });
-        }
+      onSelectQuiz={(quiz, mod, lesson, topic, _options, context) => {
+        // A quiz on a placeholder container (a zero-Topic Lesson, a Topic
+        // without SubTopics, a SubTopic without Concepts, a Concept) is one of
+        // that pathway's blocks; a topic-Lesson's, Module's, Course's — or a
+        // Topic's/SubTopic's that has children — own quiz is its own unit.
+        const navigated = openCourseMapItem(quiz.id, {
+          lesson,
+          topic,
+          subTopic: context?.subTopic,
+          concept: context?.concept,
+        });
         if (navigated) setCourseMapOpen(false);
       }}
       // Assignments are not steps in the Prev/Next sequence, so one opens
@@ -1414,13 +1618,9 @@ export default function LearnPage() {
   // document viewer owns and renders in its own header.
   const lessonNavProps = {
     unitLabel: activeExtraUnitDef
-      ? activeExtraUnitDef.key.startsWith("course")
-        ? "Course"
-        : activeExtraUnitDef.key.startsWith("module")
-        ? "Module"
-        : "Lesson"
+      ? HIERARCHY_LEVEL_LABELS[scopeLevel(activeExtraUnitDef.scope)]
       : hasTopics
-      ? "Topic"
+      ? pathwayLevelLabel
       : "Lesson",
     previousItem: activeBlockIndex > 0 || currentUnitIndex > 0,
     nextItem:
@@ -1543,7 +1743,8 @@ export default function LearnPage() {
           courseSidebarOpen={courseSidebarOpen}
           onOpenSidebar={() => setCourseSidebarOpen(true)}
           selectedLesson={selectedLesson}
-          topicTitle={hasTopics ? currentTopic?.title : null}
+          topicTitle={pathwayTitle}
+          levelLabel={pathwayLevelLabel}
           course={course}
           unitProgress={headerProgress}
           isProgressUnavailable={isProgressError}
@@ -1607,8 +1808,10 @@ export default function LearnPage() {
                     <h1 className="text-lg font-bold leading-snug text-foreground line-clamp-2">
                       {selectedLesson?.title || course?.title || "Lesson"}
                     </h1>
-                    {hasTopics && currentTopic?.title && (
-                      <p className="text-sm text-muted-foreground line-clamp-1">Topic: {currentTopic.title}</p>
+                    {/* Still one line: only the most specific level (Topic,
+                        SubTopic or Concept) the student is in, never a stack. */}
+                    {pathwayTitle && (
+                      <p className="text-sm text-muted-foreground line-clamp-1">{pathwayLevelLabel}: {pathwayTitle}</p>
                     )}
                   </div>
 

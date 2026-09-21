@@ -5,6 +5,7 @@ import {
     Image as ImageIcon,
     Link as LinkIcon,
 } from "lucide-react";
+import { getTopicTreeContents } from "@/lib/courseMapper";
 
 function formatDuration(totalMinutes) {
     if (!totalMinutes || totalMinutes <= 0) return null;
@@ -47,7 +48,7 @@ const TYPE_PRIORITY = [
 ];
 
 function getLessonMeta(lesson) {
-    const contents = (lesson.topics || []).flatMap((topic) => topic.contents || []);
+    const contents = (lesson.topics || []).flatMap((topic) => getTopicTreeContents(topic));
 
     const totalDuration = contents.reduce(
         (sum, content) => sum + (content.duration || 0),

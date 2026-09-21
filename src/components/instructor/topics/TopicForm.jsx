@@ -15,6 +15,8 @@ const INITIAL_FORM = {
     isPublished: false,
 };
 
+// Also the SubTopic and Concept form: all three share the same
+// title/description/isPublished shape, so the level is only a label.
 export default function TopicForm({
                                        mode = "create",
                                        initialValues = null,
@@ -22,7 +24,10 @@ export default function TopicForm({
                                        contentsCount = 0,
                                        onSubmit,
                                        compact = false,
+                                       entityLabel = "Topic",
+                                       parentLabel = "lesson",
                                    }) {
+    const lowerLabel = entityLabel.toLowerCase();
     const [formData, setFormData] =
         useState(INITIAL_FORM);
 
@@ -62,7 +67,7 @@ export default function TopicForm({
         <form onSubmit={handleSubmit} className="flex-1 min-h-0 flex flex-col justify-between">
             <div className="flex-1 min-h-0 overflow-y-auto space-y-5 pr-1 pb-2">
                 <Input
-                    label="Topic Title"
+                    label={`${entityLabel} Title`}
                     name="title"
                     value={formData.title}
                     onChange={handleChange}
@@ -78,7 +83,7 @@ export default function TopicForm({
                     <MarkdownEditor
                         value={formData.description}
                         onChange={(value) => setFormData((prev) => ({ ...prev, description: value }))}
-                        placeholder="Enter topic description in Markdown..."
+                        placeholder={`Enter ${lowerLabel} description in Markdown...`}
                     />
                 </div>
 
@@ -97,12 +102,12 @@ export default function TopicForm({
                             htmlFor="isPublished"
                             className={`text-sm font-semibold cursor-pointer ${canPublish ? "text-foreground" : "text-muted-foreground cursor-not-allowed"}`}
                         >
-                            Publish Topic (Make this topic visible to students instantly)
+                            Publish {entityLabel} (Make this {lowerLabel} visible to students instantly)
                         </label>
                     </div>
                     {!canPublish && (
                         <p className="text-xs text-amber-400/90 pl-7">
-                            Add at least one content item, quiz or assignment before you can publish this topic.
+                            Add at least one content item, quiz or assignment before you can publish this {lowerLabel}.
                         </p>
                     )}
                 </div>
@@ -118,8 +123,8 @@ export default function TopicForm({
                             ? "Creating..."
                             : "Updating..."
                         : mode === "create"
-                            ? "Create Topic"
-                            : "Update Topic"}
+                            ? `Create ${entityLabel}`
+                            : `Update ${entityLabel}`}
                 </Button>
             </div>
         </form>
@@ -134,14 +139,14 @@ export default function TopicForm({
             <div className="mb-8">
                 <h1 className="text-3xl font-bold text-foreground">
                     {mode === "create"
-                        ? "Create Topic"
-                        : "Edit Topic"}
+                        ? `Create ${entityLabel}`
+                        : `Edit ${entityLabel}`}
                 </h1>
 
                 <p className="mt-2 text-muted-foreground">
                     {mode === "create"
-                        ? "Add a new topic to this lesson."
-                        : "Update topic details."}
+                        ? `Add a new ${lowerLabel} to this ${parentLabel}.`
+                        : `Update ${lowerLabel} details.`}
                 </p>
             </div>
 
