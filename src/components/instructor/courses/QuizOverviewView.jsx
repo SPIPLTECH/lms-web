@@ -45,12 +45,28 @@ const optionToText = getOptionText;
 export const QUIZ_TAG_LABELS = {
   SELF_TEST: "Self-Test",
   FINAL: "Final Quiz",
+  QUALIFYING: "Qualifying Test",
 };
 
+// A Qualifying Test is the odd one out: it is not material inside its lesson
+// or topic, it is the test that lets a student SKIP that lesson or topic, and
+// it is excluded from progress. It is therefore only offered where there is
+// something to skip — a lesson- or topic-scoped quiz. The backend refuses one
+// without a lesson/topic regardless; this only keeps the option from being
+// offered where it could never be saved.
 const QUIZ_TAG_OPTIONS = [
   { value: "SELF_TEST", label: "Self-Test", hint: "Practice — no timer" },
   { value: "FINAL", label: "Final Quiz", hint: "Formal assessment" },
+  {
+    value: "QUALIFYING",
+    label: "Qualifying Test",
+    hint: "Lets a student skip this content",
+    requiresLessonOrTopicScope: true,
+  },
 ];
+
+// A Self-Test is never timed; a Final and a Qualifying Test both may be.
+const isTimedTag = (tag) => tag === "FINAL" || tag === "QUALIFYING";
 
 const DEFAULT_TIME_LIMIT = 30;
 
@@ -65,7 +81,7 @@ function quizFormFromQuiz(quiz) {
     description: quiz.description || "",
     // Rows cached from before quiz tags existed read as the formal
     // assessment they were authored as.
-    quizTag: quiz.quizTag === "SELF_TEST" ? "SELF_TEST" : "FINAL",
+    quizTag: QUIZ_TAG_LABELS[quiz.quizTag] ? quiz.quizTag : "FINAL",
     timerEnabled: timeLimit !== null,
     timeLimit,
     passingScore: quiz.passingScore !== undefined && quiz.passingScore !== null ? quiz.passingScore : 50,
@@ -94,6 +110,13 @@ export function QuizOverviewView({
   startEditing = false,
 }) {
   const [isEditing, setIsEditing] = useState(startEditing || quizMode === "create" || quizMode === "edit");
+
+  // Whether this quiz hangs off something a student could be exempted from.
+  // A course- or module-level quiz has no skip target, so the Qualifying Test
+  // tag is not offered there.
+  const hasSkippableScope = Boolean(
+    quiz?.topicId || quiz?.lessonId || topicTitle || lessonTitle
+  );
 
   // Active single question index in editor mode (0-indexed) — view/preview
   // mode has no equivalent since it lists every question at once.
@@ -168,6 +191,7 @@ export function QuizOverviewView({
           : (typeof q.options === "object" && q.options !== null ? Object.values(q.options).map(optionToText) : ["Option 1", "Option 2"]),
         correctAnswer: q.correctAnswer !== undefined ? q.correctAnswer : "",
         explanation: q.explanation || "",
+        hint: q.hint || "",
         marks: q.marks !== undefined ? Number(q.marks) : 1,
         difficulty: q.difficulty || "MEDIUM",
         isMandatory: q.isMandatory !== false,
@@ -216,6 +240,7 @@ export function QuizOverviewView({
       options: ["Option 1", "Option 2"],
       correctAnswer: "Option 1",
       explanation: "",
+      hint: "",
       marks: 1,
       difficulty: "MEDIUM",
       isMandatory: true,
@@ -238,6 +263,7 @@ export function QuizOverviewView({
       options: Array.isArray(q.options) ? q.options.map(optionToText) : [],
       correctAnswer: q.correctAnswer !== undefined ? q.correctAnswer : "",
       explanation: q.explanation || "",
+      hint: q.hint || "",
       marks: q.marks !== undefined ? Number(q.marks) : 1,
       difficulty: q.difficulty || "MEDIUM",
       isMandatory: true,
@@ -400,7 +426,7 @@ export function QuizOverviewView({
     // else is null, never 0 — 0 and null both mean "untimed" here, and letting
     // 0 through would leave "0 mins" showing up in read views.
     const effectiveTimeLimit =
-      quizForm.quizTag === "FINAL" && quizForm.timerEnabled && Number(quizForm.timeLimit) > 0
+      isTimedTag(quizForm.quizTag) && quizForm.timerEnabled && Number(quizForm.timeLimit) > 0
         ? Number(quizForm.timeLimit)
         : null;
 
@@ -772,7 +798,9 @@ export function QuizOverviewView({
                 <label className="text-sm font-semibold text-foreground">Quiz Tag *</label>
 
                 <div className="grid grid-cols-2 gap-2">
-                  {QUIZ_TAG_OPTIONS.map((opt) => {
+                  {QUIZ_TAG_OPTIONS.filter(
+                    (opt) => !opt.requiresLessonOrTopicScope || hasSkippableScope
+                  ).map((opt) => {
                     const selected = quizForm.quizTag === opt.value;
 
                     return (
@@ -814,7 +842,7 @@ export function QuizOverviewView({
                 )}
               </div>
 
-              {quizForm.quizTag === "FINAL" && (
+              {isTimedTag(quizForm.quizTag) && (
                 <div className="space-y-1.5">
                   <label className="text-sm font-semibold text-foreground">Time Limit</label>
 
@@ -1127,6 +1155,27 @@ export function QuizOverviewView({
                   className="w-full rounded-xl border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-emerald-500"
                 />
               </div>
+
+              {/* Hint Field — only meaningful on a Qualifying Test, which is
+                  the only quiz that ever surfaces one, and then only from the
+                  student's second attempt. Offered solely there so it doesn't
+                  read as a field every question needs. */}
+              {quizForm.quizTag === "QUALIFYING" && (
+                <div className="space-y-1 pt-1">
+                  <label className="text-[13px] font-semibold text-muted-foreground">Hint</label>
+                  <input
+                    type="text"
+                    value={activeQuestion.hint}
+                    onChange={(e) => handleCurrentQuestionChange("hint", e.target.value)}
+                    placeholder="Optional nudge, offered only from the student's second attempt..."
+                    className="w-full rounded-xl border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-amber-500"
+                  />
+                  <p className="text-[11.5px] text-muted-foreground">
+                    Hidden on the first attempt — that attempt is what decides whether the student
+                    already knows this content. Write a nudge, not the answer.
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="p-6 text-center text-muted-foreground text-sm italic bg-background/40 rounded-xl border border-border/80 space-y-2">

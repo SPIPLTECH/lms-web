@@ -24,7 +24,7 @@ import {
 export const PRIMARY_NAV_ITEMS = [
   // { label: "Dashboard", href: "/student/dashboard", icon: Home, primaryOnMobile: true },
   { label: "Learning", href: "/student/my-courses", icon: BookOpen, primaryOnMobile: true },
-  { label: "Browser", href: "/student/courses", icon: Compass, primaryOnMobile: true },
+  // { label: "Browser", href: "/student/courses", icon: Compass, primaryOnMobile: true },
   // Every assignment and quiz the student has submitted — grades, scores,
   // attempts and instructor feedback — the lasting record, unlike a
   // dismissible notification. The route keeps its /assignments path so

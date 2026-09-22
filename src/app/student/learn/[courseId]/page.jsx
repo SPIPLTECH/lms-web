@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ListTree, MoreHorizontal, X } from "lucide-react";
+import { FastForward, ListTree, MoreHorizontal, X } from "lucide-react";
 
 import LessonContentBlock from "@/components/student/learning/LessonContentBlock";
 import ContentCompletionBar from "@/components/student/learning/ContentCompletionBar";
@@ -12,6 +12,8 @@ import QuizExperience from "@/components/student/attempt/QuizExperience";
 import LearnSidePanel from "@/components/student/learning/LearnSidePanel";
 import LessonNavigationControls from "@/components/student/learning/LessonNavigationControls";
 import LearnPageHeader from "@/components/student/learning/LearnPageHeader";
+import SkipQualificationModal from "@/components/student/learning/SkipQualificationModal";
+import QualificationResultPanel from "@/components/student/learning/QualificationResultPanel";
 import { rendersUploadedDeck } from "@/components/student/learning/VideoPlayer";
 
 import { groupLessonContentForDocumentView } from "@/lib/contentDocument";
@@ -26,6 +28,7 @@ import {
 import { CourseStructureSidebar } from "@/components/instructor/courses/CourseComposerSidebar";
 import { normalizeCourseHierarchy } from "@/lib/courseMapper";
 import { buildProgressIndex, decorateCourseWithProgress, isItemComplete, isItemSubmitted, isNodeLeavable, getNodeProgress } from "@/lib/progressIndex";
+import { buildPathIndex, getPathEntry, getSkipOfferForScope } from "@/lib/learningPath";
 import { resolveResumeTarget } from "@/lib/resumeTarget";
 
 import {
@@ -36,6 +39,8 @@ import {
   useCompleteContent,
   useMarkVisited,
 } from "@/hooks/queries/student";
+import useLearningPath from "@/hooks/queries/student/useLearningPath";
+import useQuizResult from "@/hooks/queries/student/useQuizResult";
 import useMyCourses from "@/hooks/queries/student/useMyCourses";
 import useTrackCourseAccess from "@/hooks/queries/student/useTrackCourseAccess";
 import useLearningStateSync from "@/hooks/queries/student/useLearningStateSync";
@@ -100,6 +105,17 @@ export default function LearnPage() {
   // Single flattened view of the backend roll-up. Null while loading or on
   // failure — every consumer below treats null as "don't render indicators".
   const progressIndex = useMemo(() => buildProgressIndex(progressData), [progressData]);
+
+  // The server's own view of the sequence: which lesson/topic is locked, which
+  // was skipped after qualifying, and where a qualifying test is on offer.
+  // Advisory here for the same reason progress is — the backend refuses
+  // locked content regardless, so a failed path query degrades to "no skip
+  // offered, nothing marked locked" rather than shutting the student out.
+  const { data: learningPathData } = useLearningPath(courseId);
+  const pathIndex = useMemo(
+    () => buildPathIndex(learningPathData?.path),
+    [learningPathData]
+  );
 
   // A same-tick-current mirror of progressIndex, for gate checks that run
   // inside an already-executing closure (handleVideoEnded, event handlers
@@ -263,6 +279,80 @@ export default function LearnPage() {
   // need resetting in lockstep with selectedTopicId.
   const [selectedSubTopicId, setSelectedSubTopicId] = useState(null);
   const [selectedConceptId, setSelectedConceptId] = useState(null);
+
+  // SKIP / QUALIFYING TEST
+  //
+  // The server decides whether a skip is on offer here at all — it already
+  // accounts for the lesson/topic being the student's current one, not
+  // already finished or qualified, not locked, and having a published
+  // qualifying quiz with questions. The player only asks, and renders.
+  const skipOffer = useMemo(
+    () =>
+      getSkipOfferForScope(pathIndex, {
+        topicId: selectedTopicId,
+        lessonId: selectedLesson?.id,
+      }),
+    [pathIndex, selectedTopicId, selectedLesson?.id]
+  );
+
+  // Null until the student chooses to take the test; then it holds the offer
+  // being attempted, which is also what the player renders in place of the
+  // content. Cleared when they leave the test, which is all "start the test
+  // then wander off" has to mean — the attempt itself lives in the quiz
+  // system, which already survives a refresh and already logs every attempt.
+  const [qualifyingAttempt, setQualifyingAttempt] = useState(null);
+
+  // A skip offer that disappears underneath an open test (they passed, or the
+  // path moved on) must not leave the student staring at a stale quiz.
+  useEffect(() => {
+    if (!qualifyingAttempt) return;
+    const stillOffered = pathIndex?.byId.get(qualifyingAttempt.target.id);
+    if (stillOffered && stillOffered.qualified) setQualifyingAttempt(null);
+  }, [pathIndex, qualifyingAttempt]);
+
+  const [skipModalOpen, setSkipModalOpen] = useState(false);
+
+  // Flips once the qualifying attempt has been accepted, which is when its
+  // outcome becomes readable. The decision itself is the server's — this only
+  // says "there is now a result worth fetching".
+  const [qualifyingSubmitted, setQualifyingSubmitted] = useState(false);
+
+  // When the attempt was handed to the server. The result query may already
+  // hold a CACHED result for this quiz — the previous attempt's — and showing
+  // that would tell a student who just passed that they had failed. Only a
+  // result fetched after this moment describes the attempt they just made.
+  const [qualifyingSubmittedAt, setQualifyingSubmittedAt] = useState(0);
+
+  // Bumped on every retake. Used as the quiz player's key so a retake really
+  // starts a new attempt: without it the player stays mounted holding its own
+  // "already submitted" state, and the student is handed back the result they
+  // were trying to improve on.
+  const [qualifyingRunId, setQualifyingRunId] = useState(0);
+
+  const { data: qualifyingResultData, dataUpdatedAt: qualifyingResultFetchedAt } = useQuizResult(
+    qualifyingAttempt?.quiz?.id,
+    { enabled: Boolean(qualifyingAttempt) && qualifyingSubmitted }
+  );
+  const qualifyingResult = qualifyingResultData?.data || qualifyingResultData;
+  const qualificationOutcome =
+    qualifyingResultFetchedAt > qualifyingSubmittedAt ? qualifyingResult?.qualification ?? null : null;
+
+  // Leaving the test hands the player back exactly as it was — the student
+  // continues from the content they were on.
+  const closeQualifyingTest = () => {
+    setQualifyingAttempt(null);
+    setQualifyingSubmitted(false);
+  };
+
+  // Another go at the same test. The attempt limit is the server's to enforce
+  // — it refuses a submission past Quiz.attempts — so this only reopens the
+  // player on a fresh attempt.
+  const retakeQualifyingTest = () => {
+    setQualifyingSubmitted(false);
+    setQualifyingSubmittedAt(0);
+    setQualifyingRunId((id) => id + 1);
+  };
+
 
   // Whether the current lesson uses the topic-scoped pathway at all — a
   // legacy/edge-case lesson with zero Topics falls back to the old
@@ -717,6 +807,9 @@ export default function LearnPage() {
   // become `completed` in the roll-up, so it can't block either — mirrors
   // progressRollup.js's own rule that empty containers don't block their
   // parent's completion.
+  // isNodeLeavable already honours a qualified skip (see progressIndex.js), so
+  // nothing extra is needed here — the same gate serves both the ordinary
+  // sequential rule and the skip that was earned past it.
   const canLeaveUnit = (nodeId) => isNodeLeavable(progressIndexRef.current, nodeId);
 
   const GATE_MESSAGES = {
@@ -740,6 +833,25 @@ export default function LearnPage() {
     const targetIndex = courseUnits.findIndex((u) => u.key === targetUnitKey);
     if (targetIndex <= 0) return null;
 
+    // The server has already decided what this student may open, over the
+    // same sequence and with skip qualifications folded in. Where it has an
+    // opinion, it IS the answer — re-deriving one here is how the sidebar
+    // ends up refusing a lesson the API would happily serve. It also gets the
+    // cases the boundary walk below cannot see: a lesson the student
+    // qualified out of is settled even though none of its topics are, so
+    // those topics must not gate what comes after it.
+    const targetScope = courseUnits[targetIndex].scope;
+    const targetNodeId = targetScope.topicId || targetScope.lessonId || targetScope.moduleId;
+    const serverEntry = getPathEntry(pathIndex, targetNodeId);
+    if (serverEntry) {
+      if (!serverEntry.locked) return null;
+      return GATE_MESSAGES[
+        serverEntry.kind === "TOPIC" ? "topicId" : serverEntry.kind === "LESSON" ? "lessonId" : "moduleId"
+      ];
+    }
+
+    // No server answer (path still loading, or a unit it doesn't gate, such as
+    // course-level content): fall back to the roll-up-based walk.
     for (let i = 0; i < targetIndex; i++) {
       const current = courseUnits[i];
       const next = courseUnits[i + 1];
@@ -1295,8 +1407,15 @@ export default function LearnPage() {
   // Hidden entirely until the roll-up is known: without it we cannot say
   // whether this item is already complete, and showing "Mark as Complete" on a
   // finished item (or vice versa) would misreport the student's own state.
+  // Also hidden for the duration of a qualifying attempt: that test takes over
+  // the player frame while activeBlock is still the content behind it, so
+  // without this the content's own completion pill floated over the quiz —
+  // offering to complete a lesson the student is in the middle of testing out
+  // of, which is not something this button can do from here.
   const showCompletionBar =
-    Boolean(progressIndex) && (activeContentIds.length > 0 || Boolean(activeEarnedId));
+    Boolean(progressIndex) &&
+    !qualifyingAttempt &&
+    (activeContentIds.length > 0 || Boolean(activeEarnedId));
 
   // Opens an Assignment in this workspace instead of navigating away, so the
   // Course Map, the completion strip and the course percentage all stay on
@@ -1847,6 +1966,41 @@ export default function LearnPage() {
                   way the body below scrolls INSIDE this box — the box, its
                   border and the content title bar stay put. Transcript/
                   Resources stay outside it. */}
+              {/* SKIP OFFER — a slim bar above the player, shown only where
+                  the server says this lesson/topic can be skipped by passing a
+                  qualifying test. Never skips anything on click: it opens the
+                  confirmation, which explains the test first. Hidden while the
+                  test itself is on screen. Wraps to two lines on a phone
+                  rather than truncating the explanation. */}
+              {/* No next-action card here. The player is where a student is
+                  READING; the answer to "what next" belongs on the dashboard
+                  and on the quiz result page, which is where it now lives.
+                  Above the lesson it was a full-width banner pointing away
+                  from the thing on screen. */}
+              {skipOffer && !qualifyingAttempt && (
+                <div className="mb-2 flex flex-col gap-2 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4">
+                  <div className="flex min-w-0 items-start gap-2 sm:items-center">
+                    <FastForward
+                      size={15}
+                      className="mt-0.5 shrink-0 text-primary sm:mt-0"
+                      aria-hidden
+                    />
+                    <p className="min-w-0 text-xs text-foreground sm:text-sm">
+                      Already know{" "}
+                      <span className="font-semibold">{skipOffer.target.title}</span>? Take a short
+                      qualifying test to skip it.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSkipModalOpen(true)}
+                    className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center rounded-lg border border-primary/40 px-3 text-xs font-semibold text-primary transition hover:bg-primary/10 sm:min-h-[36px] sm:w-auto sm:text-sm"
+                  >
+                    Skip this {skipOffer.target.kind === "TOPIC" ? "topic" : "lesson"}
+                  </button>
+                </div>
+              )}
+
               <div className={`group relative flex flex-col h-[calc(100vh-147px)] min-h-[440px] max-h-[900px] rounded-2xl border border-border bg-card overflow-hidden ${FRAME_MODE_CLASSES[playerMode]} ${deckFrameSizing}`}>
                 {/* No dedicated header bar — lesson/topic name, the Course
                     Index reopen and the side-panel toggle all live in the top
@@ -1860,7 +2014,65 @@ export default function LearnPage() {
                     applies to the first block of the normal Topic/Lesson
                     sequence. */}
                 <div className={`flex-1 overflow-y-auto min-h-0 ${BODY_MODE_CLASSES[playerMode]}`}>
-                  {activeBlock?.kind === "assignment" ? (
+                  {qualifyingAttempt && qualifyingSubmitted && qualificationOutcome ? (
+                    // The attempt is in and the server has decided. Its own
+                    // outcome replaces the generic quiz summary, because what
+                    // matters here is whether the skip was earned and, if not,
+                    // what to go back to.
+                    <div className="p-2.5 sm:p-5">
+                      <QualificationResultPanel
+                        qualification={qualificationOutcome}
+                        targetTitle={qualifyingAttempt.target.title}
+                        onContinue={closeQualifyingTest}
+                        // Whether another attempt is allowed is part of the
+                        // server's qualification block now — the panel reads
+                        // it there rather than being told twice.
+                        onRetake={retakeQualifyingTest}
+                        // Recommended content is opened through the same
+                        // gated navigation the sidebar uses — a failed
+                        // qualifying test must not become a way around the
+                        // sequence it just failed to skip.
+                        onOpenContent={(item) => {
+                          if (item.kind !== "TOPIC" || !item.id) return;
+                          const owningLesson = lessons.find((lesson) =>
+                            (lesson.topics || []).some((topic) => topic.id === item.id)
+                          );
+                          if (!owningLesson) return;
+                          const navigated = runGated(`topic:${item.id}`, () => {
+                            setExtraUnit(null);
+                            selectLesson(owningLesson);
+                            setSelectedTopicId(item.id);
+                          });
+                          if (navigated) closeQualifyingTest();
+                        }}
+                      />
+                    </div>
+                  ) : qualifyingAttempt ? (
+                    // The qualifying test runs in the existing quiz player —
+                    // same attempt tracking, timer, navigator and scoring as
+                    // any other quiz. Passing it is what earns the skip; this
+                    // page only reacts to the submission and lets the server's
+                    // outcome decide what happens next.
+                    <div className="p-2.5 sm:p-5">
+                      <QuizExperience
+                        key={`qualifying:${qualifyingAttempt.quiz.id}:${qualifyingRunId}`}
+                        quizId={qualifyingAttempt.quiz.id}
+                        onBack={closeQualifyingTest}
+                        resultReturnTo={resultReturnTo}
+                        onNextContent={closeQualifyingTest}
+                        onSubmitted={() => {
+                          setQualifyingSubmittedAt(Date.now());
+                          setQualifyingSubmitted(true);
+                        }}
+                        // The student already chose to take this test (and,
+                        // on a retake, chose again) — the quiz player's own
+                        // "you have completed this" card would ask a third
+                        // time.
+                        autoReattempt
+                        speechLanguage={course?.language}
+                      />
+                    </div>
+                  ) : activeBlock?.kind === "assignment" ? (
                     <div className="p-2.5 sm:p-5">
                       <AssignmentWorkspacePanel
                         assignmentId={activeBlock.item.id}
@@ -1979,6 +2191,19 @@ export default function LearnPage() {
 
           </div>
         </div>
+        {/* Skip confirmation. Explains the qualifying test and what passing or
+            failing does; "Take Qualifying Test" only opens the quiz, it never
+            skips anything by itself. */}
+        <SkipQualificationModal
+          isOpen={skipModalOpen && Boolean(skipOffer)}
+          onClose={() => setSkipModalOpen(false)}
+          onTakeTest={() => {
+            setSkipModalOpen(false);
+            setQualifyingAttempt(skipOffer);
+          }}
+          target={skipOffer?.target}
+          quiz={skipOffer?.quiz}
+        />
         <ChatWidget />
         {/* AI Assistant. Reads the learning ids this page already owns — no
             duplicate learning state. Only ids are handed over; the backend

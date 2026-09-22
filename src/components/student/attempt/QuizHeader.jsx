@@ -20,7 +20,15 @@ export default function QuizHeader({
     // one here would start a countdown that force-submits the attempt.
     const timeLimit = Number(quiz.timeLimit) > 0 ? Number(quiz.timeLimit) : null;
 
-    const quizTypeLabel = quiz.quizTag === "SELF_TEST" ? "Self-Test" : "Final Quiz";
+    // A Qualifying Test is neither practice nor the formal assessment — it is
+    // what lets the student skip this content — so the old two-way branch
+    // announced it to them as a "Final Quiz", which is the one thing it is not.
+    const QUIZ_TYPE_LABELS = {
+        SELF_TEST: "Self-Test",
+        QUALIFYING: "Qualifying Test",
+        FINAL: "Final Quiz",
+    };
+    const quizTypeLabel = QUIZ_TYPE_LABELS[quiz.quizTag] || QUIZ_TYPE_LABELS.FINAL;
 
     return (
         <div className="flex min-w-0 flex-row items-center justify-between sm:justify-start gap-2 sm:gap-3 rounded-xl border border-border bg-background/80 px-2.5 sm:px-4 py-2 sm:py-2.5">

@@ -6,14 +6,15 @@ import { ThemeSwitcher } from "@/components/ui/shadcn/theme-switcher";
 import useAuth from "@/hooks/useAuth";
 
 export default function LandingNavbar() {
+  // There is no "Go to Dashboard" affordance here on purpose: an authenticated
+  // visitor never stays on the landing page long enough to need one. Once
+  // AuthContext confirms the session it redirects them to their dashboard
+  // (see the guest-route effect in AuthContext.jsx), so this navbar only ever
+  // has to serve signed-out visitors. While that confirmation is still in
+  // flight we show nothing rather than Login/Get Started, which would be wrong
+  // for the user we already believe is signed in.
   const { user, loading } = useAuth();
-
-  const dashboardHref =
-    user?.role === "ADMIN"
-      ? "/admin/dashboard"
-      : user?.role === "INSTRUCTOR"
-      ? "/instructor/courses"
-      : "/student/my-courses";
+  const isSignedOut = !loading && !user;
 
   return (
     <nav className="sticky top-3 z-50 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -46,14 +47,7 @@ export default function LandingNavbar() {
         <div className="flex items-center gap-1 sm:gap-3 shrink-0">
           <ThemeSwitcher />
 
-          {!loading && user ? (
-            <Link
-              href={dashboardHref}
-              className="rounded-full bg-primary px-3.5 sm:px-5 py-1.5 text-xs sm:text-sm font-bold text-primary-foreground hover:brightness-110 transition shadow-xs whitespace-nowrap"
-            >
-              Go to Dashboard
-            </Link>
-          ) : (
+          {isSignedOut && (
             <>
               <Link
                 href="/login"

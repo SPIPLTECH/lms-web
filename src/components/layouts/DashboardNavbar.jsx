@@ -386,14 +386,16 @@ export default function Navbar({ title = "Dashboard", setOpen, role }) {
     markAsRead(id);
   };
 
-  // Process notification clicks: mark read and close popup, NO route navigation (user stays on current page)
+  // Process notification clicks: mark read, NO route navigation (user stays on
+  // current page). NotificationsMenu owns its own open/closed state.
   const handleNotificationClick = (n) => {
     handleToggleRead(n.id);
-    setShowNotifications(false);
   };
 
   if (role === 'INSTRUCTOR' || role === 'ADMIN') {
-    const dashboardHref = role === 'ADMIN' ? '/admin/dashboard' : '/instructor/dashboard';
+    // The logo goes where login lands each role: the course list for an
+    // instructor, the dashboard for an admin.
+    const dashboardHref = role === 'ADMIN' ? '/admin/dashboard' : '/instructor/courses';
     const openRoleNavDrawer = role === 'ADMIN' ? openAdminNavDrawer : openInstructorNavDrawer;
     return (
       <>
@@ -554,7 +556,7 @@ export default function Navbar({ title = "Dashboard", setOpen, role }) {
                 >
                   <Menu size={20} aria-hidden="true" />
                 </button>
-                <Link href="/student/dashboard" className="flex items-center gap-2 shrink-0 hover:opacity-90">
+                <Link href="/student/my-courses" className="flex items-center gap-2 shrink-0 hover:opacity-90">
                   <Image
                     src="/images/logo.jpeg"
                     alt="Orange Tree LMS"

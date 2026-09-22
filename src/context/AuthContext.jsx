@@ -14,6 +14,7 @@ import {
 import { defaultQueryOptions } from "@/lib/queryOptions";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { PALETTE_STORAGE_KEY } from "@/lib/palettes";
+import { setSessionCookies, clearSessionCookies } from "@/lib/authCookies";
 
 const AuthContext = createContext();
 
@@ -43,13 +44,7 @@ export const AuthProvider = ({ children }) => {
 
   const logoutLocal = () => {
     // 1. Clear all authentication cookies across root and default paths
-    Cookies.remove("accessToken", { path: "/" });
-    Cookies.remove("refreshToken", { path: "/" });
-    Cookies.remove("role", { path: "/" });
-
-    Cookies.remove("accessToken");
-    Cookies.remove("refreshToken");
-    Cookies.remove("role");
+    clearSessionCookies();
 
     // 2. Clear all local and session storage — except device UI preferences
     // (theme/palette), which are independent of the authenticated session
@@ -98,6 +93,11 @@ export const AuthProvider = ({ children }) => {
       if (typeof window !== "undefined") {
         localStorage.setItem("user", JSON.stringify(response.data));
       }
+      // The server just told us who this is, so re-assert the `role` cookie
+      // middleware reads. This is what repairs a browser that already has a
+      // missing or stale role — without it those sessions stay permanently
+      // unable to reach their dashboard even after the refresh fix above.
+      setSessionCookies({ role: response.data?.role });
       setIsVerified(true);
       return true;
     } catch (error) {
@@ -152,7 +152,6 @@ export const AuthProvider = ({ children }) => {
   // Automatic startup dashboard redirects for authenticated users on guest pages.
   // Requires isVerified === true so unverified localStorage cache NEVER triggers guest redirects.
   useEffect(() => {
-    console.log("[AUTH] check:", { pathname, loading, isVerified, user: user ? user.role : null });
     if (!loading && isVerified && user) {
       const guestRoutes = [
         "/",
@@ -177,9 +176,7 @@ export const AuthProvider = ({ children }) => {
             : user.role === "INSTRUCTOR"
             ? "/instructor/courses"
             : "/student/my-courses";
-        const target = returnTo || defaultDashboard;
-        console.log("[REDIRECT] from:", pathname, "to:", target, "reason: authenticated user on guest route");
-        router.replace(target);
+        router.replace(returnTo || defaultDashboard);
       }
     }
   }, [user, loading, isVerified, pathname, router]);
@@ -192,28 +189,7 @@ export const AuthProvider = ({ children }) => {
     const response = await loginUser(credentials);
     const { accessToken, refreshToken, user } = response.data;
 
-    const isProduction = process.env.NODE_ENV === "production";
-
-    Cookies.set("accessToken", accessToken, {
-      expires: 1,
-      path: "/",
-      sameSite: "strict",
-      secure: isProduction,
-    });
-
-    Cookies.set("refreshToken", refreshToken, {
-      expires: 7,
-      path: "/",
-      sameSite: "strict",
-      secure: isProduction,
-    });
-
-    Cookies.set("role", user.role, {
-      expires: 1,
-      path: "/",
-      sameSite: "strict",
-      secure: isProduction,
-    });
+    setSessionCookies({ accessToken, refreshToken, role: user.role });
 
     if (typeof window !== "undefined") {
       localStorage.setItem("user", JSON.stringify(user));

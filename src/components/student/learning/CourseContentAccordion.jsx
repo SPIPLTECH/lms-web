@@ -41,6 +41,23 @@ export function NodeBadge({ progress, nodeId, node: nodeProp }) {
 
   const completed = indexNode?.completed ?? nodeProp?.completed ?? node?.completed ?? (percent === 100);
 
+  // Skipped after passing this node's qualifying test. It reads as its own
+  // state rather than as a percentage: the student didn't work through 40% of
+  // it, they were exempted from all of it, and showing "40%" would suggest
+  // unfinished business where there is none.
+  const qualified = indexNode?.qualified ?? nodeProp?.qualified ?? node?.qualified ?? false;
+
+  if (qualified) {
+    return (
+      <span
+        className="shrink-0 rounded border border-violet-500/40 bg-violet-500/15 px-1.5 py-0.5 text-[11px] font-black text-violet-600 dark:text-violet-400"
+        title="Qualified to skip — you passed the qualifying test for this content"
+      >
+        Qualified
+      </span>
+    );
+  }
+
   return (
     <span
       className={`shrink-0 text-[11px] font-black tabular-nums px-1.5 py-0.5 rounded border ${

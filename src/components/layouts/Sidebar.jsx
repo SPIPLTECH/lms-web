@@ -228,7 +228,7 @@ export default function Sidebar({
         {/* Top Header Row with Logo & Collapse Toggle */}
         <div className="h-14 px-3.5 flex items-center justify-between border-b border-border/60 shrink-0">
           {!isCollapsed ? (
-            <Link href={role === 'INSTRUCTOR' ? '/instructor/dashboard' : role === 'ADMIN' ? '/admin/dashboard' : '/student/dashboard'} className="flex items-center gap-2.5 overflow-hidden">
+            <Link href={role === 'INSTRUCTOR' ? '/instructor/courses' : role === 'ADMIN' ? '/admin/dashboard' : '/student/my-courses'} className="flex items-center gap-2.5 overflow-hidden">
               <div className="p-1.5 rounded-lg bg-primary/10 border border-primary/20 shrink-0">
                 <PiOrangeDuotone className="text-xl text-primary" />
               </div>

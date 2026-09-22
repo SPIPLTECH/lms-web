@@ -1,15 +1,35 @@
 /** Client-side CSV/PDF export for the Results page — no server round-trip needed since the data is already fetched. */
 
 export function exportResultsCsv(studentResults, filenamePrefix = "results") {
-  const headers = ["Student", "Type", "Title", "Score", "Total Marks", "Percentage", "Passed", "Submitted At"];
+  // Quiz Type / Skips / Attempt / Hints are blank for an ordinary quiz and
+  // populated for a qualifying test, so one export still covers both rather
+  // than needing a separate report.
+  const headers = [
+    "Student",
+    "Type",
+    "Title",
+    "Quiz Type",
+    "Skips",
+    "Attempt",
+    "Score",
+    "Total Marks",
+    "Percentage",
+    "Passed",
+    "Hints Used",
+    "Submitted At",
+  ];
   const rows = studentResults.map((r) => [
     r.studentName,
     r.type,
     r.title,
+    r.quizTag || "",
+    r.qualifyingTarget ? `${r.qualifyingTarget.kind}: ${r.qualifyingTarget.title}` : "",
+    r.attemptNumber ?? "",
     r.score,
     r.totalMarks,
     `${r.percentage}%`,
     r.passed ? "Yes" : "No",
+    r.hintsUsed ?? "",
     r.submittedAt ? new Date(r.submittedAt).toLocaleString() : "",
   ]);
 
@@ -62,4 +82,59 @@ export async function exportResultsPdf(summary, studentResults, filenamePrefix =
   });
 
   doc.save(`${filenamePrefix}-${new Date().toISOString().split("T")[0]}.pdf`);
+}
+
+/**
+ * Question-level analytics for one quiz, as CSV.
+ *
+ * Deliberately omits the correct answer: this file leaves the instructor's
+ * machine easily, and the question bank is reused across quizzes. Everything
+ * here is performance data, which is what the export is for. Correct /
+ * Incorrect / Skipped stay separate columns — collapsing them would lose the
+ * distinction the analytics exists to surface.
+ */
+export function exportQuizAnalyticsCsv(analytics, filenamePrefix = "quiz-analytics") {
+  if (!analytics?.questions?.length) return;
+
+  const headers = [
+    "Order",
+    "Question",
+    "Concept",
+    "Responses",
+    "Correct",
+    "Incorrect",
+    "Skipped",
+    "Unanswered",
+    "Correct %",
+    "Skip %",
+    "Hints Used",
+    "Avg Seconds",
+  ];
+
+  const rows = analytics.questions.map((q) => [
+    q.order ?? "",
+    q.question,
+    q.concept ?? "",
+    q.responses,
+    q.correct,
+    q.incorrect,
+    q.skipped,
+    q.unanswered,
+    `${q.correctRate}%`,
+    `${q.skipRate}%`,
+    q.hintsUsed,
+    q.averageSeconds ?? "",
+  ]);
+
+  const csv = [headers, ...rows]
+    .map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${filenamePrefix}-${new Date().toISOString().split("T")[0]}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
 }

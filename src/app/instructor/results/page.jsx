@@ -10,7 +10,8 @@ import { useQuizzes } from "@/hooks/queries/instructor/useQuizzes";
 import { useInstructorAssignments } from "@/hooks/queries/instructor/useAssignments";
 import { useExams } from "@/hooks/queries/instructor/useExams";
 import { useCourseStudents } from "@/hooks/queries/instructor/useCourseStudents";
-import { useResults } from "@/hooks/queries/instructor/useResults";
+import { useResults, useQuizAnalytics } from "@/hooks/queries/instructor/useResults";
+import QuizAnalyticsPanel from "@/components/instructor/results/QuizAnalyticsPanel";
 import { exportResultsCsv, exportResultsPdf } from "@/lib/exportResults";
 
 const selectClass =
@@ -39,6 +40,8 @@ export default function ResultsPage() {
   const { data: students = [] } = useCourseStudents(filters.courseId);
 
   const { data, isLoading } = useResults(filters);
+  // Only fetched when the Quiz filter names one — see useQuizAnalytics.
+  const { data: quizAnalytics, isLoading: isAnalyticsLoading } = useQuizAnalytics(filters.quizId);
   const summary = data?.summary || { avgScore: 0, highestScore: 0, lowestScore: 0, passPercentage: 0, completionRate: 0, pendingEvaluations: 0 };
   const studentResults = data?.studentResults || [];
   const questionWise = data?.questionWise || [];
@@ -48,7 +51,44 @@ export default function ResultsPage() {
 
   const studentColumns = [
     { key: "studentName", header: "Student" },
-    { key: "title", header: "Quiz" },
+    {
+      key: "title",
+      header: "Quiz",
+      // A qualifying test is a student testing OUT of a lesson, not sitting an
+      // assessment. These rows were already in this list — they just looked
+      // like ordinary quiz results, so an instructor had no way to tell the
+      // two apart, or to see which lesson was being skipped.
+      render: (r) => (
+        <div className="min-w-0">
+          <span className="block truncate">{r.title}</span>
+          {r.quizTag === "QUALIFYING" && (
+            <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
+              <span className="rounded bg-violet-500/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-violet-700 dark:text-violet-400">
+                Qualifying
+              </span>
+              {r.qualifyingTarget && (
+                <span className="truncate text-[10px] text-muted-foreground">
+                  skips {r.qualifyingTarget.kind === "TOPIC" ? "topic" : "lesson"}: {r.qualifyingTarget.title}
+                </span>
+              )}
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "attemptNumber",
+      header: "Attempt",
+      align: "center",
+      // Null on every ordinary quiz, where the submission row is simply the
+      // student's result and attempt numbering isn't shown.
+      render: (r) =>
+        r.attemptNumber
+          ? r.totalAttempts > 1
+            ? `${r.attemptNumber} of ${r.totalAttempts}`
+            : String(r.attemptNumber)
+          : "—",
+    },
     { key: "score", header: "Score", align: "center", render: (r) => `${r.score}/${r.totalMarks}` },
     { key: "percentage", header: "%", align: "center", render: (r) => `${r.percentage}%` },
     {
@@ -60,6 +100,15 @@ export default function ResultsPage() {
           {r.passed ? "Pass" : "Fail"}
         </span>
       ),
+    },
+    {
+      key: "hintsUsed",
+      header: "Hints",
+      align: "center",
+      // Only meaningful on a qualifying test, where hints unlock from the
+      // second attempt — a count here tells an instructor the student needed
+      // help to get through the test that exempts them from the content.
+      render: (r) => (r.hintsUsed === null || r.hintsUsed === undefined ? "—" : String(r.hintsUsed)),
     },
     { key: "submittedAt", header: "Submitted", render: (r) => (r.submittedAt ? new Date(r.submittedAt).toLocaleDateString() : "—") },
   ];
@@ -183,6 +232,17 @@ export default function ResultsPage() {
           <h3 className="text-[10.5px] font-black uppercase tracking-widest text-slate-350 mb-4">Topic-wise Analysis</h3>
           <DataTable columns={analysisColumns("topic")} rows={topicWise} isLoading={isLoading} rowKey="topic" emptyLabel="No topic-level data yet." />
         </div>
+      </div>
+
+      {/* Deep analytics for one quiz. Driven by the Quiz filter already at the
+          top of this page rather than a filter of its own — the aggregation is
+          per-quiz, so it only has an answer once a quiz is chosen. */}
+      <div className="rounded-2xl border border-border bg-card p-5">
+        <QuizAnalyticsPanel
+          analytics={quizAnalytics}
+          isLoading={isAnalyticsLoading}
+          quizSelected={Boolean(filters.quizId)}
+        />
       </div>
     </div>
   );

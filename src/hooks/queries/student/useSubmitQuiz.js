@@ -8,8 +8,8 @@ export default function useSubmitQuiz() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: ({ quizId, answers, timeTakenSeconds }) =>
-            submitQuiz(quizId, answers, timeTakenSeconds),
+        mutationFn: ({ quizId, answers, timeTakenSeconds, questionStates }) =>
+            submitQuiz(quizId, answers, timeTakenSeconds, questionStates),
 
         onSuccess: (data, variables) => {
             queryClient.invalidateQueries({
@@ -38,6 +38,13 @@ export default function useSubmitQuiz() {
             // locally. Mirrors useCompleteContent's invalidation set.
             queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.COURSE_PROGRESS] });
             queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.PROGRESS] });
+            // A passing qualifying test skips its lesson/topic and opens what
+            // follows it, so the gate the player is drawing is now stale.
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_PATH] });
+            // The next action is derived from the path and the evidence, so
+            // it moves whenever either does.
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.NEXT_ACTION] });
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.RECOMMENDATIONS] });
             queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.STUDENT_DASHBOARD] });
             queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.MY_COURSES] });
         },
