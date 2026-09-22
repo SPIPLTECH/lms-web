@@ -1226,35 +1226,12 @@ export function QuizOverviewView({
             </div>
           )}
 
-          {/* Save/Cancel repeated at the end of the question list. The pair in
-              the header scrolls out of sight once a quiz has more than a couple
-              of questions, leaving the instructor to scroll back up to save
-              what they just finished writing. Same handlers, same validation —
-              this is the identical control, only reachable where the work ends. */}
-          <div className="flex items-center justify-between gap-3 pt-4 mt-2 border-t border-border">
-            <p className="text-sm text-muted-foreground">
-              {questions.length} question{questions.length === 1 ? "" : "s"} • {totalMarks} total mark{totalMarks === 1 ? "" : "s"}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleCancelEdit}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border bg-background hover:bg-muted text-foreground text-sm font-bold transition cursor-pointer"
-              >
-                <X size={14} />
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveChanges}
-                disabled={isSaving}
-                className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-extrabold transition shadow-lg shadow-emerald-600/20 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                <Save size={14} />
-                {isSaving ? "Saving…" : "Save Changes"}
-              </button>
-            </div>
-          </div>
+          {/* No Save/Cancel pair down here on purpose. It used to be repeated
+              at the end of the question list, but it put a second identical
+              control — plus a second copy of the question/marks count already
+              shown in the Quiz Settings header — on screen at the same time as
+              the header pair, which read as redundant. The header bar is the
+              single place to save or cancel. */}
         </form>
       )}
 

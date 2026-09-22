@@ -79,7 +79,10 @@ export default function InstructorCoursesPage() {
   };
 
   return (
-    <div className="-m-2 sm:-m-6 md:-m-16 p-3 sm:p-6 pt-0 sm:pt-0 space-y-4 md:space-y-6 flex flex-col flex-1 min-h-0">
+    // Bleeds out to the layout's own padding (p-2 / sm:p-6 / md:p-16) and
+    // re-pads evenly: the top is deliberately NOT zeroed, so the greeting
+    // banner clears the navbar by the same gap it keeps from the side edges.
+    <div className="-m-2 sm:-m-6 md:-m-16 p-3 sm:p-6 space-y-4 md:space-y-6 flex flex-col flex-1 min-h-0">
       <div className="shrink-0">
         <InstructorWelcomeCard />
       </div>
