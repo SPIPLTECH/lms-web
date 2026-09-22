@@ -8,7 +8,6 @@ import {
   ArrowUp,
   BookOpen,
   CheckCircle2,
-  CheckSquare,
   ChevronRight,
   ClipboardList,
   Code2,
@@ -34,7 +33,6 @@ import {
   Pencil,
   Plus,
   Presentation,
-  Target,
   Trash2,
   Video,
 } from "lucide-react";
@@ -111,46 +109,12 @@ const QUIZ_TAG_STYLES = {
 const getQuizTagStyle = (quizTag) => QUIZ_TAG_STYLES[quizTag] || QUIZ_TAG_STYLES.FINAL;
 
 /**
- * Classifies topic title into Theory, MCQs, Assignment, Home Task, or Revision Checklist.
+ * Icon/badge for a topic row. Topics have no type of their own, so every topic
+ * gets the same look. This used to guess a type from the title ("question" or
+ * "quiz" -> MCQs, "assignment" -> Assignment, ...), which mislabelled any topic
+ * merely named that way — e.g. "Questions on Numbers" showed an MCQs tag.
  */
-function getTopicTypeMeta(title = "") {
-  const t = title.toLowerCase();
-  if (t.includes("mcq") || t.includes("quiz") || t.includes("question")) {
-    return {
-      type: "mcq",
-      badge: "MCQs",
-      icon: HelpCircle,
-      color: "text-emerald-700 dark:text-emerald-400",
-      bgClass: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
-    };
-  }
-  if (t.includes("assignment")) {
-    return {
-      type: "assignment",
-      badge: "Assignment",
-      icon: ClipboardList,
-      color: "text-amber-700 dark:text-amber-400",
-      bgClass: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30",
-    };
-  }
-  if (t.includes("home task") || t.includes("hometask") || t.includes("homework")) {
-    return {
-      type: "hometask",
-      badge: "Home Task",
-      icon: Target,
-      color: "text-purple-700 dark:text-purple-400",
-      bgClass: "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30",
-    };
-  }
-  if (t.includes("checklist") || t.includes("revision")) {
-    return {
-      type: "checklist",
-      badge: "Checklist",
-      icon: CheckSquare,
-      color: "text-sky-700 dark:text-sky-400",
-      bgClass: "bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/30",
-    };
-  }
+function getTopicTypeMeta() {
   return {
     type: "theory",
     badge: "Theory",
@@ -1435,7 +1399,7 @@ export function CourseComposerSidebar({
                                     const tIdx = topic.tIdx;
                                     const topicOpen = isTopicOpen(topic.id);
                                     const isTopicActive = composerMode === "topic" && composeTopicId === topic.id;
-                                    const topicMeta = getTopicTypeMeta(topic.title);
+                                    const topicMeta = getTopicTypeMeta();
                                     const TopicIcon = topicMeta.icon;
                                     const displayTitle = formatTopicDisplayTitle(topic.title, tIdx);
                                     // Same sequential rule, one level further down:
