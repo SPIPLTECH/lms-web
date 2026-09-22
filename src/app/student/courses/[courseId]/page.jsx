@@ -296,13 +296,20 @@ export default function CourseDetailsPage({ params }) {
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => handleStartLearning()}
-              className="bg-primary hover:bg-orange-600 text-slate-950 font-black text-xs px-4 py-2 rounded-xl transition shadow-lg shadow-orange-500/20 cursor-pointer"
-            >
-              {hasProgress ? "Continue Learning" : "Start Learning"}
-            </button>
+            {/* Not on Course Overview: CourseOverviewView already renders this
+                exact action inside the card below for role="STUDENT", and the
+                two stacked one above the other read as a duplicate. The Module
+                and Lesson views render no action of their own, so the header
+                stays their way in. */}
+            {composerMode !== "course" && (
+              <button
+                type="button"
+                onClick={() => handleStartLearning()}
+                className="bg-primary hover:bg-orange-600 text-slate-950 font-black text-xs px-4 py-2 rounded-xl transition shadow-lg shadow-orange-500/20 cursor-pointer"
+              >
+                {hasProgress ? "Continue Learning" : "Start Learning"}
+              </button>
+            )}
           </div>
 
           {/* Notebook Workspace Dynamic View */}
