@@ -375,7 +375,7 @@ export default function LearnPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [courseMapOpen]);
 
-  // Automatically close/collapse the active Course Map after 30 seconds of inactivity.
+  // Automatically close/collapse the active Course Map after 5 seconds of inactivity.
   // Desktop Course Map is controlled by courseSidebarOpen, Mobile Course Map by courseMapOpen.
   useEffect(() => {
     const isMapActive = isDesktop ? courseSidebarOpen : courseMapOpen;
@@ -399,7 +399,7 @@ export default function LearnPage() {
       if (timerId) clearTimeout(timerId);
       timerId = setTimeout(() => {
         closeMap();
-      }, 30000);
+      }, 5000);
     };
 
     const handleActivity = (event) => {
@@ -442,7 +442,7 @@ export default function LearnPage() {
   // Reopens the Course Map on the next genuine interaction — but only when
   // the inactivity timeout above is what closed it. A close the student
   // performed leaves autoClosedRef false, so it stays closed until they open
-  // it again. Reopening starts a fresh 30-second timer through the effect
+  // it again. Reopening starts a fresh 5-second timer through the effect
   // above (the map is open again, so it binds), which is what makes the
   // close -> activity -> open -> close cycle repeat.
   //
