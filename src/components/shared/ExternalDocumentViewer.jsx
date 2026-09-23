@@ -5,6 +5,12 @@ import { FileText, ExternalLink, AlertCircle, Loader2 } from "lucide-react";
 import { resolveExternalFile } from "@/lib/external/resolveExternalFile";
 import { PdfViewer, PptViewer, DocxViewer } from "@/components/shared/LazyDocumentViewers";
 
+
+// Loopback + RFC1918 private ranges, matched inside a URL. Used to decide
+// whether a document is reachable by an external rendering service.
+const PRIVATE_HOST_RE =
+  /\/\/(?:127(?:\.\d{1,3}){3}|10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2})(?::\d+)?(?:[/?#]|$)/;
+
 /**
  * ExternalDocumentViewer component.
  * Retrieves stored external-reference metadata or resolves raw URLs, then selects
@@ -290,8 +296,15 @@ export default function ExternalDocumentViewer({
     resolved.fileType === "PPTX";
 
   const targetUrl = resolved.viewerUrl || resolved.sourceUrl || fileUrl;
+  // Office Web Viewer fetches the file from Microsoft's servers, so it can only
+  // render a publicly reachable URL. Loopback was already excluded; private LAN
+  // addresses (10.x, 172.16-31.x, 192.168.x) are just as unreachable from the
+  // internet, and that is exactly what content URLs look like when the LMS is
+  // served to another device on the same Wi-Fi. Without them here, every DOC and
+  // PPT in a lesson renders as a viewer error on those devices.
   const isLocalFile =
-    targetUrl.includes("localhost") || targetUrl.includes("127.0.0.1");
+    targetUrl.includes("localhost") ||
+    PRIVATE_HOST_RE.test(targetUrl);
   const isPrivateVercelBlob =
     targetUrl.includes("blob.vercel-storage.com") || targetUrl.includes("/api/blob-proxy");
 

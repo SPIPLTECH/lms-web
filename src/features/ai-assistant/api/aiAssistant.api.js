@@ -1,5 +1,6 @@
 import Cookies from "js-cookie";
 import api from "@/lib/axios";
+import { getApiOrigin } from "@/lib/apiOrigin";
 
 /**
  * The only place the AI Assistant talks to the network.
@@ -11,7 +12,7 @@ import api from "@/lib/axios";
  * component or page ever calls the network itself.
  */
 
-const baseUrl = () => process.env.NEXT_PUBLIC_API_URL || "";
+const baseUrl = () => getApiOrigin();
 
 /* ------------------------------ conversations ------------------------------ */
 

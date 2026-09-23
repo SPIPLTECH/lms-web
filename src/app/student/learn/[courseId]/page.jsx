@@ -27,7 +27,7 @@ import {
 } from "@/lib/courseUnits";
 import { CourseStructureSidebar } from "@/components/instructor/courses/CourseComposerSidebar";
 import { normalizeCourseHierarchy } from "@/lib/courseMapper";
-import { buildProgressIndex, decorateCourseWithProgress, isItemComplete, isItemSubmitted, isNodeLeavable, getNodeProgress } from "@/lib/progressIndex";
+import { buildProgressIndex, decorateCourseWithProgress, isItemComplete, isItemSubmitted, isNodeLeavable } from "@/lib/progressIndex";
 import { buildPathIndex, getPathEntry, getSkipOfferForScope } from "@/lib/learningPath";
 import { resolveResumeTarget } from "@/lib/resumeTarget";
 
@@ -97,7 +97,6 @@ export default function LearnPage() {
   const {
     data: progressData,
     isLoading: isProgressLoading,
-    isError: isProgressError,
   } = useCourseProgress(courseId);
   const completeContentMutation = useCompleteContent();
   const markVisitedMutation = useMarkVisited();
@@ -1319,19 +1318,9 @@ export default function LearnPage() {
     ? { kind: "assignment", item: openAssignmentItem }
     : activeUnitBlocks[activeBlockIndex];
 
-  // The header's Progress readout scopes to whatever its own Lesson/Topic
-  // line is showing below (topicTitle) — the current Topic when the Lesson
-  // uses Topics, the Lesson itself otherwise — instead of the whole course,
-  // so a student partway through one lesson isn't shown the entire course's
-  // (from their vantage point, near-zero) roll-up.
-  // With SubTopics/Concepts the "current Topic" is the deepest pathway
-  // container (pathway.container), so the readout follows the SubTopic or
-  // Concept the student is actually in — for a Topic without SubTopics that
-  // container is currentTopic itself.
-  const headerProgress = getNodeProgress(
-    progressIndex,
-    hasTopics ? (pathway.subTopic ? pathwayContainer?.id : currentTopic?.id) : selectedLesson?.id
-  );
+  // The header shows the current Lesson/Topic line only — its progress
+  // readout was removed, since the Course Map already reports progress at
+  // every level of the hierarchy and did so with more context.
   const pathwayLevelLabel = HIERARCHY_LEVEL_LABELS[pathway.level] || "Topic";
   const pathwayTitle = hasTopics ? (pathway.subTopic ? pathwayContainer?.title : currentTopic?.title) : null;
 
@@ -1831,8 +1820,6 @@ export default function LearnPage() {
           topicTitle={pathwayTitle}
           levelLabel={pathwayLevelLabel}
           course={course}
-          unitProgress={headerProgress}
-          isProgressUnavailable={isProgressError}
           isStickyNotesOpen={rightPanelOpen}
           onToggleStickyNotes={() => setRightPanelOpen((prev) => !prev)}
         />

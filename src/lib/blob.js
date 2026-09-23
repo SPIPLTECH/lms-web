@@ -1,4 +1,4 @@
-const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
+import { getApiOrigin } from "@/lib/apiOrigin";
 
 /**
  * Resolves media URLs for browser display.
@@ -34,8 +34,11 @@ export function getDisplayUrl(url) {
   ) {
     return `/api/blob-proxy?url=${encodeURIComponent(url)}`;
   }
-  if (url.startsWith("/") && API_ORIGIN) {
-    return `${API_ORIGIN}${url}`;
+  // Resolved per call, not once at module load: getApiOrigin() needs the host
+  // this browser is on to serve /uploads over the LAN. See lib/apiOrigin.js.
+  const apiOrigin = getApiOrigin();
+  if (url.startsWith("/") && apiOrigin) {
+    return `${apiOrigin}${url}`;
   }
   return url;
 }

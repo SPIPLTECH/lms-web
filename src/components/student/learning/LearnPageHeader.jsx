@@ -1,7 +1,6 @@
 "use client";
 
 import { PanelLeftOpen, MoreHorizontal } from "lucide-react";
-import ProgressBar from "@/components/student/courses/ProgressBar";
 
 // Sticky sub-header for the learning workspace — course-map toggle, the
 // lesson/topic currently playing in the content player, and the Sticky
@@ -18,22 +17,16 @@ export default function LearnPageHeader({
   topicTitle,
   levelLabel = "Topic",
   course,
-  unitProgress,
-  isProgressUnavailable,
+  // No progress readout here: the Course Map already reports progress at every
+  // level (course, module, lesson, topic, subtopic, concept), so repeating the
+  // current level's percentage beside the More button only said again, less
+  // precisely, what the map shows in context.
   // The right-hand side panel (Ask Instructor / Sticky Notes / Feedback).
   // These names must match what the learn page passes — a mismatch here
   // left the button with no click handler, so it silently did nothing.
   isStickyNotesOpen = false,
   onToggleStickyNotes,
 }) {
-  // Straight passthrough of the backend roll-up (see lib/progressIndex.js),
-  // scoped to the current Topic/Lesson (whatever topicTitle/selectedLesson
-  // below is showing) rather than the whole course — `applicable` is the
-  // backend's own "this node has tracked items" flag, so an empty/untracked
-  // Topic or Lesson shows neither state instead of a stray 0%.
-  const showProgress = !isProgressUnavailable && !!unitProgress?.applicable;
-  const percent = unitProgress?.progressPercent ?? 0;
-
   return (
     <header className="max-sm:hidden sticky top-0 bg-[#07080f]/80 backdrop-blur-md border-b border-border py-3 max-xl:py-2 px-4 sm:px-6 flex items-center justify-between z-30 select-none">
       <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -60,41 +53,6 @@ export default function LearnPageHeader({
           )}
         </div>
       </div>
-
-      {/* TOPIC/LESSON PROGRESS — the workspace's persistent "where am I in
-          this Topic (or Lesson, if it has none)" readout. Percentage and
-          counts come straight from the backend roll-up; nothing is computed
-          here. Hidden below sm, where the header only has room for the
-          lesson title and the notes toggle. */}
-      {isProgressUnavailable && (
-        <span className="hidden sm:block shrink-0 mr-3 text-[12px] font-bold uppercase tracking-wider text-muted-foreground">
-          Progress unavailable
-        </span>
-      )}
-
-      {showProgress && (
-        <div className="hidden sm:flex shrink-0 items-center gap-3 mr-3 min-w-0">
-          <div className="text-right min-w-0">
-            <span className="text-[12px] font-black uppercase tracking-widest text-muted-foreground block leading-none">
-              {topicTitle ? levelLabel : "Topic"} Progress
-            </span>
-            {/* The backend denominator is every applicable Content, Quiz and
-                Assignment this Topic/Lesson owns — not Content alone — so
-                the count is labelled "items". Calling it anything narrower
-                would misdescribe what it counts. */}
-            <span className="text-sm font-bold text-foreground leading-none whitespace-nowrap">
-              {percent}%
-              <span className="text-muted-foreground font-semibold">
-                {" "}
-                · {unitProgress.completedItems}/{unitProgress.totalItems} items
-              </span>
-            </span>
-          </div>
-          <div className="w-24 lg:w-32" aria-label="Topic or lesson progress">
-            <ProgressBar value={percent} size="xs" variant="gradient" />
-          </div>
-        </div>
-      )}
 
       {/* Side-panel toggle. globals.css gives every <button> an unlayered
           border-radius / box-shadow / transition that beats Tailwind

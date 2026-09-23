@@ -2,6 +2,7 @@ import axios from "axios";
 import Cookies from "js-cookie";
 
 import { setSessionCookies, clearSessionCookies } from "@/lib/authCookies";
+import { getApiOrigin } from "@/lib/apiOrigin";
 
 // Same prefixes middleware.js guards. Used below to decide whether a failed
 // background session check is allowed to navigate the browser at all.
@@ -31,7 +32,7 @@ const resolveSessionRole = (refreshPayload) => {
 };
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  baseURL: getApiOrigin(),
   timeout: 15000,
   headers: {
     "Content-Type": "application/json",
@@ -41,6 +42,13 @@ const api = axios.create({
 // Request Interceptor
 api.interceptors.request.use(
   (config) => {
+    // Re-resolved per request rather than trusted from creation time: the
+    // instance above is built when this module is first evaluated, which on an
+    // SSR'd page happens on the server, where there is no page host to read.
+    // Asking again here means the first client-side request already uses the
+    // host this browser actually reached the app on. See lib/apiOrigin.js.
+    config.baseURL = getApiOrigin();
+
     const token = Cookies.get("accessToken");
 
     if (token) {
@@ -79,8 +87,9 @@ api.interceptors.response.use(
           throw new Error("Refresh token missing");
         }
 
+        // Bare axios, so the interceptor above does not apply — resolve here too.
         const response = await axios.post(
-          `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh-token`,
+          `${getApiOrigin()}/auth/refresh-token`,
           {
             refreshToken,
           }
