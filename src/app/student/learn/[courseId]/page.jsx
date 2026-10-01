@@ -233,6 +233,10 @@ export default function LearnPage() {
   const moreMenuRef = useRef(null);
 
   const videoPlayerRef = useRef(null);
+  // The VIDEO content on screen, or null. Kept current by a plain assignment
+  // further down (where activeBlock is computed); useLearningStateSync reads
+  // it to store and restore the playback position against that exact video.
+  const playbackContentIdRef = useRef(null);
 
   // Resume-where-you-left-off (URL ?lessonId / DB-saved state / first-lesson
   // fallback) + debounced persistence of playback position back to the DB.
@@ -241,6 +245,9 @@ export default function LearnPage() {
     setSelectedLesson,
     currentTimestamp,
     setCurrentTimestamp,
+    recordPlaybackTime,
+    getResumeTime,
+    savedPositionContentId,
     initialTime,
     stateRestored,
   } = useLearningStateSync({
@@ -252,6 +259,7 @@ export default function LearnPage() {
     updateStateMutation,
     resumeTarget,
     isProgressLoading,
+    playbackContentIdRef,
   });
 
   // Lesson list, plus the single entry point (selectLesson) every navigation
@@ -1353,6 +1361,18 @@ export default function LearnPage() {
   // one of those ticks, defeating the memoization entirely.
   activeCompletionRef.current = { contentIds: activeContentIds, completed: activeContentCompleted };
 
+  // Resume position for the video on screen: the position recorded for that
+  // exact content (restored from the saved state, or watched earlier in this
+  // visit). A saved state written before positions were stored per video
+  // names no usable content, so it keeps the old rule — the lesson's first
+  // block only.
+  const activeVideoContentId =
+    activeBlock?.kind === "content" && activeBlock.item?.type === "VIDEO" ? activeBlock.item.id : null;
+  playbackContentIdRef.current = activeVideoContentId;
+  const activeVideoResumeTime =
+    getResumeTime(activeVideoContentId) ||
+    (!savedPositionContentId && !extraUnit && blockIndex === 0 ? initialTime : 0);
+
   // The side panel (Ask instructor / Sticky notes / Feedback / Reviews) —
   // one definition, two surfaces: the xl+ column at the page's right edge
   // and the below-xl "More" popover in the lesson context row. Same shape as
@@ -1925,9 +1945,8 @@ export default function LearnPage() {
                     active unit's blocks (content and quizzes merged in
                     order) before crossing into the previous/next unit,
                     anywhere in the whole course — see activeUnitBlocks/
-                    courseUnits above. initialTime (resume position) only
-                    applies to the first block of the normal Topic/Lesson
-                    sequence. */}
+                    courseUnits above. initialTime is the resume position of
+                    the video on screen (see activeVideoResumeTime). */}
                 <div className={`flex-1 overflow-y-auto min-h-0 ${BODY_MODE_CLASSES[playerMode]}`}>
                   {qualifyingAttempt && qualifyingSubmitted && qualificationOutcome ? (
                     // The attempt is in and the server has decided. Its own
@@ -2009,10 +2028,10 @@ export default function LearnPage() {
                     <LessonContentBlock
                       item={activeBlock?.item}
                       videoPlayerRef={videoPlayerRef}
-                      onTimeUpdate={setCurrentTimestamp}
+                      onTimeUpdate={recordPlaybackTime}
                       onDurationChange={setVideoDuration}
                       onEnded={handleVideoEnded}
-                      initialTime={!extraUnit && blockIndex === 0 ? initialTime : 0}
+                      initialTime={activeVideoResumeTime}
                       speechLanguage={course?.language}
                       lessonTitle={selectedLesson?.title}
                       reserveHeaderCorner={showCompletionBar}

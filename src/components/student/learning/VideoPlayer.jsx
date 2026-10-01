@@ -13,7 +13,8 @@ import {
 } from "lucide-react";
 import DOMPurify from "isomorphic-dompurify";
 
-import { getYouTubeVideoId, isYouTubeUrl as isYoutubeUrl } from "@/lib/youtube";
+import { isYouTubeHostUrl } from "@/lib/youtube";
+import OrangeVideoPlayer from "@/components/student/learning/video/OrangeVideoPlayer";
 import { getDisplayUrl } from "@/lib/blob";
 import MarkdownRenderer from "@/components/ui/MarkdownEditor/MarkdownRenderer";
 import { unescapeFromContentApi, highlightCode } from "@/lib/markdown";
@@ -91,8 +92,9 @@ const VideoPlayer = forwardRef(function VideoPlayer(
     { content, onTimeUpdate, onEnded, onDurationChange, initialTime = 0, speechLanguage, lessonTitle, reserveHeaderCorner = false },
     ref
 ) {
-    const containerRef = useRef(null);
-    const playerRef = useRef(null);
+    // The YouTube path renders through OrangeVideoPlayer (Orange LMS controls
+    // over the YouTube IFrame API); this ref is its seekTo handle.
+    const youtubePlayerRef = useRef(null);
     const localVideoRef = useRef(null);
     const [slideIndex, setSlideIndex] = useState(0);
     // A file viewer's own toolbar carries the same title this player already
@@ -122,26 +124,16 @@ const VideoPlayer = forwardRef(function VideoPlayer(
     const displayVideoUrl = getDisplayUrl(effectiveVideoUrl);
     const displayFileUrl = getDisplayUrl(fileUrl);
 
-    const isYoutube = type === "VIDEO" && isYoutubeUrl(effectiveVideoUrl);
+    // Any YouTube link plays through OrangeVideoPlayer — including one no video
+    // id can be read from, which it reports as "unable to load this video"
+    // rather than handing a web page to the <video> element below.
+    const isYoutube = type === "VIDEO" && isYouTubeHostUrl(effectiveVideoUrl);
 
     const initialTimeRef = useRef(initialTime);
 
-    const onTimeUpdateRef = useRef(onTimeUpdate);
-    const onEndedRef = useRef(onEnded);
-    const onDurationChangeRef = useRef(onDurationChange);
     useEffect(() => {
         setPdfPage(null);
     }, [content?.id]);
-
-    useEffect(() => {
-        onTimeUpdateRef.current = onTimeUpdate;
-    }, [onTimeUpdate]);
-    useEffect(() => {
-        onEndedRef.current = onEnded;
-    }, [onEnded]);
-    useEffect(() => {
-        onDurationChangeRef.current = onDurationChange;
-    }, [onDurationChange]);
 
     useEffect(() => {
         initialTimeRef.current = initialTime;
@@ -152,8 +144,7 @@ const VideoPlayer = forwardRef(function VideoPlayer(
         () => ({
             seekTo(seconds) {
                 if (isYoutube) {
-                    playerRef.current?.seekTo?.(seconds, true);
-                    playerRef.current?.playVideo?.();
+                    youtubePlayerRef.current?.seekTo(seconds);
                 } else if (localVideoRef.current) {
                     localVideoRef.current.currentTime = seconds;
                     localVideoRef.current.play?.().catch(() => {});
@@ -162,99 +153,6 @@ const VideoPlayer = forwardRef(function VideoPlayer(
         }),
         [isYoutube]
     );
-
-    // YouTube API Integration with responsive width & height
-    useEffect(() => {
-        if (!isYoutube || !effectiveVideoUrl) return;
-
-        const videoId = getYouTubeVideoId(effectiveVideoUrl);
-        if (!videoId) return;
-
-        let player;
-        let intervalId;
-
-        const onPlayerStateChange = (event) => {
-            if (event.data === window.YT.PlayerState.PLAYING) {
-                if (player && typeof player.getDuration === "function") {
-                    onDurationChangeRef.current?.(player.getDuration());
-                }
-                intervalId = setInterval(() => {
-                    if (player && typeof player.getCurrentTime === "function") {
-                        onTimeUpdateRef.current?.(Math.floor(player.getCurrentTime()));
-                    }
-                }, 500);
-            } else if (event.data === window.YT.PlayerState.ENDED) {
-                clearInterval(intervalId);
-                onEndedRef.current?.();
-            } else {
-                clearInterval(intervalId);
-            }
-        };
-
-        const initializePlayer = () => {
-            if (!containerRef.current) return;
-            // A shared/hardcoded id here would collide across every VideoPlayer
-            // instance mounted at once (a lesson typically renders one per
-            // topic's video) — YT.Player would then only ever find the first
-            // one in the document. Passing the element itself sidesteps that.
-            containerRef.current.innerHTML = "";
-            const target = document.createElement("div");
-            target.className = "w-full h-full";
-            containerRef.current.appendChild(target);
-            player = new window.YT.Player(target, {
-                height: "100%",
-                width: "100%",
-                videoId: videoId,
-                playerVars: {
-                    start: initialTimeRef.current || 0,
-                    rel: 0,
-                    modestbranding: 1,
-                    playsinline: 1,
-                    enablejsapi: 1,
-                    ...(typeof window !== "undefined"
-                        ? { origin: window.location.origin }
-                        : {}),
-                },
-                events: {
-                    onStateChange: onPlayerStateChange,
-                },
-            });
-            playerRef.current = player;
-        };
-
-        if (window.YT && window.YT.Player) {
-            initializePlayer();
-        } else {
-            if (!document.getElementById("youtube-iframe-api")) {
-                const tag = document.createElement("script");
-                tag.id = "youtube-iframe-api";
-                tag.src = "https://www.youtube.com/iframe_api";
-                document.body.appendChild(tag);
-            }
-
-            const checkTimer = setInterval(() => {
-                if (window.YT && window.YT.Player) {
-                    clearInterval(checkTimer);
-                    initializePlayer();
-                }
-            }, 100);
-
-            return () => {
-                clearInterval(checkTimer);
-                clearInterval(intervalId);
-                if (playerRef.current && typeof playerRef.current.destroy === "function") {
-                    playerRef.current.destroy();
-                }
-            };
-        }
-
-        return () => {
-            clearInterval(intervalId);
-            if (playerRef.current && typeof playerRef.current.destroy === "function") {
-                playerRef.current.destroy();
-            }
-        };
-    }, [effectiveVideoUrl, isYoutube]);
 
     useEffect(() => {
         const videoEl = localVideoRef.current;
@@ -560,9 +458,14 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                 {/* VIDEO */}
                 {type === "VIDEO" && (
                     isYoutube ? (
-                        <div
-                            ref={containerRef}
-                            className="relative w-full h-full bg-black overflow-hidden max-xl:h-auto max-xl:aspect-video [&>iframe]:absolute [&>iframe]:inset-0 [&>iframe]:h-full [&>iframe]:w-full"
+                        <OrangeVideoPlayer
+                            ref={youtubePlayerRef}
+                            videoUrl={effectiveVideoUrl}
+                            title={content?.title || lessonTitle}
+                            initialTime={initialTime}
+                            onTimeUpdate={onTimeUpdate}
+                            onDurationChange={onDurationChange}
+                            onEnded={onEnded}
                         />
                     ) : displayVideoUrl ? (
                         <video

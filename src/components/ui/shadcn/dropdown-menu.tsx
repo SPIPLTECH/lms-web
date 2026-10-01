@@ -16,10 +16,15 @@ const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 function DropdownMenuContent({
   className,
   sideOffset = 8,
+  container,
   ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
+}: React.ComponentProps<typeof DropdownMenuPrimitive.Content> & {
+  // Where the menu portals to. Defaults to document.body; a menu opened from
+  // inside a fullscreen element must portal into that element to be visible.
+  container?: HTMLElement | null;
+}) {
   return (
-    <DropdownMenuPrimitive.Portal>
+    <DropdownMenuPrimitive.Portal container={container ?? undefined}>
       <DropdownMenuPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
