@@ -89,6 +89,27 @@ const START_FALLBACK_MS = 2500;
 // How long the player keeps reporting its pre-seek position after seekTo().
 const SEEK_SETTLE_MS = 600;
 
+// YouTube draws its own chrome inside the embed — the title bar along the top,
+// and "Watch on YouTube", the copy-link button, its logo and the "More videos"
+// shelf along the bottom — and offers no parameter to turn any of it off. All
+// of it is anchored to the iframe's top and bottom edges, so the iframe is
+// made taller than the picture by this much of the picture's height on each
+// side: the video letterboxes into the middle, the chrome lands in the
+// overflow, and the player's own overflow-hidden clips it away. The picture
+// itself is not cropped. (See chromeBleed for the one case it is lifted.)
+const CHROME_BLEED = 1;
+// The embed reports no dimensions, so the picture is laid out as the shape
+// its kind of link implies: Shorts are vertical, everything else is 16:9.
+const LANDSCAPE_ASPECT = 16 / 9;
+const SHORTS_ASPECT = 9 / 16;
+
+interface PictureBox {
+  width: number;
+  height: number;
+  left: number;
+  top: number;
+}
+
 const ROOT_BASE =
   "relative isolate w-full h-full bg-black overflow-hidden max-xl:h-auto max-xl:aspect-video select-none [-webkit-tap-highlight-color:transparent]";
 
@@ -132,11 +153,12 @@ function ErrorState({ kind, onRetry, className }: { kind: ErrorKind; onRetry?: (
 
 interface SurfaceProps extends Omit<OrangeVideoPlayerProps, "videoUrl"> {
   videoId: string;
+  aspect: number;
   onRetry: () => void;
 }
 
 const YouTubeSurface = forwardRef<OrangeVideoPlayerHandle, SurfaceProps>(function YouTubeSurface(
-  { videoId, title, initialTime = 0, onTimeUpdate, onDurationChange, onEnded, onRetry, className = "" },
+  { videoId, aspect, title, initialTime = 0, onTimeUpdate, onDurationChange, onEnded, onRetry, className = "" },
   ref
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -188,6 +210,25 @@ const YouTubeSurface = forwardRef<OrangeVideoPlayerHandle, SurfaceProps>(functio
   const controlsVisibleAtPressRef = useRef(true);
   const hideTimerRef = useRef<number | undefined>(undefined);
   const startFallbackRef = useRef<number | undefined>(undefined);
+
+  // Where the picture sits inside the player: the largest box of the video's
+  // shape that fits, centred (so a frame that is not that shape — the desktop
+  // lesson frame, fullscreen on a 16:10 screen — gets plain black bars).
+  const [picture, setPicture] = useState<PictureBox | null>(null);
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      const { clientWidth, clientHeight } = element;
+      if (!clientWidth || !clientHeight) return;
+      const width = Math.min(clientWidth, clientHeight * aspect);
+      const height = width / aspect;
+      setPicture({ width, height, left: (clientWidth - width) / 2, top: (clientHeight - height) / 2 });
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [aspect]);
 
   const canFullscreen = useSyncExternalStore(
     noopSubscribe,
@@ -603,6 +644,12 @@ const YouTubeSurface = forwardRef<OrangeVideoPlayerHandle, SurfaceProps>(functio
     return <ErrorState kind={errorKind} onRetry={onRetry} className={`${ROOT_BASE} ${className}`} />;
   }
 
+  // YouTube also anchors captions to the embed's bottom edge, so the bleed
+  // would hide them with the chrome. While captions are on and the video is
+  // actually playing — when YouTube draws no chrome of its own — the embed is
+  // the picture's exact size; the moment it pauses or ends, the bleed is back.
+  const chromeBleed = captionsOn && (phase === "playing" || phase === "buffering") ? 0 : CHROME_BLEED;
+
   const showBigButton = ready && !shieldLifted && (phase === "idle" || phase === "paused" || phase === "ended");
 
   return (
@@ -629,12 +676,51 @@ const YouTubeSurface = forwardRef<OrangeVideoPlayerHandle, SurfaceProps>(functio
         controlsVisible ? "" : "cursor-none"
       } ${className}`}
     >
-      {/* The YouTube iframe. */}
-      <div ref={hostRef} className="absolute inset-0 [&>iframe]:absolute [&>iframe]:inset-0 [&>iframe]:h-full [&>iframe]:w-full" />
+      {/* The YouTube iframe, taller than the picture so YouTube's own chrome
+          falls outside the player and is clipped (see CHROME_BLEED). */}
+      <div
+        ref={hostRef}
+        style={
+          picture
+            ? {
+                left: picture.left,
+                width: picture.width,
+                top: picture.top - picture.height * chromeBleed,
+                height: picture.height * (1 + 2 * chromeBleed),
+              }
+            : { inset: 0 }
+        }
+        className="absolute [&>iframe]:absolute [&>iframe]:inset-0 [&>iframe]:h-full [&>iframe]:w-full"
+      />
+
+      {/* Before the first play the embed shows YouTube's thumbnail with its
+          own red play button in the middle of the picture, where the bleed
+          cannot reach. The same thumbnail is drawn over it so the only play
+          button is this player's. Dropped if the start has to fall back to a
+          tap on the embed itself.
+
+          Two layers: the full-size thumbnail, which older or low-resolution
+          videos do not have, over the standard one every video has. That one
+          is 4:3 with the bars baked in, which bg-cover crops back off. */}
+      {ready && !started && !shieldLifted && (
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-black">
+          {picture && (
+            <div
+              className="absolute bg-cover bg-center bg-no-repeat"
+              style={{
+                left: picture.left,
+                top: picture.top,
+                width: picture.width,
+                height: picture.height,
+                backgroundImage: `url(https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg), url(https://i.ytimg.com/vi/${videoId}/hqdefault.jpg)`,
+              }}
+            />
+          )}
+        </div>
+      )}
 
       {/* Click shield: every tap on the picture is a play/pause for this
-          player, instead of a click on the embed (which opens YouTube). It is
-          transparent, so nothing YouTube draws is hidden. */}
+          player, instead of a click on the embed (which opens YouTube). */}
       {ready && !shieldLifted && (
         <div
           aria-hidden="true"
@@ -746,6 +832,7 @@ const OrangeVideoPlayer = forwardRef<OrangeVideoPlayerHandle, OrangeVideoPlayerP
   return (
     <YouTubeSurface
       key={`${videoId}:${attempt}`}
+      aspect={videoUrl.toLowerCase().includes("/shorts/") ? SHORTS_ASPECT : LANDSCAPE_ASPECT}
       ref={ref}
       videoId={videoId}
       className={className}
