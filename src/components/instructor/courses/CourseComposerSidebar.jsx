@@ -56,9 +56,7 @@ import { useReorderSubTopics } from "@/hooks/queries/instructor/useReorderSubTop
 import { useReorderConcepts } from "@/hooks/queries/instructor/useReorderConcepts";
 import { filterQuizzesPlacedAt } from "@/lib/courseMapper";
 import { courseGroupRank } from "@/lib/courseUnits";
-import { useReorderContents } from "@/hooks/queries/instructor/useReorderContents";
-import { useUpdateQuizOrder } from "@/hooks/queries/instructor/useUpdateQuizOrder";
-import { useReorderQuizzes } from "@/hooks/queries/instructor/useReorderQuizzes";
+import { useSwapSequenceOrder } from "@/hooks/queries/instructor/useSwapSequenceOrder";
 import { swapSiblingOrder } from "@/lib/reorderSiblings";
 import { useToast } from "@/components/ui/ToastProvider";
 
@@ -313,9 +311,7 @@ function ParentContentRows({
   const contents = isDraftMode ? (draftContents || []) : (apiContents || []);
   const isLoading = isDraftMode ? false : isApiLoading;
   const isError = isDraftMode ? false : isApiError;
-  const reorderContents = useReorderContents();
-  const updateQuizOrder = useUpdateQuizOrder();
-  const reorderQuizzes = useReorderQuizzes();
+  const swapSequenceOrder = useSwapSequenceOrder();
   const { showToast } = useToast();
 
   // Unified, order- and createdAt-sorted list — merges content cells, quizzes,
@@ -336,19 +332,20 @@ function ParentContentRows({
     return !groupOf || groupOf(mergedRows[rIdx]) === groupOf(neighbor);
   };
 
+  // The neighbour can be any kind of row (a Lesson, Topic, Assignment, …), so
+  // the swap is one backend call that moves both rows. Sending only the
+  // Content/Quiz half through the per-type reorders left two rows on one
+  // `order`, and every later add or delete under that parent then failed.
   const handleMove = async (id, direction) => {
-    const plan = swapSiblingOrder(mergedRows, id, direction);
-    if (!plan) return;
-    const kindOf = (rowId) => mergedRows.find((r) => r.id === rowId)?.kind;
-    const contentUpdates = plan.filter((p) => kindOf(p.id) === "content");
-    const quizUpdates = plan.filter((p) => kindOf(p.id) === "quiz");
+    const index = mergedRows.findIndex((row) => row.id === id);
+    const target = mergedRows[index];
+    const neighbor = mergedRows[direction === "up" ? index - 1 : index + 1];
+    if (!target || !neighbor) return;
     try {
-      if (contentUpdates.length > 0) {
-        await reorderContents.mutateAsync({ parent, contents: contentUpdates });
-      }
-      if (quizUpdates.length > 0) {
-        await reorderQuizzes.mutateAsync({ quizzes: quizUpdates });
-      }
+      await swapSequenceOrder.mutateAsync({
+        first: { kind: target.kind, id: target.id },
+        second: { kind: neighbor.kind, id: neighbor.id },
+      });
     } catch {
       showToast("Failed to reorder", "error");
     }

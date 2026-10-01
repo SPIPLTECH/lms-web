@@ -98,3 +98,14 @@ export const reorderContents = async (contents) => {
   const response = await api.patch("/contents/reorder", { contents });
   return response.data;
 };
+
+/**
+ * Trades the positions of two rows of one parent, whatever their types
+ * (`first`/`second` are `{ kind, id }` — a Content with a Lesson, a Quiz with
+ * a Topic, …). One backend transaction moves both, which the per-type reorder
+ * endpoints cannot do.
+ */
+export const swapSequenceOrder = async (first, second) => {
+  const response = await api.patch("/contents/swap-order", { first, second });
+  return response.data;
+};

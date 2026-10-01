@@ -33,7 +33,7 @@ import { LinkCell } from "./cells/LinkCell";
 import { DocumentCell } from "./cells/DocumentCell";
 import { InteractiveCell } from "./cells/InteractiveCell";
 import { AssignmentCell } from "./cells/AssignmentCell";
-import { useDuplicateContent, useUpdateContent } from "./contentMutations";
+import { useDuplicateContent } from "./contentMutations";
 import { CELL_TYPES, type ContentType } from "./cellTypes";
 import { detectHtmlCellVariant } from "./htmlCellVariant";
 import { planInsert, sortByOrder } from "./blockOrder";
@@ -195,9 +195,7 @@ export function LessonComposerPanel({
   const isError = isDraftMode ? false : isApiError;
   const [insertOrder, setInsertOrder] = useState<number | null>(null);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
-  const [insertingAnchorId, setInsertingAnchorId] = useState<string | null>(null);
   const { duplicate } = useDuplicateContent();
-  const updateContent = useUpdateContent();
   const { showToast } = useToast();
 
   // Selection is "controlled" when a parent passes onSelectCell (the course
@@ -255,41 +253,16 @@ export function LessonComposerPanel({
   };
 
   /**
-   * "Add Above"/"Add Below": makes room at the target integer `order` slot
-   * (see blockOrder.ts for why shifting — not a fractional order — is what
-   * the backend actually supports), then opens the same Add Content picker
-   * every other insertion uses. Guarded by `insertingAnchorId` since the
-   * shifts are awaited sequentially and a second click mid-sequence would
-   * plan against a now-stale `contents` snapshot.
+   * "Add Above"/"Add Below": opens the same Add Content picker every other
+   * insertion uses, at the target `order` slot. The backend makes the room —
+   * creating a block at an occupied order moves every later item of the
+   * parent down one, whatever its type. Shifting the Content rows from here
+   * first (as this used to) moved them onto orders the parent's Quizzes,
+   * Topics or Lessons held, since those rows are not in `contents`, and then
+   * the backend shifted everything a second time.
    */
-  const handleInsert = async (anchorId: string, position: "above" | "below") => {
-    if (insertingAnchorId) return;
-
-    const plan = planInsert(contents, anchorId, position);
-    if (plan.shifts.length === 0) {
-      openAddCell(plan.insertOrder);
-      return;
-    }
-
-    setInsertingAnchorId(anchorId);
-    try {
-      for (const shift of plan.shifts) {
-        await updateContent.mutateAsync({
-          contentId: shift.contentId,
-          contentData: { order: shift.newOrder },
-          parent,
-        });
-      }
-      openAddCell(plan.insertOrder);
-    } catch (error) {
-      showToast(
-        getErrorMessage(error, "Failed to make room for the new block. Nothing was added — try again."),
-        "error",
-        "Insert failed"
-      );
-    } finally {
-      setInsertingAnchorId(null);
-    }
+  const handleInsert = (anchorId: string, position: "above" | "below") => {
+    openAddCell(planInsert(contents, anchorId, position).insertOrder);
   };
 
   const validOrders = (contents || [])
