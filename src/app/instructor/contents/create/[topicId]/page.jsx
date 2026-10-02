@@ -17,29 +17,15 @@ export default function CreateContentPage() {
     const createContentMutation =
         useCreateContent();
 
-    const {
-        data: contents = [],
-        isLoading,
-    } = useContents(topicId);
+    const {isLoading} = useContents(topicId);
 
     const handleSubmit = async (
         values
     ) => {
-        const nextOrder =
-            contents.length > 0
-                ? Math.max(
-                ...contents.map(
-                    (content) =>
-                        content.order || 0
-                )
-            ) + 1
-                : 1;
-
         try {
             await createContentMutation.mutateAsync({
                 ...values,
                 topicId,
-                order: nextOrder,
 
                 ...(values.type ===
                     "VIDEO" && {

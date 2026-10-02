@@ -95,8 +95,8 @@ export interface CellActionProps {
 /** Shared prop contract for every cell type's "Create" form, hosted inside AddCellModal. */
 export interface CreateCellFormProps {
   parent: ContentParent;
-  /** Pre-computed `max(existing order) + 1`, matching the pattern already used by every other create flow in this app. */
-  order: number;
+  /** Position to insert at in the parent's sequence (its content and child containers). Omitted = append after everything in that parent. */
+  order?: number;
   onCreated: () => void;
   onCancel: () => void;
 }

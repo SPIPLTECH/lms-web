@@ -17,10 +17,7 @@ export default function CreateLessonPage() {
 
     const createLessonMutation = useCreateLesson();
 
-    const {
-        data: lessons = [],
-        isLoading: lessonsLoading,
-    } = useLessons(moduleId);
+    const {isLoading: lessonsLoading} = useLessons(moduleId);
 
     const {data: moduleData, isLoading: moduleLoading} = useModule(moduleId);
 
@@ -31,16 +28,10 @@ export default function CreateLessonPage() {
     const isLoading = lessonsLoading || moduleLoading;
 
     const handleSubmit = async (values) => {
-        const nextOrder =
-            lessons.length > 0
-                ? Math.max(...lessons.map((lesson) => lesson.order), 0) + 1
-                : 1;
-
         try {
             await createLessonMutation.mutateAsync({
                 ...values,
                 moduleId,
-                order: nextOrder,
             });
 
             // Return to the Course Composer (the primary screen instructors

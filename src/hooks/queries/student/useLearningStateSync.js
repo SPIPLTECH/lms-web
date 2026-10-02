@@ -1,147 +1,107 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-// Flattens the course's modules -> lessons into the single ordered list this
-// hook restores/persists against. Kept local (rather than shared with
-// useLessonNavigation) so this hook stays self-contained and doesn't need
-// selectedLesson/setSelectedLesson threaded in from outside just to read the
-// course structure.
-function flattenLessons(course) {
-  const modules = course?.modules || [];
-  return modules.flatMap((module) =>
-    (module.lessons || []).map((lesson) => ({
-      ...lesson,
-      moduleId: module.id,
-      duration: lesson.duration || "N/A",
-    }))
-  );
-}
-
-// Restores the student's place in a course on load (URL ?lessonId, then
-// wherever the visited/completed Progress roll-up says to resume, then the
-// first lesson) and persists it back to the DB (debounced) as the student
-// watches. Owns the selectedLesson/timestamp state so restore and persist
-// stay in lockstep instead of drifting apart.
-//
-// `resumeTarget` is resolveResumeTarget's output, computed once by the Learn
-// page (it needs the same value for its own topic/content-level positioning
-// afterward — see there) rather than recomputed here from raw progressData.
+/**
+ * Where the student lands in the learning sequence on load, and the debounced
+ * save of where they are.
+ *
+ * Restore, once, in this order:
+ *   1. `?item=` from the URL the page was opened with — the exact step the
+ *      student was on (a Content id; an older link's quiz/assignment id still
+ *      resolves to that item's step);
+ *   2. `?lessonId=` — the first step of that lesson;
+ *   3. the server's resume step (`sequence.resumeIndex`), the same "Continue
+ *      learning" answer every other surface uses.
+ * A target the student cannot open yet falls back to their current step, so
+ * the first thing a student sees is never a locked item.
+ *
+ * The saved video position (StudentState.timestamp) is applied only when the
+ * saved Content row is the restored step — it belongs to that item alone.
+ *
+ * @returns {{ stepIndex, setStepIndex, currentTimestamp, setCurrentTimestamp,
+ *   initialTime, restoredStepIndex, stateRestored }}
+ */
 export default function useLearningStateSync({
   courseId,
-  course,
-  isLoading,
+  sequence,
+  isSequenceLoading,
   stateData,
   isStateLoading,
   updateStateMutation,
-  resumeTarget,
-  isProgressLoading,
+  openedWith,
 }) {
-  const lessons = useMemo(() => flattenLessons(course), [course]);
-
-  const [selectedLesson, setSelectedLesson] = useState(null);
+  const [stepIndex, setStepIndex] = useState(-1);
   const [currentTimestamp, setCurrentTimestamp] = useState(0);
   const [initialTime, setInitialTime] = useState(0);
+  const [restoredStepIndex, setRestoredStepIndex] = useState(-1);
   const [stateRestored, setStateRestored] = useState(false);
 
-  // Restore state from DB on load
   useEffect(() => {
-    if (isStateLoading || isLoading || stateRestored) return;
-
-    if (typeof window !== "undefined") {
-      const urlParams = new URLSearchParams(window.location.search);
-      const queryLessonId = urlParams.get("lessonId");
-      if (queryLessonId) {
-        const matchedLesson = lessons.find((l) => l.id === queryLessonId);
-        if (matchedLesson) {
-          setSelectedLesson(matchedLesson);
-          setStateRestored(true);
-          return;
-        }
-      }
-    }
-
-    // No explicit lesson requested — wait for the Progress roll-up to settle
-    // (loaded or failed) before picking a default, so a plain Continue
-    // Learning visit doesn't flash Lesson 1 before snapping to the real
-    // resume point a moment later. Once settled, resumeTarget (not the old
-    // DB-saved lessonId) decides which lesson to land on; the DB-saved
-    // timestamp is still used, but only when it's for that same lesson,
-    // purely to restore video playback position within it.
-    if (isProgressLoading) return;
-
-    const matchedLesson = resumeTarget?.lessonId
-      ? lessons.find((l) => l.id === resumeTarget.lessonId)
-      : null;
-
-    if (matchedLesson) {
-      setSelectedLesson(matchedLesson);
-      const savedState = stateData?.data || stateData;
-      if (savedState?.lessonId === resumeTarget.lessonId && savedState?.timestamp) {
-        setInitialTime(savedState.timestamp);
-        setCurrentTimestamp(savedState.timestamp);
-      }
+    if (stateRestored || isSequenceLoading || isStateLoading || !sequence) return;
+    const steps = sequence.steps || [];
+    if (steps.length === 0) {
       setStateRestored(true);
       return;
     }
 
-    // A resolved target with no lessonId (a Module/Course-level Content or
-    // Quiz) has no lesson here to select — the Learn page's own resume
-    // effect (which has courseUnits/enterUnit) positions the player exactly
-    // once this settles on some lesson. Same fallback when progress is
-    // unavailable or the course has nothing trackable yet.
-    if (!selectedLesson && lessons.length > 0) {
-      setSelectedLesson(lessons[0]);
-      setStateRestored(true);
+    const { itemId, lessonId } = openedWith || {};
+    let index = -1;
+    if (itemId) {
+      index = steps.findIndex(
+        (step) => step.contentIds.includes(itemId) || step.quizId === itemId || step.assignmentId === itemId
+      );
     }
-  }, [
-    lessons,
-    selectedLesson,
-    stateData,
-    isStateLoading,
-    isLoading,
-    isProgressLoading,
-    resumeTarget,
-    courseId,
-    stateRestored,
-  ]);
+    if (index === -1 && lessonId) index = steps.findIndex((step) => step.path?.lessonId === lessonId);
+    if (index === -1) index = sequence.resumeIndex >= 0 ? sequence.resumeIndex : 0;
+    if (steps[index]?.locked) index = sequence.currentIndex >= 0 ? sequence.currentIndex : 0;
 
-  useEffect(() => {
-    if (stateRestored) {
-      setInitialTime(0);
+    const saved = stateData?.data || stateData;
+    if (saved?.contentId && steps[index]?.contentIds.includes(saved.contentId) && saved.timestamp) {
+      setInitialTime(saved.timestamp);
+      setCurrentTimestamp(saved.timestamp);
     }
-  }, [selectedLesson, stateRestored]);
 
-  // Content now nests under Topic (Lesson -> Topic -> Content); only the
-  // first content id is needed here (it's what the saved state points at).
-  const firstContentId = useMemo(() => {
-    const contents = (selectedLesson?.topics || []).flatMap((topic) => topic.contents || []);
-    return contents?.[0]?.id || null;
-  }, [selectedLesson]);
+    setStepIndex(index);
+    setRestoredStepIndex(index);
+    setStateRestored(true);
+  }, [sequence, isSequenceLoading, isStateLoading, stateData, stateRestored, openedWith]);
 
-  // Sync state back to DB on change (debounced)
+  // A move to another step starts that step's media from the beginning.
+  const previousIndexRef = useRef(-1);
   useEffect(() => {
-    if (!selectedLesson?.id || !stateRestored) return;
+    if (!stateRestored) return;
+    if (previousIndexRef.current !== -1 && previousIndexRef.current !== stepIndex) {
+      setCurrentTimestamp(0);
+    }
+    previousIndexRef.current = stepIndex;
+  }, [stepIndex, stateRestored]);
 
+  // Debounced save of the current step and playback position.
+  const step = sequence?.steps?.[stepIndex] || null;
+  useEffect(() => {
+    if (!stateRestored || !step) return;
     const timer = setTimeout(() => {
       updateStateMutation.mutate({
         courseId,
-        moduleId: selectedLesson.moduleId || null,
-        lessonId: selectedLesson.id,
-        contentId: firstContentId,
+        moduleId: step.path?.moduleId || null,
+        lessonId: step.path?.lessonId || null,
+        contentId: step.contentId,
         timestamp: currentTimestamp,
       });
     }, 3000);
-
     return () => clearTimeout(timer);
-  }, [selectedLesson, firstContentId, currentTimestamp, courseId, stateRestored]);
+    // updateStateMutation is stable per mount; listing it would re-arm the
+    // timer on every render.
+  }, [courseId, step?.contentId, currentTimestamp, stateRestored]);
 
   return {
-    selectedLesson,
-    setSelectedLesson,
+    stepIndex,
+    setStepIndex,
     currentTimestamp,
     setCurrentTimestamp,
     initialTime,
+    restoredStepIndex,
     stateRestored,
   };
 }

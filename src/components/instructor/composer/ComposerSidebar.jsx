@@ -26,8 +26,7 @@ export default function ComposerSidebar({
 
   const handleAddModule = () => {
     if (!newModuleTitle.trim()) return;
-    const nextOrder = modules.length > 0 ? Math.max(...modules.map((m) => m.order)) + 1 : 1;
-    createModule.mutate({ courseId, title: newModuleTitle, order: nextOrder });
+    createModule.mutate({ courseId, title: newModuleTitle });
     setNewModuleTitle("");
     setAddingModule(false);
   };
@@ -36,13 +35,16 @@ export default function ComposerSidebar({
     const targetIndex = index + direction;
     if (targetIndex < 0 || targetIndex >= modules.length) return;
 
-    const reordered = [...modules];
-    const [moved] = reordered.splice(index, 1);
-    reordered.splice(targetIndex, 0, moved);
-
+    // Swap the two modules' positions only: the course's own content shares
+    // the sequence, and renumbering modules 1..n would jump them over it.
+    const moved = modules[index];
+    const neighbour = modules[targetIndex];
     reorderModules.mutate({
       courseId,
-      modules: reordered.map((m, i) => ({ id: m.id, order: i + 1 })),
+      modules: [
+        { id: moved.id, order: neighbour.order },
+        { id: neighbour.id, order: moved.order },
+      ],
     });
   };
 

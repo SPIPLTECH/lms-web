@@ -62,15 +62,18 @@ export default function LessonCanvas({ lesson, moduleId, courseId, onOpenAiAssis
   const openAddModal = (afterBlockId) => setAddModalAfterId(afterBlockId);
 
   const handlePickBlockType = (blockType) => {
-    const nextOrder =
-      savedBlocks.length > 0 ? Math.max(...savedBlocks.map((b) => b.order)) + 1 : 1;
+    // A position in the lesson's sequence, which also holds its topics: right
+    // after the block it was added below, or undefined to append after
+    // everything in the lesson (the backend picks the slot).
+    const afterBlock = savedBlocks.find((b) => b.id === addModalAfterId);
+    const order = afterBlock ? afterBlock.order + 1 : undefined;
 
     setDraftBlocks((prev) => [
       ...prev,
       {
         ...blockRegistry[blockType].defaultData(),
         id: `draft-${crypto.randomUUID()}`,
-        order: nextOrder,
+        order,
         afterBlockId: addModalAfterId ?? null,
       },
     ]);
@@ -89,13 +92,16 @@ export default function LessonCanvas({ lesson, moduleId, courseId, onOpenAiAssis
     const targetIndex = index + direction;
     if (targetIndex < 0 || targetIndex >= savedBlocks.length) return;
 
-    const reordered = [...savedBlocks];
-    const [moved] = reordered.splice(index, 1);
-    reordered.splice(targetIndex, 0, moved);
-
+    // Swap the two blocks' positions only. Renumbering the blocks 1..n would
+    // also move them past the lesson's topics, which share the sequence.
+    const moved = savedBlocks[index];
+    const neighbour = savedBlocks[targetIndex];
     reorderContents.mutate({
-      lessonId: lesson.id,
-      contents: reordered.map((b, i) => ({ id: b.id, order: i + 1 })),
+      parent: { parentType: "lesson", parentId: lesson.id },
+      contents: [
+        { id: moved.id, order: neighbour.order },
+        { id: neighbour.id, order: moved.order },
+      ],
     });
   };
 

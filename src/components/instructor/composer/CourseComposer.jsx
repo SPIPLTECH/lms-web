@@ -66,14 +66,10 @@ export default function CourseComposer({ courseId }) {
 
     try {
       if (scope === "MODULE" && generatedData?.title) {
-        const modules = course?.modules || [];
-        const nextOrder = modules.length > 0 ? Math.max(...modules.map((m) => m.order)) + 1 : 1;
-
         const newMod = await createModule.mutateAsync({
           courseId,
           title: generatedData.title,
           description: generatedData.description || "",
-          order: nextOrder,
         });
 
         // Add lessons if returned in generated module

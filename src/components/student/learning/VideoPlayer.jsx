@@ -19,7 +19,6 @@ import { getDisplayUrl } from "@/lib/blob";
 import MarkdownRenderer from "@/components/ui/MarkdownEditor/MarkdownRenderer";
 import { unescapeFromContentApi, highlightCode } from "@/lib/markdown";
 import { PdfViewer, PptViewer, DocxViewer, ExternalDocumentViewer } from "@/components/shared/LazyDocumentViewers";
-import ContentAssignmentPanel from "@/components/student/learning/ContentAssignmentPanel";
 import SpeechControls from "@/components/student/tts/SpeechControls";
 import useLessonReadAloud from "@/hooks/useLessonReadAloud";
 import { resolveSpeechLang } from "@/lib/textToSpeech";
@@ -724,25 +723,6 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                             />
                         </div>
                     )
-                )}
-
-                {/* ASSIGNMENT (descriptive assignment brief, not a quiz).
-                    The instructor's instructions and reference file, then the
-                    student's PDF upload. The title already sits in the header
-                    bar above, so it is not repeated here. Submitting records
-                    the PDF and the backend marks this block complete. */}
-                {type === "ASSIGNMENT" && (
-                    <div className="p-4 sm:p-6">
-                        <ContentAssignmentPanel
-                            contentId={content.id}
-                            instructions={htmlContent ? unescapeFromContentApi(htmlContent) : ""}
-                            attachments={
-                                fileUrl
-                                    ? [{ url: displayFileUrl, name: getAttachmentName(content) }]
-                                    : []
-                            }
-                        />
-                    </div>
                 )}
 
                 {/* EXTERNAL LINK */}

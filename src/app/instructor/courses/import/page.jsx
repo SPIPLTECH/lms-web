@@ -773,8 +773,14 @@ export default function CourseImportPage() {
         .map(([count, label]) => `${count} ${label}${count === 1 ? "" : "s"}`)
     : [];
 
+  // The three creation cards (not the AI form, not an in-flight ZIP import).
+  const showCreationOptions = !showAiForm && !zipStatus;
+
   return (
-    <div className="min-h-screen bg-background text-foreground p-4 md:p-8 lg:p-10 font-sans pb-32">
+    // Bleeds out to DashboardLayout's own padding (p-2 / sm:p-6 / md:p-16) and
+    // re-pads compactly, same as /instructor/courses. No min-h-screen: `main`
+    // already sits below the navbar, so a second 100vh here overflowed.
+    <div className="-m-2 sm:-m-6 md:-m-16 p-3 sm:p-6 bg-background text-foreground font-sans">
       {/* Hidden File Inputs */}
       <input
         type="file"
@@ -792,15 +798,20 @@ export default function CourseImportPage() {
       />
 
       {/* Header */}
-      <div className="max-w-5xl mx-auto mb-8">
+      {/* The AI form has its own "Back to Creation Options" button, so the
+          back-to-courses arrow (and its bottom margin) only shows outside it.
+          On the creation cards the section heading shares the arrow's row. */}
+      <div className={`max-w-5xl mx-auto ${showAiForm ? "" : showCreationOptions ? "mb-16" : "mb-8"}`}>
         <div className="flex items-center space-x-3">
-          <Link
-            href="/instructor/courses"
-            className="p-2 rounded-xl bg-background border border-transparent text-muted-foreground hover:text-foreground transition"
-            aria-label="Back to courses"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
+          {!showAiForm && (
+            <Link
+              href="/instructor/courses"
+              className="p-2 rounded-xl bg-background border border-transparent text-muted-foreground hover:text-foreground transition"
+              aria-label="Back to courses"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
+          )}
           <div>
             <div className="flex items-center space-x-2">
               <h1 className="sr-only">
@@ -810,6 +821,14 @@ export default function CourseImportPage() {
             <p className="sr-only">
               Build a new course with AI, import a local ZIP package, or load an Orange Tree LMS JSON course structure.
             </p>
+            {showCreationOptions && (
+              <div className="text-left">
+                <h2 className="text-xl font-extrabold text-foreground">How would you like to create your course?</h2>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Select one of the three creation entry points below to build or import your course.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -957,13 +976,6 @@ export default function CourseImportPage() {
               </div>
             ) : (
               <>
-            <div className="text-left">
-              <h2 className="text-xl font-extrabold text-foreground">How would you like to create your course?</h2>
-              <p className="text-xs text-muted-foreground mt-1">
-                Select one of the three creation entry points below to build or import your course.
-              </p>
-            </div>
-
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* ---------------------------------------------------- */}
               {/* OPTION 1: ASK OTREE AI */}

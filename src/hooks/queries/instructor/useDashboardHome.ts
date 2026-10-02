@@ -14,7 +14,6 @@ import { getCourses, getCourseStatusCounts } from "@/services/course.service";
 import { getModules } from "@/services/module.service";
 import { getQuizzes } from "@/services/quiz.service";
 import { getAssignments } from "@/services/assignment.service";
-import { getInstructorAssignmentContents } from "@/services/content.service";
 import { getResults } from "@/services/results.service";
 import { getCalendarEvents } from "@/services/calendar.service";
 import { getNotifications as getRawNotifications } from "@/services/notification.service";
@@ -301,15 +300,6 @@ export function useCourseProgressOverview() {
   return { data, isLoading: courses.isLoading };
 }
 
-// Lesson-composer Assignment blocks (Content rows), each with its newest
-// submissions — same `submissions` shape as a standalone Assignment row.
-const useRawAssignmentContents = () =>
-  useQuery({
-    queryKey: ["instructor-home", "raw", "assignment-contents"],
-    queryFn: async () => asArray<RawAssignment>(await getInstructorAssignmentContents()),
-    ...defaultQueryOptions,
-  });
-
 // Final-test attempts only — Self-Tests are practice, not submissions.
 const useRawFinalTestResults = () =>
   useQuery({
@@ -323,19 +313,18 @@ const useRawFinalTestResults = () =>
 
 export function useRecentSubmissions() {
   const assignments = useRawAssignments();
-  const assignmentContents = useRawAssignmentContents();
   const finalTests = useRawFinalTestResults();
   const data = useMemo(
     () =>
       deriveRecentSubmissions(
-        [...(assignments.data ?? []), ...(assignmentContents.data ?? [])],
+        assignments.data ?? [],
         finalTests.data ?? []
       ),
-    [assignments.data, assignmentContents.data, finalTests.data]
+    [assignments.data, finalTests.data]
   );
   return {
     data,
-    isLoading: assignments.isLoading || assignmentContents.isLoading || finalTests.isLoading,
+    isLoading: assignments.isLoading || finalTests.isLoading,
   };
 }
 

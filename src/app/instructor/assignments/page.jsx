@@ -14,7 +14,6 @@ import GradableRow from "@/components/instructor/assignments/GradableRow";
 import { DEFAULT_SORT, SORT_OPTIONS, isSortKey, sortGradables } from "@/lib/gradableSort";
 import {
   useInstructorAssignments,
-  useInstructorAssignmentContents,
   useUpdateAssignment,
   useDeleteAssignment,
 } from "@/hooks/queries/instructor/useAssignments";
@@ -74,10 +73,6 @@ function InstructorAssignmentsView() {
   const [errorMsg, setErrorMsg] = useState("");
 
   const { data: assignments = [], isLoading: loadingAssignments } = useInstructorAssignments();
-  // Assignment cells added in the Course Composer are Content rows, not
-  // Assignment rows, so they come from their own endpoint.
-  const { data: contentAssignments = [], isLoading: loadingContentAssignments } =
-    useInstructorAssignmentContents();
   const { data: courses = [], isLoading: loadingCourses } = useInstructorCourses();
 
   // Filter courses: Owned by instructor and PUBLISHED
@@ -128,7 +123,7 @@ function InstructorAssignmentsView() {
     }
   };
 
-  if (loadingAssignments || loadingContentAssignments || loadingCourses) return <Loader />;
+  if (loadingAssignments || loadingCourses) return <Loader />;
 
   // Filter assignments list — draft courses aren't graded yet, so only
   // surface work that belongs to a course the instructor has published.
@@ -143,9 +138,6 @@ function InstructorAssignmentsView() {
   // submission could never rise above a stale one in the other group.
   const rows = sortGradables(
     [
-      ...contentAssignments
-        .filter((a) => isPublished(a) && matchesCourse(a))
-        .map((a) => ({ ...a, kind: "content" })),
       ...assignments
         .filter((a) => isPublished(a) && matchesCourse(a))
         .map((a) => ({ ...a, kind: "assignment" })),
@@ -266,10 +258,7 @@ function InstructorAssignmentsView() {
           {rows.map((a) => (
             <GradableRow
               key={`${a.kind}-${a.id}`}
-              href={detailHref(
-                a.kind === "content" ? "/instructor/content-assignments" : "/instructor/assignments",
-                a.id
-              )}
+              href={detailHref("/instructor/assignments", a.id)}
               breadcrumb={a}
               title={a.title || "Assignment"}
               gauge={{

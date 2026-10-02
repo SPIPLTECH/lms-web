@@ -341,8 +341,12 @@ function QAContent() {
   const hasAnyQuestions = queries.length > 0;
 
   return (
-    <div className="space-y-5">
-      <div>
+    // Pulls up into DashboardLayout's top padding (p-2 / sm:p-6 / md:p-16) and
+    // re-pads it compactly so the search bar sits close under the navbar; the
+    // side padding is left alone. The sr-only heading wrapper is sr-only too,
+    // so it stays out of flow and doesn't take a space-y-5 gap.
+    <div className="-mt-2 sm:-mt-6 md:-mt-16 pt-3 sm:pt-6 space-y-5">
+      <div className="sr-only">
         <h1 className="sr-only">Q&amp;A</h1>
         <p className="sr-only">Student doubts raised across every lesson in your courses.</p>
       </div>

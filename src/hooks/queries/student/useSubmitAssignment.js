@@ -15,6 +15,9 @@ export default function useSubmitAssignment(assignmentId) {
       // four levels it hangs off, so submitting one can move every ancestor's
       // percentage. The backend performs that roll-up; refetch to pick it up.
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.COURSE_PROGRESS] });
+      // A submission completes the assignment's step and can open what follows.
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_SEQUENCE] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_PATH] });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.PROGRESS] });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.STUDENT_DASHBOARD] });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.MY_COURSES] });

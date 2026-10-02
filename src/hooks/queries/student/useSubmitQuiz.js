@@ -41,6 +41,9 @@ export default function useSubmitQuiz() {
             // A passing qualifying test skips its lesson/topic and opens what
             // follows it, so the gate the player is drawing is now stale.
             queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_PATH] });
+            // The quiz's own step completes (or not) by the completion rule,
+            // which can open the steps after it.
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_SEQUENCE] });
             // The next action is derived from the path and the evidence, so
             // it moves whenever either does.
             queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.NEXT_ACTION] });

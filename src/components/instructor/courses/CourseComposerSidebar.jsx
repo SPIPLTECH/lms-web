@@ -55,10 +55,7 @@ import { useConcepts } from "@/hooks/queries/instructor/useConcepts";
 import { useReorderSubTopics } from "@/hooks/queries/instructor/useReorderSubTopics";
 import { useReorderConcepts } from "@/hooks/queries/instructor/useReorderConcepts";
 import { filterQuizzesPlacedAt } from "@/lib/courseMapper";
-import { courseGroupRank } from "@/lib/courseUnits";
 import { useReorderContents } from "@/hooks/queries/instructor/useReorderContents";
-import { useUpdateQuizOrder } from "@/hooks/queries/instructor/useUpdateQuizOrder";
-import { useReorderQuizzes } from "@/hooks/queries/instructor/useReorderQuizzes";
 import { swapSiblingOrder } from "@/lib/reorderSiblings";
 import { useToast } from "@/components/ui/ToastProvider";
 
@@ -76,7 +73,7 @@ import { useToast } from "@/components/ui/ToastProvider";
  * Written as complete class strings rather than interpolated colour names:
  * Tailwind scans source text, so `text-${colour}-400` would never be emitted.
  */
-const QUIZ_TAG_STYLES = {
+export const QUIZ_TAG_STYLES = {
   SELF_TEST: {
     label: "Self-Test",
     active: "bg-sky-500/10 text-sky-800 dark:bg-sky-500/15 dark:text-sky-400 font-semibold",
@@ -106,7 +103,7 @@ const QUIZ_TAG_STYLES = {
 };
 
 /** Falls back to Final Quiz, mirroring the Quiz.quizTag column default. */
-const getQuizTagStyle = (quizTag) => QUIZ_TAG_STYLES[quizTag] || QUIZ_TAG_STYLES.FINAL;
+export const getQuizTagStyle = (quizTag) => QUIZ_TAG_STYLES[quizTag] || QUIZ_TAG_STYLES.FINAL;
 
 /**
  * Icon/badge for a topic row. Topics have no type of their own, so every topic
@@ -157,7 +154,7 @@ function formatTopicDisplayTitle(title = "", index = 0) {
  * exhaustive so any real Content row — however it was created — gets a
  * meaningful icon instead of falling back silently.
  */
-const CONTENT_TYPE_META = {
+export const CONTENT_TYPE_META = {
   VIDEO: { icon: Video, label: "Video", color: "text-red-700 dark:text-red-400" },
   AUDIO: { icon: Music2, label: "Audio", color: "text-teal-700 dark:text-teal-400" },
   DOCUMENT: { icon: FileText, label: "Document", color: "text-blue-700 dark:text-blue-400" },
@@ -177,7 +174,7 @@ const CONTENT_TYPE_META = {
   INTERACTIVE_LAB: { icon: FlaskConical, label: "Interactive Lab", color: "text-pink-700 dark:text-pink-400" },
   EMBED: { icon: MonitorPlay, label: "Embed", color: "text-indigo-700 dark:text-indigo-400" },
 };
-const DEFAULT_CONTENT_META = { icon: File, label: "Content", color: "text-muted-foreground" };
+export const DEFAULT_CONTENT_META = { icon: File, label: "Content", color: "text-muted-foreground" };
 
 /** Smoothly animated expand/collapse wrapper (grid-rows trick — no height measuring needed). */
 function Collapsible({ open, children }) {
@@ -262,28 +259,9 @@ function RowMenu({ groupName, items }) {
 // renderExtraItem and sorted between that level's content and its quizzes.
 const CHILD_ROW_KINDS = new Set(["extra", "module", "lesson", "topic", "subTopic", "concept", "assignment"]);
 
-/** One level's row order: `order`, createdAt, then content before child rows before quizzes. */
-function compareMergedRows(a, b) {
-  const orderA = a.order ?? 0;
-  const orderB = b.order ?? 0;
-  if (orderA !== orderB) return orderA - orderB;
-  if (a.createdAt && b.createdAt) {
-    const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-    if (diff !== 0) return diff;
-  }
-  const rank = (k) => (k === "content" ? 1 : CHILD_ROW_KINDS.has(k) ? 2 : 3);
-  return rank(a.kind) - rank(b.kind);
-}
+/** Content.order — the one sequence order of a level's learning items. */
+const byContentOrder = (a, b) => (a.order ?? 0) - (b.order ?? 0);
 
-/**
- * COURSE LEVEL ONLY: the Course groups the backend keeps — Content, then
- * Modules, then Assignments, then Quizzes (a course Assignment is the work
- * that follows every Module) — then the usual rule within a group. Reading
- * the group from the row kind means a course still holding pre-grouping
- * orders never renders a Quiz or Assignment between two Modules.
- */
-const compareCourseRows = (a, b) =>
-  courseGroupRank(a.kind) - courseGroupRank(b.kind) || compareMergedRows(a, b);
 function ParentContentRows({
   parent,
   isActive,
@@ -303,10 +281,6 @@ function ParentContentRows({
   renderExtraItem,
   emptyMessage = null,
   className = "",
-  // Course level passes its group comparator and group key; every other level
-  // keeps one plain sequence, so both default to "no groups".
-  compareRows = compareMergedRows,
-  groupOf = null,
 }) {
   const { data: apiContents = [], isLoading: isApiLoading, isError: isApiError } = useContents(isDraftMode ? undefined : parent);
 
@@ -314,41 +288,77 @@ function ParentContentRows({
   const isLoading = isDraftMode ? false : isApiLoading;
   const isError = isDraftMode ? false : isApiError;
   const reorderContents = useReorderContents();
-  const updateQuizOrder = useUpdateQuizOrder();
-  const reorderQuizzes = useReorderQuizzes();
   const { showToast } = useToast();
 
-  // Unified, order- and createdAt-sorted list — merges content cells, quizzes,
-  // and any parent-level children (like lessons in modules or topics in lessons)
-  // so items appear in the exact order created or authored.
-  const mergedRows = [
-    ...contents.map((c) => ({ ...c, kind: "content" })),
-    ...quizzes.map((q) => ({ ...q, kind: "quiz" })),
-    ...extraItems.map((item) => ({ ...item, kind: item.kind || "extra" })),
-  ].sort(compareRows);
+  // ONE learning sequence: every row is a Content row in Content.order —
+  // ordinary content, plus the Content(type=QUIZ/ASSIGNMENT) rows that place
+  // quizzes and assignments. A quiz/assignment row is drawn from the Quiz /
+  // Assignment it stands for (the course tree's copy when it has one).
+  const quizById = new Map((quizzes || []).map((quiz) => [quiz.id, quiz]));
+  const assignmentExtras = extraItems.filter((item) => item.kind === "assignment");
+  const assignmentById = new Map(assignmentExtras.map((assignment) => [assignment.id, assignment]));
+  const children = extraItems.filter((item) => item.kind !== "assignment");
 
-  // A row may only swap with a neighbour in its own group: at Course level the
-  // backend rejects anything that crosses a group boundary, so the menu entry
-  // is disabled rather than offering a move that would fail.
+  const sequenceRows = [...contents].sort(byContentOrder).map((c) => {
+    if (c.type === "QUIZ" && c.quizId) {
+      return { ...(c.quiz || {}), ...(quizById.get(c.quizId) || {}), id: c.quizId, kind: "quiz", order: c.order, contentId: c.id };
+    }
+    if (c.type === "ASSIGNMENT" && c.assignmentId) {
+      return {
+        ...(c.assignment || {}),
+        ...(assignmentById.get(c.assignmentId) || {}),
+        id: c.assignmentId,
+        kind: "assignment",
+        order: c.order,
+        contentId: c.id,
+      };
+    }
+    return { ...c, kind: "content", contentId: c.id };
+  });
+
+  // Quizzes with no place in the sequence (qualifying tests) and draft-only
+  // assignments are listed after it.
+  const placedIds = new Set(sequenceRows.filter((row) => row.kind !== "content").map((row) => row.id));
+  const unplaced = [
+    ...(quizzes || []).filter((quiz) => !placedIds.has(quiz.id)).map((quiz) => ({ ...quiz, kind: "quiz" })),
+    ...assignmentExtras.filter((assignment) => !placedIds.has(assignment.id)),
+  ];
+
+  // ONE sequence per level, in the order things were added: the level's
+  // Content rows and its child containers (lessons, topics, …) share it, so
+  // they are simply interleaved by that shared order.
+  const sequenced = [
+    ...sequenceRows,
+    ...children.map((item) => ({ ...item, kind: item.kind || "extra" })),
+  ].sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || (a.contentId ? 0 : 1) - (b.contentId ? 0 : 1));
+  const mergedRows = [...sequenced, ...unplaced];
+
+  // Up/Down swaps a Content row with its neighbour in the level's sequence —
+  // another Content row or a child container alike.
+  const neighbourOf = (row, direction) => {
+    const index = sequenced.findIndex((candidate) => candidate === row);
+    if (index === -1) return null;
+    return sequenced[direction === "up" ? index - 1 : index + 1] || null;
+  };
   const canMove = (rIdx, direction) => {
-    const neighbor = mergedRows[direction === "up" ? rIdx - 1 : rIdx + 1];
-    if (!neighbor) return false;
-    return !groupOf || groupOf(mergedRows[rIdx]) === groupOf(neighbor);
+    const row = mergedRows[rIdx];
+    return Boolean(row?.contentId && neighbourOf(row, direction));
   };
 
+  // Every move goes through PATCH /contents/reorder — quizzes and assignments
+  // are Content rows, so there is no other ordering to update.
   const handleMove = async (id, direction) => {
-    const plan = swapSiblingOrder(mergedRows, id, direction);
-    if (!plan) return;
-    const kindOf = (rowId) => mergedRows.find((r) => r.id === rowId)?.kind;
-    const contentUpdates = plan.filter((p) => kindOf(p.id) === "content");
-    const quizUpdates = plan.filter((p) => kindOf(p.id) === "quiz");
+    const row = sequenced.find((candidate) => candidate.contentId && candidate.id === id);
+    const neighbor = neighbourOf(row, direction);
+    if (!row || !neighbor) return;
     try {
-      if (contentUpdates.length > 0) {
-        await reorderContents.mutateAsync({ parent, contents: contentUpdates });
-      }
-      if (quizUpdates.length > 0) {
-        await reorderQuizzes.mutateAsync({ quizzes: quizUpdates });
-      }
+      await reorderContents.mutateAsync({
+        parent,
+        contents: [
+          { id: row.contentId, order: neighbor.order },
+          { id: neighbor.contentId || neighbor.id, order: row.order },
+        ],
+      });
     } catch {
       showToast("Failed to reorder", "error");
     }
@@ -412,7 +422,7 @@ function ParentContentRows({
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <span className={`text-[13px] font-mono font-bold px-1.5 py-0.5 rounded shrink-0 ${tagStyle.badge}`}>
-                    {questions.length} Qs
+                    {questions.length || row._count?.quizQuestions || 0} Qs
                   </span>
                   {role === "INSTRUCTOR" && (
                     <RowMenu
@@ -736,11 +746,11 @@ export function CourseComposerSidebar({
   const toggleConcept = (conceptId) =>
     setExpandedConcepts((prev) => ({ ...prev, [conceptId]: !isConceptOpen(conceptId) }));
 
-  // The Course level is one sequence in four groups — Content, then Modules,
-  // then Assignments, then Quizzes (see compareCourseRows): the course's own
-  // Content/Quiz rows (loaded by ParentContentRows) merged with its Modules
-  // and course-direct Assignments. The backend writes and enforces those
-  // groups (see the API's contentOrder.util.js).
+  // The Course level is one sequence in the order things were added: the
+  // course's own Content rows (ordinary content, quiz and assignment rows,
+  // loaded by ParentContentRows) and its Modules share one numbering (see
+  // the API's contentOrder.util.js). Every level below works the same way
+  // inside its own parent.
   const orderedModules = sortByRenderOrder(modules);
   const courseRowItems = [
     ...orderedModules.map((mod, mIdx) => ({ ...mod, kind: "module", mIdx })),
@@ -1159,8 +1169,6 @@ export function CourseComposerSidebar({
           isDraftMode={isDraftMode}
           draftContents={courseContents}
           className="space-y-0.5 pr-1 text-base"
-          compareRows={compareCourseRows}
-          groupOf={(row) => courseGroupRank(row.kind)}
           extraItems={courseRowItems}
           renderExtraItem={(row) => {
             if (row.kind === "assignment") return renderAssignmentRow(row);

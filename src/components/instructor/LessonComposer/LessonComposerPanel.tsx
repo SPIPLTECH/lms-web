@@ -34,10 +34,10 @@ import { LinkCell } from "./cells/LinkCell";
 import { DocumentCell } from "./cells/DocumentCell";
 import { InteractiveCell } from "./cells/InteractiveCell";
 import { AssignmentCell } from "./cells/AssignmentCell";
-import { useDuplicateContent, useUpdateContent } from "./contentMutations";
+import { useDuplicateContent } from "./contentMutations";
 import { CELL_TYPES, type ContentType } from "./cellTypes";
 import { detectHtmlCellVariant } from "./htmlCellVariant";
-import { planInsert, sortByOrder } from "./blockOrder";
+import { sortByOrder } from "./blockOrder";
 import { getErrorMessage } from "./getErrorMessage";
 import type { CellActionProps, ContentParent, ContentRow } from "./types";
 
@@ -194,11 +194,12 @@ export function LessonComposerPanel({
   const contents: ContentRow[] = isDraftMode ? (draftContents || []) : (apiContents || []);
   const isLoading = isDraftMode ? false : isApiLoading;
   const isError = isDraftMode ? false : isApiError;
-  const [insertOrder, setInsertOrder] = useState<number | null>(null);
+  // The open Add Content picker and where its new block goes: `order` is a
+  // position in this parent's sequence, or undefined to append after
+  // everything in it. null = picker closed.
+  const [addTarget, setAddTarget] = useState<{ order?: number } | null>(null);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
-  const [insertingAnchorId, setInsertingAnchorId] = useState<string | null>(null);
   const { duplicate } = useDuplicateContent();
-  const updateContent = useUpdateContent();
   const { showToast } = useToast();
 
   // Selection is "controlled" when a parent passes onSelectCell (the course
@@ -241,7 +242,7 @@ export function LessonComposerPanel({
     return () => cancelAnimationFrame(raf);
   }, [effectiveSelectedId, contents.length]);
 
-  const openAddCell = (order: number) => {
+  const openAddCell = (order?: number) => {
     if (!parent?.parentId) {
       showToast(
         parent?.parentType === "topic"
@@ -252,52 +253,25 @@ export function LessonComposerPanel({
       );
       return;
     }
-    setInsertOrder(order);
+    setAddTarget({ order });
   };
 
   /**
-   * "Add Above"/"Add Below": makes room at the target integer `order` slot
-   * (see blockOrder.ts for why shifting — not a fractional order — is what
-   * the backend actually supports), then opens the same Add Content picker
-   * every other insertion uses. Guarded by `insertingAnchorId` since the
-   * shifts are awaited sequentially and a second click mid-sequence would
-   * plan against a now-stale `contents` snapshot.
+   * "Add Above"/"Add Below": asks for the anchor's slot (or the one after it)
+   * in this parent's sequence. That sequence also holds the parent's child
+   * containers (a lesson's topics, a topic's subtopics, …), which this panel
+   * doesn't list — so the orders are never computed here from the visible
+   * blocks alone; the backend inserts at the slot and shifts everything after
+   * it, blocks and containers alike.
    */
-  const handleInsert = async (anchorId: string, position: "above" | "below") => {
-    if (insertingAnchorId) return;
-
-    const plan = planInsert(contents, anchorId, position);
-    if (plan.shifts.length === 0) {
-      openAddCell(plan.insertOrder);
+  const handleInsert = (anchorId: string, position: "above" | "below") => {
+    const anchor = contents.find((c) => c.id === anchorId);
+    if (!anchor || typeof anchor.order !== "number") {
+      openAddCell();
       return;
     }
-
-    setInsertingAnchorId(anchorId);
-    try {
-      for (const shift of plan.shifts) {
-        await updateContent.mutateAsync({
-          contentId: shift.contentId,
-          contentData: { order: shift.newOrder },
-          parent,
-        });
-      }
-      openAddCell(plan.insertOrder);
-    } catch (error) {
-      showToast(
-        getErrorMessage(error, "Failed to make room for the new block. Nothing was added — try again."),
-        "error",
-        "Insert failed"
-      );
-    } finally {
-      setInsertingAnchorId(null);
-    }
+    openAddCell(position === "above" ? anchor.order : anchor.order + 1);
   };
-
-  const validOrders = (contents || [])
-    .map((c: ContentRow) => (typeof c.order === "number" && !isNaN(c.order) && c.order > 0 ? c.order : 0))
-    .filter((o: number) => o > 0);
-
-  const nextOrder = validOrders.length > 0 ? Math.max(...validOrders) + 1 : (contents.length > 0 ? contents.length + 1 : 1);
 
   // Lets the Course Map's "Add Content" action open this topic's Add
   // Content picker immediately, without a second click once the topic
@@ -323,7 +297,7 @@ export function LessonComposerPanel({
     });
     handledAutoOpenSignal.current = handled;
     if (!open) return;
-    openAddCell(nextOrder);
+    openAddCell();
     onAutoOpenConsumed?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoOpenAddSignal, isLoading]);
@@ -349,7 +323,8 @@ export function LessonComposerPanel({
   const handleDuplicate = async (content: ContentRow) => {
     setDuplicatingId(content.id);
     try {
-      await duplicate(content, nextOrder);
+      // The copy goes right below the block it was made from.
+      await duplicate(content, typeof content.order === "number" ? content.order + 1 : undefined);
     } catch (error) {
       showToast(getErrorMessage(error, "Failed to duplicate this block."), "error", "Duplicate failed");
     } finally {
@@ -373,7 +348,7 @@ export function LessonComposerPanel({
         </div>
       ) : contents.length === 0 ? (
         <div
-          onClick={() => openAddCell(nextOrder)}
+          onClick={() => openAddCell()}
           className="rounded-2xl border-2 border-dashed border-border hover:border-primary/50 bg-background/40 p-12 text-center transition cursor-pointer group"
         >
           <p className="text-base font-bold text-foreground group-hover:text-primary transition">
@@ -423,10 +398,10 @@ export function LessonComposerPanel({
 
       <AddCellModal
         parent={parent}
-        order={insertOrder ?? nextOrder}
-        open={insertOrder !== null}
+        order={addTarget?.order}
+        open={addTarget !== null}
         onOpenChange={(open) => {
-          if (!open) setInsertOrder(null);
+          if (!open) setAddTarget(null);
         }}
         onAddQuiz={onAddQuiz}
       />

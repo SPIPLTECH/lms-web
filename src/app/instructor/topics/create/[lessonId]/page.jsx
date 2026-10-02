@@ -18,10 +18,7 @@ export default function CreateTopicPage() {
 
     const createTopicMutation = useCreateTopic();
 
-    const {
-        data: topics = [],
-        isLoading: topicsLoading,
-    } = useTopics(lessonId);
+    const {isLoading: topicsLoading} = useTopics(lessonId);
 
     const {data: lesson, isLoading: lessonLoading} = useLesson(lessonId);
     const {data: moduleData, isLoading: moduleLoading} = useModule(lesson?.moduleId, {enabled: !!lesson?.moduleId});
@@ -33,16 +30,10 @@ export default function CreateTopicPage() {
     const isLoading = topicsLoading || lessonLoading || (!!lesson?.moduleId && moduleLoading);
 
     const handleSubmit = async (values) => {
-        const nextOrder =
-            topics.length > 0
-                ? Math.max(...topics.map((topic) => topic.order), 0) + 1
-                : 1;
-
         try {
             await createTopicMutation.mutateAsync({
                 ...values,
                 lessonId,
-                order: nextOrder,
             });
 
             // Return to the Course Composer (the primary screen instructors

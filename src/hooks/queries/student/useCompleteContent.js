@@ -80,6 +80,8 @@ export function useCompleteContent() {
       // Completing content can settle the node the student is on and open
       // the next one, so the gate has to be refetched alongside the numbers.
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_PATH] });
+      // …and the learning sequence the player walks, which carries the locks.
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_SEQUENCE] });
       // The next action is derived from the path and the evidence, so it
       // moves whenever either does.
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.NEXT_ACTION] });
@@ -92,7 +94,8 @@ export function useCompleteContent() {
 
 /**
  * Marks a Content/Quiz block as visited the first time the player shows it —
- * drives "Continue Learning" resume tracking (see lib/resumeTarget.js). Only
+ * drives "Continue Learning" resume tracking (the learning sequence's resume
+ * step). Only
  * invalidates COURSE_PROGRESS: a visit never changes Enrollment.progressPercent
  * (that's completion-based), so the dashboard/My Courses queries have nothing
  * new to reflect and don't need refetching on every block view.
@@ -125,6 +128,8 @@ export function useMarkVisited() {
       const anyChanged = results.some((r) => r?.changed !== false);
       if (anyChanged) {
         queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.COURSE_PROGRESS] });
+        // A visit moves "Continue learning" and keeps a step open for good.
+        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_SEQUENCE] });
       }
     }
   });
@@ -152,6 +157,8 @@ export function useCompleteLesson() {
       // Completing content can settle the node the student is on and open
       // the next one, so the gate has to be refetched alongside the numbers.
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_PATH] });
+      // …and the learning sequence the player walks, which carries the locks.
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_SEQUENCE] });
       // The next action is derived from the path and the evidence, so it
       // moves whenever either does.
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.NEXT_ACTION] });

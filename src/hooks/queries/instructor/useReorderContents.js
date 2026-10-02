@@ -8,8 +8,8 @@ export function useReorderContents() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: ({ contents }) =>
-            reorderContents(contents),
+        mutationFn: ({ contents, parent }) =>
+            reorderContents(contents, parent),
 
         onSuccess: (_, variables) => {
             // variables.parent is the {parentType, parentId} shape every new
@@ -29,6 +29,11 @@ export function useReorderContents() {
                 queryKey: [QUERY_KEYS.MODULES],
                 refetchType: "all",
             });
+            // A move can shift the level's child containers too (they share
+            // the sequence), so the course trees holding them refetch.
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.COURSE] });
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.INSTRUCTOR_COURSE] });
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_SEQUENCE] });
         },
     });
 }

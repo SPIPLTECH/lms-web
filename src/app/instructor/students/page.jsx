@@ -123,8 +123,11 @@ function StudentsDirectoryContent() {
   }
 
   return (
-    <div className="min-h-screen text-foreground flex flex-col gap-6 bg-background pb-10">
-      
+    // -mt/pt: pulls up into DashboardLayout's top padding (p-2 / sm:p-6 /
+    // md:p-16) and re-pads it compactly so the header sits close under the
+    // navbar, same as /instructor/qa; the side padding is left alone.
+    <div className="-mt-2 sm:-mt-6 md:-mt-16 pt-3 sm:pt-6 min-h-screen text-foreground flex flex-col gap-6 bg-background pb-10">
+
       {/* HEADER BAR */}
       <div className="flex items-center justify-between border-b border-border pb-4">
         <div className="flex items-center gap-3">

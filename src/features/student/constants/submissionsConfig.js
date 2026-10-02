@@ -132,14 +132,7 @@ export function assignmentRecord(a) {
     percentage: grade?.percentage ?? null,
     grade,
     feedback: a.feedback || null,
-    // A lesson-composer Assignment (kind "content") has no Assignment row
-    // behind it — its own result/brief page reads it via /contents/:id
-    // instead of /assignments/:id — but otherwise behaves identically:
-    // a result view once submitted, the brief + upload form until then.
-    href:
-      a.kind === "content"
-        ? `/student/content-assignments/${a.id}`
-        : `/student/assignments/${a.id}`,
+    href: `/student/assignments/${a.id}`,
     actionLabel: submitted ? "View Submission" : "Open Assignment",
   };
 }

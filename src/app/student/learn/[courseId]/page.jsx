@@ -2,50 +2,35 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { FastForward, ListTree, MoreHorizontal, X } from "lucide-react";
+import { FastForward, ListTree, Lock, MoreHorizontal, X } from "lucide-react";
 
 import LessonContentBlock from "@/components/student/learning/LessonContentBlock";
 import ContentCompletionBar from "@/components/student/learning/ContentCompletionBar";
 import AssignmentWorkspacePanel from "@/components/student/learning/AssignmentWorkspacePanel";
-import LessonQuizPanel from "@/components/student/learning/LessonQuizPanel";
 import QuizExperience from "@/components/student/attempt/QuizExperience";
 import LearnSidePanel from "@/components/student/learning/LearnSidePanel";
 import LessonNavigationControls from "@/components/student/learning/LessonNavigationControls";
 import LearnPageHeader from "@/components/student/learning/LearnPageHeader";
 import SkipQualificationModal from "@/components/student/learning/SkipQualificationModal";
 import QualificationResultPanel from "@/components/student/learning/QualificationResultPanel";
+import StudentCourseMap from "@/components/student/learning/StudentCourseMap";
 import { rendersUploadedDeck } from "@/components/student/learning/VideoPlayer";
 
-import { groupLessonContentForDocumentView } from "@/lib/contentDocument";
-import {
-  buildCourseUnits,
-  findUnitContaining,
-  HIERARCHY_LEVEL_LABELS,
-  pathwayUnitKey, 
-  resolveLessonPathway,
-  scopeLevel,
-} from "@/lib/courseUnits";
-import { CourseStructureSidebar } from "@/components/instructor/courses/CourseComposerSidebar";
-import { normalizeCourseHierarchy } from "@/lib/courseMapper";
-import { buildProgressIndex, decorateCourseWithProgress, isItemComplete, isItemSubmitted, isNodeLeavable } from "@/lib/progressIndex";
-import { buildPathIndex, getPathEntry, getSkipOfferForScope } from "@/lib/learningPath";
-import { resolveResumeTarget } from "@/lib/resumeTarget";
+import { buildPathIndex, getSkipOfferForScope } from "@/lib/learningPath";
 
 import {
   useCourse,
   useStudentState,
   useUpdateStudentState,
-  useCourseProgress,
   useCompleteContent,
   useMarkVisited,
 } from "@/hooks/queries/student";
 import useLearningPath from "@/hooks/queries/student/useLearningPath";
+import useLearningSequence from "@/hooks/queries/student/useLearningSequence";
 import useQuizResult from "@/hooks/queries/student/useQuizResult";
 import useMyCourses from "@/hooks/queries/student/useMyCourses";
 import useTrackCourseAccess from "@/hooks/queries/student/useTrackCourseAccess";
 import useLearningStateSync from "@/hooks/queries/student/useLearningStateSync";
-import useLessonNavigation from "@/hooks/queries/student/useLessonNavigation";
-import useTopicNavigation from "@/hooks/queries/student/useTopicNavigation";
 import useMediaQuery from "@/hooks/useMediaQuery";
 
 import Loader from "@/components/common/Loader";
@@ -56,33 +41,37 @@ import { AiAssistantWidget } from "@/features/ai-assistant/components";
 
 import { useToast } from "@/components/ui/ToastProvider";
 
-/**
- * The real Content row ids behind one displayed block.
- *
- * Blocks coming through groupLessonContentForDocumentView carry `contentIds`
- * (a merged HTML document stands for several rows); a block picked straight
- * off the course tree — a Course- or Module-direct item chosen in the sidebar,
- * which never goes through that grouping — carries only its own id. Progress
- * is keyed on these ids, so this is what both the completion request and the
- * completion lookup must use, never the block's display identity.
- */
-function contentIdsOf(item) {
-  if (!item) return [];
-  const ids = Array.isArray(item.contentIds) && item.contentIds.length > 0 ? item.contentIds : [item.id];
-  return ids.filter(Boolean);
+const LEVEL_LABELS = {
+  course: "Course",
+  module: "Module",
+  lesson: "Lesson",
+  topic: "Topic",
+  subTopic: "SubTopic",
+  concept: "Concept",
+};
+
+/** Every container node (Course, Module, … Concept) of the learning-sequence tree, by id. */
+function indexContainers(tree) {
+  const byId = new Map();
+  const walk = (node) => {
+    byId.set(node.id, node);
+    for (const entry of node.entries || []) if (entry.type === "container") walk(entry.node);
+  };
+  if (tree) walk(tree);
+  return byId;
 }
 
 export default function LearnPage() {
   const { courseId } = useParams();
   const router = useRouter();
 
-  const { data: rawCourseData, isLoading, isError } = useCourse(courseId);
-  const course = useMemo(() => normalizeCourseHierarchy(rawCourseData) || {}, [rawCourseData]);
+  // Course metadata only (title, language): what the player walks comes from
+  // the learning sequence below.
+  const { data: course, isLoading, isError } = useCourse(courseId);
 
   // Same enrollment gate as /student/courses/[courseId] — this is the actual
-  // lesson content, not just an overview, so it's the more important of the
-  // two to close. A non-enrolled student who reaches this URL directly is
-  // sent to the public course page instead of the player.
+  // lesson content, not just an overview. A non-enrolled student who reaches
+  // this URL directly is sent to the public course page instead of the player.
   const { data: myEnrollments, isLoading: isEnrollmentsLoading } = useMyCourses();
   const isEnrolled = (myEnrollments || []).some((e) => (e.courseId || e.course?.id) === courseId);
 
@@ -91,77 +80,46 @@ export default function LearnPage() {
       router.replace(`/courses/${courseId}`);
     }
   }, [isEnrollmentsLoading, isEnrolled, courseId, router]);
-  // Progress is advisory to this page: the player must stay fully usable when
-  // the roll-up is unavailable, so a failed/pending progress query degrades to
-  // "no indicators" rather than blocking or erroring the learning experience.
+
+  // THE learning sequence: every Content item — ordinary content, quizzes and
+  // assignments — as one ordered list of steps, with the server's completed /
+  // visited / locked flags. Prev/Next, the Course Map, resume and the
+  // completion strip all read it; nothing here orders, merges or gates items.
   const {
-    data: progressData,
-    isLoading: isProgressLoading,
-  } = useCourseProgress(courseId);
+    data: sequence,
+    isPending: isSequencePending,
+    isError: isSequenceError,
+    refetch: refetchSequence,
+  } = useLearningSequence(courseId, { enabled: isEnrolled });
+  const steps = sequence?.steps || [];
+  const containersById = useMemo(() => indexContainers(sequence?.tree), [sequence]);
+
   const completeContentMutation = useCompleteContent();
   const markVisitedMutation = useMarkVisited();
 
-  // Single flattened view of the backend roll-up. Null while loading or on
-  // failure — every consumer below treats null as "don't render indicators".
-  const progressIndex = useMemo(() => buildProgressIndex(progressData), [progressData]);
-
-  // The server's own view of the sequence: which lesson/topic is locked, which
-  // was skipped after qualifying, and where a qualifying test is on offer.
-  // Advisory here for the same reason progress is — the backend refuses
-  // locked content regardless, so a failed path query degrades to "no skip
-  // offered, nothing marked locked" rather than shutting the student out.
+  // The server's lesson/topic path — read here only for qualifying-test
+  // (skip) offers.
   const { data: learningPathData } = useLearningPath(courseId);
   const pathIndex = useMemo(
     () => buildPathIndex(learningPathData?.path),
     [learningPathData]
   );
 
-  // A same-tick-current mirror of progressIndex, for gate checks that run
-  // inside an already-executing closure (handleVideoEnded, event handlers
-  // captured at an earlier render) rather than during render itself. A plain
-  // read of the `progressIndex` closure variable there would see whatever
-  // was current when THAT closure was created — never anything newer,
-  // because a re-render creates a new closure but cannot reach back into one
-  // that's already running. canLeaveBlock/canLeaveUnit read this ref instead
-  // so a gate check always sees the latest known progress, however stale the
-  // handler instance itself is. Anything used for on-screen display should
-  // keep reading `progressIndex` (the render-time value) instead — this ref
-  // is only for "is it actually safe to proceed" checks.
-  const progressIndexRef = useRef(progressIndex);
-  useEffect(() => {
-    progressIndexRef.current = progressIndex;
-  }, [progressIndex]);
-
-  // activeCompletionRef carries the current active-block completion state
-  // into handleMarkComplete below without making it a dependency (it's kept
-  // current by a plain assignment further down, where activeContentIds/
-  // activeContentCompleted are actually computed); markCompletePendingRef is
-  // its synchronous double-click guard. Declared here, and handleMarkComplete
-  // itself defined here too, because this sits before the loading/error early
-  // returns below — React requires every hook (useCallback included) to run
-  // on every render, so it cannot be declared only in the branch that has
-  // activeContentIds/activeContentCompleted already computed.
-  const activeCompletionRef = useRef({ contentIds: [], completed: false });
+  // Kept current on every render further down; handleMarkComplete reads it so
+  // it can stay a stable callback. markCompletePendingRef is its synchronous
+  // double-click guard.
+  const activeCompletionRef = useRef({ contentIds: [], completed: true });
   const markCompletePendingRef = useRef(false);
   const { showToast } = useToast();
 
   const handleMarkComplete = useCallback(() => {
     const { contentIds, completed } = activeCompletionRef.current;
-    // markCompletePendingRef is a synchronous guard: the mutation's own
-    // isPending flag only becomes true once React re-renders after the
-    // first mutate() call commits, and a fast double click can fire both
-    // clicks before that happens. This ref is set/cleared immediately, in
-    // the same tick, so a same-tick double click still resolves to exactly
-    // one request (Test 5 in the task spec).
     if (markCompletePendingRef.current || completed || contentIds.length === 0) return;
 
     markCompletePendingRef.current = true;
     completeContentMutation.mutate(
       { contentIds, completed: true },
       {
-        // No optimistic write: the item flips to Completed only once
-        // useCompleteContent's onSuccess has written the confirmed state
-        // (from the backend's own response) into the cache.
         onSettled: () => {
           markCompletePendingRef.current = false;
         },
@@ -170,19 +128,9 @@ export default function LearnPage() {
     );
   }, [completeContentMutation, showToast]);
 
-  // Where Continue Learning (or any plain visit with no explicit ?lessonId=)
-  // should land — see resolveResumeTarget. useLearningStateSync below uses
-  // its lessonId to settle selectedLesson; the resume effect further down
-  // (after courseUnits/jumpToBlock/enterUnit exist) uses the rest of it to
-  // land on the exact Topic/Content/Quiz once that lesson is on screen.
-  const resumeTarget = useMemo(() => resolveResumeTarget(progressData), [progressData]);
-
   // The position asked for by the URL this page was OPENED with, captured once
-  // at first render. It must be read here and not later: the effect that
-  // mirrors the current block into `?item=` starts writing as soon as the
-  // player settles on its default block, which happens BEFORE the restore
-  // effect runs — reading the live URL down there would read back that
-  // default and restore the student to it instead of where they actually were.
+  // at first render — the ?item= mirror below starts rewriting the URL as soon
+  // as the player settles.
   const openedWithRef = useRef(null);
   if (openedWithRef.current === null) {
     const search = typeof window === "undefined" ? "" : window.location.search;
@@ -192,13 +140,6 @@ export default function LearnPage() {
       lessonId: opened.get("lessonId"),
     };
   }
-
-  // The same course tree the player renders from, decorated with the backend's
-  // completion flags so the sidebar, the accordion and the quiz panel all agree.
-  const courseWithProgress = useMemo(
-    () => decorateCourseWithProgress(course, progressIndex) || course,
-    [course, progressIndex]
-  );
 
   const { data: stateData, isLoading: isStateLoading } = useStudentState(courseId);
   const updateStateMutation = useUpdateStudentState();
@@ -242,42 +183,37 @@ export default function LearnPage() {
 
   const videoPlayerRef = useRef(null);
 
-  // Resume-where-you-left-off (URL ?lessonId / DB-saved state / first-lesson
-  // fallback) + debounced persistence of playback position back to the DB.
+  // Where the student is: ONE index into the learning sequence — restored once
+  // from ?item= / ?lessonId= / the server's resume step, saved back debounced.
   const {
-    selectedLesson,
-    setSelectedLesson,
-    currentTimestamp,
+    stepIndex,
+    setStepIndex,
     setCurrentTimestamp,
+    currentTimestamp,
     initialTime,
+    restoredStepIndex,
     stateRestored,
   } = useLearningStateSync({
     courseId,
-    course,
-    isLoading,
+    sequence,
+    isSequenceLoading: isSequencePending,
     stateData,
     isStateLoading,
     updateStateMutation,
-    resumeTarget,
-    isProgressLoading,
+    openedWith: openedWithRef.current,
   });
 
-  // Lesson list, plus the single entry point (selectLesson) every navigation
-  // control below routes through. previousLesson/nextLesson aren't used for
-  // Prev/Next crossing any more — courseUnits below now owns "what's
-  // adjacent" for the whole course, zero-Topic Lessons included.
-  const {
-    lessons,
-    selectLesson,
-  } = useLessonNavigation(course, selectedLesson, setSelectedLesson);
-
-  const [selectedTopicId, setSelectedTopicId] = useState(null);
-  // One and two levels below the selected Topic. Either may be null (or stale
-  // after the Topic changes) — useTopicNavigation's `pathway` resolves them to
-  // that Topic's first SubTopic/Concept when they don't match, so these never
-  // need resetting in lockstep with selectedTopicId.
-  const [selectedSubTopicId, setSelectedSubTopicId] = useState(null);
-  const [selectedConceptId, setSelectedConceptId] = useState(null);
+  const step = steps[stepIndex] || null;
+  const stepPath = step?.path || {};
+  const selectedLesson = stepPath.lessonId ? containersById.get(stepPath.lessonId) || null : null;
+  // The most specific container below the lesson (Concept, SubTopic or
+  // Topic) — the one-line "where am I" label.
+  const pathwayNode =
+    [stepPath.conceptId, stepPath.subTopicId, stepPath.topicId]
+      .map((id) => (id ? containersById.get(id) : null))
+      .find(Boolean) || null;
+  const pathwayTitle = pathwayNode?.title || null;
+  const pathwayLevelLabel = LEVEL_LABELS[pathwayNode?.level] || "Topic";
 
   // SKIP / QUALIFYING TEST
   //
@@ -288,10 +224,10 @@ export default function LearnPage() {
   const skipOffer = useMemo(
     () =>
       getSkipOfferForScope(pathIndex, {
-        topicId: selectedTopicId,
-        lessonId: selectedLesson?.id,
+        topicId: stepPath.topicId || null,
+        lessonId: stepPath.lessonId || null,
       }),
-    [pathIndex, selectedTopicId, selectedLesson?.id]
+    [pathIndex, stepPath.topicId, stepPath.lessonId]
   );
 
   // Null until the student chooses to take the test; then it holds the offer
@@ -353,16 +289,11 @@ export default function LearnPage() {
   };
 
 
-  // Whether the current lesson uses the topic-scoped pathway at all — a
-  // legacy/edge-case lesson with zero Topics falls back to the old
-  // lesson-wide bar and content flatten further down instead.
-  const hasTopics = (selectedLesson?.topics?.length ?? 0) > 0;
-
   // Picking a lesson or topic in the drawer should reveal it, not leave the
   // sheet covering what was just chosen.
   useEffect(() => {
     setCourseMapOpen(false);
-  }, [selectedLesson?.id, selectedTopicId, selectedSubTopicId, selectedConceptId]);
+  }, [stepIndex]);
 
   // Escape closes the off-canvas course map, the same as its X and its scrim.
   // Bound only while it is open, so nothing listens on the desktop layout.
@@ -536,766 +467,78 @@ export default function LearnPage() {
     };
   }, [isDesktop, rightPanelOpen]);
 
-  // previousTopic/nextTopic/selectTopic aren't used for Prev/Next crossing
-  // any more — courseUnits below now owns "what's adjacent" for the whole
-  // course, Topics included. currentTopic is still read for display
-  // (topicTitle in the header) and for the current Topic's own completion
-  // gate id.
-  //
-  // `pathway` is where the placeholder pathway actually is: the selected
-  // Lesson resolved down through Topic → SubTopic → Concept to the deepest
-  // container, whose own contents/quizzes are the blocks on screen. For a
-  // Topic with no SubTopics that container is the Topic itself, exactly as
-  // before.
-  const { currentTopic, pathway } = useTopicNavigation(
-    course,
-    selectedLesson,
-    selectedTopicId,
-    setSelectedLesson,
-    setSelectedTopicId,
-    lessons,
-    { selectedSubTopicId, selectedConceptId }
-  );
-
-  // Whenever the selected Lesson changes to one whose Topics don't include
-  // the currently selected Topic, default to that Lesson's first Topic.
-  // Deliberately keyed only on selectedLesson?.id: when selectTopic crosses
-  // a Lesson boundary it sets selectedLesson and selectedTopicId together in
-  // the same handler (batched into one render), so by the time this effect
-  // runs, selectedTopicId already belongs to the new selectedLesson and this
-  // is a no-op — it only fires the reset for lesson-level navigation
-  // (sidebar lesson/module clicks, resume-from-URL/DB, zero-topic Next/Prev
-  // Lesson) that never touched selectedTopicId itself.
-  useEffect(() => {
-    if (!selectedLesson) return;
-    const topicsOfLesson = selectedLesson.topics || [];
-    const stillValid = topicsOfLesson.some((t) => t.id === selectedTopicId);
-    if (!stillValid) {
-      setSelectedTopicId(topicsOfLesson[0]?.id || null);
-    }
-  }, [selectedLesson?.id]);
-
-  // A content-unit switch (a different Topic, or a different zero-Topic
-  // Lesson) mounts a different (or no) video — the previous unit's
-  // playback position must not leak into the newly-selected unit's Sticky
-  // Notes timestamps or the debounced state-sync write. Must NOT fire
-  // while the very first unit is still settling (Lesson restored but its
-  // first Topic hasn't been auto-selected yet), so a just-restored resume
-  // position survives.
-  //
-  // Keyed on BOTH selectedLesson and selectedTopicId together, not
-  // selectedTopicId alone — a zero-Topic Lesson always reports
-  // selectedTopicId as null, so a null-only signal can't tell "still
-  // settling the very first unit" apart from "genuinely on a zero-Topic
-  // Lesson" apart from "genuinely on a *different* zero-Topic Lesson than
-  // last time." Three prior fix rounds each patched a selectedTopicId-only
-  // signal and each left one of those cases wrong — round 1 (unconditional
-  // reset) broke initial settle, round 2 (previous-value sentinel) missed
-  // a real-Topic -> zero-Topic-Lesson -> real-Topic sequence, round 3
-  // (monotonic attributed flag) missed real-Topic -> zero-Topic-Lesson
-  // directly (the guard's `selectedTopicId === null` early return skipped
-  // the reset on entry into a zero-Topic Lesson, not just before settle).
-  // A composite lesson+topic key sidesteps all three: "settling" is
-  // defined once (Lesson present, and either it has no Topics or its
-  // first Topic hasn't landed yet) rather than re-derived from a sentinel
-  // that means different things at different points in the transition.
-  const hasSettledInitialUnitRef = useRef(false);
-  const previousUnitKeyRef = useRef(null);
-
-  // The content player shows one block (video/document/quiz/etc.) at a time
-  // within the current unit — goToPreviousBlock/goToNextBlock below step
-  // through blockIndex before falling through to goToPreviousUnit/
-  // goToNextUnit. landOnLastBlockRef signals that a just-triggered unit
-  // change came from Prev at block 0 (not sidebar navigation or Next), so
-  // the reset below should land on the new unit's LAST block instead of its
-  // first — set only when there genuinely is a previous unit to land in, so
-  // it can never leak into an unrelated later unit change.
-  const [blockIndex, setBlockIndex] = useState(0);
-  const landOnLastBlockRef = useRef(false);
-  // Set by a sidebar click on a specific content/quiz row that also crosses
-  // a unit boundary (a different Topic/Lesson than the one on screen) — the
-  // reset below lands directly on that row's block instead of block 0, once
-  // playerBlocks has been recomputed for the newly-selected unit.
-  const pendingBlockTargetIdRef = useRef(null);
-
-  useEffect(() => {
-    if (!selectedLesson) return;
-    const stillWaitingForFirstTopic = hasTopics && selectedTopicId === null;
-    if (stillWaitingForFirstTopic) return;
-
-    // pathway.unitKey (not selectedTopicId alone) so moving between two
-    // SubTopics or Concepts of the same Topic is also a unit switch. For a
-    // Topic without SubTopics it changes exactly when selectedTopicId does.
-    const unitKey = `${selectedLesson.id}::${pathway.unitKey ?? ""}`;
-    if (!hasSettledInitialUnitRef.current) {
-      hasSettledInitialUnitRef.current = true;
-      previousUnitKeyRef.current = unitKey;
-      return;
-    }
-    if (unitKey !== previousUnitKeyRef.current) {
-      setCurrentTimestamp(0);
-      if (landOnLastBlockRef.current) {
-        landOnLastBlockRef.current = false;
-        setBlockIndex(Math.max(0, playerBlocks.length - 1));
-      } else if (pendingBlockTargetIdRef.current) {
-        const targetId = pendingBlockTargetIdRef.current;
-        pendingBlockTargetIdRef.current = null;
-        const idx = playerBlocks.findIndex(
-          (b) => b.item.id === targetId || b.item.contentIds?.includes(targetId)
-        );
-        setBlockIndex(idx >= 0 ? idx : 0);
-      } else {
-        setBlockIndex(0);
-      }
-      previousUnitKeyRef.current = unitKey;
-    }
-  }, [selectedLesson?.id, selectedTopicId, pathway.unitKey, hasTopics]);
-
   const [, setVideoDuration] = useState(0);
 
-  // Which non-Topic/-Lesson unit (Course-direct content/quiz, a Module's own
-  // direct content/quiz, or a Lesson's own quiz when that Lesson also has
-  // Topics) the player is showing, if any — see courseUnits below for the
-  // full whole-course sequence this participates in. `blockIndex` here is
-  // this unit's own local position, kept separate from the Topic/Lesson
-  // pathway's `blockIndex` state below so the two never fight over the same
-  // counter. Any normal Lesson/Topic/Module sidebar pick clears it.
-  const [extraUnit, setExtraUnit] = useState(null); // { key, blockIndex } | null
-
-  // An Assignment row opened from the Course Map. Assignments aren't steps in
-  // the Prev/Next sequence, so one is shown over the current position until
-  // the student navigates anywhere else. (Replaces the removed manualOverride
-  // state that openItem still called, which threw on every such tap.)
-  const [openAssignmentItem, setOpenAssignmentItem] = useState(null);
-
-
-  // Auto-advance one block once a video finishes playing — same step Next
-  // takes, so a video followed by another block in the same Topic doesn't
-  // get skipped straight to the next Topic. Defined further down (after
-  // documentGroupedContents); safe to reference here since this is only
-  // ever called later, as the video's onEnded callback.
-  const handleVideoEnded = async () => {
-    // Mark the block that actually just finished — not "the first VIDEO in the
-    // lesson", which marks the wrong row whenever a lesson holds more than one.
-    // Quiz blocks complete through their own submission flow, never here.
-    const finished = activeBlock;
-    if (finished?.kind === "content" && finished.item?.id) {
-      try {
-        // contentIds (not the block's representative id) so a merged document
-        // block marks every underlying Content row — see useCompleteContent.
-        const result = await completeContentMutation.mutateAsync({
-          contentIds: contentIdsOf(finished.item),
-          completed: true,
-        });
-        // goToNextBlock() below can fall through into goToNextUnit's
-        // completion gate (canLeaveBlock/canLeaveUnit), which must see this
-        // completion to avoid wrongly blocking a student who just finished
-        // the last item in the unit. Those gates read progressIndexRef, so
-        // updating it here — synchronously, from the response this mutation
-        // already returned — is enough; no separate refetch (and no second
-        // server-side rollup) is needed just to get the same data again.
-        if (result?.courseProgress?.hierarchy) {
-          progressIndexRef.current = buildProgressIndex(result.courseProgress);
-        }
-      } catch {
-        // Completion write failed — fall through and let the gate re-check
-        // with whatever progress data is actually available rather than
-        // stranding the student on a video that already finished playing.
-      }
-    }
-    goToNextBlock();
-  };
-
-
   const trackAccessMutation = useTrackCourseAccess();
-  // Track course access whenever the student enters the course or navigates between lessons, topics, or content blocks
+  // Track course access whenever the student enters the course or moves to another step.
   useEffect(() => {
     if (courseId) {
       trackAccessMutation.mutate(courseId);
     }
-  }, [courseId, selectedLesson?.id, selectedTopicId, selectedSubTopicId, selectedConceptId, blockIndex]);
+  }, [courseId, stepIndex]);
 
-  // Content nests under Topic for legacy/imported lessons, but the current
-  // (Composer v2) authoring path attaches Content directly to the Lesson
-  // and drops Topics entirely — `lesson.contents` from the API, not
-  // `lesson.topics[].contents`. Prefer the Topic path when it has anything
-  // (the common case today); fall back to the Lesson's own `contents`
-  // otherwise, so a Composer v2 lesson isn't simply empty on this side.
-  const selectedLessonContents = useMemo(() => {
-    return selectedLesson?.contents || [];
-  }, [selectedLesson]);
-
-  // The primary content pane (video + document blocks) shows only the
-  // current pathway container's OWN contents, not the whole Lesson's — that's
-  // the point of Topic-scoped navigation. The container is the selected
-  // Topic, or its selected SubTopic/Concept when it has those; a SubTopic's
-  // or Concept's contents are never shown as the Topic's. A zero-Topic lesson
-  // has no Topic to scope to, so it falls back to the Lesson-wide list above
-  // unchanged.
-  const pathwayContainer = pathway.container;
-  const selectedTopicContents = useMemo(() => {
-    if (!hasTopics) return selectedLessonContents;
-    return pathwayContainer?.contents || [];
-  }, [hasTopics, selectedLessonContents, pathwayContainer]);
-
-  // Imported courses store each markdown block (heading/paragraph/table/...)
-  // as its own HTML content row — dozens per lesson/topic. Merge consecutive
-  // HTML rows into one flowing document item instead of showing (or
-  // dropping) one generic card per block; every other content type is
-  // untouched.
-  const documentGroupedContents = useMemo(
-    () => groupLessonContentForDocumentView(selectedTopicContents),
-    [selectedTopicContents]
-  );
-
-  // Quizzes attached to the current scope (the active Topic when the Lesson
-  // uses Topics, the Lesson itself otherwise) — the instructor Composer
-  // sidebar merges a quiz into its siblings' content order rather than
-  // showing it in a separate section, so the player does the same: a quiz
-  // takes its real position among the blocks around it.
-  const activeQuizzes = useMemo(() => {
-    if (hasTopics) return pathwayContainer?.quizzes || [];
-    return selectedLesson?.quizzes || [];
-  }, [selectedLesson, pathwayContainer, hasTopics]);
-
-  // The full one-at-a-time sequence the player steps through for the
-  // Topic/Lesson pathway — content blocks and this scope's quizzes merged
-  // and order-sorted, mirroring ParentContentRows' own merge in the
-  // instructor sidebar (ties broken content-first, since ties are only
-  // possible via manual reordering). A Course/Module-level unit's blocks
-  // come straight from courseUnits below instead.
-  const playerBlocks = useMemo(() => {
-    const contentBlocks = documentGroupedContents.map((item) => ({ kind: "content", item }));
-    const quizBlocks = activeQuizzes.map((quiz) => ({ kind: "quiz", item: quiz }));
-    return [...contentBlocks, ...quizBlocks].sort((a, b) => {
-      const orderDiff = (a.item.order ?? 0) - (b.item.order ?? 0);
-      if (orderDiff !== 0) return orderDiff;
-      return a.kind === b.kind ? 0 : a.kind === "content" ? -1 : 1;
-    });
-  }, [documentGroupedContents, activeQuizzes]);
-
-  // ---- Whole-course Prev/Next sequence -------------------------------------
-  // Every stop the player can land on, in the same order the Course Map
-  // lists them — see lib/courseUnits.js. Topic and zero-Topic-Lesson entries
-  // are `placeholder: true`: their real blocks still come from
-  // documentGroupedContents/activeQuizzes above, driven by the existing
-  // selectedLesson/selectedTopicId state; this array only needs to know
-  // they exist, in order, so crossing past them into a Course/Module/Lesson-
-  // level unit (and back) works.
-  const courseUnits = useMemo(() => buildCourseUnits(course), [course]);
-
-  // Where the placeholder (Topic / SubTopic / Concept / zero-Topic-Lesson)
-  // pathway currently is, as a courseUnits key — used only to find this
-  // position's neighbors for crossing purposes; the pathway's own state
-  // (selectedLesson/selectedTopicId/selectedSubTopicId/selectedConceptId)
-  // still drives everything it actually renders.
-  const placeholderUnitKey = hasTopics ? pathway.unitKey : `lesson:${selectedLesson?.id}`;
-  const currentUnitKey = extraUnit?.key ?? placeholderUnitKey;
-  const currentUnitIndex = courseUnits.findIndex((u) => u.key === currentUnitKey);
-  const activeExtraUnitDef = extraUnit ? courseUnits.find((u) => u.key === extraUnit.key) || null : null;
-
-  // What the player is actually stepping through right now: an extra unit's
-  // own blocks when one is active, otherwise the Topic/Lesson pathway's.
-  const activeUnitBlocks = extraUnit ? (activeExtraUnitDef?.blocks || []) : playerBlocks;
-
-  // A node the backend has no completion data for yet (progress still
-  // loading/unavailable) never blocks advancement — only a confirmed
-  // "not complete" from the roll-up does, matching the advisory-progress
-  // principle above. A node with no trackable items of its own
-  // (`applicable === false`, e.g. an empty topic) can never actually
-  // become `completed` in the roll-up, so it can't block either — mirrors
-  // progressRollup.js's own rule that empty containers don't block their
-  // parent's completion.
-  // isNodeLeavable already honours a qualified skip (see progressIndex.js), so
-  // nothing extra is needed here — the same gate serves both the ordinary
-  // sequential rule and the skip that was earned past it.
-  const canLeaveUnit = (nodeId) => isNodeLeavable(progressIndexRef.current, nodeId);
-
-  const GATE_MESSAGES = {
-    conceptId: "Complete every item in this concept and submit its quiz before moving to the next concept.",
-    subTopicId: "Complete every item and concept in this subtopic before moving to the next subtopic.",
-    topicId: "Complete every item in this topic and submit its quiz before moving to the next topic.",
-    lessonId: "Complete every topic and lesson-level item in this lesson before moving to the next lesson.",
-    moduleId: "Complete every lesson and module-level item in this module before moving to the next module.",
-  };
-
-  // Generalizes the single-boundary check goToNextUnit does (below) to an
-  // arbitrary sidebar jump: walks every boundary strictly before the target
-  // courseUnits entry, finest-scope-first per boundary, so a direct click on
-  // (say) Module 3 while Module 1 is still incomplete is blocked exactly
-  // like stepping there one Next at a time would be — same canLeaveUnit/
-  // GATE_MESSAGES, just applied cumulatively instead of to one neighbor.
-  // A target that's already reachable (everything before it is done, which
-  // is always true for anything at or behind wherever the student already
-  // is) returns null, so this never blocks reviewing earlier material.
-  const findBlockingGate = (targetUnitKey) => {
-    const targetIndex = courseUnits.findIndex((u) => u.key === targetUnitKey);
-    if (targetIndex <= 0) return null;
-
-    // The server has already decided what this student may open, over the
-    // same sequence and with skip qualifications folded in. Where it has an
-    // opinion, it IS the answer — re-deriving one here is how the sidebar
-    // ends up refusing a lesson the API would happily serve. It also gets the
-    // cases the boundary walk below cannot see: a lesson the student
-    // qualified out of is settled even though none of its topics are, so
-    // those topics must not gate what comes after it.
-    const targetScope = courseUnits[targetIndex].scope;
-    const targetNodeId = targetScope.topicId || targetScope.lessonId || targetScope.moduleId;
-    const serverEntry = getPathEntry(pathIndex, targetNodeId);
-    if (serverEntry) {
-      if (!serverEntry.locked) return null;
-      return GATE_MESSAGES[
-        serverEntry.kind === "TOPIC" ? "topicId" : serverEntry.kind === "LESSON" ? "lessonId" : "moduleId"
-      ];
-    }
-
-    // No server answer (path still loading, or a unit it doesn't gate, such as
-    // course-level content): fall back to the roll-up-based walk.
-    for (let i = 0; i < targetIndex; i++) {
-      const current = courseUnits[i];
-      const next = courseUnits[i + 1];
-      for (const level of ["conceptId", "subTopicId", "topicId", "lessonId", "moduleId"]) {
-        const currentId = current.scope[level];
-        if (!currentId || currentId === next.scope[level]) continue;
-        if (!canLeaveUnit(currentId)) {
-          return GATE_MESSAGES[level];
-        }
-      }
-    }
-    return null;
-  };
-
-  // The courseUnits entry a sidebar click on a whole Module/Lesson row
-  // (rather than one specific item inside it) actually lands on, matching
-  // what onSelectModule/onSelectLesson below (and the reset effect they
-  // trigger) actually navigate to — a Lesson with Topics always lands on
-  // its first Topic (and, when that Topic has SubTopics/Concepts, on its
-  // first SubTopic/Concept), even for a legacy Lesson that also has its own
-  // lesson-content unit ahead of that Topic in course order.
-  const firstUnitKeyFor = ({ moduleId = null, lessonId = null } = {}) => {
-    if (lessonId) {
-      const lesson = lessons.find((l) => l.id === lessonId);
-      if ((lesson?.topics?.length ?? 0) > 0) return resolveLessonPathway(lesson).unitKey;
-    }
-    const match = courseUnits.find(
-      (u) =>
-        (!moduleId || u.scope.moduleId === moduleId) &&
-        (!lessonId || u.scope.lessonId === lessonId)
-    );
-    return match?.key ?? null;
-  };
-
-  // Runs a sidebar navigation action only if its target isn't gated —
-  // shared by every sidebar entry point below so the toast + early-return
-  // shape is written once.
-  //
-  // Returns whether the action actually ran: false means the gate blocked it
-  // and nothing moved. The decision itself is unchanged — this only reports
-  // it, so callers (the Course Map handlers) can tell a real navigation from
-  // a blocked tap instead of guessing from state changes.
-  const runGated = (targetUnitKey, action) => {
-    const blockingMessage = findBlockingGate(targetUnitKey);
-    if (blockingMessage) {
-      showToast(blockingMessage, "error");
+  /**
+   * Moves the player to step `index`. What is open is the server's answer: a
+   * locked step is refused with what has to be finished first.
+   * @returns whether the player moved
+   */
+  const goToStep = (index, list = steps) => {
+    const target = list[index];
+    if (!target) return false;
+    if (target.locked) {
+      const blocker = list[target.blockedByIndex];
+      showToast(
+        blocker
+          ? `Finish “${blocker.title || "the previous item"}” first. ${blocker.completionHint || ""}`.trim()
+          : "Finish the earlier items in this course first.",
+        "error"
+      );
       return false;
     }
-    action();
+    setStepIndex(index);
     return true;
   };
+  const goToPreviousStep = () => goToStep(stepIndex - 1);
+  const goToNextStep = (list = steps) => goToStep(stepIndex + 1, list);
 
-  // One level finer than canLeaveUnit above: whether the single block
-  // currently on screen can be left for the next block in the SAME unit.
-  // A Quiz only needs an attempt on file here — passing is what canLeaveUnit
-  // requires to leave the unit entirely, not what's required to keep moving
-  // through the unit's own remaining blocks. Assignment blocks never occur
-  // in this sequence today (opening one goes through a separate, currently
-  // broken, standalone path), so there is nothing to gate for that kind yet.
-  const canLeaveBlock = (block) => {
-    const index = progressIndexRef.current;
-    if (!block || !index) return true;
-    if (block.kind === "content") {
-      const ids = contentIdsOf(block.item);
-      return ids.length === 0 || ids.every((id) => isItemComplete(index, id));
-    }
-    if (block.kind === "quiz") {
-      return isItemSubmitted(index, block.item?.id);
-    }
-    return true;
-  };
-
-  const BLOCK_GATE_MESSAGES = {
-    content: "Finish this content before moving to the next item.",
-    quiz: "Submit this quiz before moving to the next item.",
-  };
-
-  // Lands the player on a given courseUnits entry. A Topic or zero-Topic
-  // Lesson hands off to the existing selectedLesson/selectedTopicId pathway
-  // (unchanged — still owns rendering + resume/sidebar/Sticky-Notes sync for
-  // those); anything else (Course-direct, a Module's own content/quiz, or a
-  // Lesson's own quiz) becomes the active extra unit. `atEnd` lands on the
-  // unit's last block (Prev) instead of its first; `targetItemId` (a sidebar
-  // click) lands on that specific item's block.
-  // Returns whether the player actually moved: false for an unresolvable unit
-  // (findUnitContaining found nothing) and for a gated one. Same reporting-only
-  // addition as runGated above — no change to what is or isn't allowed.
-  const enterUnit = (unit, { atEnd = false, targetItemId = null, skipGate = false } = {}) => {
-    if (!unit) return false;
-
-    // skipGate is for goToPreviousUnit only — going back must always work,
-    // never re-litigated against completion state (see the comment there).
-    if (!skipGate) {
-      const blockingMessage = findBlockingGate(unit.key);
-      if (blockingMessage) {
-        showToast(blockingMessage, "error");
-        return false;
-      }
-    }
-
-    setOpenAssignmentItem(null);
-    const resolvedIndex = targetItemId
-      ? Math.max(
-          0,
-          (unit.blocks || []).findIndex(
-            (b) => b.item.id === targetItemId || b.item.contentIds?.includes(targetItemId)
-          )
-        )
-      : atEnd
-      ? Math.max(0, (unit.blocks?.length || 1) - 1)
-      : 0;
-
-    if (unit.placeholder) {
-      setExtraUnit(null);
-      // The pathway can already be sitting on this placeholder while an extra
-      // unit is on screen — e.g. a mixed Topic's own content run followed by
-      // its first SubTopic, which the pathway defaults to. The unit key then
-      // doesn't change, so the reset effect never runs; position the block
-      // here directly instead of leaving a stale blockIndex.
-      const alreadyOnPlaceholder =
-        unit.scope.lessonId === selectedLesson?.id && unit.key === placeholderUnitKey;
-      if (unit.scope.lessonId && unit.scope.lessonId !== selectedLesson?.id) {
-        const lessonMatch = lessons.find((l) => l.id === unit.scope.lessonId);
-        if (lessonMatch) selectLesson(lessonMatch);
-      }
-      setSelectedTopicId(unit.scope.topicId || null);
-      setSelectedSubTopicId(unit.scope.subTopicId || null);
-      setSelectedConceptId(unit.scope.conceptId || null);
-      if (alreadyOnPlaceholder) {
-        const idx = targetItemId
-          ? playerBlocks.findIndex((b) => b.item.id === targetItemId || b.item.contentIds?.includes(targetItemId))
-          : atEnd
-          ? playerBlocks.length - 1
-          : 0;
-        setBlockIndex(Math.max(0, idx));
-      } else if (atEnd) landOnLastBlockRef.current = true;
-      else if (targetItemId) pendingBlockTargetIdRef.current = targetItemId;
-      return true;
-    }
-
-    // A Lesson-scoped extra unit (lesson-content/lesson-quiz) still points
-    // selectedLesson at the right Lesson, so Sticky Notes, the bookmark
-    // toggle and resume-state persistence stay correctly scoped.
-    if (unit.scope.lessonId && unit.scope.lessonId !== selectedLesson?.id) {
-      const lessonMatch = lessons.find((l) => l.id === unit.scope.lessonId);
-      if (lessonMatch) selectLesson(lessonMatch);
-    }
-    setExtraUnit({ key: unit.key, blockIndex: resolvedIndex });
-    return true;
-  };
-
-  // Only the forward direction is gated; a student can always go back to
-  // review earlier material. Crossing out of a Topic requires that Topic
-  // complete; crossing out of a Lesson (whether from its last Topic, its own
-  // quiz, or — for a zero-Topic Lesson — its own content) additionally
-  // requires the whole Lesson complete; crossing out of a Module likewise
-  // requires the whole Module complete. Same rule as the instructor's spec,
-  // generalized to every level courseUnits now covers, not just Topics —
-  // checked finest-scope-first so the most specific message wins. enterUnit's
-  // own findBlockingGate check (walking every prior boundary) subsumes this
-  // single-neighbor case, so the gate itself now lives there.
-  const goToNextUnit = () => {
-    const target = courseUnits[currentUnitIndex + 1];
-    if (!target) return;
-    enterUnit(target);
-  };
-
-  // Only the forward direction is gated; a student can always go back to
-  // review earlier material — skipGate bypasses enterUnit's check
-  // unconditionally here rather than relying on "the previous unit's own
-  // prerequisites happen to already be satisfied", which stops holding the
-  // moment a student reached their current position via a not-yet-gated
-  // path (e.g. progress predating this feature).
-  const goToPreviousUnit = () => {
-    const target = courseUnits[currentUnitIndex - 1];
-    if (!target) return;
-    enterUnit(target, { atEnd: true, skipGate: true });
-  };
-
-  // In-player Prev/Next (the floating buttons over the content itself): step
-  // through the active unit's own blocks first, only falling through to
-  // goToPreviousUnit/goToNextUnit — i.e. cross into the previous/next unit —
-  // once there's no earlier/later block in the current one.
-  const goToPreviousBlock = () => {
-    // Prev/Next from an opened Assignment returns to the position underneath.
-    if (openAssignmentItem) {
-      setOpenAssignmentItem(null);
-      return;
-    }
-    if (extraUnit) {
-      if (extraUnit.blockIndex > 0) {
-        setExtraUnit((prev) => ({ ...prev, blockIndex: prev.blockIndex - 1 }));
+  // A finished video completes its step and moves on — once the refreshed
+  // sequence says the next step is open, so the gate never reads stale flags.
+  const handleVideoEnded = async () => {
+    const finished = step;
+    if (finished?.kind === "CONTENT" && !finished.completed) {
+      try {
+        await completeContentMutation.mutateAsync({ contentIds: finished.contentIds, completed: true });
+        const { data: fresh } = await refetchSequence();
+        goToNextStep(fresh?.steps || steps);
         return;
+      } catch {
+        // The completion failed: let the gate decide on what is known.
       }
-    } else if (blockIndex > 0) {
-      setBlockIndex((prev) => prev - 1);
-      return;
     }
-    goToPreviousUnit();
+    goToNextStep();
   };
 
-  const goToNextBlock = () => {
-    const currentBlock = activeUnitBlocks[extraUnit ? extraUnit.blockIndex : blockIndex];
-    if (!canLeaveBlock(currentBlock)) {
-      showToast(BLOCK_GATE_MESSAGES[currentBlock.kind] || "Finish this item before moving on.", "error");
-      return;
-    }
-
-    if (openAssignmentItem) {
-      setOpenAssignmentItem(null);
-      return;
-    }
-    if (extraUnit) {
-      if (extraUnit.blockIndex < activeUnitBlocks.length - 1) {
-        setExtraUnit((prev) => ({ ...prev, blockIndex: prev.blockIndex + 1 }));
-        return;
-      }
-    } else if (blockIndex < playerBlocks.length - 1) {
-      setBlockIndex((prev) => prev + 1);
-      return;
-    }
-    goToNextUnit();
-  };
-
-  // Jumps the player straight to a specific content/quiz row selected from
-  // the sidebar, for the Topic/Lesson pathway only (Course/Module-level and
-  // Lesson-quiz selections go through enterUnit directly instead — see the
-  // sidebar handlers below). A click on a row already within the on-screen
-  // unit resolves its index immediately; a click that also crosses a unit
-  // boundary stashes the target id in pendingBlockTargetIdRef for the
-  // unit-change reset effect to resolve once playerBlocks has been
-  // recomputed for the newly-selected unit.
-  //
-  // Returns whether the player moved. A click inside the unit already on
-  // screen always did (it is at or behind the student's own position, which
-  // the gate never blocks — see findBlockingGate); a click that crosses a
-  // boundary moved only if runGated let it through; skipGate skips the gate
-  // entirely, so it moved by construction.
-  const jumpToBlock = (targetId, { lesson, topic, subTopic, concept, skipGate = false } = {}) => {
-    setExtraUnit(null);
-    setOpenAssignmentItem(null);
-    // The placeholder this row lives in — its deepest given container.
-    const targetUnitKey = pathwayUnitKey({
-      lessonId: lesson?.id,
-      topicId: topic?.id,
-      subTopicId: subTopic?.id,
-      conceptId: concept?.id,
-    });
-    const alreadyOnUnit =
-      lesson?.id === selectedLesson?.id && (topic ? targetUnitKey === placeholderUnitKey : true);
-    if (alreadyOnUnit) {
-      const idx = playerBlocks.findIndex(
-        (b) => b.item.id === targetId || b.item.contentIds?.includes(targetId)
-      );
-      // A sidebar click within the SAME unit used to jump straight to `idx`
-      // with no check at all — unlike goToNextBlock, which already gates
-      // each step with canLeaveBlock. That let a student open Content 4 by
-      // clicking it even with Content 3 still incomplete. Walk every block
-      // strictly before the target and refuse the jump if any of them isn't
-      // leavable yet, same rule Next already enforces one step at a time.
-      if (idx > 0 && !skipGate) {
-        for (let i = 0; i < idx; i++) {
-          if (!canLeaveBlock(playerBlocks[i])) {
-            showToast(
-              BLOCK_GATE_MESSAGES[playerBlocks[i].kind] || "Finish the previous item first.",
-              "error"
-            );
-            return false;
-          }
-        }
-      }
-      setBlockIndex(idx >= 0 ? idx : 0);
-      return true;
-    }
-
-    const proceed = () => {
-      pendingBlockTargetIdRef.current = targetId;
-      const match = lesson?.id ? lessons.find((l) => l.id === lesson.id) : null;
-      if (match) selectLesson(match);
-      if (topic?.id) setSelectedTopicId(topic.id);
-      setSelectedSubTopicId(subTopic?.id || null);
-      setSelectedConceptId(concept?.id || null);
-    };
-    if (skipGate) {
-      proceed();
-      return true;
-    }
-    return runGated(targetUnitKey, proceed);
-  };
-
-  // Opens a Content/Quiz row at whatever level owns it. A row belongs to a
-  // placeholder unit only when its owner is the deepest container on its
-  // branch (a Lesson with no Topics, a Topic with no SubTopics, a SubTopic
-  // with no Concepts, or a Concept); an owner WITH children — or a Module or
-  // the Course — puts its own items in their own courseUnits entry instead.
-  // Same decision the Lesson-level handler below already makes, extended
-  // down the hierarchy. Returns whether the player moved, like its callees.
-  const openCourseMapItem = (itemId, { lesson, topic, subTopic, concept } = {}, { skipGate = false } = {}) => {
-    const ownerHasChildren = concept
-      ? false
-      : subTopic
-      ? (subTopic.concepts?.length ?? 0) > 0
-      : topic
-      ? (topic.subTopics?.length ?? 0) > 0
-      : (lesson?.topics?.length ?? 0) > 0;
-
-    if (!lesson || ownerHasChildren) {
-      return enterUnit(findUnitContaining(courseUnits, itemId), { targetItemId: itemId, skipGate });
-    }
-    return jumpToBlock(itemId, { lesson, topic, subTopic, concept, skipGate });
-  };
-
-  // Once, on initial load with no explicit ?lessonId= (a Continue Learning
-  // click, or any bare visit to the course): lands the player on
-  // resumeTarget's exact Topic/Content/Quiz — useLearningStateSync above
-  // only gets as far as the right Lesson. Runs after that settles
-  // (stateRestored) and courseUnits exists, and only once per mount ever —
-  // nothing the student does afterward (sidebar clicks, Prev/Next, a fresh
-  // completion) may be re-overridden by this as progress keeps changing
-  // through the rest of the session. Reuses jumpToBlock/enterUnit exactly
-  // as a sidebar click would, but always with skipGate — a resume target can
-  // legitimately sit behind an incomplete earlier item (the leaf order this
-  // is computed from and the gate's own boundary walk don't always agree on
-  // in-progress edge cases), and the very first thing a student sees on
-  // opening a course must never be an error toast.
-  const hasAppliedResumeTargetRef = useRef(false);
-  useEffect(() => {
-    if (hasAppliedResumeTargetRef.current) return;
-    if (!stateRestored || courseUnits.length === 0) return;
-
-    // `?item=` pins the exact block the student was last on. It outranks the
-    // progress-derived resume target: this is "put me back where I was",
-    // which is a stricter promise than "where should I carry on". Read from
-    // the mount-time capture, and only honoured when the id still resolves to
-    // a unit in this course — a stale or hand-edited one falls through to the
-    // normal resume below rather than dead-ending.
-    const { itemId: pinnedItemId, lessonId: openedLessonId } = openedWithRef.current || {};
-
-    if (pinnedItemId) {
-      const pinnedUnit = findUnitContaining(courseUnits, pinnedItemId);
-      if (pinnedUnit) {
-        hasAppliedResumeTargetRef.current = true;
-        enterUnit(pinnedUnit, { targetItemId: pinnedItemId, skipGate: true });
-        return;
-      }
-    }
-
-    if (openedLessonId) {
-      hasAppliedResumeTargetRef.current = true;
-      return;
-    }
-
-    if (!resumeTarget) return;
-
-    hasAppliedResumeTargetRef.current = true;
-    const { id, lessonId, topicId, subTopicId, conceptId } = resumeTarget;
-
-    if (topicId) {
-      // Down to the leaf's own container: a Topic-, SubTopic- or Concept-level
-      // item. openCourseMapItem then picks the placeholder pathway or the
-      // container's own unit, exactly like a Course Map click on that row.
-      const lessonMatch = lessons.find((l) => l.id === lessonId);
-      const topicMatch = lessonMatch?.topics?.find((t) => t.id === topicId);
-      const subTopicMatch = subTopicId ? topicMatch?.subTopics?.find((s) => s.id === subTopicId) : undefined;
-      const conceptMatch = conceptId ? subTopicMatch?.concepts?.find((c) => c.id === conceptId) : undefined;
-      openCourseMapItem(
-        id,
-        { lesson: lessonMatch, topic: topicMatch, subTopic: subTopicMatch, concept: conceptMatch },
-        { skipGate: true }
-      );
-      return;
-    }
-
-    if (lessonId) {
-      const lessonMatch = lessons.find((l) => l.id === lessonId);
-      const lessonHasTopics = (lessonMatch?.topics?.length ?? 0) > 0;
-      if (lessonHasTopics) {
-        // A topics-Lesson's own content/quiz run(s) — findUnitContaining
-        // (not a guessed key) since buildCourseUnits can split a level's
-        // own items into several runs interleaved with its children.
-        enterUnit(findUnitContaining(courseUnits, id), { targetItemId: id, skipGate: true });
-      } else {
-        jumpToBlock(id, { lesson: lessonMatch, skipGate: true });
-      }
-      return;
-    }
-
-    // Module-direct or Course-direct.
-    enterUnit(findUnitContaining(courseUnits, id), { targetItemId: id, skipGate: true });
-    // enterUnit/jumpToBlock intentionally omitted from deps — same
-    // convention as the unit-change reset effect above: they close over
-    // this render's state and aren't memoized, so listing them would just
-    // re-run this every render; the ref guard is what actually prevents
-    // re-application.
-  }, [stateRestored, resumeTarget, courseUnits, lessons]);
-
-  // Marks the block currently on screen visited, once per Content/Quiz id —
-  // POST /progress/visit, which nothing previously called. This is the data
-  // resumeTarget.js's "last visited leaf" walk depends on; without it every
-  // "Continue Learning" click fell back to the course's very first leaf.
+  // Marks the step on screen visited, once per Content row — drives resume,
+  // and a reached step stays open for good.
   const visitedIdsRef = useRef(new Set());
   useEffect(() => {
-    const idx = extraUnit ? extraUnit.blockIndex : blockIndex;
-    const block = openAssignmentItem ? null : activeUnitBlocks[idx];
-    if (!block) return;
+    if (!step || step.locked || step.visited) return;
+    const ids = step.contentIds.filter((id) => !visitedIdsRef.current.has(id));
+    if (ids.length === 0) return;
+    ids.forEach((id) => visitedIdsRef.current.add(id));
+    markVisitedMutation.mutate({ contentIds: ids });
+    // markVisitedMutation intentionally omitted; the ref guard prevents re-sending.
+  }, [step?.contentId, step?.locked, step?.visited]);
 
-    if (block.kind === "content") {
-      const ids = contentIdsOf(block.item).filter((id) => !visitedIdsRef.current.has(id));
-      if (ids.length === 0) return;
-      ids.forEach((id) => visitedIdsRef.current.add(id));
-      markVisitedMutation.mutate({ contentIds: ids });
-    } else if (block.kind === "quiz" && block.item?.id && !visitedIdsRef.current.has(block.item.id)) {
-      visitedIdsRef.current.add(block.item.id);
-      markVisitedMutation.mutate({ quizId: block.item.id });
-    }
-    // markVisitedMutation intentionally omitted — same convention as
-    // enterUnit/jumpToBlock above; the ref guard is what prevents re-sending.
-  }, [extraUnit, blockIndex, activeUnitBlocks, openAssignmentItem]);
-
-  // Mirrors the block on screen into the URL, so a refresh returns to this
-  // exact Content/Quiz rather than to wherever "Continue Learning" would send
-  // the student. Those are different questions: resumeTarget answers "what
-  // should I do next" and deliberately steps PAST a leaf once it's completed,
-  // so without this a refresh while reviewing a finished item jumped forward
-  // to the following one. history.replaceState, not router.replace — this is
-  // not navigation and must not remount the player mid-video or stack a
-  // history entry per block.
+  // Mirrors the step on screen into ?item=, so a refresh returns to this exact
+  // item. history.replaceState, not router.replace — this is not navigation.
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const idx = extraUnit ? extraUnit.blockIndex : blockIndex;
-    const block = openAssignmentItem ? null : activeUnitBlocks[idx];
-    const itemId = block?.item?.id;
-    if (!itemId) return;
-
+    if (typeof window === "undefined" || !step) return;
     const params = new URLSearchParams(window.location.search);
-    if (params.get("item") === String(itemId)) return;
-
-    // Any `lessonId` the page was opened with is left alone: `item` is
-    // consulted first on restore, so a lingering lesson param is a harmless
-    // fallback — and useLearningStateSync still reads it from the live URL to
-    // choose the initial lesson, which deleting it here could race.
-    params.set("item", String(itemId));
+    if (params.get("item") === String(step.contentId)) return;
+    params.set("item", String(step.contentId));
     window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
-  }, [extraUnit, blockIndex, activeUnitBlocks, openAssignmentItem]);
+  }, [step?.contentId]);
 
   // Still used by Sticky Notes (both the mobile tab and the desktop side
   // panel) to jump the video to a note's timestamp.
@@ -1303,147 +546,57 @@ export default function LearnPage() {
     videoPlayerRef.current?.seekTo(seconds);
   };
 
-  if (isLoading || isEnrollmentsLoading || !isEnrolled) {
+  if (isLoading || isEnrollmentsLoading || !isEnrolled || isSequencePending || !stateRestored) {
     return <Loader />;
   }
 
-  if (isError || !course) {
+  if (isError || !course || isSequenceError || !sequence) {
     return <Card className="text-foreground">Course not found.</Card>;
   }
 
-  // What the player actually shows — whatever block the active unit
-  // (extraUnit, or the Topic/Lesson pathway) is currently on.
-  const activeBlockIndex = extraUnit ? extraUnit.blockIndex : blockIndex;
-  const activeBlock = openAssignmentItem
-    ? { kind: "assignment", item: openAssignmentItem }
-    : activeUnitBlocks[activeBlockIndex];
+  const isQuizStep = step?.kind === "QUIZ";
+  const isAssignmentStep = step?.kind === "ASSIGNMENT";
+  const isContentStep = step?.kind === "CONTENT";
+  const contentItem =
+    isContentStep && step.body
+      ? { id: step.contentId, contentIds: step.contentIds, type: step.type, title: step.title, ...step.body }
+      : null;
 
-  // The header shows the current Lesson/Topic line only — its progress
-  // readout was removed, since the Course Map already reports progress at
-  // every level of the hierarchy and did so with more context.
-  const pathwayLevelLabel = HIERARCHY_LEVEL_LABELS[pathway.level] || "Topic";
-  const pathwayTitle = hasTopics ? (pathway.subTopic ? pathwayContainer?.title : currentTopic?.title) : null;
-
-  // Course Map sidebar highlighting — mirrors the instructor Composer's
-  // composerMode/composeXId contract (see CourseComposerSidebar), derived
-  // from whatever's actually on screen rather than tracked as separate
-  // state. An extra unit (Course/Module-direct, a Lesson's own quiz, or a
-  // Topic's/SubTopic's own items when it has children) has its own scope to
-  // report; the Topic/Lesson pathway still reports the current lesson's
-  // module so that ancestor row stays expanded.
-  const sidebarComposerMode = activeExtraUnitDef
-    ? scopeLevel(activeExtraUnitDef.scope)
-    : hasTopics
-    ? pathway.level
-    : "lesson";
-  const sidebarComposeModuleId = activeExtraUnitDef
-    ? activeExtraUnitDef.scope.moduleId
-    : selectedLesson?.moduleId ?? null;
-  const sidebarComposeLessonId = activeExtraUnitDef
-    ? activeExtraUnitDef.scope.lessonId
-    : selectedLesson?.id ?? null;
-  const sidebarComposeTopicId = activeExtraUnitDef
-    ? activeExtraUnitDef.scope.topicId ?? null
-    : hasTopics
-    ? selectedTopicId
-    : null;
-  const sidebarComposeSubTopicId = activeExtraUnitDef
-    ? activeExtraUnitDef.scope.subTopicId ?? null
-    : pathway.subTopic?.id ?? null;
-  const sidebarComposeConceptId = activeExtraUnitDef
-    ? activeExtraUnitDef.scope.conceptId ?? null
-    : pathway.concept?.id ?? null;
-  const sidebarComposeQuizId = activeBlock?.kind === "quiz" ? activeBlock.item.id : null;
-  const sidebarSelectedCellId = activeBlock?.kind === "content" ? activeBlock.item.id : null;
-
-  const resultReturnTo = `/student/learn/${courseId}${selectedLesson?.id ? `?lessonId=${selectedLesson.id}` : ""}`;
-
-  // ---- Completion state for the block currently on screen -------------------
-  // Read straight out of the backend roll-up. A merged document block counts as
-  // complete only when every Content row behind it is, because the backend
-  // counts each of those rows in its own denominator. This is a lookup of the
-  // server's per-item flags, not a calculation of progress.
-  const activeContentIds = activeBlock?.kind === "content" ? contentIdsOf(activeBlock.item) : [];
-  const activeContentCompleted =
-    activeContentIds.length > 0 && activeContentIds.every((id) => isItemComplete(progressIndex, id));
-
-  // A Quiz reports the same backend flag in the same strip, but never offers a
-  // way to set it: `completed` for a Quiz means the backend recorded a passing
-  // QuizSubmission, so it is earned by passing, not by asserting it here.
-  const activeQuizId = activeBlock?.kind === "quiz" ? activeBlock.item?.id : null;
-  const activeQuizCompleted = Boolean(activeQuizId) && isItemComplete(progressIndex, activeQuizId);
-
-  // The floating Prev/Next controls double as an escape hatch out of an
-  // in-progress quiz — same gate canLeaveBlock already enforces on click
-  // (isItemSubmitted), just hidden outright here instead of clickable-then-
-  // toast, so an unsubmitted quiz reads as "finish this first" rather than
-  // offering a way out that immediately errors.
-  const hideFloatingNavForActiveQuiz = Boolean(activeQuizId) && !isItemSubmitted(progressIndex, activeQuizId);
-
-  // An Assignment is the same story: completion is earned by the backend
-  // accepting a submission, so the strip reports it and offers no action.
-  const activeAssignmentId = activeBlock?.kind === "assignment" ? activeBlock.item?.id : null;
-  const activeAssignmentCompleted =
-    Boolean(activeAssignmentId) && isItemComplete(progressIndex, activeAssignmentId);
-
-  const activeEarnedId = activeQuizId || activeAssignmentId;
-
-  // A lesson-composer Assignment block (Content type ASSIGNMENT) is earned the
-  // same way: the backend completes it when the PDF submission is recorded.
-  const activeIsContentAssignment =
-    activeBlock?.kind === "content" && activeBlock.item?.type === "ASSIGNMENT";
-
-  // Hidden entirely until the roll-up is known: without it we cannot say
-  // whether this item is already complete, and showing "Mark as Complete" on a
-  // finished item (or vice versa) would misreport the student's own state.
-  // Also hidden for the duration of a qualifying attempt: that test takes over
-  // the player frame while activeBlock is still the content behind it, so
-  // without this the content's own completion pill floated over the quiz —
-  // offering to complete a lesson the student is in the middle of testing out
-  // of, which is not something this button can do from here.
-  const showCompletionBar =
-    Boolean(progressIndex) &&
-    !qualifyingAttempt &&
-    (activeContentIds.length > 0 || Boolean(activeEarnedId));
-
-  // Opens an Assignment in this workspace instead of navigating away, so the
-  // Course Map, the completion strip and the course percentage all stay on
-  // screen while the student works through it.
-  const openAssignment = (assignment) => {
-    if (!assignment?.id) return;
-    setOpenAssignmentItem(assignment);
+  // Completion strip. Only ordinary content is marked complete here; a quiz or
+  // an assignment completes by the server's rule, so its strip is read-only
+  // and says what is still required.
+  activeCompletionRef.current = {
+    contentIds: isContentStep ? step.contentIds : [],
+    completed: Boolean(step?.completed),
+  };
+  const showCompletionBar = Boolean(step) && !step.locked && !qualifyingAttempt;
+  const completionBarProps = {
+    completed: Boolean(step?.completed),
+    isPending: completeContentMutation.isPending,
+    isVideo: isContentStep && step?.type === "VIDEO",
+    readOnly: !isContentStep,
+    readOnlyHint: step?.completionHint || "",
+    onMarkComplete: handleMarkComplete,
   };
 
+  // A quiz not attempted yet hides the floating Prev/Next — the quiz itself is
+  // the way through it.
+  const hideFloatingNavForActiveQuiz = isQuizStep && !step?.attempted;
 
-  // Mirrors the values handleMarkComplete needs at click time, kept current
-  // on every render (a plain assignment, not a ref updated in an effect, so
-  // it's correct as of the render that just committed — no extra tick of
-  // lag). handleMarkComplete itself reads this ref rather than closing over
-  // activeContentIds/activeContentCompleted directly: those are recomputed
-  // (new array / fresh boolean) on every render, including the several-a-
-  // second re-renders a playing video drives via currentTimestamp, so
-  // closing over them directly would give handleMarkComplete — and anything
-  // memoized against it, like ContentCompletionBar — a new identity on every
-  // one of those ticks, defeating the memoization entirely.
-  activeCompletionRef.current = { contentIds: activeContentIds, completed: activeContentCompleted };
+  const resultReturnTo = `/student/learn/${courseId}${step ? `?item=${step.contentId}` : ""}`;
 
-  // The side panel (Ask instructor / Sticky notes / Feedback / Reviews) —
-  // one definition, two surfaces: the xl+ column at the page's right edge
-  // and the below-xl "More" popover in the lesson context row. Same shape as
-  // renderCourseTree above: the options argument is the ONLY thing that
-  // differs between the two call sites, so neither surface can drift from
-  // the other's behaviour — `compact` shrinks spacing and type for the
-  // ~280px popover and nothing else.
-  // Questions are tied to the one item on screen — content block, quiz or
-  // assignment — and only ever listed back on that item.
   const renderSidePanel = ({ compact = false } = {}) => (
     <LearnSidePanel
       activeFeature={sidePanelFeature}
       onChangeFeature={setSidePanelFeature}
       lessonId={selectedLesson?.id ?? null}
       askTarget={
-        activeBlock?.item?.id && ["content", "quiz", "assignment"].includes(activeBlock.kind)
-          ? { kind: activeBlock.kind, id: activeBlock.item.id, title: activeBlock.item.title }
+        step && !step.locked
+          ? {
+              kind: isQuizStep ? "quiz" : isAssignmentStep ? "assignment" : "content",
+              id: isQuizStep ? step.quizId : isAssignmentStep ? step.assignmentId : step.contentId,
+              title: step.title,
+            }
           : null
       }
       currentTimestamp={currentTimestamp}
@@ -1452,207 +605,32 @@ export default function LearnPage() {
     />
   );
 
-  const quizPanel = (
-    <LessonQuizPanel quizzes={courseWithProgress?.quizzes || course?.quizzes || []} courseId={courseId} currentLessonId={selectedLesson?.id} />
-  );
-
-  // Below xl the Course Map is an overlay, so a selection that lands has to
-  // get out of the way — but ONLY one that lands. Every handler below closes
-  // it on the navigation primitive's own success result (runGated/enterUnit/
-  // jumpToBlock), never on the click itself: a completion-gated tap still
-  // toasts and leaves the map open over the unchanged player, and so does a
-  // selection whose unit can't be resolved. On the xl rail these calls are
-  // no-ops — courseMapOpen is already false there and React bails on an
-  // identical value — so the desktop sidebar is unaffected.
-  //
-  // One definition of the course tree, rendered on two surfaces: the xl+
-  // rail and the below-xl drawer. Same modules, same progress, same select
-  // handlers — only the open/close wiring and the header differ.
-  const renderCourseTree = ({ isOpen, onToggleOpen, hideHeader = false }) => (
-    <CourseStructureSidebar
-      modules={courseWithProgress.modules || []}
-      courseId={courseId}
-      courseQuizzes={courseWithProgress.quizzes || []}
-      // Course-direct assignments are counted by the roll-up, so the tree
-      // has to render them too or the student cannot reach what their
-      // percentage is already waiting on.
-      courseAssignments={courseWithProgress.assignments || []}
-      progress={progressIndex}
-      maxHeightClassName="max-h-full"
-      composerMode={sidebarComposerMode}
-      composeLessonId={sidebarComposeLessonId}
-      composeModuleId={sidebarComposeModuleId}
-      composeTopicId={sidebarComposeTopicId}
-      composeSubTopicId={sidebarComposeSubTopicId}
-      composeConceptId={sidebarComposeConceptId}
-      composeQuizId={sidebarComposeQuizId}
-      selectedCellId={sidebarSelectedCellId}
+  // One Course Map on two surfaces (xl rail, below-xl drawer), drawn from the
+  // same learning sequence the player walks.
+  const renderCourseTree = ({ onToggleOpen, hideHeader = false }) => (
+    <StudentCourseMap
+      sequence={sequence}
+      currentStepIndex={stepIndex}
+      onSelectStep={(index) => {
+        if (goToStep(index)) setCourseMapOpen(false);
+      }}
       onSelectCourseOverview={() => router.push(`/student/courses/${courseId}`)}
-      onSelectLesson={(lessonId) => {
-        setExtraUnit(null);
-        setOpenAssignmentItem(null);
-        const match = lessons.find((l) => l.id === lessonId);
-        if (!match) return;
-        const navigated = runGated(
-          firstUnitKeyFor({ moduleId: match.moduleId, lessonId: match.id }),
-          () => {
-            setExtraUnit(null);
-            selectLesson(match);
-          }
-        );
-        if (navigated) setCourseMapOpen(false);
-      }}
-      onSelectModule={(mod) => {
-        const firstLesson = mod.lessons?.[0];
-        if (!firstLesson) return;
-        const navigated = runGated(
-          firstUnitKeyFor({ moduleId: mod.id, lessonId: firstLesson.id }),
-          () => {
-            setExtraUnit(null);
-            setOpenAssignmentItem(null);
-            selectLesson(firstLesson);
-          }
-        );
-        if (navigated) setCourseMapOpen(false);
-      }}
-      onSelectTopic={(topicId, lessonId) => {
-        setExtraUnit(null);
-        setOpenAssignmentItem(null);
-        const match = lessons.find((l) => l.id === lessonId);
-        if (!match) return;
-        // A Topic with SubTopics lands on its first SubTopic/Concept — gate
-        // against that stop, since `topic:<id>` is not a unit for it.
-        const navigated = runGated(resolveLessonPathway(match, { topicId }).unitKey, () => {
-          setExtraUnit(null);
-          selectLesson(match);
-          setSelectedTopicId(topicId);
-          setSelectedSubTopicId(null);
-          setSelectedConceptId(null);
-        });
-        if (navigated) setCourseMapOpen(false);
-      }}
-      onSelectSubTopic={(subTopic, { lesson, topic } = {}) => {
-        setExtraUnit(null);
-        setOpenAssignmentItem(null);
-        const match = lessons.find((l) => l.id === lesson?.id);
-        if (!match || !topic) return;
-        const navigated = runGated(
-          resolveLessonPathway(match, { topicId: topic.id, subTopicId: subTopic.id }).unitKey,
-          () => {
-            setExtraUnit(null);
-            selectLesson(match);
-            setSelectedTopicId(topic.id);
-            setSelectedSubTopicId(subTopic.id);
-            setSelectedConceptId(null);
-          }
-        );
-        if (navigated) setCourseMapOpen(false);
-      }}
-      onSelectConcept={(concept, { lesson, topic, subTopic } = {}) => {
-        setExtraUnit(null);
-        setOpenAssignmentItem(null);
-        const match = lessons.find((l) => l.id === lesson?.id);
-        if (!match || !topic || !subTopic) return;
-        const navigated = runGated(
-          pathwayUnitKey({ lessonId: match.id, topicId: topic.id, subTopicId: subTopic.id, conceptId: concept.id }),
-          () => {
-            setExtraUnit(null);
-            selectLesson(match);
-            setSelectedTopicId(topic.id);
-            setSelectedSubTopicId(subTopic.id);
-            setSelectedConceptId(concept.id);
-          }
-        );
-        if (navigated) setCourseMapOpen(false);
-      }}
-      onSelectContent={(content, topic, lesson) => {
-        if (openCourseMapItem(content.id, { lesson, topic })) setCourseMapOpen(false);
-      }}
-      onSelectSubTopicContent={(content, { lesson, topic, subTopic } = {}) => {
-        if (openCourseMapItem(content.id, { lesson, topic, subTopic })) setCourseMapOpen(false);
-      }}
-      onSelectConceptContent={(content, { lesson, topic, subTopic, concept } = {}) => {
-        if (openCourseMapItem(content.id, { lesson, topic, subTopic, concept })) setCourseMapOpen(false);
-      }}
-      onSelectLessonContent={(content, lesson) => {
-        // A Lesson's own direct content is only ever a distinct
-        // courseUnits entry when that Lesson also has Topics (see
-        // courseUnits above) — otherwise it *is* the Topic/Lesson
-        // pathway's own content, reached the normal way.
-        const navigated =
-          (lesson?.topics?.length ?? 0) > 0
-            ? enterUnit(findUnitContaining(courseUnits, content.id), { targetItemId: content.id })
-            : jumpToBlock(content.id, { lesson });
-        if (navigated) setCourseMapOpen(false);
-      }}
-      onSelectModuleContent={(content) => {
-        if (enterUnit(findUnitContaining(courseUnits, content.id), { targetItemId: content.id })) {
-          setCourseMapOpen(false);
-        }
-      }}
-      onSelectCourseContent={(content) => {
-        if (enterUnit(findUnitContaining(courseUnits, content.id), { targetItemId: content.id })) {
-          setCourseMapOpen(false);
-        }
-      }}
-      onSelectQuiz={(quiz, mod, lesson, topic, _options, context) => {
-        // A quiz on a placeholder container (a zero-Topic Lesson, a Topic
-        // without SubTopics, a SubTopic without Concepts, a Concept) is one of
-        // that pathway's blocks; a topic-Lesson's, Module's, Course's — or a
-        // Topic's/SubTopic's that has children — own quiz is its own unit.
-        const navigated = openCourseMapItem(quiz.id, {
-          lesson,
-          topic,
-          subTopic: context?.subTopic,
-          concept: context?.concept,
-        });
-        if (navigated) setCourseMapOpen(false);
-      }}
-      // Assignments are not steps in the Prev/Next sequence, so one opens
-      // over the current position. Wired on the shared tree, so the xl rail
-      // and the below-xl drawer both reach it — this used to hang off the
-      // mobile-only accordion, which the drawer replaced.
-      onSelectAssignment={(assignment) => openAssignment(assignment)}
-      isOpen={isOpen}
       onToggleOpen={onToggleOpen}
       hideHeader={hideHeader}
-      role="STUDENT"
     />
   );
 
-  // ---- Mobile height/scroll ownership -------------------------------------
-  // Below xl, who owns height and scrolling depends on WHAT is on screen. One
-  // bounded 68dvh box for everything is what stretched video, clipped text and
-  // trapped the quiz in a nested scroller.
-  //   reading   — text/HTML: bounded player, but the scroller is VideoPlayer's
-  //               own content area, one level BELOW its title bar, so the bar
-  //               stays pinned while the prose scrolls. The body here must
-  //               therefore NOT scroll, or there would be two scrollbars.
-  //   contained — quiz and PDF/DOC/PPT/external: bounded player, and this body
-  //               is the single scroller (documents fill it exactly, so it
-  //               only actually scrolls for the quiz).
-  //   aspect    — video: the frame wraps a 16:9 player that derives its own
-  //               height from its width.
-  //   natural   — assignment: a form with uploads, which must size to its own
-  //               content rather than be trapped in a short box.
-  // Derived from data already in scope; desktop is unaffected (every class
-  // below is max-xl:).
-  const activeContentType = activeBlock?.kind === "content" ? activeBlock.item?.type : null;
-  // An uploaded .ppt/.pptx is a fixed-aspect canvas, like a video: a fitted
-  // slide on a phone is ~180px tall, so the 68dvh reading box left most of the
-  // frame as empty backdrop beneath it. Its frame sizes to the slide instead.
+  // Below xl, who owns height and scrolling depends on WHAT is on screen:
+  //   aspect — video / uploaded deck; natural — assignment form;
+  //   reading — text/HTML; contained — quiz and PDF/DOC/external.
   const playerMode =
-    activeContentType === "VIDEO" ||
-    (activeBlock?.kind === "content" && rendersUploadedDeck(activeBlock.item))
+    isContentStep && (step.type === "VIDEO" || (contentItem && rendersUploadedDeck(contentItem)))
       ? "aspect"
-      : activeBlock?.kind === "assignment" || activeContentType === "ASSIGNMENT"
-      ? "natural"
-      : activeBlock?.kind === "content" &&
-        activeContentType !== "FILE" &&
-        activeContentType !== "DOCUMENT" &&
-        activeContentType !== "PDF"
-      ? "reading"
-      : "contained";
+      : isAssignmentStep
+        ? "natural"
+        : isContentStep && !["FILE", "DOCUMENT", "PDF"].includes(step.type)
+          ? "reading"
+          : "contained";
 
   // Literal class strings — Tailwind only emits what it can see verbatim.
   const FRAME_MODE_CLASSES = {
@@ -1661,84 +639,29 @@ export default function LearnPage() {
     reading: "max-xl:h-[68dvh] max-xl:min-h-[360px] max-xl:max-h-none",
     contained: "max-xl:h-[68dvh] max-xl:min-h-[360px] max-xl:max-h-none",
   };
-  // An uploaded .ppt/.pptx renders through PptViewer, whose canvas derives its
-  // height from its width via the slide's own aspect ratio — a full-width 16:9
-  // slide is all the height it has. The frame's fixed h-[calc(100vh-147px)]
-  // gave it far more than that on desktop (900px of frame against a ~610px
-  // slide at 1440), and the surplus showed as a band of dead backdrop under
-  // every slide. Below xl nothing changes: the 68dvh box there lands within a
-  // few pixels of a full-width slide already, which is why only desktop showed
-  // the gap. min-h is released with it so the frame hugs the deck at narrower
-  // desktop widths too (1280 with the side panel open); max-h-[900px] stays, so
-  // a very wide deck still scrolls inside the frame exactly as it does today.
-  // Decks only — PDFs, documents and quizzes fill and scroll the bounded frame.
   const deckFrameSizing = "";
-
-  // overflow-y (not the overflow shorthand) so it overrides the base
-  // overflow-y-auto by property, never by stylesheet order.
   const BODY_MODE_CLASSES = {
     natural: "max-xl:flex-none max-xl:overflow-y-visible",
     aspect: "max-xl:flex-none max-xl:overflow-y-visible",
-    // reading: hand the scroll down to VideoPlayer's content area, and make
-    // sure this element can never become a second vertical scrollbar.
     reading: "max-xl:overflow-y-hidden",
     contained: "",
   };
 
-  // LESSON CONTENT navigation — one set of props and one pair of handlers
-  // (goToPreviousBlock / goToNextBlock), rendered in two placements: the
-  // desktop overlay on the player, and the row under the player below xl.
-  // Entirely separate from the document's page navigation, which the
-  // document viewer owns and renders in its own header.
   const lessonNavProps = {
-    unitLabel: activeExtraUnitDef
-      ? HIERARCHY_LEVEL_LABELS[scopeLevel(activeExtraUnitDef.scope)]
-      : hasTopics
-      ? pathwayLevelLabel
-      : "Lesson",
-    previousItem: activeBlockIndex > 0 || currentUnitIndex > 0,
-    nextItem:
-      activeBlockIndex < activeUnitBlocks.length - 1 || currentUnitIndex < courseUnits.length - 1,
-    onSelectPrevious: goToPreviousBlock,
-    onSelectNext: goToNextBlock,
+    unitLabel: LEVEL_LABELS[step?.level] || "Lesson",
+    previousItem: stepIndex > 0,
+    nextItem: stepIndex < steps.length - 1,
+    onSelectPrevious: goToPreviousStep,
+    onSelectNext: () => goToNextStep(),
   };
 
-  // Not memoized as a single object -- `<ContentCompletionBar {...x} />`
-  // spreads these into individual props, and memo()'s default comparison
-  // checks each one separately, not the wrapper object's own identity (which
-  // isn't itself a prop). completed/isPending/isVideo/readOnly/readOnlyHint
-  // are plain booleans/strings, so they already compare equal by value across
-  // renders where nothing actually changed. onMarkComplete is the only
-  // reference-typed one, and it's a stable useCallback (declared above, before
-  // the loading/error early returns) — that's what actually lets memo() skip
-  // re-rendering ContentCompletionBar on the several-a-second re-renders a
-  // playing video drives via currentTimestamp.
-  const completionBarProps = {
-    completed: activeQuizId
-      ? activeQuizCompleted
-      : activeAssignmentId
-        ? activeAssignmentCompleted
-        : activeContentCompleted,
-    isPending: completeContentMutation.isPending,
-    isVideo: !activeEarnedId && activeBlock?.item?.type === "VIDEO",
-    readOnly: Boolean(activeEarnedId) || activeIsContentAssignment,
-    readOnlyHint: activeQuizId
-      ? "Pass this quiz to complete it."
-      : "Submit your assignment (PDF or written answer) to complete it.",
-    onMarkComplete: handleMarkComplete,
-  };
-
-  // The learning ids the AI Assistant should be aware of, read from the state
-  // this page already maintains. Deliberately a plain function, not a
-  // useCallback: it is defined below this component's early returns, where a
-  // hook would break the rules-of-hooks ordering — and AiAssistantWidget holds
-  // it in a ref, so a new identity each render costs nothing. Called lazily on
-  // send, so the assistant always sees where the student is *now*.
+  // The learning ids the AI Assistant should be aware of. Quiz/assignment ids
+  // are deliberately NOT passed: the assistant never retrieves assessments.
   const getAiLearningPosition = () => ({
-    moduleId: selectedLesson?.moduleId || null,
-    lessonId: selectedLesson?.id || null,
-    topicId: selectedTopicId || null,
-    contentIds: activeContentIds.length > 0 ? activeContentIds : undefined,
+    moduleId: stepPath.moduleId || null,
+    lessonId: stepPath.lessonId || null,
+    topicId: stepPath.topicId || null,
+    contentIds: isContentStep ? step.contentIds : undefined,
   });
 
   return (
@@ -1993,53 +916,30 @@ export default function LearnPage() {
                     Index reopen and the side-panel toggle all live in the top
                     bar above (LearnPageHeader). */}
 
-                {/* One block at a time — Next/Prev below step through the
-                    active unit's blocks (content and quizzes merged in
-                    order) before crossing into the previous/next unit,
-                    anywhere in the whole course — see activeUnitBlocks/
-                    courseUnits above. initialTime (resume position) only
-                    applies to the first block of the normal Topic/Lesson
-                    sequence. */}
+                {/* One step at a time — Prev/Next walk the learning sequence
+                    (content, quizzes and assignments in Content.order).
+                    initialTime (the saved video position) only applies to
+                    the step the page was restored to. */}
                 <div className={`flex-1 overflow-y-auto min-h-0 ${BODY_MODE_CLASSES[playerMode]}`}>
                   {qualifyingAttempt && qualifyingSubmitted && qualificationOutcome ? (
-                    // The attempt is in and the server has decided. Its own
-                    // outcome replaces the generic quiz summary, because what
-                    // matters here is whether the skip was earned and, if not,
-                    // what to go back to.
+                    // The attempt is in and the server has decided whether the
+                    // skip was earned and, if not, what to go back to.
                     <div className="p-2.5 sm:p-5">
                       <QualificationResultPanel
                         qualification={qualificationOutcome}
                         targetTitle={qualifyingAttempt.target.title}
                         onContinue={closeQualifyingTest}
-                        // Whether another attempt is allowed is part of the
-                        // server's qualification block now — the panel reads
-                        // it there rather than being told twice.
                         onRetake={retakeQualifyingTest}
-                        // Recommended content is opened through the same
-                        // gated navigation the sidebar uses — a failed
-                        // qualifying test must not become a way around the
-                        // sequence it just failed to skip.
+                        // Recommended content opens through the same
+                        // server-gated navigation as everything else.
                         onOpenContent={(item) => {
                           if (item.kind !== "TOPIC" || !item.id) return;
-                          const owningLesson = lessons.find((lesson) =>
-                            (lesson.topics || []).some((topic) => topic.id === item.id)
-                          );
-                          if (!owningLesson) return;
-                          const navigated = runGated(`topic:${item.id}`, () => {
-                            setExtraUnit(null);
-                            selectLesson(owningLesson);
-                            setSelectedTopicId(item.id);
-                          });
-                          if (navigated) closeQualifyingTest();
+                          const index = steps.findIndex((candidate) => candidate.path?.topicId === item.id);
+                          if (index >= 0 && goToStep(index)) closeQualifyingTest();
                         }}
                       />
                     </div>
                   ) : qualifyingAttempt ? (
-                    // The qualifying test runs in the existing quiz player —
-                    // same attempt tracking, timer, navigator and scoring as
-                    // any other quiz. Passing it is what earns the skip; this
-                    // page only reacts to the submission and lets the server's
-                    // outcome decide what happens next.
                     <div className="p-2.5 sm:p-5">
                       <QuizExperience
                         key={`qualifying:${qualifyingAttempt.quiz.id}:${qualifyingRunId}`}
@@ -2051,40 +951,50 @@ export default function LearnPage() {
                           setQualifyingSubmittedAt(Date.now());
                           setQualifyingSubmitted(true);
                         }}
-                        // The student already chose to take this test (and,
-                        // on a retake, chose again) — the quiz player's own
-                        // "you have completed this" card would ask a third
-                        // time.
                         autoReattempt
                         speechLanguage={course?.language}
                       />
                     </div>
-                  ) : activeBlock?.kind === "assignment" ? (
+                  ) : !step ? (
+                    <div className="flex h-full items-center justify-center p-6 text-center text-muted-foreground">
+                      This course has no content yet.
+                    </div>
+                  ) : step.locked ? (
+                    <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+                      <Lock size={28} className="text-muted-foreground" aria-hidden="true" />
+                      <p className="font-semibold text-foreground">{step.title || "This item"} is locked.</p>
+                      <p className="text-sm text-muted-foreground">
+                        Finish “{steps[step.blockedByIndex]?.title || "the previous item"}” first.
+                      </p>
+                    </div>
+                  ) : isAssignmentStep ? (
                     <div className="p-2.5 sm:p-5">
                       <AssignmentWorkspacePanel
-                        assignmentId={activeBlock.item.id}
-                        completed={activeAssignmentCompleted}
-                        onNextContent={goToNextBlock}
+                        key={step.assignmentId}
+                        assignmentId={step.assignmentId}
+                        completed={step.completed}
+                        onNextContent={() => goToNextStep()}
                       />
                     </div>
-                  ) : activeBlock?.kind === "quiz" ? (
+                  ) : isQuizStep ? (
                     <div className="p-2.5 sm:p-5">
                       <QuizExperience
-                        quizId={activeBlock.item.id}
-                        onBack={goToPreviousBlock}
+                        key={step.quizId}
+                        quizId={step.quizId}
+                        onBack={goToPreviousStep}
                         resultReturnTo={resultReturnTo}
-                        onNextContent={goToNextBlock}
+                        onNextContent={() => goToNextStep()}
                         speechLanguage={course?.language}
                       />
                     </div>
                   ) : (
                     <LessonContentBlock
-                      item={activeBlock?.item}
+                      item={contentItem}
                       videoPlayerRef={videoPlayerRef}
                       onTimeUpdate={setCurrentTimestamp}
                       onDurationChange={setVideoDuration}
                       onEnded={handleVideoEnded}
-                      initialTime={!extraUnit && blockIndex === 0 ? initialTime : 0}
+                      initialTime={stepIndex === restoredStepIndex ? initialTime : 0}
                       speechLanguage={course?.language}
                       lessonTitle={selectedLesson?.title}
                       reserveHeaderCorner={showCompletionBar}

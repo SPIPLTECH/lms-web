@@ -331,7 +331,7 @@ export function CreateImageForm({ parent, order, onCreated, onCancel }: CreateCe
       return;
     }
     try {
-      const safeOrder = typeof order === "number" && !isNaN(order) && order > 0 ? order : 1;
+      const safeOrder = typeof order === "number" && Number.isInteger(order) && order > 0 ? order : undefined;
       await createContent.mutateAsync({
         ...toParentField(parent),
         type: "HTML",
