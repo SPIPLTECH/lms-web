@@ -17,6 +17,7 @@ import {
   FileText,
   FlaskConical,
   GitBranch,
+  Heading,
   HelpCircle,
   Home,
   Image as ImageIcon,
@@ -55,6 +56,7 @@ import { useConcepts } from "@/hooks/queries/instructor/useConcepts";
 import { useReorderSubTopics } from "@/hooks/queries/instructor/useReorderSubTopics";
 import { useReorderConcepts } from "@/hooks/queries/instructor/useReorderConcepts";
 import { filterQuizzesPlacedAt } from "@/lib/courseMapper";
+import { detectHtmlCellVariant } from "@/components/instructor/LessonComposer/htmlCellVariant";
 import { useReorderContents } from "@/hooks/queries/instructor/useReorderContents";
 import { swapSiblingOrder } from "@/lib/reorderSiblings";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -175,6 +177,26 @@ export const CONTENT_TYPE_META = {
   EMBED: { icon: MonitorPlay, label: "Embed", color: "text-indigo-700 dark:text-indigo-400" },
 };
 export const DEFAULT_CONTENT_META = { icon: File, label: "Content", color: "text-muted-foreground" };
+
+/** Heading and Image blocks are stored as HTML; these are their own looks. */
+const HTML_VARIANT_META = {
+  heading: { icon: Heading, label: "Heading", color: "text-blue-800 dark:text-blue-300" },
+  image: CONTENT_TYPE_META.IMAGE,
+};
+
+/**
+ * The icon/label for one Content row. Heading and Image blocks are saved as
+ * `type: "HTML"` (see htmlCellVariant.ts), so the stored type alone would
+ * draw them as Text — the marker in `htmlContent` says which block it is,
+ * the same check the composer uses to pick the cell it renders.
+ */
+export function getContentTypeMeta(content) {
+  if (content?.type === "HTML") {
+    const variant = detectHtmlCellVariant(content.htmlContent);
+    if (HTML_VARIANT_META[variant]) return HTML_VARIANT_META[variant];
+  }
+  return CONTENT_TYPE_META[content?.type] || DEFAULT_CONTENT_META;
+}
 
 /** Smoothly animated expand/collapse wrapper (grid-rows trick — no height measuring needed). */
 function Collapsible({ open, children }) {
@@ -449,7 +471,7 @@ function ParentContentRows({
           }
 
           const content = row;
-          const meta = CONTENT_TYPE_META[content.type] || DEFAULT_CONTENT_META;
+          const meta = getContentTypeMeta(content);
           const Icon = meta.icon;
           const isContentActive = isActive && selectedCellId === content.id;
 

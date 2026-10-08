@@ -4,8 +4,8 @@
 // no second embed-URL builder anywhere in the codebase.
 
 // Matches youtube.com/watch?v=, youtu.be/, youtube.com/embed/,
-// youtube.com/shorts/ and youtube.com/v/, with any trailing query string
-// (?si=…, &t=…) left alone.
+// youtube.com/shorts/, youtube.com/live/ and youtube.com/v/, with any
+// trailing query string (?si=…, &t=…) left alone.
 //
 // youtube-nocookie.com is accepted on the same footing because it is the host
 // this app embeds on: a URL copied back out of one of our own players has to
@@ -16,7 +16,7 @@
 // first 11 characters and silently embed a different, real video instead of
 // being reported as unreadable.
 const YOUTUBE_ID_PATTERN =
-  /(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})(?![a-zA-Z0-9_-])/;
+  /(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})(?![a-zA-Z0-9_-])/;
 
 // A YouTube-owned host, with or without a scheme or a subdomain (www, m,
 // music). Anchoring on "//" , "." or the start of the string keeps

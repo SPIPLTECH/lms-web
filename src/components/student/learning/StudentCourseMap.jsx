@@ -18,8 +18,7 @@ import {
 
 import { NodeBadge } from "@/components/student/learning/CourseContentAccordion";
 import {
-  CONTENT_TYPE_META,
-  DEFAULT_CONTENT_META,
+  getContentTypeMeta,
   getQuizTagStyle,
 } from "@/components/instructor/courses/CourseComposerSidebar";
 
@@ -65,7 +64,12 @@ function StepRow({ step, isActive, onSelect, rowRef }) {
   const isQuiz = step.kind === "QUIZ";
   const isAssignment = step.kind === "ASSIGNMENT";
   const tagStyle = isQuiz ? getQuizTagStyle(step.quizTag) : null;
-  const meta = CONTENT_TYPE_META[step.type] || DEFAULT_CONTENT_META;
+  // A step merged from several text rows is a reading section, whatever its
+  // first block is; a single Heading/Image row is told apart by its markup.
+  // A locked step carries no body, so it keeps the stored type's look.
+  const meta = getContentTypeMeta(
+    step.contentIds?.length > 1 ? { type: step.type } : { type: step.type, htmlContent: step.body?.htmlContent }
+  );
   const Icon = isQuiz ? HelpCircle : isAssignment ? ClipboardList : meta.icon;
   const label = isQuiz ? tagStyle.label : isAssignment ? "Assignment" : meta.label;
 

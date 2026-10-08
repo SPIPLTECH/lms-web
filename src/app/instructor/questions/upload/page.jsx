@@ -13,6 +13,13 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useUploadQuestionsFile } from "@/hooks/queries/instructor/useQuestionRepository";
+import { useInstructorCourses } from "@/hooks/queries/instructor/useInstructorCourses";
+
+/** Quotes a CSV cell when its text would otherwise break the row apart. */
+const csvCell = (value) => {
+  const text = String(value ?? "");
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+};
 
 export default function UploadQuestionsPage() {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -21,6 +28,14 @@ export default function UploadQuestionsPage() {
   const [errorMessage, setErrorMessage] = useState("");
 
   const uploadMutation = useUploadQuestionsFile();
+
+  // The samples name one of the instructor's own courses, so a downloaded
+  // sample imports as it stands. With no course yet they leave the cells
+  // blank, which is valid: a question need not belong to a course.
+  const { data: courses } = useInstructorCourses();
+  const sampleCourse = Array.isArray(courses) ? courses[0] : null;
+  const sampleCourseTitle = sampleCourse?.title || "";
+  const sampleModuleTitle = sampleCourse?.modules?.[0]?.title || "";
 
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -87,6 +102,10 @@ export default function UploadQuestionsPage() {
         title: "Python List Comprehension",
         question: "What is the result of [x*2 for x in range(3)]?",
         type: "MCQ_SINGLE",
+        // Optional: the exact title (or ID) of one of your courses, and of a
+        // module inside it. Leave both out for a question with no course.
+        course: sampleCourseTitle,
+        module: sampleModuleTitle,
         subject: "Python",
         topic: "Lists",
         difficulty: "EASY",
@@ -103,6 +122,7 @@ export default function UploadQuestionsPage() {
         title: "HTTP Status Code",
         question: "Which HTTP status code represents 'Created'?",
         type: "MCQ_SINGLE",
+        course: sampleCourseTitle,
         subject: "Web Development",
         topic: "HTTP",
         difficulty: "EASY",
@@ -152,11 +172,14 @@ export default function UploadQuestionsPage() {
   };
 
   const handleDownloadSampleCsv = () => {
-    const csvContent = `title,type,subject,difficulty,marks,question,option1,option2,option3,option4,correctAnswer,explanation
-Python Variables,MCQ_SINGLE,Python,EASY,1,What is the keyword to define a function in Python?,func,def,function,define,option 2,Functions in Python are defined using the def keyword.
-JavaScript Async,MCQ_MULTI,Web Development,MEDIUM,2,Which of these are JavaScript primitive types?,string,number,array,object,string|number,Arrays and objects are reference types.
-HTTP Request Flow,ARRANGE_TOKENS,Web Development,MEDIUM,2,Arrange the steps of an HTTP request in order,DNS lookup,TCP handshake,HTTP request sent,Response received,,Option columns are the tokens in their correct order.
-HTTP Status Codes,MATCH_PAIRS,Web Development,MEDIUM,2,Match each status code to its meaning,200 => OK,404 => Not Found,500 => Server Error,301 => Moved Permanently,,Each option column holds one pair written as left => right.`;
+    // `course` and `module` are optional: the last two rows leave them blank.
+    const course = csvCell(sampleCourseTitle);
+    const courseModule = csvCell(sampleModuleTitle);
+    const csvContent = `title,type,subject,difficulty,marks,question,option1,option2,option3,option4,correctAnswer,explanation,course,module
+Python Variables,MCQ_SINGLE,Python,EASY,1,What is the keyword to define a function in Python?,func,def,function,define,option 2,Functions in Python are defined using the def keyword.,${course},${courseModule}
+JavaScript Async,MCQ_MULTI,Web Development,MEDIUM,2,Which of these are JavaScript primitive types?,string,number,array,object,string|number,Arrays and objects are reference types.,${course},
+HTTP Request Flow,ARRANGE_TOKENS,Web Development,MEDIUM,2,Arrange the steps of an HTTP request in order,DNS lookup,TCP handshake,HTTP request sent,Response received,,Option columns are the tokens in their correct order.,,
+HTTP Status Codes,MATCH_PAIRS,Web Development,MEDIUM,2,Match each status code to its meaning,200 => OK,404 => Not Found,500 => Server Error,301 => Moved Permanently,,Each option column holds one pair written as left => right.,,`;
 
     const blob = new Blob([csvContent], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -248,6 +271,20 @@ HTTP Status Codes,MATCH_PAIRS,Web Development,MEDIUM,2,Match each status code to
           <p className="text-muted-foreground">
             Older files using True / False, Short Answer or Long Answer are reported row by row and skipped.
           </p>
+          <p className="text-foreground font-medium pt-2">Course and module — optional:</p>
+          <ul className="space-y-1.5 text-muted-foreground">
+            <li>
+              <span className="font-mono text-amber-400">course</span> — the exact title (or ID) of one of your
+              courses. Leave it blank for a question that belongs to no course.
+            </li>
+            <li>
+              <span className="font-mono text-amber-400">module</span> — the title (or ID) of a module inside that
+              course. Needs <span className="font-mono">course</span> filled in too.
+            </li>
+          </ul>
+          <p className="text-muted-foreground">
+            A row naming a course or module that is not yours is reported and skipped; the other rows still import.
+          </p>
         </div>
 
         {/* Error Alert */}
@@ -299,7 +336,7 @@ HTTP Status Codes,MATCH_PAIRS,Web Development,MEDIUM,2,Match each status code to
                 <p className="text-lg font-medium text-foreground">
                   Drag & Drop your <span className="text-amber-400 font-semibold">Excel, CSV, or JSON</span> file
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">Files must specify question, subject, topic, difficulty, type, and options/answers</p>
+                <p className="text-xs text-muted-foreground mt-1">Files must specify question, subject, topic, difficulty, type, and options/answers; course and module are optional</p>
               </div>
             )}
 

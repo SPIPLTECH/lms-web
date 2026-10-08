@@ -15,6 +15,7 @@ import DOMPurify from "isomorphic-dompurify";
 
 import { resolveVideoSource } from "@/lib/videoSource";
 import VideoSurface from "@/components/shared/video/VideoSurface";
+import OrangeVideoPlayer from "@/components/student/learning/video/OrangeVideoPlayer";
 import { getDisplayUrl } from "@/lib/blob";
 import MarkdownRenderer from "@/components/ui/MarkdownEditor/MarkdownRenderer";
 import { unescapeFromContentApi, highlightCode } from "@/lib/markdown";
@@ -91,8 +92,9 @@ const VideoPlayer = forwardRef(function VideoPlayer(
     { content, onTimeUpdate, onEnded, onDurationChange, initialTime = 0, speechLanguage, lessonTitle, reserveHeaderCorner = false },
     ref
 ) {
-    // The video itself is drawn by the shared VideoSurface; this ref is only
-    // how the learn page's seek-to-timestamp reaches it.
+    // The video itself is drawn by OrangeVideoPlayer (YouTube) or the shared
+    // VideoSurface (everything else); this ref is only how the learn page's
+    // seek-to-timestamp reaches whichever is on screen.
     const surfaceRef = useRef(null);
     const [slideIndex, setSlideIndex] = useState(0);
     // A file viewer's own toolbar carries the same title this player already
@@ -421,7 +423,22 @@ const VideoPlayer = forwardRef(function VideoPlayer(
             <div className={`relative w-full flex flex-col bg-background ${contentAreaSizing}`}>
                 {/* VIDEO */}
                 {type === "VIDEO" && (
-                    videoSource.kind !== "none" && videoSource.kind !== "invalid" ? (
+                    videoSource.kind === "youtube" ? (
+                        /* YouTube plays through the Orange LMS player: our
+                           controls over the YouTube IFrame Player API, which
+                           stays the playback engine. Same seekTo handle and
+                           callbacks as VideoSurface, so resume, auto-advance
+                           and sticky-note seeking work either way. */
+                        <OrangeVideoPlayer
+                            ref={surfaceRef}
+                            videoUrl={videoSource.url}
+                            title={content?.title || lessonTitle}
+                            initialTime={initialTime}
+                            onTimeUpdate={onTimeUpdate}
+                            onDurationChange={onDurationChange}
+                            onEnded={onEnded}
+                        />
+                    ) : videoSource.kind !== "none" && videoSource.kind !== "invalid" ? (
                         /* The player and nothing else — no title bar, no share
                            control, no external link. The frame keeps its own
                            responsive sizing: it fills the player at xl and

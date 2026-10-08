@@ -1,9 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+// How the playback position is written back while a video plays: at most one
+// save every SAVE_MAX_WAIT_MS during continuous playback, and one shortly
+// after the position stops changing (pause, end, navigation).
+const SAVE_SETTLE_MS = 3000;
+const SAVE_MAX_WAIT_MS = 10000;
 
 /**
- * Where the student lands in the learning sequence on load, and the debounced
+ * Where the student lands in the learning sequence on load, and the throttled
  * save of where they are.
  *
  * Restore, once, in this order:
@@ -77,23 +83,65 @@ export default function useLearningStateSync({
     previousIndexRef.current = stepIndex;
   }, [stepIndex, stateRestored]);
 
-  // Debounced save of the current step and playback position.
+  // The save a pending timer (or leaving the page) should send, and when the
+  // oldest unsaved change arrived. Refs, so a timer or an unload handler
+  // always sends the newest position rather than the one it was created with.
+  const pendingSaveRef = useRef(null);
+  const pendingSinceRef = useRef(0);
+  const mutateRef = useRef(updateStateMutation.mutate);
+  useEffect(() => {
+    mutateRef.current = updateStateMutation.mutate;
+  });
+
+  const flushSave = useCallback(() => {
+    const payload = pendingSaveRef.current;
+    if (!payload) return;
+    pendingSaveRef.current = null;
+    pendingSinceRef.current = 0;
+    // A failed save must never interrupt playback: it is retried by the next
+    // one, and the mutation's own error state is all that records it.
+    mutateRef.current(payload);
+  }, []);
+
+  // Save of the current step and playback position. A plain debounce is not
+  // enough: a playing video changes the timestamp every second, which kept
+  // pushing the save back until the student paused. This settles
+  // SAVE_SETTLE_MS after the last change but never waits longer than
+  // SAVE_MAX_WAIT_MS since the first unsaved one. A new step starts a fresh
+  // window, so its reset-to-0 always lands before anything is sent for it.
   const step = sequence?.steps?.[stepIndex] || null;
   useEffect(() => {
     if (!stateRestored || !step) return;
-    const timer = setTimeout(() => {
-      updateStateMutation.mutate({
-        courseId,
-        moduleId: step.path?.moduleId || null,
-        lessonId: step.path?.lessonId || null,
-        contentId: step.contentId,
-        timestamp: currentTimestamp,
-      });
-    }, 3000);
+    const now = Date.now();
+    if (!pendingSinceRef.current || pendingSaveRef.current?.contentId !== step.contentId) {
+      pendingSinceRef.current = now;
+    }
+    pendingSaveRef.current = {
+      courseId,
+      moduleId: step.path?.moduleId || null,
+      lessonId: step.path?.lessonId || null,
+      contentId: step.contentId,
+      timestamp: currentTimestamp,
+    };
+    const delay = Math.min(SAVE_SETTLE_MS, Math.max(0, SAVE_MAX_WAIT_MS - (now - pendingSinceRef.current)));
+    const timer = setTimeout(flushSave, delay);
     return () => clearTimeout(timer);
-    // updateStateMutation is stable per mount; listing it would re-arm the
-    // timer on every render.
-  }, [courseId, step?.contentId, currentTimestamp, stateRestored]);
+  }, [courseId, step?.contentId, currentTimestamp, stateRestored, flushSave]);
+
+  // Leaving the page (tab hidden, navigation away, unmount) sends whatever is
+  // still unsaved instead of dropping the last few seconds of progress.
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === "hidden") flushSave();
+    };
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", flushSave);
+    return () => {
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", flushSave);
+      flushSave();
+    };
+  }, [flushSave]);
 
   return {
     stepIndex,
