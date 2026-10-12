@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { reorderContents } from "@/services/content.service";
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { sequenceOrders } from "@/lib/reorderSiblings";
 import { parentFromIdFields } from "./useCreateContent";
 
 // Where each parent's child containers are cached: the modules tree holds a
@@ -97,12 +98,16 @@ export function useReorderContents() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: ({ contents, parent }) =>
-            reorderContents(contents, parent),
+        // `orderedIds` (the parent's complete new order) or `contents` ([{ id, order }]).
+        mutationFn: ({ contents, parent, orderedIds }) =>
+            reorderContents(contents, parent, orderedIds),
 
         onMutate: (variables) => {
             const [parentType, parentId] = parentOf(variables);
-            return applySequenceMoves(queryClient, parentType, parentId, variables.contents);
+            // A complete order is numbered 1..n exactly as the API will store
+            // it, so the next move reads the same order the server holds.
+            const moves = variables.orderedIds ? sequenceOrders(variables.orderedIds) : variables.contents;
+            return applySequenceMoves(queryClient, parentType, parentId, moves);
         },
 
         onError: (_error, _variables, undo) => undo?.(),

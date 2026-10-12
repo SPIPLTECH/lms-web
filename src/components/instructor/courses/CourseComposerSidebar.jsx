@@ -48,17 +48,12 @@ import {
 import { NodeBadge } from "@/components/student/learning/CourseContentAccordion";
 import { getNodeProgress, isNodeLeavable } from "@/lib/progressIndex";
 import { useContents } from "@/hooks/queries/instructor/useContents";
-import { useReorderModules } from "@/hooks/queries/instructor/useReorderModules";
-import { useReorderLessons } from "@/hooks/queries/instructor/useReorderLessons";
-import { useReorderTopics } from "@/hooks/queries/instructor/useReorderTopics";
 import { useSubTopics } from "@/hooks/queries/instructor/useSubTopics";
 import { useConcepts } from "@/hooks/queries/instructor/useConcepts";
-import { useReorderSubTopics } from "@/hooks/queries/instructor/useReorderSubTopics";
-import { useReorderConcepts } from "@/hooks/queries/instructor/useReorderConcepts";
 import { filterQuizzesPlacedAt } from "@/lib/courseMapper";
 import { detectHtmlCellVariant } from "@/components/instructor/LessonComposer/htmlCellVariant";
 import { useReorderContents } from "@/hooks/queries/instructor/useReorderContents";
-import { swapSiblingOrder } from "@/lib/reorderSiblings";
+import { bySequenceOrder, moveWithinSequence, sequenceMemberId } from "@/lib/reorderSiblings";
 import { useToast } from "@/components/ui/ToastProvider";
 
 /**
@@ -226,8 +221,17 @@ const HOVER_VISIBLE_CLASSES = {
   content: "[@media(hover:hover)]:opacity-0 group-hover/content:opacity-100 focus:opacity-100 data-[state=open]:opacity-100",
 };
 
+/** Drops separators that would sit first, last or next to another — left behind when a menu's section is empty. */
+function withoutStraySeparators(items) {
+  const kept = items.filter((item, idx) => !(item.separator && items[idx - 1]?.separator));
+  while (kept[0]?.separator) kept.shift();
+  while (kept[kept.length - 1]?.separator) kept.pop();
+  return kept;
+}
+
 /** A single, subtle settings/kebab icon — the one action affordance per row, visible on hover/focus. */
-function RowMenu({ groupName, items }) {
+function RowMenu({ groupName, items: rawItems }) {
+  const items = withoutStraySeparators(rawItems);
   return (
     <div onClick={(e) => e.stopPropagation()}>
       <DropdownMenu>
@@ -301,6 +305,9 @@ function ParentContentRows({
   draftContents,
   extraItems = [],
   renderExtraItem,
+  // False while a lazily loaded child list (subtopics, concepts) is still
+  // loading or failed: the sequence is incomplete, so nothing may move yet.
+  sequenceReady = true,
   emptyMessage = null,
   className = "",
 }) {
@@ -352,38 +359,33 @@ function ParentContentRows({
   const sequenced = [
     ...sequenceRows,
     ...children.map((item) => ({ ...item, kind: item.kind || "extra" })),
-  ].sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || (a.contentId ? 0 : 1) - (b.contentId ? 0 : 1));
+  ].sort(bySequenceOrder);
   const mergedRows = [...sequenced, ...unplaced];
+  const sequenceIds = sequenced.map(sequenceMemberId);
 
-  // Up/Down swaps a Content row with its neighbour in the level's sequence —
-  // another Content row or a child container alike.
-  const neighbourOf = (row, direction) => {
-    const index = sequenced.findIndex((candidate) => candidate === row);
-    if (index === -1) return null;
-    return sequenced[direction === "up" ? index - 1 : index + 1] || null;
-  };
-  const canMove = (rIdx, direction) => {
-    const row = mergedRows[rIdx];
-    return Boolean(row?.contentId && neighbourOf(row, direction));
-  };
-
-  // Every move goes through PATCH /contents/reorder — quizzes and assignments
-  // are Content rows, so there is no other ordering to update.
-  const handleMove = async (id, direction) => {
-    const row = sequenced.find((candidate) => candidate.contentId && candidate.id === id);
-    const neighbor = neighbourOf(row, direction);
-    if (!row || !neighbor) return;
+  // Move Up/Down for EVERY row of this level — content, quiz, assignment or
+  // child container — swaps it with its neighbour in this one mixed sequence
+  // (never with the next row of its own type) and sends the level's complete
+  // new order through PATCH /contents/reorder. Disabled while a move is in
+  // flight, so the next one is planned from the order the last one wrote.
+  // An import draft has no reorder path here: its rows exist only in the
+  // browser, so nothing is offered rather than sent to the live API.
+  const handleMove = async (orderedIds) => {
     try {
-      await reorderContents.mutateAsync({
-        parent,
-        contents: [
-          { id: row.contentId, order: neighbor.order },
-          { id: neighbor.contentId || neighbor.id, order: row.order },
-        ],
-      });
+      await reorderContents.mutateAsync({ parent, orderedIds });
     } catch {
       showToast("Failed to reorder", "error");
     }
+  };
+  const moveMenuItems = (row) => {
+    if (role !== "INSTRUCTOR" || isDraftMode) return [];
+    const canPlan = sequenceReady && !reorderContents.isPending;
+    const up = canPlan ? moveWithinSequence(sequenceIds, sequenceMemberId(row), "up") : null;
+    const down = canPlan ? moveWithinSequence(sequenceIds, sequenceMemberId(row), "down") : null;
+    return [
+      { label: "Move Up", icon: ArrowUp, disabled: !up, onSelect: () => up && handleMove(up) },
+      { label: "Move Down", icon: ArrowDown, disabled: !down, onSelect: () => down && handleMove(down) },
+    ];
   };
 
   const containerClass = className || (parent?.parentType === "course"
@@ -409,9 +411,9 @@ function ParentContentRows({
           </div>
         ) : null
       ) : (
-        mergedRows.map((row, rIdx) => {
+        mergedRows.map((row) => {
           if (CHILD_ROW_KINDS.has(row.kind)) {
-            return renderExtraItem ? renderExtraItem(row, rIdx) : null;
+            return renderExtraItem ? renderExtraItem(row, moveMenuItems(row)) : null;
           }
           if (row.kind === "quiz") {
             // `composerMode === "quiz"` covers the Instructor Composer's
@@ -453,8 +455,7 @@ function ParentContentRows({
                         { label: "Edit Quiz", icon: Pencil, onSelect: () => onSelectQuiz?.(row, { startEditing: true }) },
                         { label: "Preview Quiz", icon: Eye, onSelect: () => onSelectQuiz?.(row, { startEditing: false }) },
                         { separator: true },
-                        { label: "Move Up", icon: ArrowUp, disabled: !canMove(rIdx, "up"), onSelect: () => handleMove(row.id, "up") },
-                        { label: "Move Down", icon: ArrowDown, disabled: !canMove(rIdx, "down"), onSelect: () => handleMove(row.id, "down") },
+                        ...moveMenuItems(row),
                         { separator: true },
                         {
                           label: "Delete Quiz",
@@ -503,8 +504,7 @@ function ParentContentRows({
                        composer. The row itself already opens the content on
                        click (onSelectContent above), so the menu entry was a
                        second door to the same place. */
-                    { label: "Move Up", icon: ArrowUp, disabled: !canMove(rIdx, "up"), onSelect: () => handleMove(content.id, "up") },
-                    { label: "Move Down", icon: ArrowDown, disabled: !canMove(rIdx, "down"), onSelect: () => handleMove(content.id, "down") },
+                    ...moveMenuItems(content),
                     { separator: true },
                     {
                       label: "Delete Content",
@@ -535,6 +535,8 @@ function AssignmentRows({
   topic = null,
   subTopic = null,
   concept = null,
+  // Move Up/Down from the level's ParentContentRows (empty when it offers none).
+  moveItems = [],
 }) {
   if (!assignments || assignments.length === 0) return null;
 
@@ -588,6 +590,8 @@ function AssignmentRows({
                         icon: Pencil,
                         onSelect: () => onSelectAssignment?.(asgn, mod, lesson, topic, { startEditing: true }, context),
                       },
+                      { separator: true },
+                      ...moveItems,
                       { separator: true },
                       {
                         label: "Delete Assignment",
@@ -742,11 +746,6 @@ export function CourseComposerSidebar({
   const [expandedConcepts, setExpandedConcepts] = useState({});
 
   const { showToast } = useToast();
-  const reorderModules = useReorderModules();
-  const reorderLessons = useReorderLessons();
-  const reorderTopics = useReorderTopics();
-  const reorderSubTopics = useReorderSubTopics();
-  const reorderConcepts = useReorderConcepts();
 
   // Undefined = no explicit user choice yet -> default to expanded only
   // along the path to whatever is currently selected. Keeps the tree
@@ -779,57 +778,10 @@ export function CourseComposerSidebar({
     ...(courseAssignments || []).map((assignment) => ({ ...assignment, kind: "assignment" })),
   ];
 
-  const handleMoveModule = async (mod, direction) => {
-    const plan = swapSiblingOrder(orderedModules, mod.id, direction);
-    if (!plan) return;
-    try {
-      await reorderModules.mutateAsync({ courseId: mod.courseId, modules: plan });
-    } catch {
-      showToast("Failed to reorder module", "error");
-    }
-  };
-
-  const handleMoveLesson = async (mod, lessonId, direction) => {
-    const plan = swapSiblingOrder(mod.lessons || [], lessonId, direction);
-    if (!plan) return;
-    try {
-      await reorderLessons.mutateAsync({ moduleId: mod.id, lessons: plan });
-    } catch {
-      showToast("Failed to reorder lesson", "error");
-    }
-  };
-
-  const handleMoveTopic = async (lesson, topicId, direction) => {
-    const plan = swapSiblingOrder(lesson.topics || [], topicId, direction);
-    if (!plan) return;
-    try {
-      await reorderTopics.mutateAsync({ lessonId: lesson.id, topics: plan });
-    } catch {
-      showToast("Failed to reorder topic", "error");
-    }
-  };
-
-  // `siblings` are already in render order (SubTopicList/ConceptList sort
-  // them), which is what swapSiblingOrder's neighbor lookup relies on.
-  const handleMoveSubTopic = async (topic, siblings, subTopicId, direction) => {
-    const plan = swapSiblingOrder(siblings, subTopicId, direction);
-    if (!plan) return;
-    try {
-      await reorderSubTopics.mutateAsync({ topicId: topic.id, subTopics: plan });
-    } catch {
-      showToast("Failed to reorder subtopic", "error");
-    }
-  };
-
-  const handleMoveConcept = async (subTopic, siblings, conceptId, direction) => {
-    const plan = swapSiblingOrder(siblings, conceptId, direction);
-    if (!plan) return;
-    try {
-      await reorderConcepts.mutateAsync({ subTopicId: subTopic.id, concepts: plan });
-    } catch {
-      showToast("Failed to reorder concept", "error");
-    }
-  };
+  // Move Up/Down for Modules, Lessons, Topics, SubTopics, Concepts and
+  // Assignments comes from the ParentContentRows that renders the row
+  // (its `moveItems` argument), so every row moves through its parent's one
+  // mixed sequence — never by its index among rows of its own type.
 
   // SubTopic/Concept quizzes: embedded on the student course tree (already
   // narrowed to their own level by normalizeCourseHierarchy); picked out of
@@ -846,9 +798,10 @@ export function CourseComposerSidebar({
 
   // One row through the shared component, so a merged assignment looks and
   // behaves exactly like the rows the standalone blocks used to render.
-  const renderAssignmentRow = (assignment, context = {}) => (
+  const renderAssignmentRow = (assignment, context = {}, moveItems = []) => (
     <AssignmentRows
       key={assignment.id}
+      moveItems={moveItems}
       assignments={[assignment]}
       composerMode={composerMode}
       composeAssignmentId={composeAssignmentId}
@@ -866,8 +819,8 @@ export function CourseComposerSidebar({
   // SubTopic and Concept rows mirror the Topic row one and two levels down,
   // with tighter indentation (ml-2 pl-1.5 per level instead of ml-3 pl-3) so
   // two more levels still leave room for a title in the ~250px mobile drawer.
-  const renderConcept = (concept, parentContext, siblings) => {
-    const { module: mod, lesson, topic, subTopic } = parentContext;
+  const renderConcept = (concept, parentContext, siblings, moveItems = []) => {
+    const { module: mod, lesson, topic } = parentContext;
     const context = { ...parentContext, concept };
     const cIdx = siblings.findIndex((c) => c.id === concept.id);
     const conceptOpen = isConceptOpen(concept.id);
@@ -923,8 +876,7 @@ export function CourseComposerSidebar({
                 { label: "Add Content", icon: Plus, onSelect: () => onAddContentToConcept?.(concept, parentContext) },
                 { label: "Add Quiz", icon: Plus, onSelect: () => onAddQuizToConcept?.(concept, parentContext) },
                 { separator: true },
-                { label: "Move Up", icon: ArrowUp, disabled: cIdx === 0, onSelect: () => handleMoveConcept(subTopic, siblings, concept.id, "up") },
-                { label: "Move Down", icon: ArrowDown, disabled: cIdx === siblings.length - 1, onSelect: () => handleMoveConcept(subTopic, siblings, concept.id, "down") },
+                ...moveItems,
                 { separator: true },
                 {
                   label: "Delete Concept",
@@ -954,14 +906,14 @@ export function CourseComposerSidebar({
             isDraftMode={isDraftMode}
             draftContents={concept.contents}
             extraItems={assignmentItems(concept)}
-            renderExtraItem={(row) => renderAssignmentRow(row, context)}
+            renderExtraItem={(row, moveItems) => renderAssignmentRow(row, context, moveItems)}
           />
         </Collapsible>
       </div>
     );
   };
 
-  const renderSubTopic = (subTopic, parentContext, siblings) => {
+  const renderSubTopic = (subTopic, parentContext, siblings, moveItems = []) => {
     const { module: mod, lesson, topic } = parentContext;
     const context = { ...parentContext, subTopic };
     const sIdx = siblings.findIndex((s) => s.id === subTopic.id);
@@ -1019,8 +971,7 @@ export function CourseComposerSidebar({
                 { label: "Add Content", icon: Plus, onSelect: () => onAddContentToSubTopic?.(subTopic, parentContext) },
                 { label: "Add Quiz", icon: Plus, onSelect: () => onAddQuizToSubTopic?.(subTopic, parentContext) },
                 { separator: true },
-                { label: "Move Up", icon: ArrowUp, disabled: sIdx === 0, onSelect: () => handleMoveSubTopic(topic, siblings, subTopic.id, "up") },
-                { label: "Move Down", icon: ArrowDown, disabled: sIdx === siblings.length - 1, onSelect: () => handleMoveSubTopic(topic, siblings, subTopic.id, "down") },
+                ...moveItems,
                 { separator: true },
                 {
                   label: "Delete SubTopic",
@@ -1056,10 +1007,11 @@ export function CourseComposerSidebar({
                     ...concepts.map((concept) => ({ ...concept, kind: "concept" })),
                     ...assignmentItems(subTopic),
                   ]}
-                  renderExtraItem={(row) =>
+                  sequenceReady={!conceptsState.isLoading && !conceptsState.isError}
+                  renderExtraItem={(row, moveItems) =>
                     row.kind === "assignment"
-                      ? renderAssignmentRow(row, context)
-                      : renderConcept(row, context, concepts)
+                      ? renderAssignmentRow(row, context, moveItems)
+                      : renderConcept(row, context, concepts, moveItems)
                   }
                 />
                 <ChildListStatus state={conceptsState} label="concepts" />
@@ -1192,8 +1144,8 @@ export function CourseComposerSidebar({
           draftContents={courseContents}
           className="space-y-0.5 pr-1 text-base"
           extraItems={courseRowItems}
-          renderExtraItem={(row) => {
-            if (row.kind === "assignment") return renderAssignmentRow(row);
+          renderExtraItem={(row, moveItems) => {
+            if (row.kind === "assignment") return renderAssignmentRow(row, {}, moveItems);
             const mod = row;
             const mIdx = row.mIdx;
             const moduleOpen = isModuleOpen(mod.id);
@@ -1264,8 +1216,7 @@ export function CourseComposerSidebar({
                         { label: "Add Lesson", icon: Plus, onSelect: () => onAddLesson?.(mod.id) },
                         { label: "Add Content", icon: Plus, onSelect: () => onAddContentToModule?.(mod) },
                         { separator: true },
-                        { label: "Move Up", icon: ArrowUp, disabled: mIdx === 0, onSelect: () => handleMoveModule(mod, "up") },
-                        { label: "Move Down", icon: ArrowDown, disabled: mIdx === orderedModules.length - 1, onSelect: () => handleMoveModule(mod, "down") },
+                        ...moveItems,
                         { separator: true },
                         {
                           label: "Delete Module",
@@ -1304,8 +1255,8 @@ export function CourseComposerSidebar({
                         ...assignmentItems(mod),
                       ]}
                       emptyMessage={modLessons.length === 0 ? "No lessons in this module." : null}
-                      renderExtraItem={(row) => {
-                        if (row.kind === "assignment") return renderAssignmentRow(row, { module: mod });
+                      renderExtraItem={(row, moveItems) => {
+                        if (row.kind === "assignment") return renderAssignmentRow(row, { module: mod }, moveItems);
                         const lesson = row;
                         const lIdx = lesson.lIdx;
                         const lessonOpen = isLessonOpen(lesson.id);
@@ -1383,8 +1334,7 @@ export function CourseComposerSidebar({
                                     { label: "Add Topic", icon: Plus, onSelect: () => onAddTopic?.(lesson.id) },
                                     { label: "Add Content", icon: Plus, onSelect: () => onAddContentToLesson?.(lesson, mod) },
                                     { separator: true },
-                                    { label: "Move Up", icon: ArrowUp, disabled: lIdx === 0, onSelect: () => handleMoveLesson(mod, lesson.id, "up") },
-                                    { label: "Move Down", icon: ArrowDown, disabled: lIdx === modLessons.length - 1, onSelect: () => handleMoveLesson(mod, lesson.id, "down") },
+                                    ...moveItems,
                                     { separator: true },
                                     {
                                       label: "Delete Lesson",
@@ -1423,8 +1373,8 @@ export function CourseComposerSidebar({
                                     ...assignmentItems(lesson),
                                   ]}
                                   emptyMessage={lessonTopics.length === 0 ? "No topics in this lesson." : null}
-                                  renderExtraItem={(row) => {
-                                    if (row.kind === "assignment") return renderAssignmentRow(row, { module: mod, lesson });
+                                  renderExtraItem={(row, moveItems) => {
+                                    if (row.kind === "assignment") return renderAssignmentRow(row, { module: mod, lesson }, moveItems);
                                     const topic = row;
                                     const tIdx = topic.tIdx;
                                     const topicOpen = isTopicOpen(topic.id);
@@ -1497,8 +1447,7 @@ export function CourseComposerSidebar({
                                                   ? [{ label: "Add SubTopic", icon: Plus, onSelect: () => onAddSubTopic(topic, { module: mod, lesson }) }]
                                                   : []),
                                                 { separator: true },
-                                                { label: "Move Up", icon: ArrowUp, disabled: tIdx === 0, onSelect: () => handleMoveTopic(lesson, topic.id, "up") },
-                                                { label: "Move Down", icon: ArrowDown, disabled: tIdx === lessonTopics.length - 1, onSelect: () => handleMoveTopic(lesson, topic.id, "down") },
+                                                ...moveItems,
                                                 { separator: true },
                                                 {
                                                   label: "Delete Topic",
@@ -1538,10 +1487,11 @@ export function CourseComposerSidebar({
                                                     ...subTopics.map((subTopic) => ({ ...subTopic, kind: "subTopic" })),
                                                     ...assignmentItems(topic),
                                                   ]}
-                                                  renderExtraItem={(row) =>
+                                                  sequenceReady={!subTopicsState.isLoading && !subTopicsState.isError}
+                                                  renderExtraItem={(row, moveItems) =>
                                                     row.kind === "assignment"
-                                                      ? renderAssignmentRow(row, { module: mod, lesson, topic })
-                                                      : renderSubTopic(row, { module: mod, lesson, topic }, subTopics)
+                                                      ? renderAssignmentRow(row, { module: mod, lesson, topic }, moveItems)
+                                                      : renderSubTopic(row, { module: mod, lesson, topic }, subTopics, moveItems)
                                                   }
                                                 />
                                                 <ChildListStatus state={subTopicsState} label="subtopics" />

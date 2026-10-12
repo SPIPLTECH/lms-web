@@ -63,12 +63,19 @@ export const deleteContent = async (contentId) => {
 /**
  * Moves items within one parent's learning sequence. `contents` is
  * [{ id, order }]; ids may be Content rows or the parent's child containers
- * (they share the sequence), so the parent is sent along.
+ * (they share the sequence), so the parent is sent along. With `orderedIds`
+ * the parent's complete new order is sent instead — every member exactly
+ * once, which the API refuses if the list is stale or incomplete.
  */
-export const reorderContents = async (contents, parent = null) => {
-  const response = await api.patch("/contents/reorder", {
-    contents,
-    ...(parent?.parentType && parent?.parentId ? { parentType: parent.parentType, parentId: parent.parentId } : {}),
-  });
+export const reorderContents = async (contents, parent = null, orderedIds = null) => {
+  const response = await api.patch(
+    "/contents/reorder",
+    orderedIds
+      ? { parentType: parent?.parentType, parentId: parent?.parentId, orderedIds }
+      : {
+          contents,
+          ...(parent?.parentType && parent?.parentId ? { parentType: parent.parentType, parentId: parent.parentId } : {}),
+        }
+  );
   return response.data;
 };
