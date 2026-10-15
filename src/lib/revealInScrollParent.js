@@ -20,6 +20,12 @@ function scrollParentOf(element) {
  */
 export function revealInScrollParent(element, { topInset = 0, bottomInset = 24 } = {}) {
   if (typeof window === "undefined" || !element) return;
+  // Paged content (PagedContent) has no scroller to move — it turns to the
+  // page holding the element instead.
+  if (element.closest?.("[data-paged-content]")) {
+    element.dispatchEvent(new CustomEvent("paged-content:reveal", { bubbles: true }));
+    return;
+  }
   const container = scrollParentOf(element);
   if (!container) return;
   const box = container.getBoundingClientRect();

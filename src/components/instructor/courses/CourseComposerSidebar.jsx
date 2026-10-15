@@ -57,6 +57,24 @@ import { bySequenceOrder, moveWithinSequence, sequenceMemberId } from "@/lib/reo
 import { useToast } from "@/components/ui/ToastProvider";
 
 /**
+ * Marks a Topic / SubTopic / Concept that is still a draft. Students are
+ * never sent drafts — the whole branch, content included, is missing from
+ * their Course Map — so the instructor must be able to see which rows those
+ * are. Same pill shape as the map's other row badges.
+ */
+function DraftBadge({ node }) {
+  if (node?.isPublished !== false) return null;
+  return (
+    <span
+      className="shrink-0 rounded border border-amber-500/40 bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-black uppercase text-amber-700 dark:text-amber-400"
+      title="Draft — hidden from students until published (Edit → Publish)"
+    >
+      Draft
+    </span>
+  );
+}
+
+/**
  * Quiz rows are coloured by their tag, so practice and graded assessments are
  * distinguishable in the tree without opening either — sky for Self-Test,
  * purple for Final Quiz, matching the badges in QuizOverviewView.
@@ -865,6 +883,7 @@ export function CourseComposerSidebar({
             <span className={`truncate text-[14.5px] leading-snug ${isConceptLocked ? "text-muted-foreground" : ""}`} title={concept.title}>
               {concept.title}
             </span>
+            <DraftBadge node={concept} />
             <NodeBadge progress={progress} nodeId={concept.id} node={concept} />
           </div>
 
@@ -959,6 +978,7 @@ export function CourseComposerSidebar({
             <span className={`truncate text-[14.5px] leading-snug ${isSubTopicLocked ? "text-muted-foreground" : ""}`} title={subTopic.title}>
               {subTopic.title}
             </span>
+            <DraftBadge node={subTopic} />
             <NodeBadge progress={progress} nodeId={subTopic.id} node={subTopic} />
           </div>
 
@@ -1428,6 +1448,7 @@ export function CourseComposerSidebar({
                                             <span className={`truncate text-[15px] leading-snug ${isTopicLocked ? "text-muted-foreground" : ""}`} title={topic.title}>
                                               {displayTitle}
                                             </span>
+                                            <DraftBadge node={topic} />
                                             {topicMeta.type !== "theory" && (
                                               <span className={`text-[13px] font-mono font-bold px-1.5 py-0.2 rounded border uppercase shrink-0 ${topicMeta.bgClass}`}>
                                                 {topicMeta.badge}

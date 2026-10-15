@@ -65,6 +65,10 @@ export default function PdfViewer({
 
   // Container measurement & zoom state
   const [containerWidth, setContainerWidth] = useState(0);
+  // fillHeight only: the canvas viewport's usable height and the current
+  // page's width/height ratio, so a page can be fitted whole (see below).
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const [pageAspect, setPageAspect] = useState(null);
   const [isFitToWidth, setIsFitToWidth] = useState(true);
   const [customScale, setCustomScale] = useState(1.0); // Multiplier when manual zoom is used
   const [isMounted, setIsMounted] = useState(false);
@@ -96,14 +100,23 @@ export default function PdfViewer({
         // horizontal overflow this must not cause.
         setContainerWidth(available > 0 ? available : 260);
       }
+      if (fillHeight && viewportRef.current) {
+        const viewport = viewportRef.current;
+        const cs = window.getComputedStyle(viewport);
+        // Content box, less the page wrapper's own py-1.5 (12px).
+        const usable =
+          viewport.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - 12;
+        setViewportHeight(Math.max(usable, 0));
+      }
     };
 
     measureContainer();
     const observer = new ResizeObserver(measureContainer);
     observer.observe(containerRef.current);
+    if (fillHeight && viewportRef.current) observer.observe(viewportRef.current);
 
     return () => observer.disconnect();
-  }, [isMounted]);
+  }, [isMounted, fillHeight]);
 
   // Keep pageInput synced with pageNumber
   useEffect(() => {
@@ -148,14 +161,14 @@ export default function PdfViewer({
   // Tailwind only generates classes it can see verbatim in the source, so
   // these must never be built by string concatenation.
   //
-  // fillHeight (the learn player): below xl take whatever height the parent
-  // column leaves and scroll here, so the document header above stays put; at
-  // xl the original reading-pane sizing applies.
-  // Otherwise: the original sizing at every width.
+  // fillHeight (the learn player): take exactly the height the parent leaves
+  // and never scroll — the page is fitted whole into it (renderPageWidth), and
+  // the document's own page control turns pages.
+  // Otherwise: the original scrolling reading pane at every width.
   // The two branches never overlap, so no rule depends on stylesheet order.
   const viewportSizing = fillHeight
-    ? "flex-1 xl:flex-none xl:h-[82vh] xl:min-h-[560px] xl:max-h-[950px]"
-    : "h-auto max-h-[70vh] sm:h-[82vh] sm:min-h-[560px] sm:max-h-[950px]";
+    ? "flex-1 overflow-hidden"
+    : "overflow-auto h-auto max-h-[70vh] sm:h-[82vh] sm:min-h-[560px] sm:max-h-[950px]";
 
   const handlePageInputChange = (e) => {
     setPageInput(e.target.value);
@@ -191,7 +204,13 @@ export default function PdfViewer({
 
   // Calculate final page width for react-pdf Page component
   const baseWidth = containerWidth ? Math.min(containerWidth, 1400) : 600;
-  const renderPageWidth = isFitToWidth ? baseWidth : Math.round(baseWidth * customScale);
+  // fillHeight fits the whole page — the narrower of fit-to-width and
+  // fit-to-height — so a portrait page is never taller than the viewer.
+  const fitWidth =
+    fillHeight && pageAspect && viewportHeight > 0
+      ? Math.min(baseWidth, Math.floor(viewportHeight * pageAspect))
+      : baseWidth;
+  const renderPageWidth = isFitToWidth ? fitWidth : Math.round(fitWidth * customScale);
 
   const readAloudLang = readAloud?.lang || "";
   const pdfSpeech = usePdfReadAloud({
@@ -383,7 +402,7 @@ export default function PdfViewer({
         !hideToolbar
           ? "rounded-2xl border border-border bg-[#0B101D] shadow-2xl overflow-hidden"
           : ""
-      } ${fillHeight ? "max-xl:h-full max-xl:min-h-0" : ""} ${className}`}
+      } ${fillHeight ? "h-full min-h-0" : ""} ${className}`}
     >
       {/* Standalone Header Toolbar (rendered ONLY when hideToolbar is false) */}
       {!hideToolbar && (
@@ -424,7 +443,7 @@ export default function PdfViewer({
            When the page bar is shown the viewport gives back exactly the
            height the bar takes, so adding it never changes the viewer's
            overall footprint. */
-        className={`relative w-full min-h-0 overflow-auto bg-[#060913] p-2 sm:p-3.5 flex justify-center items-start scroll-smooth rounded-2xl border border-border/80 ${viewportSizing}`}
+        className={`relative w-full min-h-0 bg-[#060913] p-2 sm:p-3.5 flex justify-center items-start scroll-smooth rounded-2xl border border-border/80 ${viewportSizing}`}
       >
         {/* Loading Overlay */}
         {loading && (
@@ -475,6 +494,11 @@ export default function PdfViewer({
                 <Page
                   pageNumber={pageNumber}
                   width={renderPageWidth}
+                  onLoadSuccess={(page) => {
+                    if (page?.originalWidth && page?.originalHeight) {
+                      setPageAspect(page.originalWidth / page.originalHeight);
+                    }
+                  }}
                   renderTextLayer={false}
                   renderAnnotationLayer={false}
                   className="shadow-2xl rounded-lg overflow-hidden border border-transparent/60 bg-white"

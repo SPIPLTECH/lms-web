@@ -367,7 +367,7 @@ export default function PptViewer({
         !hideToolbar
           ? "rounded-2xl border border-border bg-[#0B101D] shadow-2xl overflow-hidden"
           : ""
-      } ${fillHeight ? "max-xl:h-full max-xl:flex-1 max-xl:min-h-0" : ""} ${className}`}
+      } ${fillHeight ? "h-full flex-1 min-h-0" : ""} ${className}`}
     >
       {/* Standalone Header Toolbar */}
       {!hideToolbar && (
@@ -388,14 +388,15 @@ export default function PptViewer({
       {/* SLIDE CANVAS VIEWPORT CONTAINER */}
       {/* The slide scale is measured from this box, so it must never depend on
           a parent having a definite height: the deck's aspect ratio sizes it
-          from its width (capped by max-h). Only the learn player, below xl,
-          stretches it to fill instead — the one host whose column is sized. */}
+          from its width (capped by max-h). Only the learn player (fillHeight)
+          stretches it to fill instead — the one host whose column is sized —
+          and fitScale then fits the whole slide in both directions. */}
       <div
         ref={viewportRef}
         onClick={handleViewportClick}
-        style={{ aspectRatio: `${baseSlideWidth} / ${baseSlideHeight}` }}
+        style={fillHeight ? undefined : { aspectRatio: `${baseSlideWidth} / ${baseSlideHeight}` }}
         className={`relative w-full overflow-auto bg-[#060913] p-2 sm:p-4 flex justify-center items-start scroll-smooth rounded-2xl border border-border/80 ${
-          fillHeight ? "max-xl:flex-1 max-xl:min-h-0 xl:max-h-[88vh]" : "max-h-[88vh]"
+          fillHeight ? "flex-1 min-h-0" : "max-h-[88vh]"
         } ${totalSlides > 1 ? "cursor-pointer" : ""}`}
       >
         {/* Loading Overlay */}

@@ -14,7 +14,6 @@ import LearnPageHeader from "@/components/student/learning/LearnPageHeader";
 import SkipQualificationModal from "@/components/student/learning/SkipQualificationModal";
 import QualificationResultPanel from "@/components/student/learning/QualificationResultPanel";
 import StudentCourseMap from "@/components/student/learning/StudentCourseMap";
-import { rendersUploadedDeck } from "@/components/student/learning/VideoPlayer";
 
 import { buildPathIndex, getSkipOfferForScope } from "@/lib/learningPath";
 
@@ -49,6 +48,12 @@ const LEVEL_LABELS = {
   subTopic: "SubTopic",
   concept: "Concept",
 };
+
+// How long without input before the Course Map and the Learning Workspace
+// header hide (the idle layout effect in LearnPage).
+const IDLE_AFTER_MS = 2500;
+// Pointer travel, in px, that counts as "the student moved" while hidden.
+const MOVE_THRESHOLD_PX = 8;
 
 /** Every container node (Course, Module, … Concept) of the learning-sequence tree, by id. */
 function indexContainers(tree) {
@@ -144,22 +149,21 @@ export default function LearnPage() {
   const { data: stateData, isLoading: isStateLoading } = useStudentState(courseId);
   const updateStateMutation = useUpdateStudentState();
 
-  // Course Content Sidebar toggle state — open by default so the Course
-  // Index is what a student sees on first arriving at a lesson.
-  const [courseSidebarOpen, setCourseSidebarOpen] = useState(true);
   // Below xl the course map is a temporary sheet, so it starts closed.
   const [courseMapOpen, setCourseMapOpen] = useState(false);
 
-  // Whether the Course Map's last close was the inactivity timeout below
-  // (automatic) rather than the student closing it (the collapse button, the
-  // drawer's X / scrim / Escape, or picking a lesson). Only the timeout sets
-  // it, and auto-opening clears it, so a manual close never reopens itself.
-  // A ref, not state: it is read inside window listeners and must not cause a
-  // render of its own.
-  const autoClosedRef = useRef(false);
-  // Where the pointer was when the auto-close happened, so a single stray
-  // mousemove (a layout shift under a still cursor) cannot count as activity.
-  const autoOpenAnchorRef = useRef(null);
+  // THE collapse state for the desktop Course Map rail and the Learning
+  // Workspace header — one value, so the two can never disagree and every
+  // way of collapsing produces the same layout:
+  //   null     — both shown (the default: a student arrives to the map).
+  //   "idle"   — hidden by the inactivity timer; any input brings them back.
+  //   "manual" — hidden by the student (the map's or the header's hide
+  //              button); stays hidden until they reopen it, so the mouse
+  //              moving away from the button cannot undo the click.
+  // Only the reason differs — the rendering reads workspaceCollapsed alone.
+  const [workspaceCollapse, setWorkspaceCollapse] = useState(null);
+  const collapseWorkspace = () => setWorkspaceCollapse("manual");
+  const expandWorkspace = () => setWorkspaceCollapse(null);
 
   // Right-hand utility column (Ask Instructor / Sticky Notes / Feedback)
   // collapse state — mirrors the left Course Map sidebar's collapse
@@ -180,6 +184,12 @@ export default function LearnPage() {
   // as it was.
   const isDesktop = useMediaQuery("(min-width: 1280px)");
   const moreMenuRef = useRef(null);
+
+  // The header collapse is desktop only: below xl the map is a drawer and the
+  // header carries no controls of its own.
+  const workspaceCollapsed = workspaceCollapse !== null;
+  const railOpen = !workspaceCollapsed;
+  const workspaceHeaderCollapsed = isDesktop && workspaceCollapsed;
 
   const videoPlayerRef = useRef(null);
 
@@ -306,142 +316,121 @@ export default function LearnPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [courseMapOpen]);
 
-  // Automatically close/collapse the active Course Map after 5 seconds of inactivity.
-  // Desktop Course Map is controlled by courseSidebarOpen, Mobile Course Map by courseMapOpen.
-  useEffect(() => {
-    const isMapActive = isDesktop ? courseSidebarOpen : courseMapOpen;
-    if (!isMapActive) return;
-
-    let timerId = null;
-    let lastResetTime = 0;
-
-    const closeMap = () => {
-      // Read by the auto-open effect below: this close was not the student's.
-      autoClosedRef.current = true;
-      autoOpenAnchorRef.current = null;
-      if (isDesktop) {
-        setCourseSidebarOpen(false);
-      } else {
-        setCourseMapOpen(false);
-      }
-    };
-
-    const startTimer = () => {
-      if (timerId) clearTimeout(timerId);
-      timerId = setTimeout(() => {
-        closeMap();
-      }, 5000);
-    };
-
-    const handleActivity = (event) => {
-      const now = Date.now();
-      // Throttle high-frequency movement events so continuous jitter does not thrash timer resets
-      if (event && (event.type === "mousemove" || event.type === "pointermove")) {
-        if (now - lastResetTime < 1000) return;
-      }
-      lastResetTime = now;
-      startTimer();
-    };
-
-    startTimer();
-
-    const activityEvents = [
-      "mousemove",
-      "mousedown",
-      "pointermove",
-      "pointerdown",
-      "touchstart",
-      "touchmove",
-      "keydown",
-      "scroll",
-      "wheel",
-      "click",
-    ];
-
-    activityEvents.forEach((eventName) => {
-      window.addEventListener(eventName, handleActivity, { capture: true, passive: true });
-    });
-
-    return () => {
-      if (timerId) clearTimeout(timerId);
-      activityEvents.forEach((eventName) => {
-        window.removeEventListener(eventName, handleActivity, { capture: true });
-      });
-    };
-  }, [isDesktop, courseSidebarOpen, courseMapOpen]);
-
-  // Reopens the Course Map on the next genuine interaction — but only when
-  // the inactivity timeout above is what closed it. A close the student
-  // performed leaves autoClosedRef false, so it stays closed until they open
-  // it again. Reopening starts a fresh 5-second timer through the effect
-  // above (the map is open again, so it binds), which is what makes the
-  // close -> activity -> open -> close cycle repeat.
+  // IDLE LAYOUT — the one inactivity mechanism on this page: one timer, one
+  // set of window listeners, mounted once. After IDLE_AFTER_MS without input
+  // the Course Map and the Learning Workspace header get out of the way
+  // (desktop: rail and header collapse; below xl: the drawer closes, as the
+  // old auto-close did), and the next real input brings them back. The
+  // drawer is not reopened by activity — it is a modal sheet, and popping it
+  // over the lesson on a tap would cover what was tapped.
   //
-  // One mechanism for both surfaces, the same way the timeout is: desktop
-  // collapses the in-flow rail (courseSidebarOpen), below xl it is the
-  // off-canvas drawer (courseMapOpen). Nothing else about either is touched.
+  // What counts as input, and what does not:
+  //  - Pointer movement only after it has really moved: browsers emit a
+  //    mousemove at the same coordinates when the layout shifts under a still
+  //    cursor (as it does when this very effect collapses things), and while
+  //    hidden a few pixels of jitter (< MOVE_THRESHOLD_PX) are not a reveal.
+  //  - A press while hidden reveals on RELEASE, not on press: re-laying out
+  //    between pointerdown and click would move the control being clicked
+  //    (Next, Listen, a settings button) out from under the pointer.
+  //  - Keys and wheel count. "scroll" does not — it also fires for
+  //    programmatic scrolling.
+  // The only hold: KEYBOARD focus (:focus-visible) inside the Course Map or
+  // header (data-learn-chrome), so a keyboard user's focus is never swallowed
+  // by a collapsing panel. Mouse focus does not hold — clicking a lesson row
+  // leaves focus on it, and holding on that (or on a resting pointer) is what
+  // stopped the auto-close from ever firing after a lesson was picked.
+  // While active, input only stamps lastActivity; the single timer re-checks
+  // when it fires, so continuous movement never thrashes timers or state.
   useEffect(() => {
-    const isMapActive = isDesktop ? courseSidebarOpen : courseMapOpen;
-    if (isMapActive || !autoClosedRef.current) return;
+    let idle = false;
+    let lastActivity = Date.now();
+    let lastPointer = null;
+    let idleAnchor = null;
+    let revealOnRelease = false;
+    let timerId = null;
 
-    // Pointer movement only counts once it has actually travelled: a
-    // re-render, a video frame or a layout shift can emit a single mousemove
-    // under a motionless cursor, and none of those are the student.
-    const MOVE_THRESHOLD_PX = 8;
-
-    const reopen = () => {
-      autoClosedRef.current = false;
-      autoOpenAnchorRef.current = null;
-      if (isDesktop) {
-        setCourseSidebarOpen(true);
-      } else {
-        setCourseMapOpen(true);
-      }
+    const keyboardFocusOnChrome = () => {
+      const node = document.activeElement;
+      return node instanceof Element && Boolean(node.closest("[data-learn-chrome]")) && node.matches(":focus-visible");
     };
 
-    const handleActivity = (event) => {
-      if (event.type === "mousemove" || event.type === "pointermove") {
-        const point = { x: event.clientX, y: event.clientY };
-        const anchor = autoOpenAnchorRef.current;
-        if (!anchor) {
-          autoOpenAnchorRef.current = point;
+    const schedule = (delay) => {
+      clearTimeout(timerId);
+      timerId = setTimeout(check, delay);
+    };
+
+    function check() {
+      const quietFor = Date.now() - lastActivity;
+      if (quietFor < IDLE_AFTER_MS) return schedule(IDLE_AFTER_MS - quietFor);
+      if (keyboardFocusOnChrome()) return schedule(IDLE_AFTER_MS);
+      idle = true;
+      idleAnchor = lastPointer;
+      // Same transition the hide buttons make; a manual collapse is kept.
+      setWorkspaceCollapse((current) => current ?? "idle");
+      setCourseMapOpen(false);
+    }
+
+    const markActive = () => {
+      lastActivity = Date.now();
+      if (!idle) return;
+      idle = false;
+      idleAnchor = null;
+      // Activity only undoes what the timer did — never the student's own close.
+      setWorkspaceCollapse((current) => (current === "idle" ? null : current));
+      schedule(IDLE_AFTER_MS);
+    };
+
+    const onPointerMove = (event) => {
+      const point = { x: event.clientX, y: event.clientY };
+      if (lastPointer && point.x === lastPointer.x && point.y === lastPointer.y) return;
+      lastPointer = point;
+      if (idle) {
+        if (!idleAnchor) {
+          idleAnchor = point;
           return;
         }
         if (
-          Math.abs(point.x - anchor.x) < MOVE_THRESHOLD_PX &&
-          Math.abs(point.y - anchor.y) < MOVE_THRESHOLD_PX
+          Math.abs(point.x - idleAnchor.x) < MOVE_THRESHOLD_PX &&
+          Math.abs(point.y - idleAnchor.y) < MOVE_THRESHOLD_PX
         ) {
           return;
         }
       }
-      reopen();
+      markActive();
     };
 
-    // Same gestures the timer resets on, minus `scroll`: that one also fires
-    // for programmatic scrolling (restoring a position, revealing a block),
-    // while real scrolling still arrives as wheel / touchmove / keydown.
-    const activityEvents = [
-      "mousemove",
-      "mousedown",
-      "pointermove",
-      "pointerdown",
-      "touchstart",
-      "touchmove",
-      "keydown",
-      "wheel",
-      "click",
-    ];
+    const onPointerDown = () => {
+      if (idle) revealOnRelease = true;
+      else lastActivity = Date.now();
+    };
 
-    activityEvents.forEach((eventName) => {
-      window.addEventListener(eventName, handleActivity, { capture: true, passive: true });
+    const onPointerUp = () => {
+      if (!revealOnRelease) return;
+      revealOnRelease = false;
+      // After this click has been dispatched to what was under the pointer.
+      setTimeout(markActive, 0);
+    };
+
+    const listeners = [
+      ["pointermove", onPointerMove],
+      ["pointerdown", onPointerDown],
+      ["pointerup", onPointerUp],
+      ["pointercancel", onPointerUp],
+      ["keydown", markActive],
+      ["wheel", markActive],
+    ];
+    listeners.forEach(([name, handler]) => {
+      window.addEventListener(name, handler, { capture: true, passive: true });
     });
+    schedule(IDLE_AFTER_MS);
 
     return () => {
-      activityEvents.forEach((eventName) => {
-        window.removeEventListener(eventName, handleActivity, { capture: true });
+      clearTimeout(timerId);
+      listeners.forEach(([name, handler]) => {
+        window.removeEventListener(name, handler, { capture: true });
       });
     };
-  }, [isDesktop, courseSidebarOpen, courseMapOpen]);
+  }, []);
 
   // The below-xl "More" popover dismisses on a tap outside it or Escape —
   // the same idiom AskInstructorCard's own popover uses. moreMenuRef wraps
@@ -620,31 +609,33 @@ export default function LearnPage() {
     />
   );
 
-  // Below xl, who owns height and scrolling depends on WHAT is on screen:
-  //   aspect — video / uploaded deck; natural — assignment form;
-  //   reading — text/HTML; contained — quiz and PDF/DOC/external.
-  const playerMode =
-    isContentStep && (step.type === "VIDEO" || (contentItem && rendersUploadedDeck(contentItem)))
+  // The player frame always fills the height left in the viewport and never
+  // scrolls; what changes is how the body inside it holds the content:
+  //   fill   — every lesson content type. VideoPlayer fits it to the frame:
+  //            video/images letterbox, slides and PDF pages scale, reading
+  //            content (text, code, Word) reflows into pages.
+  //   aspect — VIDEO below xl: the frame hugs the 16:9 box instead of
+  //            letterboxing it inside a tall empty frame on a phone.
+  //   form   — quizzes and assignments. Interactive forms cannot be paged or
+  //            scaled without breaking them, so a form taller than the frame
+  //            still scrolls inside the body (overscroll-contain keeps that
+  //            from chaining to the page). The one place the player scrolls.
+  const playerMode = qualifyingAttempt || isQuizStep || isAssignmentStep
+    ? "form"
+    : isContentStep && step.type === "VIDEO"
       ? "aspect"
-      : isAssignmentStep
-        ? "natural"
-        : isContentStep && !["FILE", "DOCUMENT", "PDF"].includes(step.type)
-          ? "reading"
-          : "contained";
+      : "fill";
 
   // Literal class strings — Tailwind only emits what it can see verbatim.
   const FRAME_MODE_CLASSES = {
-    natural: "max-xl:h-auto max-xl:min-h-0 max-xl:max-h-none",
-    aspect: "max-xl:h-auto max-xl:min-h-0 max-xl:max-h-none",
-    reading: "max-xl:h-[68dvh] max-xl:min-h-[360px] max-xl:max-h-none",
-    contained: "max-xl:h-[68dvh] max-xl:min-h-[360px] max-xl:max-h-none",
+    fill: "",
+    aspect: "max-xl:flex-none max-xl:min-h-0",
+    form: "",
   };
-  const deckFrameSizing = "";
   const BODY_MODE_CLASSES = {
-    natural: "max-xl:flex-none max-xl:overflow-y-visible",
-    aspect: "max-xl:flex-none max-xl:overflow-y-visible",
-    reading: "max-xl:overflow-y-hidden",
-    contained: "",
+    fill: "overflow-hidden",
+    aspect: "overflow-hidden max-xl:flex-none",
+    form: "overflow-y-auto overscroll-contain",
   };
 
   const lessonNavProps = {
@@ -672,11 +663,21 @@ export default function LearnPage() {
       {/* ========================================================================= */}
       {/* COURSE MAP SIDEBAR — matching Instructor Course View                      */}
       {/* ========================================================================= */}
-      <div className={`hidden xl:block shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out ${courseSidebarOpen ? "w-full xl:w-[320px]" : "w-full xl:w-0"}`}>
-        {renderCourseTree({
-          isOpen: courseSidebarOpen,
-          onToggleOpen: () => setCourseSidebarOpen(false),
-        })}
+      {/* railOpen comes from workspaceCollapse alone, whoever collapsed it.
+          Width 0 when closed, so the workspace gets the full width back. */}
+      <div
+        data-learn-chrome=""
+        inert={!railOpen}
+        className={`hidden xl:block shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out ${railOpen ? "w-full xl:w-[320px]" : "w-full xl:w-0"}`}
+      >
+        {/* Fixed-width inner box: while the rail animates its width the tree
+            is clipped, not squeezed and re-wrapped on every frame. */}
+        <div className="w-[320px] h-full">
+          {renderCourseTree({
+            isOpen: railOpen,
+            onToggleOpen: collapseWorkspace,
+          })}
+        </div>
       </div>
 
       {/* COURSE MAP — off-canvas navigation sidebar below xl. Same tree as the
@@ -701,7 +702,7 @@ export default function LearnPage() {
           />
           {/* 85% of the viewport with a cap, so it reads as a sidebar (the page
               stays visible behind it) at 320px and at 430px alike. */}
-          <aside className="absolute inset-y-0 left-0 flex h-full w-[85%] max-w-[340px] flex-col bg-[#07080f] shadow-2xl animate-sidebar-in-left">
+          <aside data-learn-chrome="" className="absolute inset-y-0 left-0 flex h-full w-[85%] max-w-[340px] flex-col bg-[#07080f] shadow-2xl animate-sidebar-in-left">
             <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 shrink-0">
               <h2 className="text-base font-black uppercase tracking-widest text-foreground">
                 Course Content
@@ -734,11 +735,15 @@ export default function LearnPage() {
       {/* ========================================================================= */}
       {/* MAIN WORKSPACE CONTENT */}
       {/* ========================================================================= */}
+      {/* The workspace is sized to the viewport: everything below the header
+          is one flex chain down to the player frame, which takes whatever
+          height is left. overflow-y-auto is only a floor for windows too
+          short for the frame's min-height — normally nothing here scrolls. */}
       <div className="flex-1 flex flex-col h-full overflow-y-auto bg-[#07080f] min-w-0">
 
         <LearnPageHeader
-          courseSidebarOpen={courseSidebarOpen}
-          onOpenSidebar={() => setCourseSidebarOpen(true)}
+          collapsed={workspaceHeaderCollapsed}
+          onExpand={expandWorkspace}
           selectedLesson={selectedLesson}
           topicTitle={pathwayTitle}
           levelLabel={pathwayLevelLabel}
@@ -752,10 +757,8 @@ export default function LearnPage() {
         {/* ========================================================== */}
         {/* Phone: keep the 16px side gutter so lesson text never runs to the
             screen edge, but trim the top so the lesson starts higher. At xl the
-            padding all but disappears — the player frame's
-            h-[calc(100vh-147px)] is measured against the chrome above it, so
-            anything more would push the frame past the viewport. */}
-        <div className="px-4 pt-3 pb-4 sm:px-6 sm:pt-6 sm:pb-6 md:px-8 md:pt-8 md:pb-8 xl:px-[3.2px] xl:pt-[3.2px] xl:pb-[3.2px] min-w-0">
+            padding all but disappears, leaving the player the most room. */}
+        <div className="flex-1 min-h-0 flex flex-col px-4 pt-3 pb-4 sm:px-6 sm:pt-6 sm:pb-6 md:px-8 md:pt-8 md:pb-8 xl:px-[3.2px] xl:pt-[3.2px] xl:pb-[3.2px] min-w-0">
           {/*
             Priority-driven order: below xl the student only sees one column, so every
             block that comes before the video costs them a scroll. DOM order follows
@@ -768,13 +771,13 @@ export default function LearnPage() {
             original two-column arrangement regardless of DOM order.
           */}
           <div
-            className={`grid grid-cols-1 gap-6 lg:gap-8 transition-[grid-template-columns] duration-300 ease-in-out ${
+            className={`flex-1 min-h-0 grid grid-cols-1 grid-rows-[minmax(0,1fr)] gap-6 lg:gap-8 transition-[grid-template-columns] duration-300 ease-in-out ${
               rightPanelOpen ? "xl:grid-cols-[1fr_360px]" : "xl:grid-cols-1"
             }`}
           >
 
             {/* VIDEO — the primary learning action: first below xl, row 1 of the left column on desktop. */}
-            <div className="space-y-3 xl:space-y-4 min-w-0 row-start-1 xl:col-start-1 xl:row-start-1">
+            <div className="flex flex-col gap-3 xl:gap-4 min-h-0 min-w-0 row-start-1 xl:col-start-1 xl:row-start-1">
               {/* LESSON CONTEXT — below xl only. Where the learner is, what
                   they are reading, and the overflow for everything secondary:
                   below xl the lesson owns the screen, so Ask instructor and
@@ -888,7 +891,7 @@ export default function LearnPage() {
                   Above the lesson it was a full-width banner pointing away
                   from the thing on screen. */}
               {skipOffer && !qualifyingAttempt && (
-                <div className="mb-2 flex flex-col gap-2 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4">
+                <div className="flex flex-col gap-2 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4">
                   <div className="flex min-w-0 items-start gap-2 sm:items-center">
                     <FastForward
                       size={15}
@@ -911,7 +914,12 @@ export default function LearnPage() {
                 </div>
               )}
 
-              <div className={`group relative flex flex-col h-[calc(100vh-147px)] min-h-[440px] max-h-[900px] rounded-2xl border border-border bg-card overflow-hidden ${FRAME_MODE_CLASSES[playerMode]} ${deckFrameSizing}`}>
+              {/* flex-1: the frame takes all the height left in the column —
+                  more when the header collapses, wider when the rail does —
+                  with no viewport calc to drift out of date. */}
+              <div
+                className={`group relative flex flex-col flex-1 min-h-[440px] max-xl:min-h-[280px] rounded-2xl border border-border bg-card overflow-hidden ${FRAME_MODE_CLASSES[playerMode]}`}
+              >
                 {/* No dedicated header bar — lesson/topic name, the Course
                     Index reopen and the side-panel toggle all live in the top
                     bar above (LearnPageHeader). */}
@@ -920,7 +928,7 @@ export default function LearnPage() {
                     (content, quizzes and assignments in Content.order).
                     initialTime (the saved video position) only applies to
                     the step the page was restored to. */}
-                <div className={`flex-1 overflow-y-auto min-h-0 ${BODY_MODE_CLASSES[playerMode]}`}>
+                <div className={`flex-1 min-h-0 ${BODY_MODE_CLASSES[playerMode]}`}>
                   {qualifyingAttempt && qualifyingSubmitted && qualificationOutcome ? (
                     // The attempt is in and the server has decided whether the
                     // skip was earned and, if not, what to go back to.
@@ -1080,7 +1088,7 @@ export default function LearnPage() {
                 lesson context row's "More" popover instead, so it never takes
                 a column out of a one-column layout. */}
             {rightPanelOpen && (
-              <div className="hidden xl:block min-w-0 xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:sticky xl:top-24 xl:h-fit w-full xl:w-[360px]">
+              <div className="hidden xl:block min-w-0 xl:col-start-2 xl:row-start-1 xl:self-start xl:max-h-full xl:overflow-y-auto w-full xl:w-[360px]">
                 {renderSidePanel()}
               </div>
             )}

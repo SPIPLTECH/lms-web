@@ -17,6 +17,7 @@ import { parseDocxArrayBuffer } from "@/lib/docxParser";
 import { buildDocxSpeech } from "@/lib/documentSpeech";
 import SpeechControls from "@/components/student/tts/SpeechControls";
 import useChunkHighlight from "@/hooks/useChunkHighlight";
+import PagedContent from "@/components/shared/PagedContent";
 import useTextToSpeech from "@/hooks/useTextToSpeech";
 
 export default function DocxViewer({
@@ -24,13 +25,15 @@ export default function DocxViewer({
   title = "Document",
   className = "",
   hideToolbar = false,
-  // Opt-in, mirroring PdfViewer: fill the height the parent allots and let
-  // THIS viewport be the scroll container. Without it the unconditional
-  // min-h-[520px] reading-pane floor overflows a phone-sized player frame,
-  // producing a second scroller nested inside the page's. Consumers that do
-  // not pass it keep the original sizing exactly.
+  // Opt-in, mirroring PdfViewer: fill the height the parent allots and never
+  // scroll — the document reflows into pages of exactly that size
+  // (PagedContent), turned through onPageStateChange's controls. Consumers
+  // that do not pass it keep the original scrolling reading pane exactly.
   fillHeight = false,
   onControlsRender,
+  // fillHeight only: page state for the host's page control, in PdfViewer's
+  // shape ({ page, total, goToPreviousPage, goToNextPage } or null).
+  onPageStateChange,
   // Same opt-out PptViewer takes: drops the Download button from the controls
   // for hosts that don't want the file offered for download.
   showDownload = true,
@@ -229,13 +232,33 @@ export default function DocxViewer({
     );
   }
 
-  // fillHeight: below xl take the remaining height of the parent column and
-  // scroll here; at xl the original reading pane, unchanged. Otherwise the
-  // original sizing at every width. Branches never overlap, so nothing
-  // depends on stylesheet order.
+  // fillHeight: exactly the height the parent leaves, paged, never scrolled.
+  // Otherwise the original scrolling reading pane at every width. Branches
+  // never overlap, so nothing depends on stylesheet order.
   const docViewportSizing = fillHeight
-    ? "flex-1 min-h-0 xl:flex-none xl:h-[78vh] xl:min-h-[520px] xl:max-h-[900px]"
-    : "h-[78vh] min-h-[520px] max-h-[900px]";
+    ? "flex-1 min-h-0 overflow-hidden flex flex-col"
+    : "overflow-auto p-4 sm:p-8 flex justify-center items-start scroll-smooth h-[78vh] min-h-[520px] max-h-[900px]";
+
+  // The document body. Paged, zoom reflows the text (CSS zoom) instead of
+  // scaling a box past the page edge; otherwise the original paper card.
+  const wrapPaper = (body) =>
+    fillHeight ? (
+      <PagedContent onPageStateChange={onPageStateChange}>
+        <div ref={paperRef} className="text-foreground" style={{ zoom: zoomScale }}>
+          {body}
+        </div>
+      </PagedContent>
+    ) : (
+      <div
+        ref={paperRef}
+        className="w-full max-w-4xl bg-background border border-border text-foreground p-6 sm:p-12 shadow-2xl rounded-2xl transition-transform duration-150 origin-top"
+        style={{
+          transform: `scale(${zoomScale})`,
+        }}
+      >
+        {body}
+      </div>
+    );
 
   return (
     <div
@@ -243,7 +266,7 @@ export default function DocxViewer({
         !hideToolbar
           ? "rounded-2xl border border-border bg-[#0B101D] shadow-2xl overflow-hidden"
           : ""
-      } ${fillHeight ? "max-xl:h-full max-xl:min-h-0" : ""} ${className}`}
+      } ${fillHeight ? "h-full min-h-0" : ""} ${className}`}
     >
       {/* Header Toolbar */}
       {!hideToolbar && (
@@ -274,8 +297,10 @@ export default function DocxViewer({
       {/* DOCUMENT PAPER VIEWPORT */}
       <div
         ref={viewportRef}
-        onClick={handleViewportClick}
-        className={`relative w-full overflow-auto bg-[#060913] p-4 sm:p-8 flex justify-center items-start scroll-smooth rounded-2xl border border-border/80 ${docViewportSizing}`}
+        // Click-to-page scrolls the reading pane; a paged document has none
+        // (its pages turn from the host's page control).
+        onClick={fillHeight ? undefined : handleViewportClick}
+        className={`relative w-full bg-[#060913] rounded-2xl border border-border/80 ${docViewportSizing}`}
       >
         {/* Loading Overlay */}
         {loadingStep && (
@@ -319,14 +344,8 @@ export default function DocxViewer({
           </div>
         ) : elements.length > 0 ? (
           /* Render Document Paper Container */
-          <div
-            ref={paperRef}
-            className="w-full max-w-4xl bg-background border border-border text-foreground p-6 sm:p-12 shadow-2xl rounded-2xl transition-transform duration-150 origin-top"
-            style={{
-              transform: `scale(${zoomScale})`,
-            }}
-          >
-            {elements.map((elem, idx) => {
+          wrapPaper(
+            elements.map((elem, idx) => {
               if (elem.type === "image") {
                 return (
                   <div key={idx} className="my-6 flex justify-center">
@@ -416,8 +435,8 @@ export default function DocxViewer({
               }
 
               return null;
-            })}
-          </div>
+            })
+          )
         ) : null}
       </div>
     </div>
