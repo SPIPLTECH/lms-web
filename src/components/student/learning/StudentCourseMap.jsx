@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { NodeBadge } from "@/components/student/learning/CourseContentAccordion";
+import { useToast } from "@/components/ui/ToastProvider";
 import {
   getContentTypeMeta,
   getQuizTagStyle,
@@ -33,14 +34,17 @@ import {
  * the container's steps and child containers in sequence order. Clicking a
  * container goes to its first step; clicking a step goes to that step. Locked
  * steps are shown, not hidden, and the page decides what a click on one does.
+ * A LOCKED container cannot be opened at all: its row and its chevron say
+ * what to finish instead (same wording as CourseComposerSidebar), so a
+ * student cannot browse into a module/lesson/topic they have not reached.
  */
 
 const LEVEL_META = {
-  MODULE: { icon: Layers, prefix: "M", text: "text-base font-bold" },
-  LESSON: { icon: BookOpen, prefix: "L", text: "text-[15px] font-semibold" },
-  TOPIC: { icon: FileStack, prefix: "T", text: "text-[14.5px] font-semibold" },
-  SUBTOPIC: { icon: GitBranch, prefix: "S", text: "text-[14.5px] font-medium" },
-  CONCEPT: { icon: Lightbulb, prefix: "C", text: "text-[14.5px] font-medium" },
+  MODULE: { icon: Layers, prefix: "M", text: "text-base font-bold", noun: "module" },
+  LESSON: { icon: BookOpen, prefix: "L", text: "text-[15px] font-semibold", noun: "lesson" },
+  TOPIC: { icon: FileStack, prefix: "T", text: "text-[14.5px] font-semibold", noun: "topic" },
+  SUBTOPIC: { icon: GitBranch, prefix: "S", text: "text-[14.5px] font-medium", noun: "subtopic" },
+  CONCEPT: { icon: Lightbulb, prefix: "C", text: "text-[14.5px] font-medium", noun: "concept" },
 };
 
 /** Every container id on the path from the course down to step `index`. */
@@ -130,13 +134,19 @@ function StepRow({ step, isActive, onSelect, rowRef }) {
 }
 
 function ContainerNode({ node, numbering, steps, currentStepIndex, openIds, onToggle, onSelectStep, activeRowRef }) {
+  const { showToast } = useToast();
   const meta = LEVEL_META[node.kind] || LEVEL_META.TOPIC;
   const Icon = meta.icon;
-  const open = openIds.has(node.id);
   const containsActive =
     node.firstStepIndex !== null &&
     currentStepIndex >= node.firstStepIndex &&
     currentStepIndex <= node.lastStepIndex;
+  // The server's lock on the container's first step. The one exception is a
+  // container the student is already inside (a step they reached before
+  // newer content locked its start): hiding where they are would be worse.
+  const blocked = node.locked && !containsActive;
+  const open = openIds.has(node.id) && !blocked;
+  const refuse = () => showToast(`Complete the previous ${meta.noun} to unlock this one.`, "error");
 
   let childNumber = 0;
   return (
@@ -146,6 +156,7 @@ function ContainerNode({ node, numbering, steps, currentStepIndex, openIds, onTo
           containsActive ? "bg-background/40 border-primary/40" : "border-transparent hover:bg-background/60"
         } ${node.locked ? "text-muted-foreground" : "text-foreground"}`}
         onClick={() => {
+          if (blocked) return refuse();
           if (node.firstStepIndex !== null) onSelectStep(node.firstStepIndex);
           else onToggle(node.id);
         }}
@@ -155,11 +166,12 @@ function ContainerNode({ node, numbering, steps, currentStepIndex, openIds, onTo
             type="button"
             onClick={(event) => {
               event.stopPropagation();
+              if (blocked) return refuse();
               onToggle(node.id);
             }}
             className="p-0.5 text-muted-foreground hover:text-slate-50 transition cursor-pointer shrink-0"
-            aria-label={open ? `Collapse ${node.title}` : `Expand ${node.title}`}
-            aria-expanded={open}
+            aria-label={blocked ? `${node.title} (locked)` : open ? `Collapse ${node.title}` : `Expand ${node.title}`}
+            aria-expanded={blocked ? undefined : open}
           >
             <ChevronRight size={14} className={`transition-transform duration-200 ${open ? "rotate-90 text-primary" : ""}`} />
           </button>
