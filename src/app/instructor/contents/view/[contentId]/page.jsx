@@ -7,12 +7,6 @@ import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Pencil,
-  Play,
-  Pause,
-  Volume2,
-  VolumeX,
-  Maximize2,
-  Download,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -36,25 +30,10 @@ import { useContents } from "@/hooks/queries/instructor/useContents";
 import { useInstructorCourse } from "@/hooks/queries/instructor/useInstructorCourse";
 import LessonStickySidebar from "@/components/instructor/lessons/LessonStickySidebar";
 import { PdfViewer, PptViewer, ExternalDocumentViewer } from "@/components/shared/LazyDocumentViewers";
+import { resolveVideoSource } from "@/lib/videoSource";
+import VideoSurface from "@/components/shared/video/VideoSurface";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const getYouTubeEmbedUrl = (url) => {
-  if (!url) return null;
-  let videoId = null;
-  if (url.includes("youtu.be/")) {
-    videoId = url.split("youtu.be/")[1]?.split(/[?#]/)[0];
-  } else if (url.includes("youtube.com")) {
-    if (url.includes("v=")) {
-      videoId = url.split("v=")[1]?.split(/[&#]/)[0];
-    } else if (url.includes("/embed/")) {
-      videoId = url.split("/embed/")[1]?.split(/[?#]/)[0];
-    }
-  }
-  return videoId
-    ? `https://www.youtube.com/embed/${videoId}?autoplay=0&rel=0`
-    : null;
-};
 
 const formatTime = (seconds) => {
   if (isNaN(seconds) || seconds === Infinity) return "00:00";
@@ -78,13 +57,11 @@ export default function ContentDetailsPage() {
   const contentId = params.contentId;
   const router   = useRouter();
 
-  // Video state
+  // Video state. Playback is driven through the shared VideoSurface's handle
+  // rather than a raw <video> ref, so the controls below work for an uploaded
+  // file and for an embed alike.
   const videoRef = useRef(null);
-  const [isPlaying,    setIsPlaying]    = useState(false);
   const [currentTime,  setCurrentTime]  = useState(0);
-  const [videoDuration,setVideoDuration]= useState(0);
-  const [isMuted,      setIsMuted]      = useState(false);
-  const [playbackRate, setPlaybackRate] = useState(1);
 
   const tabs = [
     { id: "description", label: "Description" },
@@ -101,7 +78,6 @@ export default function ContentDetailsPage() {
 
   const topicId  = params.topicId || content?.topicId;
   const lessonId = params.lessonId || topic?.lessonId;
-  const moduleId = params.moduleId || lesson?.moduleId;
   const courseId = params.courseId || moduleData?.courseId;
 
   // Only course.title is rendered here, so the syllabus tree is skipped.
@@ -124,41 +100,10 @@ export default function ContentDetailsPage() {
     }
   };
 
-  const togglePlay = () => {
-    if (!videoRef.current) return;
-    if (isPlaying) { videoRef.current.pause(); setIsPlaying(false); }
-    else { videoRef.current.play().catch(console.log); setIsPlaying(true); }
-  };
-
   const handleSeekToSeconds = (seconds) => {
     if (!videoRef.current) return;
-    videoRef.current.currentTime = seconds;
+    videoRef.current.seekTo(seconds);
     setCurrentTime(seconds);
-    if (!isPlaying) {
-      videoRef.current.play().catch(() => {});
-      setIsPlaying(true);
-    }
-  };
-
-  const toggleMute = () => {
-    if (!videoRef.current) return;
-    videoRef.current.muted = !isMuted;
-    setIsMuted(!isMuted);
-  };
-
-  const handleSeek = (e) => {
-    if (!videoRef.current || !videoDuration) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const pct  = (e.clientX - rect.left) / rect.width;
-    videoRef.current.currentTime = pct * videoDuration;
-    setCurrentTime(pct * videoDuration);
-  };
-
-  const cyclePlayback = () => {
-    if (!videoRef.current) return;
-    const next = playbackRate === 1 ? 1.5 : playbackRate === 1.5 ? 2 : 1;
-    videoRef.current.playbackRate = next;
-    setPlaybackRate(next);
   };
 
   const navTo = (c) => {
@@ -190,26 +135,9 @@ export default function ContentDetailsPage() {
   const isLink         = type === "LINK";
   const isText         = type === "TEXT";
 
-  const isYouTube  = isVideo && content.videoUrl &&
-    (content.videoUrl.includes("youtube.com") || content.videoUrl.includes("youtu.be"));
-  const ytEmbedUrl = isYouTube ? getYouTubeEmbedUrl(content.videoUrl) : null;
-  const videoSrc   = content.videoUrl?.startsWith("http")
-    ? content.videoUrl
-    : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}${content.videoUrl || ""}`;
-
-  const isLocalFile = content.fileUrl?.includes("localhost") ||
-                      content.fileUrl?.includes("127.0.0.1");
-
-  const officeViewerUrl = content.fileUrl && !isLocalFile
-    ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(content.fileUrl)}`
-    : null;
-
-  const googleViewerUrl = content.fileUrl && !isLocalFile
-    ? `https://docs.google.com/viewer?url=${encodeURIComponent(content.fileUrl)}&embedded=true`
-    : null;
-
-  const presentationViewerUrl = officeViewerUrl;
-  const documentViewerUrl     = officeViewerUrl || googleViewerUrl;
+  // One shared decision about how this row renders — the same one the student
+  // learn page and the composer's video cell make.
+  const videoSource = resolveVideoSource(content);
 
   const durationStr = content.duration
     ? formatTime(content.duration)
@@ -271,7 +199,12 @@ export default function ContentDetailsPage() {
               </div>
               <div>
                 <div className="flex items-center gap-2.5">
-                  <h2 className="text-xl font-bold text-foreground leading-tight">{content.title}</h2>
+                  {/* Video is the exception: its title already appears in the page
+                      header above, and repeating it directly over the player made the
+                      embed read as a titled preview card rather than a player. */}
+                  {!isVideo && (
+                    <h2 className="text-xl font-bold text-foreground leading-tight">{content.title}</h2>
+                  )}
                   <span className={`rounded-xl px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider border ${typeMeta.bg} ${typeMeta.color}`}>
                     {typeMeta.label}
                   </span>
@@ -285,80 +218,29 @@ export default function ContentDetailsPage() {
 
             {/* Video Player or Document/Presentation Preview Box */}
             {isVideo && (
-              isYouTube ? (
-                <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-transparent bg-black flex flex-col justify-between shadow-2xl">
-                  <iframe
-                    src={ytEmbedUrl}
-                    title={content.title || "YouTube video player"}
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowFullScreen
-                    className="absolute inset-0 w-full h-full rounded-2xl"
-                  />
+              videoSource.kind === "invalid" ? (
+                /* A YouTube link with no video id. The custom player below
+                   would render a <video> pointing at a YouTube page, so say
+                   what is wrong instead and show the link that is wrong. */
+                <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-card p-6 text-center">
+                  <p className="text-base font-semibold text-foreground">This YouTube link has no video in it</p>
+                  <p className="text-sm text-muted-foreground">
+                    Playlist and channel links can&apos;t be embedded. Paste the link to a single video.
+                  </p>
+                  <code className="mt-1 block max-w-full truncate rounded bg-muted px-2 py-1 text-[13px] text-muted-foreground">
+                    {videoSource.url}
+                  </code>
                 </div>
               ) : (
-                <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-transparent bg-gradient-to-br from-slate-900 via-slate-950 to-blue-950 flex flex-col justify-between group">
-                  <video
-                    ref={videoRef}
-                    src={videoSrc}
-                    onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
-                    onLoadedMetadata={() => setVideoDuration(videoRef.current?.duration || 0)}
-                    onClick={togglePlay}
-                    className="absolute inset-0 w-full h-full object-cover cursor-pointer"
-                  />
-
-                  {!isPlaying && (
-                    <div 
-                      onClick={togglePlay}
-                      className="absolute inset-0 flex items-center justify-center bg-black/40 cursor-pointer z-20 transition-all duration-300"
-                    >
-                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-slate-950 shadow-lg scale-100 hover:scale-110 active:scale-95 transition duration-300">
-                        <Play size={26} className="fill-slate-950 translate-x-0.5" />
-                      </div>
-                    </div>
-                  )}
-
-                  {!isPlaying && (
-                    <div className="absolute top-4 right-4 bg-background/80 px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wider text-foreground border border-transparent z-20">
-                      {content.title}
-                    </div>
-                  )}
-
-                  <div className="w-full space-y-3 mt-auto p-4 bg-gradient-to-t from-slate-950/90 via-slate-950/60 to-transparent z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <div 
-                      onClick={handleSeek}
-                      className="h-1.5 w-full bg-muted rounded-full overflow-hidden cursor-pointer relative"
-                    >
-                      <div 
-                        className="h-full bg-primary rounded-full" 
-                        style={{ width: `${(currentTime / (videoDuration || 1)) * 100}%` }}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between text-foreground text-xs">
-                      <div className="flex items-center gap-4">
-                        <button onClick={togglePlay} className="hover:text-foreground transition">
-                          {isPlaying ? <Pause size={14} className="fill-slate-300" /> : <Play size={14} className="fill-slate-300" />}
-                        </button>
-                        <button onClick={toggleMute} className="hover:text-foreground transition flex items-center gap-1.5">
-                          {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-                        </button>
-                        <span className="font-medium text-muted-foreground">
-                          {formatTime(currentTime)} / {formatTime(videoDuration || content.duration || 0)}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-4 font-semibold">
-                        <button onClick={cyclePlayback} className="text-[10px] tracking-widest hover:text-foreground transition bg-muted/80 px-1.5 py-0.5 rounded">
-                          {playbackRate}x
-                        </button>
-                        <button onClick={() => videoRef.current?.requestFullscreen()} className="hover:text-foreground transition">
-                          <Maximize2 size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <VideoSurface
+                  ref={videoRef}
+                  source={videoSource}
+                  nativeControls={false}
+                  title={content.title || "Video"}
+                  onTimeUpdate={setCurrentTime}
+                  className="relative aspect-video w-full overflow-hidden rounded-2xl border border-transparent bg-black shadow-2xl [&_iframe]:absolute [&_iframe]:inset-0 [&_iframe]:h-full [&_iframe]:w-full [&_iframe]:rounded-2xl [&_iframe]:border-0"
+                  videoClassName="w-full h-full object-contain"
+                />
               )
             )}
 

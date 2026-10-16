@@ -15,7 +15,8 @@
  */
 
 /**
- * Per-node roll-up, keyed by Course / Module / Lesson / Topic id.
+ * Per-node roll-up, keyed by Course / Module / Lesson / Topic / SubTopic /
+ * Concept id.
  *
  * `applicable` is the backend's own "this node has items that count" flag. It
  * is NOT the same as `totalItems > 0` for a Course, and callers should prefer
@@ -26,6 +27,15 @@ function nodeSummary(node) {
     id: node.id,
     title: node.title,
     completed: node.completed === true,
+    // Skipped after passing this node's qualifying test. Deliberately NOT
+    // folded into `completed`: skipped is not studied, and the distinction is
+    // what lets the sidebar label it honestly.
+    qualified: node.qualified === true,
+    qualifiedAt: node.qualifiedAt ?? null,
+    // The backend's single "this no longer stands in the student's way" flag:
+    // completed, or qualified. Progression reads this; display reads the two
+    // above.
+    satisfied: node.satisfied === true || node.completed === true,
     progressPercent: node.progressPercent ?? 0,
     completedItems: node.completedItems ?? 0,
     totalItems: node.totalItems ?? 0,
@@ -81,6 +91,8 @@ export function buildProgressIndex(progressData) {
       ...(node.modules || []),
       ...(node.lessons || []),
       ...(node.topics || []),
+      ...(node.subTopics || []),
+      ...(node.concepts || []),
     ]) {
       ids = ids.concat(indexNode(child));
     }
@@ -119,8 +131,10 @@ export function isItemSubmitted(progressIndex, itemId) {
 }
 
 /**
- * True when a student may cross out of this Topic/Lesson/Module to the next
- * one — every quiz under it (direct or in a descendant) only needs an
+ * True when a student may cross out of this Concept/SubTopic/Topic/Lesson/
+ * Module to the next one. Every item under it counts, direct or in a
+ * descendant (so a Topic's SubTopic and Concept items count toward that
+ * Topic). Every quiz under it only needs an
  * attempt on file, same as isItemSubmitted's quiz rule; a failed attempt no
  * longer blocks moving on. Non-quiz items (content, assignments) still need
  * their own `completed` flag, unchanged from before.
@@ -130,6 +144,12 @@ export function isNodeLeavable(progressIndex, nodeId) {
   const summary = progressIndex.nodes.get(nodeId);
   if (!summary) return true;
   if (summary.applicable === false) return true;
+  // A node the student qualified out of is behind them even though its items
+  // were never touched — checked before the per-item sweep below, which would
+  // otherwise refuse to let them past the very thing they earned the right to
+  // skip. Every caller of this gate (the player's crossing check and the
+  // course sidebar) therefore honours a skip without knowing about one.
+  if (summary.satisfied === true) return true;
 
   const itemIds = progressIndex.nodeItemIds?.get(nodeId);
   if (!itemIds || itemIds.length === 0) return summary.completed === true;
@@ -141,7 +161,7 @@ export function isNodeLeavable(progressIndex, nodeId) {
   });
 }
 
-/** The backend's roll-up for a Course/Module/Lesson/Topic id, or null. */
+/** The backend's roll-up for a Course/Module/Lesson/Topic/SubTopic/Concept id, or null. */
 export function getNodeProgress(progressIndex, nodeId) {
   if (!progressIndex || !nodeId) return null;
   return progressIndex.nodes.get(nodeId) || null;
@@ -183,7 +203,15 @@ export function decorateCourseWithProgress(course, progressIndex) {
       withNode(mod, {
         lessons: (mod.lessons || []).map((lesson) =>
           withNode(lesson, {
-            topics: (lesson.topics || []).map((topic) => withNode(topic)),
+            topics: (lesson.topics || []).map((topic) =>
+              withNode(topic, {
+                subTopics: (topic.subTopics || []).map((subTopic) =>
+                  withNode(subTopic, {
+                    concepts: (subTopic.concepts || []).map((concept) => withNode(concept)),
+                  })
+                ),
+              })
+            ),
           })
         ),
       })

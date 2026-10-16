@@ -25,6 +25,9 @@ import Loader from "@/components/common/Loader";
 import useQuizResult from "@/hooks/queries/student/useQuizResult";
 import QuestionReviewCard from "@/components/student/quiz-result/QuestionReviewCard";
 import AttemptHistory from "@/components/student/quiz-result/AttemptHistory";
+import ResultNextStep from "@/components/student/quiz-result/ResultNextStep";
+import useNextAction from "@/hooks/queries/student/useNextAction";
+import { NEXT_ACTION } from "@/lib/nextAction";
 import SubmissionStatusBadge from "@/components/student/submissions/SubmissionStatusBadge";
 import ListenButton from "@/components/student/tts/ListenButton";
 import { buildResultOverviewSpeech } from "@/lib/quizSpeech";
@@ -70,6 +73,13 @@ function QuizResultPageContent() {
     }
     return submission.answers;
   }, [submission]);
+
+  // The same question ResultNextStep asks, with the same arguments — so React
+  // Query serves both from one cache entry and one request. Asked here too
+  // because the header's retake control has to know whether the next-step
+  // block below is already leading with a retry.
+  const nextActionCourseId = submission?.quiz?.courseId ?? null;
+  const { data: nextAction } = useNextAction(nextActionCourseId, { quizId });
 
   if (isLoading) {
     return <Loader />;
@@ -130,6 +140,13 @@ function QuizResultPageContent() {
   const latestHref = `/student/result/${quizId}${fromParam ? `?${fromParam}` : ""}`;
   const retakeHref = `/student/attempt/${quizId}${fromParam ? `?${fromParam}` : ""}`;
 
+  // The next-step block, and whether it is leading with a retry. A next step
+  // shown against an older attempt would be advice about a state the student
+  // has already moved on from, so it is only ever for the latest.
+  const showNextStep = Boolean(quiz?.courseId) && submission.isLatestAttempt !== false;
+  const nextStepLeadsWithRetry =
+    showNextStep && nextAction?.primary?.action === NEXT_ACTION.RETRY_QUIZ;
+
   const graded = Number(totalMarks) > 0;
   const status = !graded ? "submitted" : passed ? "passed" : "failed";
   const attempts = submission.attempts ?? [];
@@ -146,6 +163,10 @@ function QuizResultPageContent() {
     : `${attemptsUsed} attempt${attemptsUsed === 1 ? "" : "s"} · no limit`;
   const bestPercentage =
     graded && attempts.length > 1 ? Math.max(...attempts.map((a) => a.percentage)) : null;
+  // False only for a qualifying test the student can still retake — the server
+  // withholds correctAnswer/explanation there, so the review below has to
+  // change shape rather than mark everything wrong.
+  const answerKeyRevealed = submission.answerKeyRevealed !== false;
   const totalQuestions = submission.totalQuestions ?? quiz?.questions?.length ?? 0;
   const timeTaken = formatDuration(submission.timeTakenSeconds);
   const moduleTitle = quiz?.module?.title || null;
@@ -166,7 +187,14 @@ function QuizResultPageContent() {
           <ArrowLeft size={16} className="shrink-0" aria-hidden />
           <span className="truncate">{backLabel}</span>
         </Link>
-        {submission.canAttempt && (
+        {/* The retake control. Suppressed only when the next-step block below
+            is already leading with "Retry Quiz" — two buttons for the same
+            action, one of them presented as the recommendation, is a choice
+            the student doesn't have. The capability is not removed: the
+            block's own primary CTA is that retake, pointing at the same
+            place. Whenever the block leads with anything else (or isn't
+            shown at all, e.g. on an older attempt), this stays. */}
+        {submission.canAttempt && !nextStepLeadsWithRetry && (
           <Link
             href={retakeHref}
             className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
@@ -292,6 +320,15 @@ function QuizResultPageContent() {
         />
       </section>
 
+      {/* WHAT TO DO NEXT — the server's next action, asked in the context of
+          this quiz. Sits directly under the result so the answer to "what now"
+          is there while the result is fresh, rather than below a long question
+          review the student has to scroll past on a phone.
+          See showNextStep above for when it appears. */}
+      {showNextStep && (
+        <ResultNextStep courseId={quiz.courseId} quizId={quizId} returnTo={returnTo} />
+      )}
+
       <section aria-labelledby="attempt-history" className="space-y-4">
         <div>
           <h2 id="attempt-history" className="text-base font-semibold text-foreground sm:text-lg">
@@ -383,11 +420,58 @@ function QuizResultPageContent() {
             Detailed Question Review
           </h3>
           <p className="text-[11px] text-muted-foreground mt-0.5 sm:mt-1 sm:text-xs">
-            {submission.isLatestAttempt === false
-              ? `Your answers in attempt ${attemptNumber}, alongside the correct options.`
-              : "Review your selections alongside correct options."}
+            {!answerKeyRevealed
+              ? "Which questions you got right, while this qualifying test can still be retaken."
+              : submission.isLatestAttempt === false
+                ? `Your answers in attempt ${attemptNumber}, alongside the correct options.`
+                : "Review your selections alongside correct options."}
           </p>
         </div>
+
+        {/* ANSWER KEY WITHHELD — a qualifying test the student may still
+            retake. The full review below marks each option against
+            `correctAnswer`, which the server deliberately does not send in
+            that case; rendering it anyway would mark every answer wrong,
+            including the ones they got right. So this shows the server's own
+            per-question verdict instead: honest about what they got right,
+            without handing over the answers to the retake. */}
+        {!answerKeyRevealed ? (
+          <div className="space-y-2">
+            <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs text-foreground sm:px-4 sm:text-sm">
+              Answers are hidden until you pass this qualifying test or run out of attempts — otherwise
+              the retake would just be a memory test.
+            </p>
+            <ul className="space-y-1.5">
+              {(submission.questionAttempts || []).map((row, index) => (
+                <li
+                  key={row.questionId || index}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-3 py-2 sm:px-4"
+                >
+                  <span className="min-w-0 flex-1 truncate text-xs text-foreground sm:text-sm">
+                    Question {row.order ?? index + 1}
+                  </span>
+                  {row.hintViewed && (
+                    <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-400">
+                      Hint used
+                    </span>
+                  )}
+                  <span
+                    className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
+                      row.isCorrect === true
+                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                        : row.answered
+                          ? "bg-red-500/15 text-red-700 dark:text-red-400"
+                          : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {row.isCorrect === true ? "Correct" : row.answered ? "Incorrect" : "Not answered"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+        <>
 
         {/* Mobile Question Review Slider (sm:hidden) */}
         {quiz?.questions?.length > 0 && (
@@ -469,6 +553,8 @@ function QuizResultPageContent() {
             />
           ))}
         </div>
+        </>
+        )}
       </section>
     </div>
   );

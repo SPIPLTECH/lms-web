@@ -5,6 +5,7 @@ import {
 
 import {updateContent} from "@/services/content.service";
 import {QUERY_KEYS} from "@/constants/queryKeys";
+import { parentFromIdFields } from "./useCreateContent";
 
 export function useUpdateContent() {
     const queryClient = useQueryClient();
@@ -20,9 +21,9 @@ export function useUpdateContent() {
             ),
 
         onSuccess: (_, variables) => {
-            const parentType = variables.parent?.parentType
-                ?? (variables.contentData?.topicId ? "topic" : undefined);
-            const parentId = variables.parent?.parentId ?? variables.contentData?.topicId;
+            const [fallbackType, fallbackId] = parentFromIdFields(variables.contentData);
+            const parentType = variables.parent?.parentType ?? fallbackType;
+            const parentId = variables.parent?.parentId ?? fallbackId;
 
             queryClient.invalidateQueries({
                 queryKey: [

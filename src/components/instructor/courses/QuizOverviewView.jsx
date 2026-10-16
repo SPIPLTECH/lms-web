@@ -45,12 +45,28 @@ const optionToText = getOptionText;
 export const QUIZ_TAG_LABELS = {
   SELF_TEST: "Self-Test",
   FINAL: "Final Quiz",
+  QUALIFYING: "Qualifying Test",
 };
 
+// A Qualifying Test is the odd one out: it is not material inside its lesson
+// or topic, it is the test that lets a student SKIP that lesson or topic, and
+// it is excluded from progress. It is therefore only offered where there is
+// something to skip — a lesson- or topic-scoped quiz. The backend refuses one
+// without a lesson/topic regardless; this only keeps the option from being
+// offered where it could never be saved.
 const QUIZ_TAG_OPTIONS = [
   { value: "SELF_TEST", label: "Self-Test", hint: "Practice — no timer" },
   { value: "FINAL", label: "Final Quiz", hint: "Formal assessment" },
+  {
+    value: "QUALIFYING",
+    label: "Qualifying Test",
+    hint: "Lets a student skip this content",
+    requiresLessonOrTopicScope: true,
+  },
 ];
+
+// A Self-Test is never timed; a Final and a Qualifying Test both may be.
+const isTimedTag = (tag) => tag === "FINAL" || tag === "QUALIFYING";
 
 const DEFAULT_TIME_LIMIT = 30;
 
@@ -65,7 +81,7 @@ function quizFormFromQuiz(quiz) {
     description: quiz.description || "",
     // Rows cached from before quiz tags existed read as the formal
     // assessment they were authored as.
-    quizTag: quiz.quizTag === "SELF_TEST" ? "SELF_TEST" : "FINAL",
+    quizTag: QUIZ_TAG_LABELS[quiz.quizTag] ? quiz.quizTag : "FINAL",
     timerEnabled: timeLimit !== null,
     timeLimit,
     passingScore: quiz.passingScore !== undefined && quiz.passingScore !== null ? quiz.passingScore : 50,
@@ -86,11 +102,21 @@ export function QuizOverviewView({
   moduleTitle = null,
   lessonTitle = null,
   topicTitle = null,
+  // The two levels below Topic. Scope labels use the most specific title set.
+  subTopicTitle = null,
+  conceptTitle = null,
   onSaveQuiz,
   onCancel,
   startEditing = false,
 }) {
   const [isEditing, setIsEditing] = useState(startEditing || quizMode === "create" || quizMode === "edit");
+
+  // Whether this quiz hangs off something a student could be exempted from.
+  // A course- or module-level quiz has no skip target, so the Qualifying Test
+  // tag is not offered there.
+  const hasSkippableScope = Boolean(
+    quiz?.topicId || quiz?.lessonId || topicTitle || lessonTitle
+  );
 
   // Active single question index in editor mode (0-indexed) — view/preview
   // mode has no equivalent since it lists every question at once.
@@ -125,7 +151,7 @@ export function QuizOverviewView({
     if (quizMode === "create") {
       setIsEditing(true);
       setQuizForm({
-        title: topicTitle ? `Quiz - ${topicTitle}` : lessonTitle ? `Quiz - ${lessonTitle}` : moduleTitle ? `Quiz - ${moduleTitle}` : "Course Quiz",
+        title: conceptTitle ? `Quiz - ${conceptTitle}` : subTopicTitle ? `Quiz - ${subTopicTitle}` : topicTitle ? `Quiz - ${topicTitle}` : lessonTitle ? `Quiz - ${lessonTitle}` : moduleTitle ? `Quiz - ${moduleTitle}` : "Course Quiz",
         description: "",
         // Deliberately unselected — the instructor must choose practice or
         // assessment rather than inherit a default.
@@ -143,7 +169,7 @@ export function QuizOverviewView({
     } else {
       setIsEditing(false);
     }
-  }, [quizMode, startEditing, moduleTitle, lessonTitle, topicTitle]);
+  }, [quizMode, startEditing, moduleTitle, lessonTitle, topicTitle, subTopicTitle, conceptTitle]);
 
   useEffect(() => {
     if (quiz && quizMode !== "create") {
@@ -165,6 +191,7 @@ export function QuizOverviewView({
           : (typeof q.options === "object" && q.options !== null ? Object.values(q.options).map(optionToText) : ["Option 1", "Option 2"]),
         correctAnswer: q.correctAnswer !== undefined ? q.correctAnswer : "",
         explanation: q.explanation || "",
+        hint: q.hint || "",
         marks: q.marks !== undefined ? Number(q.marks) : 1,
         difficulty: q.difficulty || "MEDIUM",
         isMandatory: q.isMandatory !== false,
@@ -213,6 +240,7 @@ export function QuizOverviewView({
       options: ["Option 1", "Option 2"],
       correctAnswer: "Option 1",
       explanation: "",
+      hint: "",
       marks: 1,
       difficulty: "MEDIUM",
       isMandatory: true,
@@ -235,6 +263,7 @@ export function QuizOverviewView({
       options: Array.isArray(q.options) ? q.options.map(optionToText) : [],
       correctAnswer: q.correctAnswer !== undefined ? q.correctAnswer : "",
       explanation: q.explanation || "",
+      hint: q.hint || "",
       marks: q.marks !== undefined ? Number(q.marks) : 1,
       difficulty: q.difficulty || "MEDIUM",
       isMandatory: true,
@@ -397,7 +426,7 @@ export function QuizOverviewView({
     // else is null, never 0 — 0 and null both mean "untimed" here, and letting
     // 0 through would leave "0 mins" showing up in read views.
     const effectiveTimeLimit =
-      quizForm.quizTag === "FINAL" && quizForm.timerEnabled && Number(quizForm.timeLimit) > 0
+      isTimedTag(quizForm.quizTag) && quizForm.timerEnabled && Number(quizForm.timeLimit) > 0
         ? Number(quizForm.timeLimit)
         : null;
 
@@ -453,7 +482,7 @@ export function QuizOverviewView({
         <div className="flex items-center space-x-2">
           <span className="rounded bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 text-[12px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
             <HelpCircle size={12} />
-            {topicTitle ? `Topic Quiz — ${topicTitle}` : lessonTitle ? `Lesson Quiz — ${lessonTitle}` : moduleTitle ? `Module Quiz — ${moduleTitle}` : "Course-Level Quiz"}
+            {conceptTitle ? `Concept Quiz — ${conceptTitle}` : subTopicTitle ? `SubTopic Quiz — ${subTopicTitle}` : topicTitle ? `Topic Quiz — ${topicTitle}` : lessonTitle ? `Lesson Quiz — ${lessonTitle}` : moduleTitle ? `Module Quiz — ${moduleTitle}` : "Course-Level Quiz"}
           </span>
 
           {/* Tag sits beside the scope badge, not inside it — the two are
@@ -769,7 +798,9 @@ export function QuizOverviewView({
                 <label className="text-sm font-semibold text-foreground">Quiz Tag *</label>
 
                 <div className="grid grid-cols-2 gap-2">
-                  {QUIZ_TAG_OPTIONS.map((opt) => {
+                  {QUIZ_TAG_OPTIONS.filter(
+                    (opt) => !opt.requiresLessonOrTopicScope || hasSkippableScope
+                  ).map((opt) => {
                     const selected = quizForm.quizTag === opt.value;
 
                     return (
@@ -811,7 +842,7 @@ export function QuizOverviewView({
                 )}
               </div>
 
-              {quizForm.quizTag === "FINAL" && (
+              {isTimedTag(quizForm.quizTag) && (
                 <div className="space-y-1.5">
                   <label className="text-sm font-semibold text-foreground">Time Limit</label>
 
@@ -1124,6 +1155,27 @@ export function QuizOverviewView({
                   className="w-full rounded-xl border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-emerald-500"
                 />
               </div>
+
+              {/* Hint Field — only meaningful on a Qualifying Test, which is
+                  the only quiz that ever surfaces one, and then only from the
+                  student's second attempt. Offered solely there so it doesn't
+                  read as a field every question needs. */}
+              {quizForm.quizTag === "QUALIFYING" && (
+                <div className="space-y-1 pt-1">
+                  <label className="text-[13px] font-semibold text-muted-foreground">Hint</label>
+                  <input
+                    type="text"
+                    value={activeQuestion.hint}
+                    onChange={(e) => handleCurrentQuestionChange("hint", e.target.value)}
+                    placeholder="Optional nudge, offered only from the student's second attempt..."
+                    className="w-full rounded-xl border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-amber-500"
+                  />
+                  <p className="text-[11.5px] text-muted-foreground">
+                    Hidden on the first attempt — that attempt is what decides whether the student
+                    already knows this content. Write a nudge, not the answer.
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="p-6 text-center text-muted-foreground text-sm italic bg-background/40 rounded-xl border border-border/80 space-y-2">
@@ -1174,35 +1226,12 @@ export function QuizOverviewView({
             </div>
           )}
 
-          {/* Save/Cancel repeated at the end of the question list. The pair in
-              the header scrolls out of sight once a quiz has more than a couple
-              of questions, leaving the instructor to scroll back up to save
-              what they just finished writing. Same handlers, same validation —
-              this is the identical control, only reachable where the work ends. */}
-          <div className="flex items-center justify-between gap-3 pt-4 mt-2 border-t border-border">
-            <p className="text-sm text-muted-foreground">
-              {questions.length} question{questions.length === 1 ? "" : "s"} • {totalMarks} total mark{totalMarks === 1 ? "" : "s"}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleCancelEdit}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border bg-background hover:bg-muted text-foreground text-sm font-bold transition cursor-pointer"
-              >
-                <X size={14} />
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveChanges}
-                disabled={isSaving}
-                className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-extrabold transition shadow-lg shadow-emerald-600/20 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                <Save size={14} />
-                {isSaving ? "Saving…" : "Save Changes"}
-              </button>
-            </div>
-          </div>
+          {/* No Save/Cancel pair down here on purpose. It used to be repeated
+              at the end of the question list, but it put a second identical
+              control — plus a second copy of the question/marks count already
+              shown in the Quiz Settings header — on screen at the same time as
+              the header pair, which read as redundant. The header bar is the
+              single place to save or cancel. */}
         </form>
       )}
 

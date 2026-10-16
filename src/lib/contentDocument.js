@@ -34,6 +34,16 @@ function isHtmlImage(item) {
   return false;
 }
 
+// A Content row hangs off exactly one of these. Two rows only belong in the
+// same merged document when they share that parent. Comparing topicId alone
+// is not enough: SubTopic and Concept rows all have a null topicId, so rows
+// from two different SubTopics (or a SubTopic and a Concept) would look alike.
+const PARENT_ID_FIELDS = ["courseId", "moduleId", "lessonId", "topicId", "subTopicId", "conceptId"];
+
+function hasSameParent(a, b) {
+  return PARENT_ID_FIELDS.every((field) => (a?.[field] ?? null) === (b?.[field] ?? null));
+}
+
 export function groupLessonContentForDocumentView(contents) {
   const items = Array.isArray(contents) ? contents : [];
   const grouped = [];
@@ -49,7 +59,7 @@ export function groupLessonContentForDocumentView(contents) {
       last?.type === "HTML" &&
       !isHtmlImage(last) &&
       last.__merged &&
-      last.topicId === item.topicId
+      hasSameParent(last, item)
     ) {
       last.htmlContent = [last.htmlContent, item.htmlContent].filter(Boolean).join("\n");
       if (item.id) last.contentIds.push(item.id);

@@ -13,6 +13,8 @@ import {
 } from "@/services/auth.service";
 import { defaultQueryOptions } from "@/lib/queryOptions";
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { PALETTE_STORAGE_KEY } from "@/lib/palettes";
+import { setSessionCookies, clearSessionCookies } from "@/lib/authCookies";
 
 const AuthContext = createContext();
 
@@ -29,26 +31,20 @@ const AUTH_SESSION_KEY = [QUERY_KEYS.PROFILE];
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   // loading: true only while we genuinely don't know who's asking yet
-  // (no cookie, or a cookie with nothing cached to render with). It no
-  // longer waits on the getProfile() network round-trip in the common case.
+  // (no cookie, or a cookie with nothing cached to render with).
   const [loading, setLoading] = useState(true);
-  // isVerifying: background getProfile() confirmation in flight. Never
-  // gates rendering — exposed for optional future UI (e.g. a subtle
-  // "syncing" indicator), unused today.
+  // isVerifying: background getProfile() confirmation in flight.
   const [isVerifying, setIsVerifying] = useState(false);
+  // isVerified: true only after server confirmation (or confirmed unauthenticated status).
+  // A cached localStorage user alone DOES NOT set isVerified to true.
+  const [isVerified, setIsVerified] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
 
   const logoutLocal = () => {
     // 1. Clear all authentication cookies across root and default paths
-    Cookies.remove("accessToken", { path: "/" });
-    Cookies.remove("refreshToken", { path: "/" });
-    Cookies.remove("role", { path: "/" });
-
-    Cookies.remove("accessToken");
-    Cookies.remove("refreshToken");
-    Cookies.remove("role");
+    clearSessionCookies();
 
     // 2. Clear all local and session storage — except device UI preferences
     // (theme/palette), which are independent of the authenticated session
@@ -78,6 +74,7 @@ export const AuthProvider = ({ children }) => {
     // 4. Reset auth state
     setUser(null);
     setLoading(false);
+    setIsVerified(true);
   };
 
   // Confirms the session against the server. Goes through React Query so
@@ -96,10 +93,17 @@ export const AuthProvider = ({ children }) => {
       if (typeof window !== "undefined") {
         localStorage.setItem("user", JSON.stringify(response.data));
       }
+      // The server just told us who this is, so re-assert the `role` cookie
+      // middleware reads. This is what repairs a browser that already has a
+      // missing or stale role — without it those sessions stay permanently
+      // unable to reach their dashboard even after the refresh fix above.
+      setSessionCookies({ role: response.data?.role });
+      setIsVerified(true);
       return true;
     } catch (error) {
       console.error("Session verification failed:", error);
       logoutLocal();
+      setIsVerified(true);
       return false;
     } finally {
       setIsVerifying(false);
@@ -128,9 +132,8 @@ export const AuthProvider = ({ children }) => {
     }
 
     if (hasCachedUser) {
-      // We already know who this browser was last authenticated as — unblock
-      // rendering now and confirm the session with the server in the
-      // background instead of making every page wait on the network.
+      // Unblock initial layout rendering with cached user, but DO NOT consider session
+      // verified until verifySession() completes with the server.
       setLoading(false);
       verifySession();
     } else {
@@ -146,9 +149,10 @@ export const AuthProvider = ({ children }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Automatic startup dashboard redirects for authenticated users on guest pages
+  // Automatic startup dashboard redirects for authenticated users on guest pages.
+  // Requires isVerified === true so unverified localStorage cache NEVER triggers guest redirects.
   useEffect(() => {
-    if (!loading && user) {
+    if (!loading && isVerified && user) {
       const guestRoutes = [
         "/",
         "/login",
@@ -175,7 +179,7 @@ export const AuthProvider = ({ children }) => {
         router.replace(returnTo || defaultDashboard);
       }
     }
-  }, [user, loading, pathname, router]);
+  }, [user, loading, isVerified, pathname, router]);
 
   const register = async (data) => {
     return await registerUser(data);
@@ -185,28 +189,7 @@ export const AuthProvider = ({ children }) => {
     const response = await loginUser(credentials);
     const { accessToken, refreshToken, user } = response.data;
 
-    const isProduction = process.env.NODE_ENV === "production";
-
-    Cookies.set("accessToken", accessToken, {
-      expires: 1,
-      path: "/",
-      sameSite: "strict",
-      secure: isProduction,
-    });
-
-    Cookies.set("refreshToken", refreshToken, {
-      expires: 7,
-      path: "/",
-      sameSite: "strict",
-      secure: isProduction,
-    });
-
-    Cookies.set("role", user.role, {
-      expires: 1,
-      path: "/",
-      sameSite: "strict",
-      secure: isProduction,
-    });
+    setSessionCookies({ accessToken, refreshToken, role: user.role });
 
     if (typeof window !== "undefined") {
       localStorage.setItem("user", JSON.stringify(user));
@@ -218,6 +201,7 @@ export const AuthProvider = ({ children }) => {
     queryClient.setQueryData(AUTH_SESSION_KEY, { success: true, data: user });
 
     setUser(user);
+    setIsVerified(true);
     return user;
   };
 
@@ -247,6 +231,7 @@ export const AuthProvider = ({ children }) => {
         user,
         loading,
         isVerifying,
+        isVerified,
         login,
         register,
         logout,

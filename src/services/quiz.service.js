@@ -57,18 +57,25 @@ export const deleteQuiz =
         return response.data;
     };
 /**
- * Submit Quiz. timeTakenSeconds is informational only — scoring and the
- * attempt limit are decided server-side.
+ * Submit Quiz.
+ *
+ * `questionStates` carries the per-question visit/skip/hint activity the
+ * server has no other way of knowing; it is merged into the question-level
+ * attempt records written at submit. Optional — omitting it still submits.
+ * timeTakenSeconds is informational only. Scoring, correctness, marks and the
+ * attempt limit are all decided server-side.
  */
 export const submitQuiz = async (
     quizId,
     answers,
-    timeTakenSeconds
+    timeTakenSeconds,
+    questionStates
 ) => {
     const { data } = await api.post(
         `/quizzes/${quizId}/submit`,
         {
             answers,
+            ...(Array.isArray(questionStates) && questionStates.length > 0 && { questionStates }),
             ...(Number.isFinite(timeTakenSeconds) && { timeTakenSeconds }),
         },
         {

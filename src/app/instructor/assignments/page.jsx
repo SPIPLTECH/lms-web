@@ -132,37 +132,51 @@ function InstructorAssignmentsView() {
 
   // Filter assignments list — draft courses aren't graded yet, so only
   // surface work that belongs to a course the instructor has published.
-  const filteredAssignments = sortGradables(
-    assignments.filter((a) => {
-      if (a.course?.status !== "PUBLISHED") return false;
-      if (courseFilter === "all") return true;
-      return a.courseId === courseFilter || a.course?.id === courseFilter;
-    }),
-    sortKey
-  );
-  const filteredContentAssignments = sortGradables(
-    contentAssignments.filter((a) => {
-      if (a.course?.status !== "PUBLISHED") return false;
-      return courseFilter === "all" || a.course?.id === courseFilter;
-    }),
+  const isPublished = (a) => a.course?.status === "PUBLISHED";
+  const matchesCourse = (a) =>
+    courseFilter === "all" || a.courseId === courseFilter || a.course?.id === courseFilter;
+
+  // Both kinds are just "an assignment" to an instructor — whether a row lives
+  // in the Assignment table or as a Composer Content block is storage, not a
+  // distinction they asked about. Merging them also lets "Recently submitted"
+  // order the whole list: sorting each group separately meant a fresh
+  // submission could never rise above a stale one in the other group.
+  const rows = sortGradables(
+    [
+      ...contentAssignments
+        .filter((a) => isPublished(a) && matchesCourse(a))
+        .map((a) => ({ ...a, kind: "content" })),
+      ...assignments
+        .filter((a) => isPublished(a) && matchesCourse(a))
+        .map((a) => ({ ...a, kind: "assignment" })),
+    ],
     sortKey
   );
 
   return (
-    <div className="space-y-4 pb-12 animate-fade-in duration-300">
-      {/* Toolbar: back, course scope, and the view switch on one line. The
-          page title is screen-reader only — the switch already names the
-          content, and the rows need the vertical space more. */}
-      <h1 className="sr-only">Grading &amp; Results</h1>
-
+    // DashboardLayout pads its <main> p-2 sm:p-6 md:p-16 for every role, which
+    // leaves this dense list floating well below the navbar. Pulled back up
+    // here rather than changing that shared layout out from under admin and
+    // student pages.
+    <div className="space-y-4 pb-12 animate-fade-in duration-300 -mt-1 sm:-mt-5 md:-mt-14">
+      {/* Toolbar: back, the list's name, course scope and the view switch all
+          on one line. The title sits in the space beside the back button so it
+          costs no vertical room above the rows. */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <button
-          onClick={() => router.push("/instructor/dashboard")}
-          aria-label="Back to dashboard"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted border border-transparent text-foreground hover:border-primary transition"
-        >
-          <ArrowLeft size={16} />
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push("/instructor/courses")}
+            aria-label="Back to my courses"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted border border-transparent text-foreground hover:border-primary transition"
+          >
+            <ArrowLeft size={16} />
+          </button>
+          {/* Names whichever list is showing, so the heading and the active
+              tab can never disagree. */}
+          <h1 className="text-xs font-extrabold uppercase tracking-widest text-foreground">
+            {activeView === "final-tests" ? "Final Tests" : "Assignments"}
+          </h1>
+        </div>
 
         <div className="flex flex-wrap items-center gap-2">
           {/* Scopes both views. */}
@@ -241,83 +255,53 @@ function InstructorAssignmentsView() {
           listQuery={listQuery}
           sortKey={sortKey}
         />
-      ) : filteredAssignments.length === 0 && filteredContentAssignments.length === 0 ? (
+      ) : rows.length === 0 ? (
         <Card className="p-8 text-center text-muted-foreground text-xs border border-transparent bg-background/60">
           <FileText className="mx-auto text-slate-600 mb-3" size={24} />
           No assignments found. Add an Assignment content cell from within a course&apos;s Composer to
           create one.
         </Card>
       ) : (
-        <div className="space-y-4">
-          {/* Lesson assignments — Assignment cells from the Course Composer.
-              Edited in the Composer itself, so only submissions live here. */}
-          {filteredContentAssignments.length > 0 && (
-            <section className="space-y-2">
-              <h2 className="text-xs font-extrabold uppercase tracking-widest text-muted-foreground">
-                Lesson Assignments
-              </h2>
-              <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-background/40">
-                {filteredContentAssignments.map((a) => (
-                <GradableRow
-                  key={a.id}
-                  href={detailHref("/instructor/content-assignments", a.id)}
-                  breadcrumb={a}
-                  title={a.title || "Assignment"}
-                  gauge={{
-                    value: a.submissionsCount,
-                    total: a.enrolledCount,
-                    label: "submitted",
-                  }}
-                  badges={pendingBadges(a.pendingSubmissionsCount)}
-                />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {filteredAssignments.length > 0 && (
-            <section className="space-y-2">
-              {filteredContentAssignments.length > 0 && (
-                <h2 className="text-xs font-extrabold uppercase tracking-widest text-muted-foreground">
-                  Course Assessments
-                </h2>
+        <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-background/40">
+          {rows.map((a) => (
+            <GradableRow
+              key={`${a.kind}-${a.id}`}
+              href={detailHref(
+                a.kind === "content" ? "/instructor/content-assignments" : "/instructor/assignments",
+                a.id
               )}
-              <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-background/40">
-                {filteredAssignments.map((a) => (
-                <GradableRow
-                  key={a.id}
-                  href={detailHref("/instructor/assignments", a.id)}
-                  breadcrumb={a}
-                  title={a.title}
-                  gauge={{
-                    value: a.submissionsCount,
-                    total: a.enrolledCount,
-                    label: "submitted",
-                  }}
-                  badges={pendingBadges(a.pendingSubmissionsCount)}
-                  actions={
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => openEditForm(a)}
-                        className="rounded-lg p-1.5 text-muted-foreground transition cursor-pointer hover:bg-muted hover:text-foreground"
-                        title="Edit Assignment"
-                      >
-                        <Edit size={13} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(a.id)}
-                        className="rounded-lg p-1.5 text-muted-foreground transition cursor-pointer hover:bg-muted hover:text-red-400"
-                        title="Delete Assignment"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  }
-                />
-                ))}
-              </div>
-            </section>
-          )}
+              breadcrumb={a}
+              title={a.title || "Assignment"}
+              gauge={{
+                value: a.submissionsCount,
+                total: a.enrolledCount,
+                label: "submitted",
+              }}
+              badges={pendingBadges(a.pendingSubmissionsCount)}
+              actions={
+                // Composer blocks are edited in the Composer itself, so only
+                // Assignment rows carry Edit/Delete here.
+                a.kind === "assignment" ? (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => openEditForm(a)}
+                      className="rounded-lg p-1.5 text-muted-foreground transition cursor-pointer hover:bg-muted hover:text-foreground"
+                      title="Edit Assignment"
+                    >
+                      <Edit size={13} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(a.id)}
+                      className="rounded-lg p-1.5 text-muted-foreground transition cursor-pointer hover:bg-muted hover:text-red-400"
+                      title="Delete Assignment"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                ) : null
+              }
+            />
+          ))}
         </div>
       )}
 

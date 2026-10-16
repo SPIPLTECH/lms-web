@@ -18,6 +18,7 @@ import { Card, CardContent } from "@/components/ui/shadcn/card";
 import { useToast } from "@/components/ui/ToastProvider";
 import { useContents } from "@/hooks/queries/instructor/useContents";
 import { cn } from "@/lib/utils";
+import { resolveAutoOpen } from "@/lib/autoOpenSignal";
 
 import dynamic from "next/dynamic";
 
@@ -51,7 +52,7 @@ interface LessonComposerPanelProps {
   draftContents?: ContentRow[];
   isDraftMode?: boolean;
   onUpdateDraftContents?: (contents: ContentRow[]) => void;
-  /** Opens the lesson-quiz creation flow for this topic's parent lesson — a Quiz isn't a Content row, so picking it from the Add Content grid hands off to that flow instead of an in-panel form. Only ever passed when parent.parentType === "topic". Omit to hide the Quiz option. */
+  /** Opens the lesson-quiz creation flow for this topic's parent lesson — a Quiz isn't a Content row, so picking it from the Add Content grid hands off to that flow instead of an in-panel form. Passed for "topic", "subTopic" and "concept" parents. Omit to hide the Quiz option. */
   onAddQuiz?: () => void;
 }
 
@@ -307,12 +308,21 @@ export function LessonComposerPanel({
   // that stays non-zero after being handled would look "new" again to the
   // next fresh mount (its own ref starts empty) and re-fire on every
   // revisit, not just the visit that actually requested it.
-  const handledAutoOpenSignal = useRef<number | undefined>(undefined);
+  //
+  // The de-duplication below must NOT be inlined as `handled === signal`: the
+  // caller resets the counter to 0 on consume, so the next click reuses a
+  // number this panel has already marked handled and would be thrown away as
+  // a repeat — which is why Add Content used to work only every other time.
+  // resolveAutoOpen keeps the two rules compatible; see src/lib/autoOpenSignal.js.
+  const handledAutoOpenSignal = useRef<number | null>(null);
   useEffect(() => {
-    if (!autoOpenAddSignal || autoOpenAddSignal <= 0) return;
-    if (isLoading) return;
-    if (handledAutoOpenSignal.current === autoOpenAddSignal) return;
-    handledAutoOpenSignal.current = autoOpenAddSignal;
+    const { open, handled } = resolveAutoOpen({
+      signal: autoOpenAddSignal ?? 0,
+      isLoading,
+      handled: handledAutoOpenSignal.current,
+    });
+    handledAutoOpenSignal.current = handled;
+    if (!open) return;
     openAddCell(nextOrder);
     onAutoOpenConsumed?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -367,7 +377,7 @@ export function LessonComposerPanel({
           className="rounded-2xl border-2 border-dashed border-border hover:border-primary/50 bg-background/40 p-12 text-center transition cursor-pointer group"
         >
           <p className="text-base font-bold text-foreground group-hover:text-primary transition">
-            No content in this {parent?.parentType || "lesson"} yet.
+            No content in this {(parent?.parentType === "subTopic" ? "subtopic" : parent?.parentType) || "lesson"} yet.
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             Click here to add your first content block.

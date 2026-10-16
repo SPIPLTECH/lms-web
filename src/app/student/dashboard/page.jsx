@@ -18,6 +18,9 @@ import useCourses from "@/hooks/queries/student/useCourses";
 import useStudentCalendar from "@/hooks/queries/student/useStudentCalendar";
 import MiniCalendar from "@/components/dashboard/MiniCalendar";
 import RecommendedCoursesCarousel from "@/components/dashboard/RecommendedCoursesCarousel";
+import LearningRecommendations from "@/components/student/dashboard/LearningRecommendations";
+import LearningSignals from "@/components/student/dashboard/LearningSignals";
+import NextActionCard from "@/components/student/learning/NextActionCard";
 import ContinueLearningRow from "@/components/dashboard/ContinueLearningRow";
 import RecommendedCourseCard from "@/components/dashboard/RecommendedCourseCard";
 import QuickActionButton from "@/components/dashboard/QuickActionButton";
@@ -264,6 +267,13 @@ export default function StudentDashboardPage() {
               level with Calendar's bottom. */}
           <div className="flex flex-col gap-2 xl:basis-0 xl:grow-[4] xl:order-1 xl:self-stretch">
 
+            {/* NEXT ACTION — the one thing to do next, above everything
+                else in this column. Scoped to the course the student is
+                furthest into; renders nothing until one is known. */}
+            {topEnrollment?.courseId && (
+              <NextActionCard courseId={topEnrollment.courseId} />
+            )}
+
             {/* Continue Learning */}
             <div className="rounded-2xl bg-card border border-border p-5">
               <div className="flex items-center justify-between mb-4">
@@ -297,10 +307,25 @@ export default function StudentDashboardPage() {
               )}
             </div>
 
-            {/* Recommended for You */}
+            {/* LEARNING RECOMMENDATIONS — what to study next and where the
+                student is weakest, from the existing adaptive engine. Sits
+                directly under Continue Learning so the most actionable thing
+                on the page is above the fold, and renders nothing at all for a
+                student with no activity yet rather than showing an empty card. */}
+            <LearningRecommendations />
+
+            {/* YOUR LEARNING OVER TIME — Phase 8 retention/transfer signals.
+                Below the recommendations on purpose: those are what to do
+                now, this is context for why. It carries no CTAs of its own,
+                so it can't compete with the next-action card above. */}
+            <LearningSignals />
+
+            {/* Courses You Might Like — catalog suggestions, a different thing
+                from the learning recommendations above. Retitled so the two
+                aren't both called "Recommended for You". */}
             <div ref={recommendedRef} className="rounded-2xl bg-card border border-border p-5 flex-1 flex flex-col">
               <RecommendedCoursesCarousel
-                title="Recommended for You"
+                title="Courses You Might Like"
                 viewAllHref="/student/courses"
                 courses={recommendedCourses}
                 isLoading={isCoursesLoading}

@@ -7,37 +7,44 @@ import OutcomeSection from "@/components/home/OutcomeSection";
 import FinalCta from "@/components/home/FinalCta";
 import Footer from "@/components/layouts/Footer";
 import { AiAssistantWidget } from "@/features/ai-assistant/components";
+import LandingGate from "@/components/home/LandingGate";
 
 export default function Home() {
   return (
     <main className="min-h-screen bg-background text-foreground selection:bg-primary/20 selection:text-primary">
-      <LandingNavbar />
+      {/* A visitor who is already signed in is redirected to their dashboard by
+          AuthContext, so LandingGate shows a loader for that window instead of
+          painting the marketing page that is about to disappear. Guests fall
+          straight through, on the server as well, so the page stays crawlable. */}
+      <LandingGate>
+        <LandingNavbar />
 
-      {/* Each section below owns its own vertical rhythm and, where it needs
-          to read as a distinct scene, its own full-bleed background band —
-          sections are no longer forced into one shared tight spacing rail. */}
+        {/* Each section below owns its own vertical rhythm and, where it needs
+            to read as a distinct scene, its own full-bleed background band —
+            sections are no longer forced into one shared tight spacing rail. */}
 
-      {/* Scene 1: Hero */}
-      <Hero />
+        {/* Scene 1: Hero */}
+        <Hero />
 
-      {/* Scene 2: Explore by domain — compact, supporting */}
-      <GoalCategoryDiscovery />
+        {/* Scene 2: Explore by domain — compact, supporting */}
+        <GoalCategoryDiscovery />
 
-      {/* Scene 3: Course discovery — supporting grid of real courses */}
-      <CourseDiscovery />
+        {/* Scene 3: Course discovery — supporting grid of real courses */}
+        <CourseDiscovery />
 
-      {/* Scene 4: Why Orange Tree is different — one unified product story */}
-      <LearningExperience />
+        {/* Scene 4: Why Orange Tree is different — one unified product story */}
+        <LearningExperience />
 
-      {/* Scene 5: Outcome — completion & certificate */}
-      <OutcomeSection />
+        {/* Scene 5: Outcome — completion & certificate */}
+        <OutcomeSection />
 
-      {/* Scene 6: Final CTA */}
-      <FinalCta />
+        {/* Scene 6: Final CTA */}
+        <FinalCta />
 
-      <Footer />
+        <Footer />
 
-      <AiAssistantWidget scopeHint="GUEST" />
+        <AiAssistantWidget scopeHint="GUEST" />
+      </LandingGate>
     </main>
   );
 }

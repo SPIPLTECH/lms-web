@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { HiOutlineLockClosed } from "@/components/ui/reactIcons";
@@ -18,6 +18,11 @@ import AuthButton from "@/components/auth/AuthButton";
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
+
+  useEffect(() => {
+    console.log("[LOGIN] page mounted");
+    return () => console.log("[LOGIN] page unmounted");
+  }, []);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");

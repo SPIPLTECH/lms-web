@@ -6,15 +6,19 @@ import {
 import { createContent } from "@/services/content.service";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 
-const PARENT_FIELDS = ["courseId", "moduleId", "lessonId", "topicId"];
+// Most specific first. Content carries exactly one parent id, so the order
+// only matters for an object that also happens to hold ancestor ids.
+const PARENT_FIELDS = ["conceptId", "subTopicId", "topicId", "lessonId", "moduleId", "courseId"];
 
-/** Reads whichever of courseId/moduleId/lessonId/topicId is present on the create payload and returns it as [parentType, parentId] for cache-key purposes. */
-function parentFromCreateVariables(variables) {
+/** Reads the parent id present on a content payload (or any object with the same id fields) and returns it as [parentType, parentId] for cache-key purposes — parentType is the field name without `Id` (`subTopic`, `concept`, …), matching the CONTENTS query key. */
+export function parentFromIdFields(variables) {
     for (const field of PARENT_FIELDS) {
-        if (variables[field]) return [field.replace(/Id$/, ""), variables[field]];
+        if (variables?.[field]) return [field.replace(/Id$/, ""), variables[field]];
     }
     return [undefined, undefined];
 }
+
+const parentFromCreateVariables = parentFromIdFields;
 
 export function useCreateContent() {
     const queryClient = useQueryClient();

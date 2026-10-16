@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import useChat from "@/hooks/useChat";
 import { deleteMessage, updateMessage, toggleStarMessage } from "@/features/chat/api/chat.api";
 import ChatAvatar from "./ChatAvatar";
+import { getApiOrigin } from "@/lib/apiOrigin";
 
 export default function ChatMessage({ message }) {
   const { user } = useAuth();
@@ -211,7 +212,7 @@ export default function ChatMessage({ message }) {
                   const isImg = att.type === "IMAGE" || att.mimeType?.startsWith("image/");
                   const fileUrlWithBase = att.fileUrl.startsWith("http")
                     ? att.fileUrl
-                    : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}${att.fileUrl}`;
+                    : `${getApiOrigin()}${att.fileUrl}`;
                   
                   if (isImg) {
                     return (

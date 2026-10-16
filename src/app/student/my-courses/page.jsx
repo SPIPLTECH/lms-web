@@ -77,8 +77,10 @@ export default function MyCoursesPage() {
     <div
       // Bleeds exactly to the layout's own padding (p-2 / sm:p-6 / md:p-16);
       // -mx-4 on phones overshot it by 8px and scrolled the page sideways.
-      // pt-3 below sm so the greeting clears the sticky navbar it bleeds under.
-      className="-m-3 sm:-m-6 -mt-4 sm:-mt-6 md:-mt-16 -mx-2 sm:-mx-6 md:-mx-16 -mb-8 sm:-mb-12 md:-mb-16 p-3 sm:p-6 pt-3 sm:pt-0 space-y-4 md:space-y-6 flex flex-col flex-1 min-h-0">
+      // The top is re-padded like every other edge (p-3 sm:p-6) rather than
+      // zeroed, so the greeting clears the sticky navbar it bleeds under by
+      // the same gap it keeps from the side edges.
+      className="-m-3 sm:-m-6 -mt-4 sm:-mt-6 md:-mt-16 -mx-2 sm:-mx-6 md:-mx-16 -mb-8 sm:-mb-12 md:-mb-16 p-3 sm:p-6 space-y-4 md:space-y-6 flex flex-col flex-1 min-h-0">
       <div className="shrink-0">
         <StudentWelcomeCard />
       </div>

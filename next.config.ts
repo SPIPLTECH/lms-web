@@ -1,6 +1,21 @@
 import type { NextConfig } from "next";
 
+// Next blocks cross-origin requests to dev-only resources (/_next/* assets
+// and the HMR websocket) unless the requesting host is allowlisted, so a
+// phone or laptop opening the dev server over the Wi-Fi gets 403s and no hot
+// reload. The requesting host is this PC's LAN IP, which DHCP hands out and
+// which changes between networks, so the allowlist covers the private ranges
+// instead of one pinned address. Matching is per dot-segment, which is why
+// 172.16.0.0/12 has to be spelled out a segment at a time.
+// Development only — `next start` ignores this.
+const PRIVATE_LAN_DEV_ORIGINS = [
+    "10.*.*.*",
+    "192.168.*.*",
+    ...Array.from({ length: 16 }, (_, i) => `172.${16 + i}.*.*`),
+];
+
 const nextConfig: NextConfig = {
+    allowedDevOrigins: PRIVATE_LAN_DEV_ORIGINS,
     experimental: {
         // Without this, Turbopack/webpack was emitting a separate ~330KB
         // recharts chunk per route that imports it (verified via `next build`:

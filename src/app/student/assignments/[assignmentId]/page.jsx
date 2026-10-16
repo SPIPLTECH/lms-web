@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, CalendarClock, ClipboardCheck, Download, FileText, Quote, X } from "lucide-react";
 
@@ -46,6 +46,18 @@ export default function AssignmentDetailPage({ params }) {
   // replaces the same submission rather than starting a new one.
   const [isResubmitting, setIsResubmitting] = useState(false);
 
+  // Hooks must run on every render, so these sit above the loading/error
+  // early returns (after them, the loaded render called more hooks than the
+  // loading one and React threw).
+  const trackAccessMutation = useTrackCourseAccess();
+  const parentCourseId = assignment?.courseId || assignment?.course?.id;
+
+  useEffect(() => {
+    if (parentCourseId) {
+      trackAccessMutation.mutate(parentCourseId);
+    }
+  }, [parentCourseId]);
+
   if (isLoading) {
     return <Loader />;
   }
@@ -62,15 +74,6 @@ export default function AssignmentDetailPage({ params }) {
       </Card>
     );
   }
-
-  const trackAccessMutation = useTrackCourseAccess();
-  const parentCourseId = assignment?.courseId || assignment?.course?.id;
-
-  useEffect(() => {
-    if (parentCourseId) {
-      trackAccessMutation.mutate(parentCourseId);
-    }
-  }, [parentCourseId]);
 
   // Same status/grade derivation the Submissions list uses, so the grade
   // shown here always matches what "View Submission" promised.

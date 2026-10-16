@@ -1,15 +1,16 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, Loader2, Upload, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Info, Loader2, Upload, X } from "lucide-react";
 
 import { Button } from "@/components/ui/shadcn/button";
 import { useToast } from "@/components/ui/ToastProvider";
 import { useConfirm } from "@/context/ConfirmContext";
-import { getYouTubeEmbedUrl, isYouTubeUrl } from "@/lib/youtube";
+import { resolveVideoSource } from "@/lib/videoSource";
+import { isYouTubeUrl } from "@/lib/youtube";
+import VideoSurface from "@/components/shared/video/VideoSurface";
 import { uploadFileToVercelBlob } from "@/services/content.service";
 
-import { getDisplayUrl } from "@/lib/blob";
 import { useCreateContent, useUpdateContent, useDeleteContent } from "../contentMutations";
 import { CellShell } from "../CellShell";
 import { CELL_TYPES } from "../cellTypes";
@@ -119,9 +120,14 @@ export function VideoCell({
     }
   };
 
-  const embedUrl = content.videoUrl && isYouTubeUrl(content.videoUrl)
-    ? getYouTubeEmbedUrl(content.videoUrl)
-    : null;
+  // Same resolver the student learn page uses, so this preview and the
+  // student's player can never disagree about how a row renders.
+  const videoSource = resolveVideoSource(content);
+  const isEmbed = videoSource.kind === "youtube" || videoSource.kind === "vimeo";
+  // A YouTube link with no video id in it is a source problem in exactly the
+  // same way a file that won't decode is, so it reuses the one state the cell
+  // already has for saying so rather than getting a second error surface.
+  const hasSourceError = playbackFailed || videoSource.kind === "invalid";
 
   return (
     <CellShell
@@ -156,31 +162,16 @@ export function VideoCell({
             />
           </div>
 
+          {/* Upload leads, and the URL field sits below the divider, because
+              the source decides what the player looks like: a file we host
+              plays in our own <video> element with no title, no share control
+              and no third-party branding, and a YouTube link cannot — that
+              chrome is drawn by YouTube inside a cross-origin iframe and no
+              embed parameter turns it off (see VideoSurface for the detail). */}
           <div>
             <label className="block text-sm font-semibold text-foreground mb-1.5">
-              Video URL
+              Video File
             </label>
-            <input
-              type="text"
-              value={videoUrl}
-              onChange={(e) => setVideoUrl(e.target.value)}
-              placeholder="https://youtube.com/watch?v=… or direct video file URL"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground outline-none focus:border-primary font-mono"
-            />
-          </div>
-
-          {/* OR Divider */}
-          <div className="relative flex items-center justify-center my-1">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-border/60" />
-            </div>
-            <span className="relative bg-card px-2 text-[12px] font-bold text-muted-foreground uppercase">
-              OR
-            </span>
-          </div>
-
-          {/* Automatic Local Video Upload Button */}
-          <div>
             <input
               ref={fileInputRef}
               type="file"
@@ -192,7 +183,7 @@ export function VideoCell({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 hover:bg-primary/20 px-3.5 py-2 text-sm font-bold text-primary transition cursor-pointer disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-primary/40 bg-primary/10 hover:bg-primary/20 px-3.5 py-2.5 text-sm font-bold text-primary transition cursor-pointer disabled:opacity-50"
             >
               {isUploading ? (
                 <>
@@ -206,6 +197,49 @@ export function VideoCell({
                 </>
               )}
             </button>
+            <p className="mt-1.5 text-[12px] text-muted-foreground">
+              Plays in Orange Tree&apos;s own player — no title, no share button, no outside branding.
+            </p>
+          </div>
+
+          {/* OR Divider */}
+          <div className="relative flex items-center justify-center my-1">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-border/60" />
+            </div>
+            <span className="relative bg-card px-2 text-[12px] font-bold text-muted-foreground uppercase">
+              OR
+            </span>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-muted-foreground mb-1.5">
+              Video URL
+            </label>
+            <input
+              type="text"
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+              placeholder="https://youtu.be/… or a direct .mp4 link"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground outline-none focus:border-primary font-mono"
+            />
+            {/* Named only once the instructor has actually typed a YouTube
+                link, so the warning arrives with the decision instead of
+                sitting on the form telling everyone off in advance. */}
+            {isYouTubeUrl(videoUrl) ? (
+              <p className="mt-1.5 flex items-start gap-1.5 text-[12px] text-muted-foreground">
+                <Info className="mt-0.5 size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <span>
+                  YouTube plays this in its own player, which always shows the video title, a share
+                  button and a &ldquo;Watch on YouTube&rdquo; link. Those can&apos;t be turned off —
+                  upload the file above for a player without them.
+                </span>
+              </p>
+            ) : (
+              <p className="mt-1.5 text-[12px] text-muted-foreground">
+                A direct file link plays in our own player. A YouTube link keeps YouTube&apos;s player.
+              </p>
+            )}
           </div>
 
           {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
@@ -234,7 +268,7 @@ export function VideoCell({
             </Button>
           </div>
         </div>
-      ) : content.videoUrl ? (
+      ) : videoSource.kind !== "none" ? (
         <div className="space-y-3 py-1">
           {/* Controlled Playable Video Player. YouTube embeds are always
               16:9 by convention, so that case keeps a fixed aspect-ratio
@@ -244,39 +278,46 @@ export function VideoCell({
               letterboxes non-16:9 footage into a tiny, mostly-black frame. */}
           <div
             className={`mx-auto w-full max-w-2xl overflow-hidden rounded-xl border border-border shadow-lg ${
-              playbackFailed && !embedUrl ? "bg-card" : "bg-black"
+              hasSourceError && !isEmbed ? "bg-card" : "bg-black"
             }`}
           >
-            {embedUrl ? (
-              <div className="relative aspect-video w-full">
-                <iframe
-                  src={embedUrl}
-                  title={content.title || "Video Player"}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                  className="absolute inset-0 h-full w-full rounded-xl border-0"
-                />
-              </div>
-            ) : playbackFailed ? (
+            {isEmbed ? (
+              /* The embed fills the frame — the cell's own header above is
+                 the editing affordance, so nothing repeats the title here. */
+              <VideoSurface
+                source={videoSource}
+                title={content.title || "Video"}
+                className="relative aspect-video w-full overflow-hidden rounded-xl [&_iframe]:absolute [&_iframe]:inset-0 [&_iframe]:h-full [&_iframe]:w-full [&_iframe]:rounded-xl [&_iframe]:border-0"
+              />
+            ) : hasSourceError ? (
               /* Named as a source problem, not rendered as a broken page. The
                  URL is shown because it is usually the thing that is wrong. */
               <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
                 <AlertTriangle className="size-6 text-amber-600 dark:text-amber-400" />
-                <p className="text-base font-semibold text-foreground">This video couldn&apos;t be played</p>
+                <p className="text-base font-semibold text-foreground">
+                  {videoSource.kind === "invalid"
+                    ? "This YouTube link has no video in it"
+                    : "This video couldn't be played"}
+                </p>
                 <p className="text-sm text-muted-foreground">
-                  The file may be missing, still uploading, or not a format this browser supports.
+                  {videoSource.kind === "invalid"
+                    ? "Playlist and channel links can't be embedded. Paste the link to a single video."
+                    : "The file may be missing, still uploading, or not a format this browser supports."}
                 </p>
                 <code className="mt-1 block max-w-full truncate rounded bg-muted px-2 py-1 text-[13px] text-muted-foreground">
-                  {content.videoUrl}
+                  {videoSource.url}
                 </code>
               </div>
             ) : (
-              <video
-                src={getDisplayUrl(content.videoUrl)}
-                controls
-                preload="metadata"
+              /* Our own hosted media: a real <video> the application fully
+                 controls — play, pause, seek, volume, fullscreen, and no
+                 third-party chrome of any kind. */
+              <VideoSurface
+                source={videoSource}
+                title={content.title || "Video"}
                 onError={() => setPlaybackFailed(true)}
-                className="block w-full h-auto max-h-[70vh] rounded-xl"
+                className="w-full"
+                videoClassName="block w-full h-auto max-h-[70vh] rounded-xl"
               />
             )}
           </div>
@@ -349,31 +390,13 @@ export function CreateVideoForm({ parent, order, onCreated, onCancel }: CreateCe
         />
       </div>
 
+      {/* Same ordering as the edit form above, and for the same reason: the
+          uploaded-file path is the only one that yields a player with nothing
+          in it but the video. */}
       <div>
         <label className="block text-sm font-semibold text-foreground mb-1.5">
-          Video URL
+          Video File
         </label>
-        <input
-          type="text"
-          value={videoUrl}
-          onChange={(e) => setVideoUrl(e.target.value)}
-          placeholder="https://youtube.com/watch?v=… or direct video file URL"
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground outline-none focus:border-primary font-mono"
-        />
-      </div>
-
-      {/* OR Divider */}
-      <div className="relative flex items-center justify-center my-1">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-border/60" />
-        </div>
-        <span className="relative bg-background px-2 text-[12px] font-bold text-muted-foreground uppercase">
-          OR
-        </span>
-      </div>
-
-      {/* Automatic Local Video Upload Button */}
-      <div>
         <input
           ref={fileInputRef}
           type="file"
@@ -385,7 +408,7 @@ export function CreateVideoForm({ parent, order, onCreated, onCancel }: CreateCe
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={isUploading}
-          className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 hover:bg-primary/20 px-3.5 py-2 text-sm font-bold text-primary transition cursor-pointer disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-primary/40 bg-primary/10 hover:bg-primary/20 px-3.5 py-2.5 text-sm font-bold text-primary transition cursor-pointer disabled:opacity-50"
         >
           {isUploading ? (
             <>
@@ -399,6 +422,46 @@ export function CreateVideoForm({ parent, order, onCreated, onCancel }: CreateCe
             </>
           )}
         </button>
+        <p className="mt-1.5 text-[12px] text-muted-foreground">
+          Plays in Orange Tree&apos;s own player — no title, no share button, no outside branding.
+        </p>
+      </div>
+
+      {/* OR Divider */}
+      <div className="relative flex items-center justify-center my-1">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-border/60" />
+        </div>
+        <span className="relative bg-background px-2 text-[12px] font-bold text-muted-foreground uppercase">
+          OR
+        </span>
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-muted-foreground mb-1.5">
+          Video URL
+        </label>
+        <input
+          type="text"
+          value={videoUrl}
+          onChange={(e) => setVideoUrl(e.target.value)}
+          placeholder="https://youtu.be/… or a direct .mp4 link"
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground outline-none focus:border-primary font-mono"
+        />
+        {isYouTubeUrl(videoUrl) ? (
+          <p className="mt-1.5 flex items-start gap-1.5 text-[12px] text-muted-foreground">
+            <Info className="mt-0.5 size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span>
+              YouTube plays this in its own player, which always shows the video title, a share
+              button and a &ldquo;Watch on YouTube&rdquo; link. Those can&apos;t be turned off —
+              upload the file above for a player without them.
+            </span>
+          </p>
+        ) : (
+          <p className="mt-1.5 text-[12px] text-muted-foreground">
+            A direct file link plays in our own player. A YouTube link keeps YouTube&apos;s player.
+          </p>
+        )}
       </div>
 
       {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}

@@ -6,6 +6,7 @@ import {
   getInstructorAssignments,
   getAssignmentSubmissions,
   gradeAssignmentSubmission,
+  createAssignment,
   updateAssignment,
   deleteAssignment,
 } from "@/services/assignment.service";
@@ -77,6 +78,24 @@ export function useGradeSubmission({ assignmentId, contentId }) {
   });
 }
 
+/**
+ * Creates an Assignment entity. The Course Map reads assignments off the
+ * course tree (QUERY_KEYS.COURSE) and the modules tree (QUERY_KEYS.MODULES),
+ * so both are invalidated alongside the assessments lists.
+ */
+export function useCreateAssignment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: createAssignment,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ASSESSMENTS] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.COURSE] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.MODULES] });
+    },
+  });
+}
+
 export function useUpdateAssignment() {
   const queryClient = useQueryClient();
 
@@ -85,6 +104,9 @@ export function useUpdateAssignment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ASSESSMENTS] });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.INSTRUCTOR_COURSES] });
+      // The Course Map renders the row from these two trees.
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.COURSE] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.MODULES] });
     },
   });
 }
@@ -97,6 +119,8 @@ export function useDeleteAssignment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ASSESSMENTS] });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.INSTRUCTOR_COURSES] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.COURSE] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.MODULES] });
     },
   });
 }

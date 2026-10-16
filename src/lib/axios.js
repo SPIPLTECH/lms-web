@@ -1,12 +1,38 @@
 import axios from "axios";
 import Cookies from "js-cookie";
 
+import { setSessionCookies, clearSessionCookies } from "@/lib/authCookies";
+import { getApiOrigin } from "@/lib/apiOrigin";
+
 // Same prefixes middleware.js guards. Used below to decide whether a failed
 // background session check is allowed to navigate the browser at all.
 const PROTECTED_PREFIXES = ["/admin", "/instructor", "/student"];
 
+// middleware.js needs `role` as well as `accessToken`, so a refresh has to
+// re-issue both. The refreshed session belongs to the same user, so the role
+// is whatever we already know: the response's own role if the backend sends
+// one, else the verified profile cached at login, else the current cookie.
+const resolveSessionRole = (refreshPayload) => {
+  const fromResponse = refreshPayload?.role || refreshPayload?.user?.role;
+  if (fromResponse) return fromResponse;
+
+  if (typeof window !== "undefined") {
+    try {
+      const cached = localStorage.getItem("user");
+      if (cached) {
+        const role = JSON.parse(cached)?.role;
+        if (role) return role;
+      }
+    } catch {
+      // Unparseable cache is no worse than no cache — fall through.
+    }
+  }
+
+  return Cookies.get("role") || null;
+};
+
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  baseURL: getApiOrigin(),
   timeout: 15000,
   headers: {
     "Content-Type": "application/json",
@@ -16,6 +42,13 @@ const api = axios.create({
 // Request Interceptor
 api.interceptors.request.use(
   (config) => {
+    // Re-resolved per request rather than trusted from creation time: the
+    // instance above is built when this module is first evaluated, which on an
+    // SSR'd page happens on the server, where there is no page host to read.
+    // Asking again here means the first client-side request already uses the
+    // host this browser actually reached the app on. See lib/apiOrigin.js.
+    config.baseURL = getApiOrigin();
+
     const token = Cookies.get("accessToken");
 
     if (token) {
@@ -54,8 +87,9 @@ api.interceptors.response.use(
           throw new Error("Refresh token missing");
         }
 
+        // Bare axios, so the interceptor above does not apply — resolve here too.
         const response = await axios.post(
-          `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh-token`,
+          `${getApiOrigin()}/auth/refresh-token`,
           {
             refreshToken,
           }
@@ -64,22 +98,20 @@ api.interceptors.response.use(
         const newAccessToken =
           response.data.data.accessToken;
 
-        Cookies.set(
-          "accessToken",
-          newAccessToken,
-          {
-            expires: 1,
-          }
-        );
+        // Both cookies, same lifetime — writing accessToken alone here is
+        // what used to strand `role` and get every dashboard navigation
+        // bounced back to "/" by middleware.
+        setSessionCookies({
+          accessToken: newAccessToken,
+          role: resolveSessionRole(response.data.data),
+        });
 
         originalRequest.headers.Authorization =
           `Bearer ${newAccessToken}`;
 
         return api(originalRequest);
       } catch (refreshError) {
-        Cookies.remove("accessToken");
-        Cookies.remove("refreshToken");
-        Cookies.remove("role");
+        clearSessionCookies();
 
         localStorage.removeItem("user");
 

@@ -1,12 +1,14 @@
 import { io } from "socket.io-client";
 
+import { getSocketOrigin } from "@/lib/apiOrigin";
+
 class SocketService {
   socket = null;
 
   connect(token) {
     if (this.socket) return this.socket;
 
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL;
+    const socketUrl = getSocketOrigin();
     this.socket = io(
       socketUrl,
       {

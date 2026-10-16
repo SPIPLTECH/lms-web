@@ -5,32 +5,48 @@ import {
     ChevronLeft,
     ChevronRight,
     Send,
+    SkipForward,
 } from "lucide-react";
+
+import { QUESTION_STATUS } from "@/lib/quizAttemptState";
 
 const STATUS_STYLES = {
     current:
         "border-primary bg-primary text-foreground shadow-[0_0_0_3px_rgba(249,115,22,0.25)]",
-    answered:
+    [QUESTION_STATUS.ANSWERED]:
         "border-emerald-500/60 bg-emerald-500/15 text-emerald-400 hover:border-emerald-400",
-    visited:
+    [QUESTION_STATUS.SKIPPED]:
+        "border-rose-500/60 bg-rose-500/15 text-rose-400 hover:border-rose-400",
+    [QUESTION_STATUS.VISITED]:
         "border-amber-500/60 bg-amber-500/15 text-amber-400 hover:border-amber-400",
-    unvisited:
+    [QUESTION_STATUS.NOT_VISITED]:
         "border-transparent bg-muted/60 text-muted-foreground hover:border-transparent hover:text-foreground",
+};
+
+const STATUS_LABELS = {
+    [QUESTION_STATUS.ANSWERED]: "answered",
+    [QUESTION_STATUS.SKIPPED]: "skipped",
+    [QUESTION_STATUS.VISITED]: "visited, not answered",
+    [QUESTION_STATUS.NOT_VISITED]: "not visited",
 };
 
 /**
  * Bottom nav bar for a quiz attempt: previous/next arrows around a
- * horizontally-scrollable strip of question-jump buttons, plus a submit
- * control that's reachable from any question (not only the last one).
+ * horizontally-scrollable strip of question-jump buttons, a Skip control, and
+ * a submit control that's reachable from any question (not only the last one).
+ *
+ * Each jump button is coloured by that question's real tracked status
+ * (see useQuizAttemptTracker) rather than by a local guess, so the strip and
+ * the record that gets submitted always agree.
  */
 export default function QuizNavigation({
                                            questions = [],
                                            currentQuestionIndex = 0,
-                                           answers = {},
-                                           visitedIndices,
+                                           questionStates = {},
                                            onPrevious,
                                            onNext,
                                            onJumpTo,
+                                           onSkip,
                                            onSubmit,
                                            canGoPrevious,
                                            canGoNext,
@@ -38,12 +54,21 @@ export default function QuizNavigation({
                                        }) {
     const numbersContainerRef = useRef(null);
 
-    const statusFor = (index, questionId) => {
-        if (index === currentQuestionIndex) return "current";
-        if (answers[questionId] !== undefined) return "answered";
-        if (visitedIndices?.has(index)) return "visited";
-        return "unvisited";
-    };
+    const statusFor = (questionId) =>
+        questionStates[questionId]?.status ?? QUESTION_STATUS.NOT_VISITED;
+
+    // The open question is highlighted as current, but its underlying status
+    // still drives its label — so an answered question you're looking at
+    // doesn't read as unanswered.
+    const styleFor = (index, questionId) =>
+        index === currentQuestionIndex
+            ? STATUS_STYLES.current
+            : STATUS_STYLES[statusFor(questionId)];
+
+    const currentQuestionId = questions[currentQuestionIndex]?.id;
+    // Skipping means "not this one, for now". A question that already carries
+    // an answer has nothing to skip.
+    const canSkip = Boolean(currentQuestionId) && !questionStates[currentQuestionId]?.answered;
 
     // Auto-scroll active question number into view inside the scrollable strip
     useEffect(() => {
@@ -79,18 +104,21 @@ export default function QuizNavigation({
                     >
                         {questions.map((question, index) => {
                             const isCurrent = index === currentQuestionIndex;
+                            const status = statusFor(question.id);
                             return (
                                 <button
                                     key={question.id ?? index}
                                     type="button"
                                     data-active={isCurrent ? "true" : "false"}
+                                    data-status={status}
                                     onClick={() => onJumpTo?.(index)}
-                                    title={`Go to question ${index + 1}`}
-                                    className={`flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl border text-xs sm:text-sm font-bold transition cursor-pointer ${
-                                        STATUS_STYLES[
-                                            statusFor(index, question.id)
-                                        ]
-                                    }`}
+                                    title={`Go to question ${index + 1} — ${STATUS_LABELS[status]}`}
+                                    aria-label={`Question ${index + 1}, ${STATUS_LABELS[status]}`}
+                                    aria-current={isCurrent ? "true" : undefined}
+                                    className={`flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl border text-xs sm:text-sm font-bold transition cursor-pointer ${styleFor(
+                                        index,
+                                        question.id
+                                    )}`}
                                 >
                                     {index + 1}
                                 </button>
@@ -109,8 +137,25 @@ export default function QuizNavigation({
                     </button>
                 </div>
 
-                {/* Submit button (fixed right) */}
-                <div className="flex shrink-0 sm:flex-1 sm:justify-end">
+                {/* Skip + Submit (fixed right) */}
+                <div className="flex shrink-0 items-center gap-1 sm:gap-2 sm:flex-1 sm:justify-end">
+                    {onSkip && (
+                        <button
+                            type="button"
+                            onClick={onSkip}
+                            disabled={!canSkip || isSubmitting}
+                            title={
+                                canSkip
+                                    ? "Skip this question and come back to it later"
+                                    : "This question is already answered"
+                            }
+                            className="flex h-9 sm:h-10 shrink-0 items-center gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl border border-transparent bg-muted/60 px-2 sm:px-3 text-xs sm:text-sm font-bold text-foreground transition hover:border-amber-500/40 hover:text-amber-400 disabled:opacity-40 disabled:hover:border-transparent disabled:hover:text-foreground cursor-pointer disabled:cursor-not-allowed"
+                        >
+                            <SkipForward className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                            <span className="hidden sm:inline">Skip</span>
+                        </button>
+                    )}
+
                     <button
                         type="button"
                         onClick={onSubmit}

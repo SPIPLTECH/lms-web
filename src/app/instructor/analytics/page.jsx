@@ -8,6 +8,7 @@ import dynamic from "next/dynamic";
 import Card from "@/components/ui/Card";
 import Loader from "@/components/common/Loader";
 
+import AdaptiveInsightsPanel from "@/components/instructor/analytics/AdaptiveInsightsPanel";
 import { useInstructorCourses } from "@/hooks/queries/instructor/useInstructorCourses";
 import { useDashboardKPIs } from "@/hooks/queries/instructor/useInstructorDashboard";
 
@@ -85,6 +86,13 @@ function InstructorAnalyticsContent() {
           )}
 
           <StudentEngagement courseId={selectedCourseId} />
+
+          {/* ADAPTIVE LEARNING — Phase 9. Observational analytics over the
+              existing deterministic engine: which learners need attention and
+              why, which concepts are not sticking, and what the engine is
+              already telling each learner. Nothing on this panel changes a
+              learning decision. */}
+          <AdaptiveInsightsPanel courseId={selectedCourseId} />
         </div>
       )}
     </div>

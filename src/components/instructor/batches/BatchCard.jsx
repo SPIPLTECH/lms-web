@@ -1,6 +1,6 @@
 "use client";
 
-import { Users, CheckCircle2, AlertTriangle, MinusCircle, Calendar } from "lucide-react";
+import { Users, CheckCircle2, AlertTriangle, MinusCircle, Calendar, TrendingUp } from "lucide-react";
 
 import BatchActionsMenu from "@/components/instructor/batches/BatchActionsMenu";
 

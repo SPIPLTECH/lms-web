@@ -1,3 +1,4 @@
+import { Marp } from "@marp-team/marp-core";
 import { marked } from "marked";
 import DOMPurify from "isomorphic-dompurify";
 

@@ -63,6 +63,18 @@ export const getInstructorAssignments = async (courseId) => {
   return data.data ?? data;
 };
 
+/**
+ * Creates an Assignment ENTITY (not a Content cell of type ASSIGNMENT) under
+ * exactly one parent — courseId, moduleId, lessonId, topicId, subTopicId or
+ * conceptId. The backend gives it its position in that parent's sequence, so
+ * no `order` is sent: a Course-level assignment lands after every Module and
+ * before every Course Quiz.
+ */
+export const createAssignment = async (payload) => {
+  const { data } = await api.post("/assignments", payload);
+  return data.data ?? data;
+};
+
 export const updateAssignment = async (assignmentId, payload) => {
   const { data } = await api.put(`/assignments/${assignmentId}`, payload);
   return data.data ?? data;
