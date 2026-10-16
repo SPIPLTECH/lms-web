@@ -9,7 +9,6 @@ import DataTable from "@/components/ui/DataTable";
 import { useToast } from "@/components/ui/ToastProvider";
 import {
   useAssignmentSubmissions,
-  useContentSubmissions,
   useGradeSubmission,
 } from "@/hooks/queries/instructor/useAssignments";
 
@@ -181,14 +180,10 @@ const COLUMNS = [
   },
 ];
 
-export default function AssignmentSubmissionsPanel({ assignmentId, contentId, open = true }) {
-  // Pass `contentId` instead of `assignmentId` for a lesson-composer
-  // Assignment block (a Content row); its submissions live behind /contents.
-  const assignmentQuery = useAssignmentSubmissions(assignmentId, open);
-  const contentQuery = useContentSubmissions(contentId, open);
-  const { data, isLoading, isError } = contentId ? contentQuery : assignmentQuery;
+export default function AssignmentSubmissionsPanel({ assignmentId, open = true }) {
+  const { data, isLoading, isError } = useAssignmentSubmissions(assignmentId, open);
 
-  const gradeMutation = useGradeSubmission({ assignmentId, contentId });
+  const gradeMutation = useGradeSubmission({ assignmentId });
   const [savingId, setSavingId] = useState(null);
   // Which student's grade form is showing. Kept below the table so a row stays
   // one line however long the feedback is.

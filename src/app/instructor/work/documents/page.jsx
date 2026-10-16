@@ -53,10 +53,8 @@ export default function WorkUploadDocumentsPage() {
     try {
       for (const file of files) {
         const { fileUrl } = await uploadContentFile(file);
-        const nextOrder = contents.length > 0 ? Math.max(...contents.map((c) => c.order || 0)) + 1 : 1;
         await createContent.mutateAsync({
           topicId,
-          order: nextOrder,
           type: inferType(file.name),
           title: file.name,
           fileUrl,

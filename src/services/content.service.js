@@ -38,14 +38,13 @@ export const uploadContentFile = async (file, options = {}) => {
 };
 
 export const createContent = async (data) => {
-  // Ensure order is ALWAYS sent as an integer in the HTTP request payload
-  const parsedOrder = Number(data?.order);
-  const safeOrder = !isNaN(parsedOrder) && parsedOrder > 0 ? parsedOrder : 1;
-
-  const payload = {
-    ...data,
-    order: safeOrder,
-  };
+  // `order` is a position in the parent's sequence (its content AND its child
+  // containers). Send it only to insert at a specific slot; without it the
+  // backend appends after everything already in that parent.
+  const { order, ...rest } = data || {};
+  const parsedOrder = Number(order);
+  const payload =
+    Number.isInteger(parsedOrder) && parsedOrder > 0 ? { ...rest, order: parsedOrder } : rest;
 
   const response = await api.post("/contents", payload);
   return response.data;
@@ -61,40 +60,22 @@ export const deleteContent = async (contentId) => {
   return response.data;
 };
 
-/** Student: their own submitted PDF for an ASSIGNMENT content block, or null. */
-export const getMyContentSubmission = async (contentId) => {
-  const response = await api.get(`/contents/${contentId}/submission`);
-  return response.data?.data ?? null;
-};
-
-/** Student: records an uploaded PDF (from uploadAssignmentSubmissionFile) against an ASSIGNMENT content block. */
-export const submitContentAssignment = async (contentId, payload) => {
-  const response = await api.post(`/contents/${contentId}/submit`, payload);
-  return response.data?.data ?? response.data;
-};
-
-/** Instructor: every ASSIGNMENT content block in their own courses, with ungraded counts. */
-export const getInstructorAssignmentContents = async () => {
-  const response = await api.get("/contents/assignments");
-  return response.data?.data ?? [];
-};
-
-/** Instructor: student submissions (with uploaded PDFs) for one ASSIGNMENT content block. */
-export const getContentSubmissions = async (contentId) => {
-  const response = await api.get(`/contents/${contentId}/submissions`);
-  return response.data?.data ?? response.data;
-};
-
-/** Instructor: grade one student submission for an ASSIGNMENT content block. */
-export const gradeContentSubmission = async (contentId, submissionId, payload) => {
+/**
+ * Moves items within one parent's learning sequence. `contents` is
+ * [{ id, order }]; ids may be Content rows or the parent's child containers
+ * (they share the sequence), so the parent is sent along. With `orderedIds`
+ * the parent's complete new order is sent instead — every member exactly
+ * once, which the API refuses if the list is stale or incomplete.
+ */
+export const reorderContents = async (contents, parent = null, orderedIds = null) => {
   const response = await api.patch(
-    `/contents/${contentId}/submissions/${submissionId}/grade`,
-    payload
+    "/contents/reorder",
+    orderedIds
+      ? { parentType: parent?.parentType, parentId: parent?.parentId, orderedIds }
+      : {
+          contents,
+          ...(parent?.parentType && parent?.parentId ? { parentType: parent.parentType, parentId: parent.parentId } : {}),
+        }
   );
-  return response.data?.data ?? response.data;
-};
-
-export const reorderContents = async (contents) => {
-  const response = await api.patch("/contents/reorder", { contents });
   return response.data;
 };

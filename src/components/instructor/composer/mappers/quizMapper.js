@@ -85,5 +85,8 @@ export function buildQuizPayload(quizConfig, { courseId, lessonTitle }) {
     passingScore: 60,
     isPublished: false,
     status: "DRAFT",
+    // This quiz only backs the block's question; the block's own Content row
+    // is its place in the lesson, so the quiz is not a sequence item itself.
+    inSequence: false,
   };
 }

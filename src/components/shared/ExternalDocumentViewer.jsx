@@ -35,14 +35,13 @@ export default function ExternalDocumentViewer({
 
   const [iframeLoading, setIframeLoading] = useState(true);
 
-  // fillHeight: below xl an aspect-driven box that cannot impose a floor
-  // taller than the player frame; at xl the original reading pane, verbatim.
-  const extFrameSizing = fillHeight
-    ? "aspect-[4/3] max-h-[70dvh] xl:aspect-auto xl:h-[68vh] xl:min-h-[480px] xl:max-h-[850px]"
-    : "h-[68vh] min-h-[480px] max-h-[850px]";
-  const extStateSizing = fillHeight
-    ? "aspect-[4/3] max-h-[70dvh] xl:aspect-auto xl:h-[480px]"
-    : "h-[480px]";
+  // fillHeight: take exactly the rest of the host's column (the host passes
+  // a flex-column className), so the viewer never runs past the player
+  // frame. The embedded provider page scrolls inside its own iframe — that
+  // document is cross-origin and cannot be paged from here.
+  // Otherwise the original reading pane, verbatim.
+  const extFrameSizing = fillHeight ? "flex-1 min-h-0" : "h-[68vh] min-h-[480px] max-h-[850px]";
+  const extStateSizing = fillHeight ? "flex-1 min-h-0" : "h-[480px]";
   const [iframeError, setIframeError] = useState(false);
 
   // Check if fileUrl points to a Vercel Blob JSON metadata reference
@@ -376,7 +375,7 @@ export default function ExternalDocumentViewer({
 
   // 4. Fallback / Unsupported Document Format (Honest "Preview unavailable" state)
   return (
-    <div className={`flex h-[480px] w-full flex-col items-center justify-center gap-4 rounded-2xl border border-border bg-[#060913] p-8 text-center ${className}`}>
+    <div className={`flex ${fillHeight ? "flex-1 min-h-0" : "h-[480px]"} w-full flex-col items-center justify-center gap-4 rounded-2xl border border-border bg-[#060913] p-8 text-center ${className}`}>
       <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 text-primary">
         <FileText size={28} />
       </div>

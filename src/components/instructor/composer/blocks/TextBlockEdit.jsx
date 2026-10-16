@@ -60,13 +60,15 @@ const TextBlockEdit = forwardRef(function TextBlockEdit(
     const targetIndex = index + direction;
     if (targetIndex < 0 || targetIndex >= children.length) return;
 
-    const reordered = [...children];
-    const [moved] = reordered.splice(index, 1);
-    reordered.splice(targetIndex, 0, moved);
-
+    // Swap the two blocks' positions in the lesson's sequence only.
+    const moved = children[index];
+    const neighbour = children[targetIndex];
     reorderContents.mutate({
-      lessonId,
-      contents: reordered.map((c, i) => ({ id: c.id, order: i + 1 })),
+      parent: { parentType: "lesson", parentId: lessonId },
+      contents: [
+        { id: moved.id, order: neighbour.order },
+        { id: neighbour.id, order: moved.order },
+      ],
     });
   };
 

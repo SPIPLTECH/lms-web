@@ -55,6 +55,16 @@ export default function LessonForm({
     const handleSubmit = (e) => {
         e.preventDefault();
 
+        // New items are published automatically. A draft is invisible to
+        // students along with everything inside it, and new items used to be
+        // saved as drafts by default — content added to them never reached
+        // students. Students still see nothing until the course itself is
+        // published; an item can be set back to draft from its edit form.
+        if (mode === "create") {
+            onSubmit?.({ ...formData, isPublished: true });
+            return;
+        }
+
         onSubmit?.(formData);
     };
 
@@ -88,9 +98,9 @@ export default function LessonForm({
                             type="checkbox"
                             id="isPublished"
                             name="isPublished"
-                            checked={formData.isPublished}
+                            checked={mode === "create" || formData.isPublished}
                             onChange={handleChange}
-                            disabled={!canPublish}
+                            disabled={mode === "create" || !canPublish}
                             className="h-4 w-4 rounded border-transparent bg-background text-primary focus:ring-orange-500 focus:ring-offset-slate-900 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                         />
                         <label
@@ -100,9 +110,11 @@ export default function LessonForm({
                             Publish Lesson (Make this lesson visible to students instantly)
                         </label>
                     </div>
-                    {!canPublish && (
+                    {(mode === "create" || !canPublish) && (
                         <p className="text-xs text-amber-400/90 pl-7">
-                            Add at least one topic, content item, quiz or assignment before you can publish this lesson.
+                            {mode === "create"
+                                ? "Published automatically: visible to students as soon as the course is published."
+                                : `Add at least one topic, content item, quiz or assignment before you can publish this lesson.`}
                         </p>
                     )}
                 </div>

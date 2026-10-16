@@ -481,7 +481,7 @@ export function CreateFileForm({ parent, order, cellType, accept, presentationMo
       return;
     }
     try {
-      const safeOrder = typeof order === "number" && !isNaN(order) && order > 0 ? order : 1;
+      const safeOrder = typeof order === "number" && Number.isInteger(order) && order > 0 ? order : undefined;
       const payload = useSlideshow
         ? {
             ...toParentField(parent),

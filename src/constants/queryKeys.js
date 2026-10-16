@@ -41,6 +41,7 @@ export const QUERY_KEYS = {
     NOTIFICATIONS: "notifications",
     COURSE_STATE: "course-state",
     LEARNING_PATH: "learning-path",
+    LEARNING_SEQUENCE: "learning-sequence",
     RECOMMENDATIONS: "recommendations",
     NEXT_ACTION: "next-action",
     LEARNING_SIGNALS: "learning-signals",
@@ -114,7 +115,6 @@ export const QUERY_KEYS = {
 
     CONTENTS: "contents",
     CONTENT: "content",
-    CONTENT_SUBMISSION: "content-submission",
 
     QUIZZES: "quizzes",
     QUIZ: "quiz",

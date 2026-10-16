@@ -81,9 +81,8 @@ export default function ModuleAccordionItem({
 
   const handleAddLesson = () => {
     if (!newLessonTitle.trim()) return;
-    const nextOrder = lessons.length > 0 ? Math.max(...lessons.map((l) => l.order)) + 1 : 1;
     createLesson.mutate(
-      { moduleId: mod.id, title: newLessonTitle, order: nextOrder },
+      { moduleId: mod.id, title: newLessonTitle },
       { onSuccess: () => setOpen(true) },
     );
     setNewLessonTitle("");
@@ -94,13 +93,16 @@ export default function ModuleAccordionItem({
     const targetIndex = index + direction;
     if (targetIndex < 0 || targetIndex >= lessons.length) return;
 
-    const reordered = [...lessons];
-    const [moved] = reordered.splice(index, 1);
-    reordered.splice(targetIndex, 0, moved);
-
+    // Swap the two lessons' positions only: the module's own content shares
+    // the sequence, and renumbering lessons 1..n would jump them over it.
+    const moved = lessons[index];
+    const neighbour = lessons[targetIndex];
     reorderLessons.mutate({
       moduleId: mod.id,
-      lessons: reordered.map((l, i) => ({ lessonId: l.id, order: i + 1 })),
+      lessons: [
+        { id: moved.id, order: neighbour.order },
+        { id: neighbour.id, order: moved.order },
+      ],
     });
   };
 

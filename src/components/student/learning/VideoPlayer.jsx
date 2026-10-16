@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import {
     FileText,
     ExternalLink,
@@ -15,11 +15,12 @@ import DOMPurify from "isomorphic-dompurify";
 
 import { resolveVideoSource } from "@/lib/videoSource";
 import VideoSurface from "@/components/shared/video/VideoSurface";
+import OrangeVideoPlayer from "@/components/student/learning/video/OrangeVideoPlayer";
 import { getDisplayUrl } from "@/lib/blob";
 import MarkdownRenderer from "@/components/ui/MarkdownEditor/MarkdownRenderer";
 import { unescapeFromContentApi, highlightCode } from "@/lib/markdown";
 import { PdfViewer, PptViewer, DocxViewer, ExternalDocumentViewer } from "@/components/shared/LazyDocumentViewers";
-import ContentAssignmentPanel from "@/components/student/learning/ContentAssignmentPanel";
+import PagedContent from "@/components/shared/PagedContent";
 import SpeechControls from "@/components/student/tts/SpeechControls";
 import useLessonReadAloud from "@/hooks/useLessonReadAloud";
 import { resolveSpeechLang } from "@/lib/textToSpeech";
@@ -92,8 +93,9 @@ const VideoPlayer = forwardRef(function VideoPlayer(
     { content, onTimeUpdate, onEnded, onDurationChange, initialTime = 0, speechLanguage, lessonTitle, reserveHeaderCorner = false },
     ref
 ) {
-    // The video itself is drawn by the shared VideoSurface; this ref is only
-    // how the learn page's seek-to-timestamp reaches it.
+    // The video itself is drawn by OrangeVideoPlayer (YouTube) or the shared
+    // VideoSurface (everything else); this ref is only how the learn page's
+    // seek-to-timestamp reaches whichever is on screen.
     const surfaceRef = useRef(null);
     const [slideIndex, setSlideIndex] = useState(0);
     // A file viewer's own toolbar carries the same title this player already
@@ -102,8 +104,8 @@ const VideoPlayer = forwardRef(function VideoPlayer(
     // (hideToolbar) — one title, one row of controls.
     const [viewerControls, setViewerControls] = useState(null);
 
-    // Page state reported by PdfViewer: { page, total, goToPreviousPage,
-    // goToNextPage }. The viewer still owns pageNumber and the handlers —
+    // Page state reported by PdfViewer, DocxViewer or PagedContent: { page,
+    // total, goToPreviousPage, goToNextPage }. The viewer still owns pageNumber and the handlers —
     // this only holds what the header needs to draw, and forwards the same
     // object to the learn page, which draws the buttons below the player.
     // Cleared on every content change so a previous document can never
@@ -123,7 +125,9 @@ const VideoPlayer = forwardRef(function VideoPlayer(
     const videoSource = resolveVideoSource(content);
     const displayFileUrl = getDisplayUrl(fileUrl);
 
-    useEffect(() => {
+    // A layout effect, so it runs before the new content's viewer reports its
+    // first page state (children's passive effects) rather than wiping it.
+    useLayoutEffect(() => {
         setPdfPage(null);
     }, [content?.id]);
 
@@ -270,47 +274,16 @@ const VideoPlayer = forwardRef(function VideoPlayer(
         );
     };
 
-    // Only VIDEO needs to fill (and be clipped to) the player frame exactly —
-    // it's a fixed-aspect embed with nothing more to reveal. Every other
-    // type (a long document, a tall embedded image, multi-slide HTML, etc.)
-    // must be free to grow past the frame's height instead of being cropped
-    // by it, so the scrollable frame around this component (see the Content
-    // Player Frame in the learn page) can actually scroll to the rest of it.
-    const fillsFrame = type === "VIDEO";
-
-    // Height ownership below xl, matching the learn page's player modes.
+    // The player frame is a fixed box that never scrolls, so every type is
+    // sized to fit INSIDE it rather than grow past it: video and images
+    // letterbox, slides and PDF pages scale to fit, and reading content
+    // (text, code, Word documents) reflows into pages (PagedContent) turned
+    // from this header. Below xl a VIDEO keeps its 16:9 box and the learn
+    // page's frame hugs it (player mode "aspect").
     // Literal strings only — Tailwind emits nothing it cannot see verbatim.
-    //   VIDEO     -> h-auto; the 16:9 box below decides the height.
-    //   file-like -> fill the bounded frame so the viewer's canvas scrolls.
-    //   otherwise -> no min-height floor, so text sizes to its own content
-    //                instead of being padded out to the frame.
-    // Height ownership below xl, matching the learn page's player modes.
-    //   VIDEO      -> h-auto; the 16:9 box below decides the height.
-    //   ASSIGNMENT -> natural: sizes to its own form content.
-    //   everything else (text/HTML, documents) -> fill the bounded player so
-    //      the scroll happens INSIDE it, never by growing the page.
-    const isNaturalFlow = type === "ASSIGNMENT";
-    const rootSizing = fillsFrame
-        ? "h-full max-xl:h-auto"
-        : isNaturalFlow
-        ? "min-h-full max-xl:min-h-0"
-        : "min-h-full max-xl:h-full max-xl:min-h-0";
-
-    // A flex-1 child inside an auto-height column collapses to zero, so the
-    // content area stays flexible only where the root has a definite height.
-    //
-    // Reading flow (text/HTML) is the one case where THIS element owns the
-    // vertical scroll below xl. It sits under the title bar, which is
-    // shrink-0, so the header stays pinned while the prose scrolls — the
-    // learn page's player body is set to overflow-y-hidden for this mode, so
-    // there is exactly one scrollbar, not a nested pair. Documents keep their
-    // own viewer canvas as the scroller; desktop is untouched in every case.
-    const isReadingFlow = !fillsFrame && !isFileLike && !isNaturalFlow;
-    const contentAreaSizing = isNaturalFlow
-        ? "flex-1 max-xl:flex-none"
-        : isReadingFlow
-        ? "flex-1 max-xl:min-h-0 max-xl:overflow-y-auto"
-        : "flex-1 max-xl:min-h-0";
+    const fillsFrame = type === "VIDEO";
+    const rootSizing = fillsFrame ? "h-full max-xl:h-auto" : "h-full min-h-0";
+    const contentAreaSizing = fillsFrame ? "flex-1 max-xl:min-h-0" : "flex-1 min-h-0 overflow-hidden";
 
     return (
         <div ref={readAloud.scopeRef} className={`bg-background flex flex-col w-full ${rootSizing}`}>
@@ -422,7 +395,22 @@ const VideoPlayer = forwardRef(function VideoPlayer(
             <div className={`relative w-full flex flex-col bg-background ${contentAreaSizing}`}>
                 {/* VIDEO */}
                 {type === "VIDEO" && (
-                    videoSource.kind !== "none" && videoSource.kind !== "invalid" ? (
+                    videoSource.kind === "youtube" ? (
+                        /* YouTube plays through the Orange LMS player: our
+                           controls over the YouTube IFrame Player API, which
+                           stays the playback engine. Same seekTo handle and
+                           callbacks as VideoSurface, so resume, auto-advance
+                           and sticky-note seeking work either way. */
+                        <OrangeVideoPlayer
+                            ref={surfaceRef}
+                            videoUrl={videoSource.url}
+                            title={content?.title || lessonTitle}
+                            initialTime={initialTime}
+                            onTimeUpdate={onTimeUpdate}
+                            onDurationChange={onDurationChange}
+                            onEnded={onEnded}
+                        />
+                    ) : videoSource.kind !== "none" && videoSource.kind !== "invalid" ? (
                         /* The player and nothing else — no title bar, no share
                            control, no external link. The frame keeps its own
                            responsive sizing: it fills the player at xl and
@@ -458,11 +446,10 @@ const VideoPlayer = forwardRef(function VideoPlayer(
 
                 {/* FILE / DOCUMENT / PDF (PDFs / PPTs / Docs / Resources) */}
                 {isFileLike && (
-                    /* Below xl this is the link in the chain that lets the
-                       viewer fill: a flex column that takes the content
-                       area's remaining height, so PdfViewer's own canvas —
-                       not the player frame, and not the page — is what
-                       scrolls. */
+                    /* The link in the chain that hands the viewer a definite
+                       height: a flex column taking the content area's
+                       remaining space, which each viewer fits its page,
+                       slide or reflowed document into. */
                     <div className="w-full flex-1 min-h-0 flex flex-col">
                         {isPdfUrl(displayFileUrl) ? (
                             <PdfViewer fileUrl={displayFileUrl} title={content?.title} hideToolbar fillHeight onPageStateChange={reportPdfPage} readAloud={documentReadAloud} />
@@ -474,6 +461,7 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                                 fileUrl={displayFileUrl}
                                 title={content?.title}
                                 hideToolbar
+                                fillHeight
                                 showDownload={false}
                                 onControlsRender={setViewerControls}
                             />
@@ -492,20 +480,23 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                                 hideToolbar
                                 showDownload={false}
                                 onControlsRender={setViewerControls}
+                                onPageStateChange={reportPdfPage}
                                 readAloud={documentReadAloud}
                             />
                         ) : displayFileUrl ? (
-                            <ExternalDocumentViewer fileUrl={displayFileUrl} title={content?.title} fillHeight readAloud={documentReadAloud} />
+                            <ExternalDocumentViewer fileUrl={displayFileUrl} title={content?.title} fillHeight className="h-full flex flex-col" readAloud={documentReadAloud} />
                         ) : htmlContent ? (
-                            <div className="p-4 sm:p-8 select-text min-w-0 max-w-full">
-                                <MarkdownRenderer
-                                    source={unescapeFromContentApi(htmlContent || "")}
-                                    emptyText="No document content provided."
-                                    className="max-w-4xl mx-auto"
-                                />
-                            </div>
+                            <PagedContent key={content.id} onPageStateChange={reportPdfPage}>
+                                <div className="select-text min-w-0">
+                                    <MarkdownRenderer
+                                        source={unescapeFromContentApi(htmlContent || "")}
+                                        emptyText="No document content provided."
+                                        className="w-full"
+                                    />
+                                </div>
+                            </PagedContent>
                         ) : (
-                            <ExternalDocumentViewer fileUrl={displayFileUrl} title={content?.title} fillHeight />
+                            <ExternalDocumentViewer fileUrl={displayFileUrl} title={content?.title} fillHeight className="h-full flex flex-col" />
                         )}
                     </div>
                 )}
@@ -516,9 +507,16 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                     reusing the same SlideColumnsView renderer so a deck looks
                     identical for the student and the instructor. */}
                 {hasSlideDeck && !isFileLike && (
-                    <div className="flex-1 flex flex-col justify-between p-4 sm:p-8 min-h-[320px] max-xl:flex-none max-xl:min-h-0">
+                    <div className="flex-1 min-h-0 flex flex-col p-3 sm:p-6">
+                        {/* A size container, so the 16:9 slide can be as wide as
+                            the space allows AND no taller than it: width is
+                            the smaller of the full width and the height's 16:9
+                            equivalent. SlideColumnsView scales its stage to
+                            that width, so the whole slide is always visible. */}
+                        <div className="flex-1 min-h-0 flex items-center justify-center [container-type:size]">
                         <div
                             onClick={handleSlideAreaClick}
+                            style={{ width: "min(100cqw, 100cqh * 16 / 9)" }}
                             className={slideDeck.length > 1 ? "cursor-pointer" : undefined}
                         >
                             <SlideColumnsView
@@ -527,12 +525,13 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                                 backgroundColor={slideDeck[slideIndex]?.backgroundColor}
                             />
                         </div>
+                        </div>
 
                         {/* Slide navigation — moves within THIS deck only
                             (slideIndex), never between lesson content items.
                             Labelled with its unit for that reason. */}
                         {slideDeck.length > 0 && (
-                            <div className="mt-6 pt-4 border-t border-border flex items-center justify-between gap-2">
+                            <div className="shrink-0 mt-3 pt-3 border-t border-border flex items-center justify-between gap-2">
                                 {slideDeck.length > 1 ? (
                                     <button
                                         type="button"
@@ -618,12 +617,17 @@ const VideoPlayer = forwardRef(function VideoPlayer(
 
                 {/* CODE / CODING_EXERCISE */}
                 {(type === "CODE" || type === "CODING_EXERCISE") && (
-                    <pre className="m-4 sm:m-8 rounded-xl border border-border overflow-hidden text-sm sm:text-base select-text">
-                        <code
-                            className={`hljs${content?.data?.language ? ` language-${content.data.language}` : ""}`}
-                            dangerouslySetInnerHTML={{ __html: highlightCode(htmlContent || "", content?.data?.language) }}
-                        />
-                    </pre>
+                    /* Paged like prose: long lines wrap to the page width and
+                       a long listing continues on the next page, instead of
+                       being cut off at the frame's edges. */
+                    <PagedContent key={content.id} onPageStateChange={reportPdfPage}>
+                        <pre className="m-0 rounded-xl border border-border text-sm sm:text-base select-text">
+                            <code
+                                className={`hljs${content?.data?.language ? ` language-${content.data.language}` : ""}`}
+                                dangerouslySetInnerHTML={{ __html: highlightCode(htmlContent || "", content?.data?.language) }}
+                            />
+                        </pre>
+                    </PagedContent>
                 )}
 
                 {/* INTERACTIVE_LAB / EMBED (interactive widgets, simulations, embedded content) */}
@@ -632,10 +636,10 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                         const embedSrc = externalUrl || fileUrl || htmlContent?.match(/src=["']([^"']+)["']/i)?.[1];
                         if (embedSrc) {
                             return (
-                                <div className="w-full h-full min-h-[420px] sm:min-h-[520px] rounded-xl overflow-hidden bg-white">
+                                <div className="w-full flex-1 min-h-0 rounded-xl overflow-hidden bg-white">
                                     <iframe
                                         src={embedSrc}
-                                        className="w-full h-full min-h-[420px] sm:min-h-[520px] border-0"
+                                        className="w-full h-full border-0"
                                         title={content?.title || "Interactive Content"}
                                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                         allowFullScreen
@@ -645,15 +649,17 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                         }
                         if (htmlContent) {
                             return (
-                                <div
-                                    className="p-4 sm:p-8 prose prose-invert prose-sm max-w-none select-text"
-                                    dangerouslySetInnerHTML={{
-                                        __html: DOMPurify.sanitize(htmlContent, {
-                                            ADD_TAGS: ["iframe"],
-                                            ADD_ATTR: ["src", "width", "height", "frameborder", "allow", "allowfullscreen", "scrolling", "style", "class"],
-                                        }),
-                                    }}
-                                />
+                                <PagedContent key={content.id} onPageStateChange={reportPdfPage}>
+                                    <div
+                                        className="prose prose-invert prose-sm max-w-none select-text"
+                                        dangerouslySetInnerHTML={{
+                                            __html: DOMPurify.sanitize(htmlContent, {
+                                                ADD_TAGS: ["iframe"],
+                                                ADD_ATTR: ["src", "width", "height", "frameborder", "allow", "allowfullscreen", "scrolling", "style", "class"],
+                                            }),
+                                        }}
+                                    />
+                                </PagedContent>
                             );
                         }
                         return (
@@ -669,19 +675,24 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                     deck — that's handled by the "PRESENTATION" block above) */}
                 {isHtmlLike && !isFileLike && !hasSlideDeck && (
                     isLegacySlideShow ? (
-                        <div className="flex-1 flex flex-col justify-between p-4 sm:p-8 min-h-[320px] max-xl:flex-none max-xl:min-h-0">
-                            <div
-                                onClick={handleSlideAreaClick}
-                                className={`prose prose-invert max-w-none text-foreground text-lg sm:text-xl leading-relaxed flex-1 flex flex-col justify-center select-text ${
-                                    legacySlides.length > 1 ? "cursor-pointer" : ""
-                                }`}
-                                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(legacySlides[slideIndex] || "") }}
-                            />
+                        <div className="flex-1 min-h-0 flex flex-col pb-3 sm:pb-6">
+                            {/* A slide longer than the frame continues on a
+                                second page (header page control) rather than
+                                being cut off. */}
+                            <PagedContent key={`${content.id}:${slideIndex}`} onPageStateChange={reportPdfPage}>
+                                <div
+                                    onClick={handleSlideAreaClick}
+                                    className={`prose prose-invert max-w-none text-foreground text-lg sm:text-xl leading-relaxed select-text ${
+                                        legacySlides.length > 1 ? "cursor-pointer" : ""
+                                    }`}
+                                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(legacySlides[slideIndex] || "") }}
+                                />
+                            </PagedContent>
 
                             {/* Slide navigation — moves within THIS deck only
                                 (slideIndex), never between lesson content
                                 items. Labelled with its unit for that reason. */}
-                            <div className="mt-6 pt-4 border-t border-border flex items-center justify-between gap-2">
+                            <div className="shrink-0 mx-4 sm:mx-8 pt-3 border-t border-border flex items-center justify-between gap-2">
                                 <button
                                     type="button"
                                     onClick={() => setSlideIndex(prev => Math.max(0, prev - 1))}
@@ -715,34 +726,17 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                             </div>
                         </div>
                     ) : (
-                        <div className="p-4 sm:p-8 select-text min-w-0 max-w-full w-full">
-                            <MarkdownRenderer
-                                source={unescapeFromContentApi(htmlContent || "")}
-                                renderedHtml={showReadAloud ? readAloud.html : undefined}
-                                emptyText="No content yet."
-                                className="max-w-4xl mx-auto w-full min-w-0"
-                            />
-                        </div>
+                        <PagedContent key={content.id} onPageStateChange={reportPdfPage}>
+                            <div className="select-text min-w-0">
+                                <MarkdownRenderer
+                                    source={unescapeFromContentApi(htmlContent || "")}
+                                    renderedHtml={showReadAloud ? readAloud.html : undefined}
+                                    emptyText="No content yet."
+                                    className="w-full min-w-0"
+                                />
+                            </div>
+                        </PagedContent>
                     )
-                )}
-
-                {/* ASSIGNMENT (descriptive assignment brief, not a quiz).
-                    The instructor's instructions and reference file, then the
-                    student's PDF upload. The title already sits in the header
-                    bar above, so it is not repeated here. Submitting records
-                    the PDF and the backend marks this block complete. */}
-                {type === "ASSIGNMENT" && (
-                    <div className="p-4 sm:p-6">
-                        <ContentAssignmentPanel
-                            contentId={content.id}
-                            instructions={htmlContent ? unescapeFromContentApi(htmlContent) : ""}
-                            attachments={
-                                fileUrl
-                                    ? [{ url: displayFileUrl, name: getAttachmentName(content) }]
-                                    : []
-                            }
-                        />
-                    </div>
                 )}
 
                 {/* EXTERNAL LINK */}
@@ -750,12 +744,12 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                     isGoogleSlidesUrl(externalUrl) ? (
                         <iframe
                             src={getGoogleSlidesEmbedUrl(externalUrl)}
-                            className="h-[320px] sm:h-[420px] md:h-[520px] w-full border-none"
+                            className="flex-1 min-h-0 w-full border-none"
                             allowFullScreen
                             title={content.title}
                         />
                     ) : (
-                        <div className="flex h-[320px] sm:h-[420px] md:h-[520px] flex-col items-center justify-center gap-4 p-6 text-center">
+                        <div className="flex flex-1 min-h-0 flex-col items-center justify-center gap-4 p-6 text-center">
                             <ExternalLink className="h-16 w-16 text-primary animate-pulse" />
                             <h3 className="text-xl font-semibold text-foreground">External Resource</h3>
                             <p className="text-sm sm:text-base text-muted-foreground max-w-md">

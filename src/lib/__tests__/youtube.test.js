@@ -17,12 +17,13 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 function runTests() {
   const cases = [];
 
-  // ── The five supported URL shapes, all pointing at the same video ────────
+  // ── The six supported URL shapes, all pointing at the same video ─────────
   const supported = {
     "standard watch URL": "https://www.youtube.com/watch?v=wRejGDZKJiM",
     "short youtu.be URL": "https://youtu.be/wRejGDZKJiM",
     "embed URL": "https://www.youtube.com/embed/wRejGDZKJiM",
     "shorts URL": "https://www.youtube.com/shorts/wRejGDZKJiM",
+    "live URL": "https://www.youtube.com/live/wRejGDZKJiM",
     "/v/ URL": "https://www.youtube.com/v/wRejGDZKJiM",
   };
 

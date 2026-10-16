@@ -112,15 +112,6 @@ export const getMyQuizSubmissions = async () => {
 };
 
 /**
- * Batch reorder quizzes within a parent scope (two-phase on the backend to
- * avoid unique-index collisions on a swap).
- */
-export const reorderQuizzes = async (quizzes) => {
-    const response = await api.patch("/quizzes/reorder", { quizzes });
-    return response.data;
-};
-
-/**
  * Self Generate Quiz
  */
 export const generateSelfAssessmentQuiz = async (courseId, questionCount = 5) => {

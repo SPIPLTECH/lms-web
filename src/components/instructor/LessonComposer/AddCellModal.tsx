@@ -28,12 +28,12 @@ import type { ContentParent, CreateCellFormProps } from "./types";
 
 interface AddCellModalProps {
   parent: ContentParent;
-  /** Pre-computed `max(existing order) + 1`, shared by whichever type ends up being added. */
-  order: number;
+  /** Position to insert at in the parent's sequence, shared by whichever type ends up being added. Omitted = append after everything in that parent. */
+  order?: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Picking the Quiz tile hands off here instead of opening an in-panel form — a Quiz isn't a Content row (see cellTypes.ts). Receives the same insertion `order` the picker would otherwise use for a Content row, so a quiz added via "Add Above"/"Add Below" lands at that position. Omit to hide the Quiz option. */
-  onAddQuiz?: (order: number) => void;
+  onAddQuiz?: (order?: number) => void;
 }
 
 /** Form definitions for simple cell types */

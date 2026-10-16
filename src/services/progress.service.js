@@ -65,6 +65,22 @@ export const getCourseProgress = async (courseId, studentId = null) => {
  * enforces on access, so the player never has to derive locking itself.
  * Returns { path, nextItem, lockedCount, skippableCount }.
  */
+/**
+ * THE learning sequence of a course for the signed-in student: every Content
+ * item — ordinary content, quizzes and assignments — as one ordered list of
+ * steps, with the course tree the Course Map draws from those same steps.
+ * Each step says whether it is complete, visited and locked; a locked step
+ * carries no material. The player's Prev/Next, the Course Map and resume all
+ * read this, so they cannot disagree. Returns
+ * { courseId, title, progress, steps, tree, currentIndex, resumeIndex }.
+ */
+export const getLearningSequence = async (courseId, studentId = null) => {
+  const { data } = await api.get("/progress/learning-sequence", {
+    params: { courseId, ...(studentId && { studentId }) },
+  });
+  return data.data ?? data;
+};
+
 export const getLearningPath = async (courseId, studentId = null) => {
   const { data } = await api.get("/progress/learning-path", {
     params: { courseId, ...(studentId && { studentId }) },

@@ -40,10 +40,8 @@ export default function AssignmentSubmissionPanel({
   // its own endpoint while reusing this panel; defaults to /assignments/:id.
   submitMutation: submitMutationOverride,
   showTitle = true,
-  // A real Assignment has its own status page at /student/assignments/:id;
-  // a lesson-composer Assignment block (ContentAssignmentPanel) has no such
-  // page — its id is a Content row, not an Assignment row — so this stays
-  // off there and is opted into by the real-Assignment caller instead.
+  // An Assignment has its own status page at /student/assignments/:id; the
+  // caller opts into linking to it (the learning player does not).
   showStatusLink = false,
   // Lets the player's own "Next Content" action surface right here once
   // submitted, instead of the student needing to leave and use the

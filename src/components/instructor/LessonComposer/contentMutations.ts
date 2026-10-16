@@ -15,7 +15,8 @@ export interface CreateContentVariables {
   subTopicId?: string;
   conceptId?: string;
   type: ContentType;
-  order: number;
+  /** Omitted = append after everything in the parent's sequence. */
+  order?: number;
   title?: string;
   videoUrl?: string;
   fileUrl?: string;
@@ -59,7 +60,7 @@ export function useDeleteContent(): UseMutationResult<unknown, unknown, DeleteCo
 }
 
 /** Copies every content field a `Content` row might have — safe to call for any cell type, since only the fields that type actually uses ever end up non-null on the source row. */
-function buildDuplicatePayload(content: ContentRow, order: number): CreateContentVariables {
+function buildDuplicatePayload(content: ContentRow, order?: number): CreateContentVariables {
   return {
     ...toParentField(getContentParent(content)),
     type: content.type as ContentType,
@@ -77,7 +78,7 @@ function buildDuplicatePayload(content: ContentRow, order: number): CreateConten
 export function useDuplicateContent() {
   const createContent = useCreateContent();
   return {
-    duplicate: (content: ContentRow, order: number) => createContent.mutateAsync(buildDuplicatePayload(content, order)),
+    duplicate: (content: ContentRow, order?: number) => createContent.mutateAsync(buildDuplicatePayload(content, order)),
     isPending: createContent.isPending,
   };
 }

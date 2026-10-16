@@ -10,11 +10,6 @@ import {
   updateAssignment,
   deleteAssignment,
 } from "@/services/assignment.service";
-import {
-  getInstructorAssignmentContents,
-  getContentSubmissions,
-  gradeContentSubmission,
-} from "@/services/content.service";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { defaultQueryOptions } from "@/lib/queryOptions";
 
@@ -22,25 +17,6 @@ export function useInstructorAssignments(courseId) {
   return useQuery({
     queryKey: [QUERY_KEYS.ASSESSMENTS, courseId],
     queryFn: () => getInstructorAssignments(courseId),
-    ...defaultQueryOptions,
-  });
-}
-
-/** Lesson-composer Assignment blocks (Content type ASSIGNMENT) across the instructor's courses. */
-export function useInstructorAssignmentContents() {
-  return useQuery({
-    queryKey: [QUERY_KEYS.ASSESSMENTS, "content"],
-    queryFn: getInstructorAssignmentContents,
-    ...defaultQueryOptions,
-  });
-}
-
-/** Student submissions for one Assignment content block, fetched only when opened. */
-export function useContentSubmissions(contentId, enabled = true) {
-  return useQuery({
-    queryKey: [QUERY_KEYS.ASSESSMENTS, "content", contentId, "submissions"],
-    queryFn: () => getContentSubmissions(contentId),
-    enabled: Boolean(contentId) && enabled,
     ...defaultQueryOptions,
   });
 }
@@ -60,17 +36,15 @@ export function useAssignmentSubmissions(assignmentId, enabled = true) {
 }
 
 /**
- * Grades one submission. Pass `contentId` for a lesson-composer Assignment
- * block (Content row), `assignmentId` otherwise — same split as the panel.
+ * Grades one submission. Every assignment — including one written as a
+ * lesson-composer block — is an Assignment.
  */
-export function useGradeSubmission({ assignmentId, contentId }) {
+export function useGradeSubmission({ assignmentId }) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({ submissionId, grade, feedback }) =>
-      contentId
-        ? gradeContentSubmission(contentId, submissionId, { grade, feedback })
-        : gradeAssignmentSubmission(assignmentId, submissionId, { grade, feedback }),
+      gradeAssignmentSubmission(assignmentId, submissionId, { grade, feedback }),
     onSuccess: () => {
       // Submission lists and the "ungraded" counts all live under ASSESSMENTS.
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ASSESSMENTS] });
