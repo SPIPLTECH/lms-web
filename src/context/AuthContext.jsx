@@ -13,7 +13,6 @@ import {
 } from "@/services/auth.service";
 import { defaultQueryOptions } from "@/lib/queryOptions";
 import { QUERY_KEYS } from "@/constants/queryKeys";
-import { PALETTE_STORAGE_KEY } from "@/lib/palettes";
 import { setSessionCookies, clearSessionCookies } from "@/lib/authCookies";
 
 const AuthContext = createContext();
@@ -47,7 +46,7 @@ export const AuthProvider = ({ children }) => {
     clearSessionCookies();
 
     // 2. Clear all local and session storage — except device UI preferences
-    // (theme/palette), which are independent of the authenticated session
+    // (theme), which is independent of the authenticated session
     // and must survive logout.
     if (typeof window !== "undefined") {
       const preserved = PRESERVED_ON_LOGOUT_KEYS.map((key) => [key, localStorage.getItem(key)]);

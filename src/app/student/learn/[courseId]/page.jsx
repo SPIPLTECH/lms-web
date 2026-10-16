@@ -715,7 +715,7 @@ export default function LearnPage() {
     if (courseId) {
       trackAccessMutation.mutate(courseId);
     }
-  }, [courseId, selectedLesson?.id, selectedTopicId, selectedSubTopicId, selectedConceptId, blockIndex]);
+  }, [courseId]);
 
   // Content nests under Topic for legacy/imported lessons, but the current
   // (Composer v2) authoring path attaches Content directly to the Lesson
