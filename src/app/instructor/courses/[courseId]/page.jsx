@@ -42,6 +42,8 @@ import {
 
 import { CourseComposerHeader } from "@/components/instructor/courses/CourseComposerHeader";
 import { CourseComposerSidebar } from "@/components/instructor/courses/CourseComposerSidebar";
+import ResizeHandle from "@/components/ui/ResizeHandle";
+import useResizableWidth from "@/hooks/useResizableWidth";
 import { CourseOverviewView } from "@/components/instructor/courses/CourseOverviewView";
 import { ModuleOverviewView } from "@/components/instructor/courses/ModuleOverviewView";
 import { LessonOverviewView } from "@/components/instructor/courses/LessonOverviewView";
@@ -815,6 +817,8 @@ export default function CourseDetailsPage() {
 
   // Desktop Course Map collapse state
   const [isCourseMapOpen, setIsCourseMapOpen] = useState(true);
+  // Desktop Course Map width: drag its right edge to read long names.
+  const courseMapResize = useResizableWidth({ storageKey: "lms.courseMapWidth.instructor" });
 
   const isDraftMode = courseId === "draft" || courseId === "new";
 
@@ -2736,9 +2740,11 @@ export default function CourseDetailsPage() {
   };
   const sidebarWrapperClassName = mobileSidebarOpen
     ? "fixed inset-y-0 left-0 z-50 w-80 bg-background pt-4 pr-4 pb-4 pl-[1.6px] shadow-2xl block shrink-0 overflow-y-auto"
-    : `hidden lg:block shrink-0 lg:h-full transition-[width] duration-300 ease-in-out ${
-        isCourseMapOpen ? "w-full lg:w-[320px]" : "w-full lg:w-0"
-      }`;
+    : // Width comes from --course-map-w (drag-resizable); no width animation
+      // while dragging, or the panel would lag behind the pointer.
+      `hidden lg:block relative shrink-0 lg:h-full ${
+        courseMapResize.isResizing ? "" : "transition-[width] duration-300 ease-in-out"
+      } ${isCourseMapOpen ? "w-full lg:w-[var(--course-map-w)]" : "w-full lg:w-0"}`;
 
   return (
     // The instructor layout gives the Composer route its own bounded-height
@@ -2771,7 +2777,15 @@ export default function CourseDetailsPage() {
         )}
 
         {/* Left Sidebar Panel */}
-        <div className={sidebarWrapperClassName}>
+        <div className={sidebarWrapperClassName} style={{ "--course-map-w": `${courseMapResize.width}px` }}>
+          {isCourseMapOpen && !mobileSidebarOpen && (
+            <ResizeHandle
+              handleProps={courseMapResize.handleProps}
+              isResizing={courseMapResize.isResizing}
+              label="Resize Course Map"
+              className="hidden lg:block"
+            />
+          )}
           <CourseComposerSidebar
             maxHeightClassName="max-h-full"
             modules={effectiveModules}

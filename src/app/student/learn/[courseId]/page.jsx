@@ -31,6 +31,8 @@ import useMyCourses from "@/hooks/queries/student/useMyCourses";
 import useTrackCourseAccess from "@/hooks/queries/student/useTrackCourseAccess";
 import useLearningStateSync from "@/hooks/queries/student/useLearningStateSync";
 import useMediaQuery from "@/hooks/useMediaQuery";
+import useResizableWidth from "@/hooks/useResizableWidth";
+import ResizeHandle from "@/components/ui/ResizeHandle";
 
 import Loader from "@/components/common/Loader";
 import Card from "@/components/ui/Card";
@@ -189,6 +191,8 @@ export default function LearnPage() {
   // header carries no controls of its own.
   const workspaceCollapsed = workspaceCollapse !== null;
   const railOpen = !workspaceCollapsed;
+  // Desktop Course Map width: drag its right edge to read long names.
+  const courseMapResize = useResizableWidth({ storageKey: "lms.courseMapWidth.student" });
   const workspaceHeaderCollapsed = isDesktop && workspaceCollapsed;
 
   const videoPlayerRef = useRef(null);
@@ -670,11 +674,20 @@ export default function LearnPage() {
       <div
         data-learn-chrome=""
         inert={!railOpen}
-        className={`hidden xl:block shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out ${railOpen ? "w-full xl:w-[320px]" : "w-full xl:w-0"}`}
+        style={{ "--course-map-w": `${courseMapResize.width}px` }}
+        className={`hidden xl:block relative shrink-0 overflow-hidden ${courseMapResize.isResizing ? "" : "transition-[width] duration-300 ease-in-out"} ${railOpen ? "w-full xl:w-[var(--course-map-w)]" : "w-full xl:w-0"}`}
       >
+        {railOpen && (
+          <ResizeHandle
+            handleProps={courseMapResize.handleProps}
+            isResizing={courseMapResize.isResizing}
+            label="Resize Course Map"
+          />
+        )}
         {/* Fixed-width inner box: while the rail animates its width the tree
-            is clipped, not squeezed and re-wrapped on every frame. */}
-        <div className="w-[320px] h-full">
+            is clipped, not squeezed and re-wrapped on every frame. Its width
+            follows the drag-resizable --course-map-w. */}
+        <div className="w-[var(--course-map-w)] h-full">
           {renderCourseTree({
             isOpen: railOpen,
             onToggleOpen: collapseWorkspace,
