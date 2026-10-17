@@ -36,11 +36,13 @@ export function AssignmentOverviewView({ assignment, scopeLabel, startEditing = 
     setIsEditing(false);
   };
 
+  // Theme colours throughout, like the student's assignment page; only the
+  // PUBLISHED badge and Delete keep their meaning colours.
   const details = [
-    { label: "Due Date", value: formatDueDate(assignment.dueDate), icon: CalendarDays, tone: "text-rose-600 dark:text-rose-400 bg-rose-500/10" },
-    { label: "Marks", value: assignment.marks ?? "—", icon: Award, tone: "text-yellow-700 dark:text-yellow-400 bg-yellow-500/10" },
-    { label: "Type", value: assignment.assessmentType || "—", icon: Tag, tone: "text-sky-600 dark:text-sky-400 bg-sky-500/10" },
-    { label: "Estimated Time", value: assignment.estimatedTime ? `${assignment.estimatedTime} min` : "—", icon: Clock, tone: "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10" },
+    { label: "Due Date", value: formatDueDate(assignment.dueDate), icon: CalendarDays },
+    { label: "Marks", value: assignment.marks ?? "—", icon: Award },
+    { label: "Type", value: assignment.assessmentType || "—", icon: Tag },
+    { label: "Estimated Time", value: assignment.estimatedTime ? `${assignment.estimatedTime} min` : "—", icon: Clock },
   ];
   const attachments = Array.isArray(assignment.attachments) ? assignment.attachments : [];
 
@@ -49,14 +51,14 @@ export function AssignmentOverviewView({ assignment, scopeLabel, startEditing = 
       {/* Header Bar */}
       <div className="cell-header flex items-center justify-between border-b border-border/80 pb-3 flex-wrap gap-2">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="rounded bg-yellow-500/15 px-2.5 py-1 text-[12px] font-black uppercase tracking-wider text-yellow-700 dark:text-yellow-400 flex items-center gap-1.5">
+          <span className="rounded bg-primary/10 px-2.5 py-1 text-[12px] font-black uppercase tracking-wider text-primary flex items-center gap-1.5">
             <ClipboardList size={12} />
             {scopeLabel}
           </span>
           <span
             className={`rounded px-2 py-0.5 text-[12px] font-bold uppercase tracking-wider ${
               assignment.isPublished === false
-                ? "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400"
+                ? "bg-muted text-muted-foreground"
                 : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
             }`}
           >
@@ -90,7 +92,7 @@ export function AssignmentOverviewView({ assignment, scopeLabel, startEditing = 
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-yellow-500/40 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 text-sm font-bold transition cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-bold transition cursor-pointer"
                 >
                   <Pencil size={14} />
                   Edit Assignment
@@ -114,9 +116,9 @@ export function AssignmentOverviewView({ assignment, scopeLabel, startEditing = 
           <h2 className="text-2xl font-bold text-foreground">{assignment.title || "Untitled Assignment"}</h2>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
-            {details.map(({ label, value, icon: Icon, tone }) => (
+            {details.map(({ label, value, icon: Icon }) => (
               <div key={label} className="p-3 rounded-xl bg-muted/40 flex items-center gap-3">
-                <div className={`p-2 rounded-lg shrink-0 ${tone}`}>
+                <div className="p-2 rounded-lg shrink-0 bg-primary/10 text-primary">
                   <Icon size={16} />
                 </div>
                 <div className="min-w-0">
@@ -128,7 +130,7 @@ export function AssignmentOverviewView({ assignment, scopeLabel, startEditing = 
           </div>
 
           <div className="space-y-1.5">
-            <h3 className="text-[13px] font-bold uppercase tracking-wider text-yellow-700 dark:text-yellow-400">Brief</h3>
+            <h3 className="text-[13px] font-bold uppercase tracking-wider text-muted-foreground">Brief</h3>
             <p className="text-base text-foreground leading-relaxed whitespace-pre-line">
               {assignment.description || <span className="text-muted-foreground italic">No description.</span>}
             </p>
@@ -136,7 +138,7 @@ export function AssignmentOverviewView({ assignment, scopeLabel, startEditing = 
 
           {attachments.length > 0 && (
             <div className="space-y-1.5">
-              <h3 className="text-[13px] font-bold uppercase tracking-wider text-yellow-700 dark:text-yellow-400">Attachments</h3>
+              <h3 className="text-[13px] font-bold uppercase tracking-wider text-muted-foreground">Attachments</h3>
               <ul className="flex flex-wrap gap-2">
                 {attachments.map((att, idx) => (
                   <li key={att.url || idx}>
@@ -144,7 +146,7 @@ export function AssignmentOverviewView({ assignment, scopeLabel, startEditing = 
                       href={att.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 text-sm text-sky-600 dark:text-sky-400 underline underline-offset-2 hover:text-sky-500"
+                      className="inline-flex items-center gap-1.5 text-sm text-foreground underline underline-offset-2 transition hover:text-primary"
                     >
                       <Paperclip size={12} />
                       {att.name || "Attachment"}

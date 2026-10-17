@@ -82,21 +82,19 @@ function StepRow({ step, isActive, onSelect, rowRef }) {
     : isActive
       ? isQuiz
         ? tagStyle.active
-        : isAssignment
-          ? "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 font-semibold"
-          : "bg-primary/15 text-primary font-semibold"
+        : "bg-primary/15 text-primary font-semibold"
       : isQuiz
         ? tagStyle.idle
-        : isAssignment
-          ? "text-yellow-700 dark:text-yellow-400 hover:bg-background/60"
-          : "text-foreground hover:text-slate-50 hover:bg-background/70";
+        : "text-foreground hover:text-slate-50 hover:bg-background/70";
 
+  // Assignments use the theme colours like content (and like the instructor's
+  // Course Map); only quizzes are coloured by their tag.
   const iconTone = step.locked
     ? "text-muted-foreground/70"
     : isQuiz
       ? tagStyle.icon
-      : isAssignment
-        ? "text-yellow-700 dark:text-yellow-400"
+      : isAssignment && !isActive
+        ? "text-muted-foreground"
         : isActive
           ? "text-primary"
           : meta.color;
