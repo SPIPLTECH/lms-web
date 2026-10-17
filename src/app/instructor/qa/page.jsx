@@ -174,11 +174,13 @@ const CONTENT_TYPE_LABELS = {
 /**
  * The content the student asked about, right where the instructor answers:
  * text content is shown inline; anything else (video, files) links out to
- * the full content view.
+ * the lesson in the course composer, where the content lives.
  */
-function ContentPreview({ content }) {
+function ContentPreview({ content, lesson }) {
   const text = content.htmlContent ? unescapeFromContentApi(content.htmlContent) : "";
   const typeLabel = CONTENT_TYPE_LABELS[content.type] || "Content";
+  const courseId = lesson?.module?.course?.id;
+  const href = courseId ? `/instructor/courses/${courseId}?lesson=${lesson.id}` : null;
 
   return (
     <div className="mb-3 overflow-hidden rounded-lg border border-border bg-background/60">
@@ -187,14 +189,16 @@ function ContentPreview({ content }) {
           {content.title || "Course content"}
           <span className="ml-1.5 font-normal text-muted-foreground">{typeLabel}</span>
         </p>
-        <Link
-          href={`/instructor/contents/view/${content.id}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex shrink-0 items-center gap-1 text-[11px] font-bold text-primary transition hover:opacity-80"
-        >
-          Open content <ExternalLink size={11} aria-hidden />
-        </Link>
+        {href && (
+          <Link
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex shrink-0 items-center gap-1 text-[11px] font-bold text-primary transition hover:opacity-80"
+          >
+            Open in lesson <ExternalLink size={11} aria-hidden />
+          </Link>
+        )}
       </div>
       {text ? (
         <div className="max-h-56 overflow-y-auto px-3 py-2 text-xs">
@@ -203,8 +207,8 @@ function ContentPreview({ content }) {
       ) : (
         <p className="px-3 py-2 text-[11px] text-muted-foreground">
           {content.type === "VIDEO"
-            ? "This is a video. Open it to watch the part the student asked about."
-            : "Open the content to see it in full."}
+            ? "This is a video. Open the lesson to watch the part the student asked about."
+            : "Open the lesson to see the content in full."}
         </p>
       )}
     </div>
@@ -296,7 +300,7 @@ function QuestionCard({ query: q }) {
 
       {expanded && (
         <div className="mt-3">
-          {q.content && <ContentPreview content={q.content} />}
+          {q.content && <ContentPreview content={q.content} lesson={q.lesson} />}
           {q.quiz && <ItemPreview kind="quiz" item={q.quiz} />}
           {q.assignment && <ItemPreview kind="assignment" item={q.assignment} />}
           {q.reply && (

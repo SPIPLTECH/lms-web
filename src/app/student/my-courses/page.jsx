@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { BookOpen, GraduationCap } from "lucide-react";
 
 import EmptyState from "@/components/ui/EmptyState";
@@ -14,7 +13,6 @@ import useMyCourses from "@/hooks/queries/student/useMyCourses";
 import { AiAssistantWidget } from "@/features/ai-assistant/components";
 
 export default function MyCoursesPage() {
-  const router = useRouter();
   const { data: myEnrollments = [], isLoading, isError, refetch } = useMyCourses();
 
   const [yearFilter, setYearFilter] = useState("all");
@@ -97,9 +95,7 @@ export default function MyCoursesPage() {
         <EmptyState
           icon={BookOpen}
           title="No Enrolled Courses Yet"
-          description="Browse the course catalog and start learning today."
-          actionText="Browse Courses"
-          onAction={() => router.push("/student/courses")}
+          description="Courses you purchase will appear here once your enrollment is active."
         />
       ) : (
         <div className="flex flex-col flex-1 min-h-0 rounded-2xl border border-border bg-card px-3 py-4 md:px-12 md:py-6">

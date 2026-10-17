@@ -15,8 +15,6 @@ import {
 
 import useDashboard from "@/hooks/queries/student/useDashboard";
 import useCourses from "@/hooks/queries/student/useCourses";
-import useStudentCalendar from "@/hooks/queries/student/useStudentCalendar";
-import MiniCalendar from "@/components/dashboard/MiniCalendar";
 import RecommendedCoursesCarousel from "@/components/dashboard/RecommendedCoursesCarousel";
 import LearningRecommendations from "@/components/student/dashboard/LearningRecommendations";
 import LearningSignals from "@/components/student/dashboard/LearningSignals";
@@ -41,7 +39,10 @@ export default function StudentDashboardPage() {
   const { data: dashboardData, isLoading: isDashboardLoading, isError } = useDashboard();
   const { data: allCourses = [], isLoading: isCoursesLoading } = useCourses();
 
-  const { data: calendarEvents = [], isLoading: isCalendarEventsLoading } = useStudentCalendar();
+  // The calendar feature was removed; this hidden page keeps compiling with
+  // no calendar events until it is rewired (e.g. to /upcoming-tasks).
+  const calendarEvents = [];
+  const isCalendarEventsLoading = false;
 
   const stats = dashboardData?.stats ?? {};
   const enrolledCourses = dashboardData?.enrolledCoursesList ?? [];
@@ -231,9 +232,6 @@ export default function StudentDashboardPage() {
                   <CalendarIcon size={14} className="text-primary" />
                   Upcoming (Next 30 Min)
                 </h3>
-                <Link href="/student/calendar" className="text-[11px] text-primary font-bold hover:text-orange-300">
-                  View all
-                </Link>
               </div>
 
               <div className="flex-1 min-h-0 overflow-y-auto">
@@ -292,9 +290,9 @@ export default function StudentDashboardPage() {
               ) : enrolledCourses.length === 0 ? (
                 <div className="py-10 text-center border border-dashed border-border rounded-xl">
                   <p className="text-xs text-muted-foreground">You have not enrolled in any courses yet.</p>
-                  <Link href="/student/courses" className="inline-block mt-3">
+                  <Link href="/student/my-courses" className="inline-block mt-3">
                     <button className="px-5 py-2.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-xl text-xs font-black uppercase tracking-widest transition cursor-pointer">
-                      Explore Courses
+                      Go to My Courses
                     </button>
                   </Link>
                 </div>
@@ -326,7 +324,7 @@ export default function StudentDashboardPage() {
             <div ref={recommendedRef} className="rounded-2xl bg-card border border-border p-5 flex-1 flex flex-col">
               <RecommendedCoursesCarousel
                 title="Courses You Might Like"
-                viewAllHref="/student/courses"
+                viewAllHref="/student/my-courses"
                 courses={recommendedCourses}
                 isLoading={isCoursesLoading}
                 renderCard={(course) => <RecommendedCourseCard course={course} />}
@@ -373,15 +371,6 @@ export default function StudentDashboardPage() {
               )}
             </div>
 
-            {/* Calendar */}
-            <div className="rounded-2xl bg-card border border-border p-5">
-              <div className="mb-2">
-                <h3 className="text-sm font-black text-foreground">Calendar</h3>
-              </div>
-              <div className="dashboard-calendar-wrapper text-foreground scale-[0.95] origin-top">
-                <MiniCalendar role="STUDENT" />
-              </div>
-            </div>
           </div>
         </div>
       </div>

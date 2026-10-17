@@ -15,7 +15,6 @@ import { useInstructorNavDrawer } from "@/context/InstructorNavDrawerContext";
 import { useAdminNavDrawer } from "@/context/AdminNavDrawerContext";
 import Modal from "@/components/ui/Modal";
 import { ThemeSwitcher } from "@/components/ui/shadcn/theme-switcher";
-import MiniCalendar from "@/components/dashboard/MiniCalendar";
 import { useInstructorCourse } from "@/hooks/queries/instructor/useInstructorCourse";
 import { useModule } from "@/hooks/queries/instructor/useModule";
 import { useLesson } from "@/hooks/queries/instructor/useLesson";
@@ -115,7 +114,6 @@ export default function Navbar({ title = "Dashboard", role }) {
   const getIdsFromPathname = () => {
     if (!pathname) return {};
     const segments = pathname.split("/").filter(Boolean);
-    const hasCoursesInPath = segments.includes("courses");
     const result = {
       courseId: null,
       moduleId: null,
@@ -127,7 +125,7 @@ export default function Navbar({ title = "Dashboard", role }) {
     
     for (let i = 0; i < segments.length; i++) {
       const seg = segments[i];
-      if (seg === "courses" && segments[i + 1] && !["create", "edit", "import"].includes(segments[i + 1])) {
+      if (seg === "courses" && segments[i + 1] && !["create", "edit", "import", "browse"].includes(segments[i + 1])) {
         result.courseId = segments[i + 1];
       }
       if (seg === "modules" && segments[i + 1] && !["create", "edit"].includes(segments[i + 1])) {
@@ -146,11 +144,9 @@ export default function Navbar({ title = "Dashboard", role }) {
           } else if (segments[i + 1] === "create") {
             result.courseId = segments[i + 2];
           } else {
-            if (hasCoursesInPath) {
-              result.quizId = segments[i + 1];
-            } else {
-              result.courseId = segments[i + 1];
-            }
+            // /quizzes/<id> is always a quiz (the quiz detail page); reading
+            // it as a course id fetched /courses/<quizId> and 404'd.
+            result.quizId = segments[i + 1];
           }
         }
       }
@@ -158,9 +154,11 @@ export default function Navbar({ title = "Dashboard", role }) {
         if (segments[i + 1]) {
           if (["view", "edit"].includes(segments[i + 1])) {
             result.questionId = segments[i + 2];
-          } else if (segments[i + 1] === "create") {
+          } else if (["create", "bulk"].includes(segments[i + 1])) {
             result.quizId = segments[i + 2];
-          } else {
+          } else if (segments[i + 1] !== "upload") {
+            // /questions/upload has no id; reading "upload" (or "bulk") as a
+            // quiz id fetched /quizzes/upload and 404'd.
             result.quizId = segments[i + 1];
           }
         }
@@ -242,7 +240,7 @@ export default function Navbar({ title = "Dashboard", role }) {
     if (hasQuizzes || hasQuestions) {
       breadcrumbs.push({ label: "QUIZZES", href: `/${role}/quizzes` });
       if (quizData) {
-        breadcrumbs.push({ label: quizData.title, href: `/${role}/quizzes/view/${quizData.id}` });
+        breadcrumbs.push({ label: quizData.title, href: `/${role}/quizzes/${quizData.id}` });
       }
     }
 
@@ -295,7 +293,6 @@ export default function Navbar({ title = "Dashboard", role }) {
 
   const { notifications, markAllRead, clearAll, markAsRead, addNotification } = useNotification();
   const [isMounted, setIsMounted] = useState(false);
-  const [calendarOpen, setCalendarOpen] = useState(false);
 
   // Client-side initialization to prevent hydration mismatch
   useEffect(() => {
@@ -639,18 +636,6 @@ export default function Navbar({ title = "Dashboard", role }) {
           </div>
         </div>
       </header>
-
-      {/* Calendar Modal Popup */}
-      <Modal
-        open={calendarOpen}
-        onClose={() => setCalendarOpen(false)}
-        title="Schedule Calendar"
-        size="md"
-      >
-        <div className="text-foreground">
-          <MiniCalendar role={currentUser?.role} />
-        </div>
-      </Modal>
 
       {/* Logout Confirmation Modal */}
       <Modal

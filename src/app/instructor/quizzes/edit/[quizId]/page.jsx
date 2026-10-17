@@ -42,7 +42,7 @@ export default function EditQuizPage() {
             showToast("Quiz updated successfully", "success");
 
             router.push(
-                `/instructor/quizzes/view/${quizId}`
+                `/instructor/quizzes/${quizId}`
             );
         } catch (error) {
             console.error(error);

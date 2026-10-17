@@ -1,6 +1,5 @@
 "use client";
 
-import { ChatWidget } from "@/components/chat";
 import DashboardNavbar from "@/components/layouts/DashboardNavbar";
 
 // Students, Instructors, and Admins all navigate via top headers, role nav
@@ -24,7 +23,6 @@ export default function DashboardLayout({ children, role, title }) {
           {children}
         </main>
       </div>
-      <ChatWidget />
     </div>
   );
 }

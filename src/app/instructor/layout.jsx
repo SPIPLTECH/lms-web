@@ -8,7 +8,6 @@ import { useAuth } from "@/context/AuthContext";
 import Loader from "@/components/common/Loader";
 import InstructorNavDrawer from "@/components/layouts/InstructorNavDrawer";
 import { InstructorNavDrawerProvider } from "@/context/InstructorNavDrawerContext";
-import { ChatWidget } from "@/components/chat";
 
 export default function Layout({ children }) {
   const router = useRouter();
@@ -54,7 +53,6 @@ export default function Layout({ children }) {
           <DashboardNavbar role="INSTRUCTOR" title="Course Composer" />
           <div className="flex-1 min-h-0">{children}</div>
         </div>
-        <ChatWidget />
         <InstructorNavDrawer />
       </InstructorNavDrawerProvider>
     );

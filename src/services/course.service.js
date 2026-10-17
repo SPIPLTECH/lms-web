@@ -236,36 +236,6 @@ export const getCourseStudents = async (
 };
 
 /**
- * Get Batches For A Single Course
- */
-export const getCourseBatches = async (courseId) => {
-    const { data } = await api.get(`/courses/${courseId}/batches`);
-    return data.data ?? data;
-};
-
-/**
- * Get All Batches Across The Instructor's Courses (with optional filters)
- */
-export const getMyBatches = async (filters = {}) => {
-    const params = new URLSearchParams();
-    if (filters.courseId) params.set("courseId", filters.courseId);
-    if (filters.status) params.set("status", filters.status);
-    if (filters.startDate) params.set("startDate", filters.startDate);
-    if (filters.endDate) params.set("endDate", filters.endDate);
-
-    const { data } = await api.get(`/courses/batches/mine?${params.toString()}`);
-    return data.data ?? data;
-};
-
-/**
- * Create A Batch For A Course
- */
-export const createCourseBatch = async (courseId, batchData) => {
-    const { data } = await api.post(`/courses/${courseId}/batches`, batchData);
-    return data.data ?? data;
-};
-
-/**
  * Export Course ZIP package
  */
 export const exportCourse = async (courseId) => {

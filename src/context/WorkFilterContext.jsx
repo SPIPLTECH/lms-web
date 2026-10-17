@@ -6,7 +6,6 @@ const WorkFilterContext = createContext(null);
 
 const INITIAL_FILTERS = {
   courseId: "",
-  batchId: "",
   moduleId: "",
   lessonId: "",
   status: "",
@@ -15,7 +14,7 @@ const INITIAL_FILTERS = {
 };
 
 /**
- * Holds the Course/Batch/Module/Lesson/Status/Date filter selection shared by
+ * Holds the Course/Module/Lesson/Status/Date filter selection shared by
  * every page under /instructor/work — mounted once in work/layout.jsx so the
  * selection survives navigating between Work pages (Quiz -> Assessment, etc).
  *
@@ -30,7 +29,6 @@ export function WorkFilterProvider({ children }) {
     setFilters((prev) => {
       const next = { ...prev, [key]: value };
       if (key === "courseId") {
-        next.batchId = "";
         next.moduleId = "";
         next.lessonId = "";
       }

@@ -80,10 +80,10 @@ export default function QaPage() {
           <p className="text-sm font-semibold text-foreground">No enrolled courses yet</p>
           <p className="mt-1 text-xs text-muted-foreground">Q&amp;A is organized by course — enroll in a course to start asking questions.</p>
           <Link
-            href="/student/courses"
+            href="/student/my-courses"
             className="mt-4 inline-block cursor-pointer rounded-xl bg-primary px-4 py-2 text-xs font-bold text-foreground transition hover:bg-orange-650"
           >
-            Browse Courses
+            Go to My Courses
           </Link>
         </div>
       </div>

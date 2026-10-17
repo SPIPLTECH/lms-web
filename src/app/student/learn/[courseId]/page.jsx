@@ -34,7 +34,6 @@ import useMediaQuery from "@/hooks/useMediaQuery";
 
 import Loader from "@/components/common/Loader";
 import Card from "@/components/ui/Card";
-import { ChatWidget } from "@/components/chat";
 import { AiAssistantWidget } from "@/features/ai-assistant/components";
 
 
@@ -76,13 +75,14 @@ export default function LearnPage() {
 
   // Same enrollment gate as /student/courses/[courseId] — this is the actual
   // lesson content, not just an overview. A non-enrolled student who reaches
-  // this URL directly is sent to the public course page instead of the player.
+  // this URL directly is sent back to My Courses (enrollment happens on the
+  // main Orange Tree site).
   const { data: myEnrollments, isLoading: isEnrollmentsLoading } = useMyCourses();
   const isEnrolled = (myEnrollments || []).some((e) => (e.courseId || e.course?.id) === courseId);
 
   useEffect(() => {
     if (!isEnrollmentsLoading && !isEnrolled) {
-      router.replace(`/courses/${courseId}`);
+      router.replace("/student/my-courses");
     }
   }, [isEnrollmentsLoading, isEnrolled, courseId, router]);
 
@@ -1111,7 +1111,6 @@ export default function LearnPage() {
           target={skipOffer?.target}
           quiz={skipOffer?.quiz}
         />
-        <ChatWidget />
         {/* AI Assistant. Reads the learning ids this page already owns — no
             duplicate learning state. Only ids are handed over; the backend
             refetches the material itself and re-checks enrollment per turn,

@@ -12,7 +12,6 @@ import AuthCard from "@/components/auth/AuthCard";
 import AuthHeader from "@/components/auth/AuthHeader";
 import AuthAlert from "@/components/auth/AuthAlert";
 import AuthInput from "@/components/auth/AuthInput";
-import AuthFooter from "@/components/auth/AuthFooter";
 import AuthButton from "@/components/auth/AuthButton";
 
 export default function LoginPage() {
@@ -172,11 +171,6 @@ export default function LoginPage() {
             Login
           </AuthButton>
 
-          <AuthFooter
-            question="Don't have an account?"
-            actionHref="/register"
-            actionText="Register"
-          />
         </form>
       </AuthCard>
     </AuthLayout>

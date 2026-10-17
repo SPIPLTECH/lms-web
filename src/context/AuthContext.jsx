@@ -155,7 +155,6 @@ export const AuthProvider = ({ children }) => {
       const guestRoutes = [
         "/",
         "/login",
-        "/register",
         "/forgot-password",
         "/reset-password",
         "/verify-otp"

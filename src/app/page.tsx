@@ -1,50 +1,9 @@
-import LandingNavbar from "@/components/layouts/LandingNavbar";
-import Hero from "@/components/home/Hero";
-import GoalCategoryDiscovery from "@/components/home/GoalCategoryDiscovery";
-import CourseDiscovery from "@/components/home/CourseDiscovery";
-import LearningExperience from "@/components/home/LearningExperience";
-import OutcomeSection from "@/components/home/OutcomeSection";
-import FinalCta from "@/components/home/FinalCta";
-import Footer from "@/components/layouts/Footer";
-import { AiAssistantWidget } from "@/features/ai-assistant/components";
-import LandingGate from "@/components/home/LandingGate";
+import { redirect } from "next/navigation";
 
+// Course browsing, purchase and sign-up live on the main Orange Tree site;
+// this app is only where enrolled users sign in and learn. "/" therefore goes
+// straight to the login page (a signed-in visitor is forwarded on from there
+// to their own home by AuthContext).
 export default function Home() {
-  return (
-    <main className="min-h-screen bg-background text-foreground selection:bg-primary/20 selection:text-primary">
-      {/* A visitor who is already signed in is redirected to their dashboard by
-          AuthContext, so LandingGate shows a loader for that window instead of
-          painting the marketing page that is about to disappear. Guests fall
-          straight through, on the server as well, so the page stays crawlable. */}
-      <LandingGate>
-        <LandingNavbar />
-
-        {/* Each section below owns its own vertical rhythm and, where it needs
-            to read as a distinct scene, its own full-bleed background band —
-            sections are no longer forced into one shared tight spacing rail. */}
-
-        {/* Scene 1: Hero */}
-        <Hero />
-
-        {/* Scene 2: Explore by domain — compact, supporting */}
-        <GoalCategoryDiscovery />
-
-        {/* Scene 3: Course discovery — supporting grid of real courses */}
-        <CourseDiscovery />
-
-        {/* Scene 4: Why Orange Tree is different — one unified product story */}
-        <LearningExperience />
-
-        {/* Scene 5: Outcome — completion & certificate */}
-        <OutcomeSection />
-
-        {/* Scene 6: Final CTA */}
-        <FinalCta />
-
-        <Footer />
-
-        <AiAssistantWidget scopeHint="GUEST" />
-      </LandingGate>
-    </main>
-  );
+  redirect("/login");
 }

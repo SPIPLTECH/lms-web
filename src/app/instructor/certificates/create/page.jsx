@@ -265,8 +265,8 @@ export default function CertificateTemplateBuilderPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-16">
-      <Link href="/instructor/dashboard" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors">
-        <ArrowLeft size={16} /> Back to Dashboard
+      <Link href="/instructor/courses" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors">
+        <ArrowLeft size={16} /> Back to My Courses
       </Link>
 
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">

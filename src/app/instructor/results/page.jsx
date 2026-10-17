@@ -5,7 +5,6 @@ import { Download, FileDown, TrendingUp, AlertTriangle } from "lucide-react";
 
 import DataTable from "@/components/ui/DataTable";
 import { useInstructorCourses } from "@/hooks/queries/instructor/useInstructorCourses";
-import { useCourseBatches } from "@/hooks/queries/instructor/useBatches";
 import { useQuizzes } from "@/hooks/queries/instructor/useQuizzes";
 import { useInstructorAssignments } from "@/hooks/queries/instructor/useAssignments";
 import { useExams } from "@/hooks/queries/instructor/useExams";
@@ -27,13 +26,12 @@ function StatCard({ label, value }) {
   );
 }
 
-const INITIAL_FILTERS = { courseId: "", batchId: "", quizId: "", assignmentId: "", examId: "", studentId: "", startDate: "", endDate: "" };
+const INITIAL_FILTERS = { courseId: "", quizId: "", assignmentId: "", examId: "", studentId: "", startDate: "", endDate: "" };
 
 export default function ResultsPage() {
   const [filters, setFilters] = useState(INITIAL_FILTERS);
 
   const { data: courses = [] } = useInstructorCourses();
-  const { data: batches = [] } = useCourseBatches(filters.courseId);
   const { data: quizzes = [] } = useQuizzes(filters.courseId);
   const { data: assignments = [] } = useInstructorAssignments(filters.courseId);
   const { data: exams = [] } = useExams(filters.courseId);
@@ -47,7 +45,7 @@ export default function ResultsPage() {
   const questionWise = data?.questionWise || [];
   const topicWise = data?.topicWise || [];
 
-  const set = (key) => (e) => setFilters((f) => ({ ...f, [key]: e.target.value, ...(key === "courseId" ? { batchId: "", quizId: "", assignmentId: "", examId: "", studentId: "" } : {}) }));
+  const set = (key) => (e) => setFilters((f) => ({ ...f, [key]: e.target.value, ...(key === "courseId" ? { quizId: "", assignmentId: "", examId: "", studentId: "" } : {}) }));
 
   const studentColumns = [
     { key: "studentName", header: "Student" },
@@ -152,13 +150,6 @@ export default function ResultsPage() {
             <select className={selectClass} value={filters.courseId} onChange={set("courseId")}>
               <option value="">All Courses</option>
               {courses.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className={labelClass}>Batch</label>
-            <select className={selectClass} value={filters.batchId} onChange={set("batchId")} disabled={!filters.courseId}>
-              <option value="">All Batches</option>
-              {batches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           </div>
           <div>

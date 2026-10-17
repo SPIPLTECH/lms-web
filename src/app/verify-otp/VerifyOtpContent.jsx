@@ -31,7 +31,7 @@ export default function VerifyOtpContent() {
 
   useEffect(() => {
     if (!email) {
-      router.replace("/register");
+      router.replace("/login");
     }
   }, [email, router]);
 

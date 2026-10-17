@@ -13,7 +13,7 @@ export default function QuestionHeader({ quiz, onImport }) {
         <div className="space-y-8">
             {/* Back */}
             <Link
-                href={`/instructor/quizzes/view/${quiz.quizId || quiz.id}`}
+                href={`/instructor/quizzes/${quiz.quizId || quiz.id}`}
                 className="
                         inline-flex
                         items-center
@@ -205,4 +205,4 @@ export default function QuestionHeader({ quiz, onImport }) {
             </div>
         </div>
     </Card>);
-}
+}

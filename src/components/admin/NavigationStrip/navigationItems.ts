@@ -1,7 +1,6 @@
 import {
   BarChart3,
   BookOpen,
-  CalendarDays,
   GraduationCap,
   Home,
   UserCircle,
@@ -34,6 +33,5 @@ export const PRIMARY_NAV_ITEMS: NavItem[] = [
   { label: "Courses", href: "/admin/courses", icon: BookOpen, primaryOnMobile: true },
   { label: "Enrollments", href: "/admin/enrollments", icon: GraduationCap, primaryOnMobile: true },
   { label: "Analytics", href: "/admin/analytics", icon: BarChart3, primaryOnMobile: true },
-  { label: "Calendar", href: "/admin/calendar", icon: CalendarDays, primaryOnMobile: true },
   { label: "Profile", href: "/admin/profile", icon: UserCircle, primaryOnMobile: true },
 ];

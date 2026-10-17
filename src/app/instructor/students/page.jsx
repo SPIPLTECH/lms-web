@@ -4,12 +4,11 @@ import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
   Search,
-  AlertTriangle, ArrowLeft, Loader2 // Info dropped with the Batch filter hint
+  AlertTriangle, ArrowLeft, Loader2
 } from 'lucide-react';
 
 import { useStudents } from '@/hooks/queries/instructor/useStudents';
 import { useInstructorCourses } from '@/hooks/queries/instructor/useInstructorCourses';
-// import { useCourseBatches } from '@/hooks/queries/instructor/useBatches'; // Batch filter removed
 
 function StudentsDirectoryContent() {
   const searchParams = useSearchParams();
@@ -30,10 +29,6 @@ function StudentsDirectoryContent() {
   // context, even though `courses` itself (from useInstructorCourses) still
   // includes them for other uses like resolving selectedCourse's title.
   const publishedCourses = courses.filter((c) => c.status === 'PUBLISHED');
-
-  // Batch state and the useCourseBatches lookup went with the Batch filter —
-  // batch rosters aren't linked to student records, so it could never narrow
-  // the list. See the commented-out select below.
 
   const handleCourseFilterChange = (value) => {
     setCourseFilter(value);
@@ -392,23 +387,6 @@ function StudentsDirectoryContent() {
               </select>
             </div>
 
-            {/* Batch filter removed — batch rosters aren't linked to student
-                records, so it never narrowed the list. Restore this block (and
-                the useCourseBatches call above) if that link is added. */}
-            {/* <div className="w-full sm:w-64">
-              <label className="block text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Batch</label>
-              <select
-                value={batchFilter}
-                onChange={(e) => setBatchFilter(e.target.value)}
-                disabled={courseFilter === 'All' || loadingBatches}
-                className="w-full bg-white/[0.02] border border-border text-xs px-3.5 py-2 rounded-xl outline-none text-foreground focus:border-transparent transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-              >
-                <option value="All">{courseFilter === 'All' ? 'Select a course first' : 'All Batches'}</option>
-                {courseBatches.map((b) => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
-            </div> */}
           </div>
 
           {/* Directory Table */}
