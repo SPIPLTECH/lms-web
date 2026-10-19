@@ -7,6 +7,7 @@ export default function useTrackCourseView() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (courseId) => trackCourseView(courseId),
+    meta: { refreshAll: false },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.INSTRUCTOR_COURSES_TABLE] });
     },

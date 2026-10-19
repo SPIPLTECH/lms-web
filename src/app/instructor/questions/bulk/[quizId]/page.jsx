@@ -4,10 +4,12 @@ import { useParams, useRouter } from "next/navigation";
 
 import BulkQuestionForm from "@/components/forms/BulkQuestionForm";
 import { useBulkCreateQuestions } from "@/hooks/queries/instructor/useBulkCreateQuestions";
+import { useAlert } from "@/context/ConfirmContext";
 
 export default function BulkCreateQuestionsPage() {
     const { quizId } = useParams();
     const router = useRouter();
+    const alert = useAlert();
 
     const bulkMutation = useBulkCreateQuestions();
 

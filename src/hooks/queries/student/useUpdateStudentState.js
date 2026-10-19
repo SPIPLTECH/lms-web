@@ -7,6 +7,7 @@ export default function useUpdateStudentState() {
 
   return useMutation({
     mutationFn: updateStudentState,
+    meta: { refreshAll: false },
     onSuccess: (data) => {
       queryClient.setQueryData([QUERY_KEYS.STUDENT_STATE], data.data || data);
     },
