@@ -3,6 +3,7 @@ import Cookies from "js-cookie";
 
 import { setSessionCookies, clearSessionCookies } from "@/lib/authCookies";
 import { getApiOrigin } from "@/lib/apiOrigin";
+import { EVALUATOR_BLOCK_CODES, EVALUATOR_ACCESS_PATH } from "@/lib/evaluatorAccess";
 
 // Same prefixes middleware.js guards. Used below to decide whether a failed
 // background session check is allowed to navigate the browser at all.
@@ -136,6 +137,18 @@ api.interceptors.response.use(
 
         return Promise.reject(refreshError);
       }
+    }
+
+    // An evaluator account whose learning access is closed (feedback not yet
+    // verified, or the 2-day period over). The session is still valid — the
+    // access page explains which case it is.
+    if (
+      error.response?.status === 403 &&
+      EVALUATOR_BLOCK_CODES.includes(error.response.data?.code) &&
+      typeof window !== "undefined" &&
+      window.location.pathname !== EVALUATOR_ACCESS_PATH
+    ) {
+      window.location.replace(EVALUATOR_ACCESS_PATH);
     }
 
     return Promise.reject(error);

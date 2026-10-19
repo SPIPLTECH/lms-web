@@ -23,6 +23,7 @@ import { useQuiz } from "@/hooks/queries/instructor/useQuiz";
 import { useQuestion } from "@/hooks/queries/instructor/useQuestion";
 
 import GlobalSearch from "@/components/layouts/GlobalSearch";
+import EvaluatorBadge from "@/components/evaluator/EvaluatorBadge";
 import { NotificationsMenu, ProfileMenu } from "@/components/layouts/NavUserMenus";
 import { NavigationStrip } from "@/components/instructor/NavigationStrip/NavigationStrip";
 import { NavigationStrip as StudentNavigationStrip } from "@/components/student/NavigationStrip/NavigationStrip";
@@ -615,6 +616,9 @@ export default function Navbar({ title = "Dashboard", role }) {
               onClearAll={handleClearAll}
               onItemClick={handleNotificationClick}
             />
+
+            {/* Temporary evaluator accounts only (server-provided flag). */}
+            <EvaluatorBadge evaluator={currentUser?.evaluator} />
 
             {/* Profile */}
             <ProfileMenu

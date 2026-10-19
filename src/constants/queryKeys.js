@@ -5,6 +5,12 @@ export const QUERY_KEYS = {
     AUTH_SESSION: "auth-session",
 
     // ==========================
+    // Evaluator (temporary testing accounts)
+    // ==========================
+    EVALUATOR_REGISTRATION: "evaluator-registration",
+    EVALUATOR_STATUS: "evaluator-status",
+
+    // ==========================
     // Public / guest (no token required)
     // ==========================
     /** Guest-accessible published catalogue at /courses (GET /courses). */

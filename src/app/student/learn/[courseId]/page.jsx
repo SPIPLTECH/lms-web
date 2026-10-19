@@ -11,6 +11,7 @@ import QuizExperience from "@/components/student/attempt/QuizExperience";
 import LearnSidePanel from "@/components/student/learning/LearnSidePanel";
 import LessonNavigationControls from "@/components/student/learning/LessonNavigationControls";
 import LearnPageHeader from "@/components/student/learning/LearnPageHeader";
+import EvaluatorFeedbackButton from "@/components/evaluator/EvaluatorFeedbackButton";
 import SkipQualificationModal from "@/components/student/learning/SkipQualificationModal";
 import QualificationResultPanel from "@/components/student/learning/QualificationResultPanel";
 import StudentCourseMap from "@/components/student/learning/StudentCourseMap";
@@ -882,6 +883,11 @@ export default function LearnPage() {
                   </div>
                 </div>
 
+                {/* Phones only: LearnPageHeader, which carries this from sm
+                    up, is hidden below sm. Evaluator accounts only. */}
+                <div className="sm:hidden empty:hidden mt-3 flex">
+                  <EvaluatorFeedbackButton className="w-full" />
+                </div>
               </div>
 
               {/* CONTENT PLAYER FRAME — a bounded box at every width, so the
