@@ -22,10 +22,12 @@ import { resolveAutoOpen } from "@/lib/autoOpenSignal";
 
 import dynamic from "next/dynamic";
 
-const AddCellModal = dynamic(
-  () => import("./AddCellModal").then((mod) => mod.AddCellModal),
-  { ssr: false }
-);
+// Split out of the composer bundle, but fetched as soon as a panel mounts
+// (see the preload effect below). Loading it on the first "Add Content" click
+// instead left that click showing nothing until the chunk arrived — seconds
+// in dev — so the button looked like it needed several clicks.
+const loadAddCellModal = () => import("./AddCellModal").then((mod) => mod.AddCellModal);
+const AddCellModal = dynamic(loadAddCellModal, { ssr: false });
 import { TextCell } from "./cells/TextCell";
 import { HeadingCell } from "./cells/HeadingCell";
 import { ImageCell } from "./cells/ImageCell";
@@ -201,6 +203,10 @@ export function LessonComposerPanel({
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const { duplicate } = useDuplicateContent();
   const { showToast } = useToast();
+
+  useEffect(() => {
+    loadAddCellModal().catch(() => {});
+  }, []);
 
   // Selection is "controlled" when a parent passes onSelectCell (the course
   // page, wiring a Block Settings panel) and falls back to local state
