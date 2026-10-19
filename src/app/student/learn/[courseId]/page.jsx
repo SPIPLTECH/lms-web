@@ -881,6 +881,7 @@ export default function LearnPage() {
                     )}
                   </div>
                 </div>
+
               </div>
 
               {/* CONTENT PLAYER FRAME — a bounded box at every width, so the
@@ -1129,12 +1130,14 @@ export default function LearnPage() {
             refetches the material itself and re-checks enrollment per turn,
             so `isEnrolled` here is a UI hint, never a grant. Quiz/assignment
             ids are deliberately NOT passed: the assistant never retrieves
-            assessment material. */}
+            assessment material. On a video step it sits bottom-left, clear
+            of the player's fullscreen control in the bottom-right. */}
         <AiAssistantWidget
           courseId={courseId}
           courseTitle={course?.title}
           isEnrolled={isEnrolled}
           getPosition={getAiLearningPosition}
+          side={playerMode === "aspect" ? "left" : "right"}
         />
       </div>
     </div>
