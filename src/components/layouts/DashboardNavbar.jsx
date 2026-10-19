@@ -32,7 +32,6 @@ function ProfileDropdown({ user, onLogoutRequest, role }) {
   const [open, setOpen] = useState(false);
   const isAdmin = role === "ADMIN";
   const profileHref = isAdmin ? "/admin/profile" : "/instructor/profile";
-  const settingsHref = isAdmin ? "/admin/profile" : "/instructor/settings";
 
   useEffect(() => {
     if (!open) return;
@@ -76,13 +75,6 @@ function ProfileDropdown({ user, onLogoutRequest, role }) {
               className="flex items-center px-3 py-2 text-[10px] font-bold text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition"
             >
               👤 My Profile
-            </Link>
-            <Link
-              href={settingsHref}
-              onClick={() => setOpen(false)}
-              className="flex items-center px-3 py-2 text-[10px] font-bold text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition"
-            >
-              🛟 Help & Support
             </Link>
             <button
               onClick={() => {
