@@ -13,16 +13,15 @@ import {
 } from "@/services/auth.service";
 import { defaultQueryOptions } from "@/lib/queryOptions";
 import { QUERY_KEYS } from "@/constants/queryKeys";
-import { PALETTE_STORAGE_KEY } from "@/lib/palettes";
 import { setSessionCookies, clearSessionCookies } from "@/lib/authCookies";
 
 const AuthContext = createContext();
 
 // next-themes (see src/providers/ThemeProvider.tsx) is mounted with no
 // custom `storageKey`, so it persists under its library default, "theme".
-// Theme/palette are device UI preferences, not session state — logging out
-// must not reset them.
-const PRESERVED_ON_LOGOUT_KEYS = ["theme", PALETTE_STORAGE_KEY];
+// Theme is a device UI preference, not session state — logging out must not
+// reset it.
+const PRESERVED_ON_LOGOUT_KEYS = ["theme"];
 
 // Shared with any future consumer that wants the current identity without
 // re-fetching it (React Query dedupes/caches on this key).
@@ -47,7 +46,7 @@ export const AuthProvider = ({ children }) => {
     clearSessionCookies();
 
     // 2. Clear all local and session storage — except device UI preferences
-    // (theme/palette), which are independent of the authenticated session
+    // (theme), which is independent of the authenticated session
     // and must survive logout.
     if (typeof window !== "undefined") {
       const preserved = PRESERVED_ON_LOGOUT_KEYS.map((key) => [key, localStorage.getItem(key)]);
@@ -156,7 +155,6 @@ export const AuthProvider = ({ children }) => {
       const guestRoutes = [
         "/",
         "/login",
-        "/register",
         "/forgot-password",
         "/reset-password",
         "/verify-otp"

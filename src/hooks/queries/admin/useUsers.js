@@ -6,10 +6,7 @@ import {
 
 import {
     getUsers,
-    getUserById,
-    updateUser,
     updateUserRole,
-    updateUserStatus,
     deleteUser,
 } from "@/services/user.service";
 
@@ -24,40 +21,6 @@ export function useUsers() {
         queryKey: [QUERY_KEYS.ADMIN_USERS],
         queryFn: getUsers,
         ...defaultQueryOptions,
-    });
-}
-
-/**
- * Get User By ID
- */
-export function useUser(userId) {
-    return useQuery({
-        queryKey: [QUERY_KEYS.ADMIN_USER, userId],
-        queryFn: () => getUserById(userId),
-        enabled: !!userId,
-        ...defaultQueryOptions,
-    });
-}
-
-/**
- * Update User
- */
-export function useUpdateUser() {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: ({ userId, userData }) =>
-            updateUser(userId, userData),
-
-        onSuccess: () => {
-            queryClient.invalidateQueries({
-                queryKey: [QUERY_KEYS.ADMIN_USERS],
-            });
-
-            queryClient.invalidateQueries({
-                queryKey: [QUERY_KEYS.ADMIN_USER],
-            });
-        },
     });
 }
 
@@ -93,28 +56,6 @@ export function useUpdateUserRole() {
             queryClient.invalidateQueries({
                 queryKey: [QUERY_KEYS.ADMIN_INSTRUCTORS],
                 refetchType: "all",
-            });
-        },
-    });
-}
-
-/**
- * Update User Status
- */
-export function useUpdateUserStatus() {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: ({ userId, status }) =>
-            updateUserStatus(userId, status),
-
-        onSuccess: () => {
-            queryClient.invalidateQueries({
-                queryKey: [QUERY_KEYS.ADMIN_USERS],
-            });
-
-            queryClient.invalidateQueries({
-                queryKey: [QUERY_KEYS.ADMIN_USER],
             });
         },
     });

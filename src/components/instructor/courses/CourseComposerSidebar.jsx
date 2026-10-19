@@ -156,14 +156,6 @@ function sortByRenderOrder(items = []) {
   });
 }
 
-function formatTopicDisplayTitle(title = "", index = 0) {
-  const trimmed = title.trim();
-  if (/^(\d+\.\d+|\d+\.\d+\.\d+|mcqs?|assignment|home\s*task|revision)/i.test(trimmed)) {
-    return trimmed;
-  }
-  return `${index + 1}. ${trimmed}`;
-}
-
 /**
  * Mirrors the backend `ContentType` enum (prisma/schema.prisma). Kept
  * exhaustive so any real Content row — however it was created — gets a
@@ -212,6 +204,11 @@ export function getContentTypeMeta(content) {
 }
 
 /** Smoothly animated expand/collapse wrapper (grid-rows trick — no height measuring needed). */
+// What a Topic, SubTopic or Concept holds sits one step in from its row, behind
+// a guide line — the lesson level's look, and the student Course Map's.
+// empty:hidden keeps an empty node from showing a stray stub of line.
+const NESTED_CHILDREN_CLASS = "ml-3 pl-3 py-0.5 space-y-0.5 border-l border-border/60 empty:hidden";
+
 function Collapsible({ open, children }) {
   return (
     <div
@@ -577,11 +574,11 @@ function AssignmentRows({
               className={`flex items-center justify-between gap-1.5 pl-1.5 pr-1 py-1.5 rounded-lg transition border-l-2 ${
                 isSelectable ? "cursor-pointer" : ""
               } ${
-                // Yellow, not amber: globals.css maps amber-* onto the grey
-                // --secondary token, which made these rows look disabled.
+                // Theme colours, like a content row and the student's Course
+                // Map, so an assignment looks the same on both sides.
                 isAsgnActive
-                  ? "bg-yellow-500/15 border-yellow-500 text-yellow-700 dark:text-yellow-400 font-bold"
-                  : `border-transparent text-yellow-700 dark:text-yellow-400 ${isSelectable ? "hover:bg-background/60" : ""}`
+                  ? "bg-primary/15 border-primary text-primary font-semibold"
+                  : `border-transparent text-foreground ${isSelectable ? "hover:bg-background/70" : ""}`
               }`}
               onClick={isSelectable ? () => onSelectAssignment(asgn, mod, lesson, topic, undefined, context) : undefined}
             >
@@ -589,13 +586,13 @@ function AssignmentRows({
                 {asgn.completed ? (
                   <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />
                 ) : (
-                  <ClipboardList size={13} className="text-yellow-700 dark:text-yellow-400 shrink-0" />
+                  <ClipboardList size={13} className={`shrink-0 ${isAsgnActive ? "text-primary" : "text-muted-foreground"}`} />
                 )}
                 <span className="truncate text-[14.5px] leading-snug font-semibold">{asgn.title || "Assignment"}</span>
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 {asgn.marks ? (
-                  <span className="text-[11px] font-mono font-bold px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-700 dark:text-yellow-300 shrink-0">
+                  <span className="text-[11px] font-mono font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary shrink-0">
                     {asgn.marks} Marks
                   </span>
                 ) : null}
@@ -835,24 +832,28 @@ export function CourseComposerSidebar({
   );
 
   // SubTopic and Concept rows mirror the Topic row one and two levels down,
-  // with tighter indentation (ml-2 pl-1.5 per level instead of ml-3 pl-3) so
-  // two more levels still leave room for a title in the ~250px mobile drawer.
+  // drawn like the student's Course Map: S{n}/C{n} labels, theme-coloured
+  // icons, the same guide line at every depth, and the path to the selected
+  // item marked on each parent row.
   const renderConcept = (concept, parentContext, siblings, moveItems = []) => {
     const { module: mod, lesson, topic } = parentContext;
     const context = { ...parentContext, concept };
     const cIdx = siblings.findIndex((c) => c.id === concept.id);
     const conceptOpen = isConceptOpen(concept.id);
     const isConceptActive = composerMode === "concept" && composeConceptId === concept.id;
+    const conceptHasActiveChild = !isConceptActive && composeConceptId === concept.id;
     const isConceptLocked =
       role === "STUDENT" && cIdx > 0 && !isNodeLeavable(progress, siblings[cIdx - 1]?.id);
 
     return (
-      <div key={concept.id} className="ml-2 pl-1.5 border-l border-border/50">
+      <div key={concept.id}>
         <div
-          className={`group/concept flex items-center justify-between gap-1 pl-1 pr-1 py-1.5 rounded-lg cursor-pointer transition-colors ${
+          className={`group/concept flex items-center justify-between gap-1 pl-1 pr-1 py-1.5 rounded-lg cursor-pointer transition-colors border-l-2 ${
             isConceptActive
-              ? "bg-primary/15 text-primary font-semibold"
-              : "text-foreground/75 hover:text-foreground hover:bg-background/40"
+              ? "bg-primary/15 border-primary text-primary"
+              : conceptHasActiveChild
+              ? "bg-background/40 border-primary/40 text-foreground"
+              : "border-transparent text-foreground hover:bg-background/40"
           }`}
           onClick={() => onSelectConcept?.(concept, parentContext)}
         >
@@ -878,9 +879,12 @@ export function CourseComposerSidebar({
             {isConceptLocked ? (
               <Lock size={12} className="shrink-0 text-muted-foreground" />
             ) : (
-              <Lightbulb size={12} className={`shrink-0 ${isConceptActive ? "text-primary" : "text-amber-700 dark:text-amber-400"}`} />
+              <Lightbulb size={12} className={`shrink-0 ${isConceptActive ? "text-primary" : "text-primary/80"}`} />
             )}
-            <span className={`truncate text-[14.5px] leading-snug ${isConceptLocked ? "text-muted-foreground" : ""}`} title={concept.title}>
+            <span className="text-[12.5px] font-black text-muted-foreground tabular-nums shrink-0">
+              C{cIdx + 1}
+            </span>
+            <span className={`truncate text-[14.5px] leading-snug font-medium ${isConceptLocked ? "text-muted-foreground" : ""}`} title={concept.title}>
               {concept.title}
             </span>
             <DraftBadge node={concept} />
@@ -910,6 +914,7 @@ export function CourseComposerSidebar({
 
         <Collapsible open={conceptOpen}>
           <ParentContentRows
+            className={NESTED_CHILDREN_CLASS}
             parent={{ parentType: "concept", parentId: concept.id }}
             isActive={composerMode === "concept" && composeConceptId === concept.id}
             selectedCellId={selectedCellId}
@@ -938,16 +943,19 @@ export function CourseComposerSidebar({
     const sIdx = siblings.findIndex((s) => s.id === subTopic.id);
     const subTopicOpen = isSubTopicOpen(subTopic.id);
     const isSubTopicActive = composerMode === "subTopic" && composeSubTopicId === subTopic.id;
+    const subTopicHasActiveChild = !isSubTopicActive && composeSubTopicId === subTopic.id;
     const isSubTopicLocked =
       role === "STUDENT" && sIdx > 0 && !isNodeLeavable(progress, siblings[sIdx - 1]?.id);
 
     return (
-      <div key={subTopic.id} className="ml-2 pl-1.5 border-l border-border/50">
+      <div key={subTopic.id}>
         <div
-          className={`group/subtopic flex items-center justify-between gap-1 pl-1 pr-1 py-1.5 rounded-lg cursor-pointer transition-colors ${
+          className={`group/subtopic flex items-center justify-between gap-1 pl-1 pr-1 py-1.5 rounded-lg cursor-pointer transition-colors border-l-2 ${
             isSubTopicActive
-              ? "bg-primary/15 text-primary font-semibold"
-              : "text-foreground/75 hover:text-foreground hover:bg-background/40"
+              ? "bg-primary/15 border-primary text-primary"
+              : subTopicHasActiveChild
+              ? "bg-background/40 border-primary/40 text-foreground"
+              : "border-transparent text-foreground hover:bg-background/40"
           }`}
           onClick={() => onSelectSubTopic?.(subTopic, parentContext)}
         >
@@ -973,9 +981,12 @@ export function CourseComposerSidebar({
             {isSubTopicLocked ? (
               <Lock size={12} className="shrink-0 text-muted-foreground" />
             ) : (
-              <GitBranch size={12} className={`shrink-0 ${isSubTopicActive ? "text-primary" : "text-blue-700 dark:text-blue-400"}`} />
+              <GitBranch size={12} className={`shrink-0 ${isSubTopicActive ? "text-primary" : "text-primary/80"}`} />
             )}
-            <span className={`truncate text-[14.5px] leading-snug ${isSubTopicLocked ? "text-muted-foreground" : ""}`} title={subTopic.title}>
+            <span className="text-[12.5px] font-black text-muted-foreground tabular-nums shrink-0">
+              S{sIdx + 1}
+            </span>
+            <span className={`truncate text-[14.5px] leading-snug font-medium ${isSubTopicLocked ? "text-muted-foreground" : ""}`} title={subTopic.title}>
               {subTopic.title}
             </span>
             <DraftBadge node={subTopic} />
@@ -1009,6 +1020,7 @@ export function CourseComposerSidebar({
             {(concepts, conceptsState) => (
               <>
                 <ParentContentRows
+                  className={NESTED_CHILDREN_CLASS}
                   parent={{ parentType: "subTopic", parentId: subTopic.id }}
                   isActive={composerMode === "subTopic" && composeSubTopicId === subTopic.id}
                   selectedCellId={selectedCellId}
@@ -1399,9 +1411,10 @@ export function CourseComposerSidebar({
                                     const tIdx = topic.tIdx;
                                     const topicOpen = isTopicOpen(topic.id);
                                     const isTopicActive = composerMode === "topic" && composeTopicId === topic.id;
+                                    // Something inside this topic is selected: mark the
+                                    // path like the lesson/module rows (and the student map).
+                                    const topicHasActiveChild = !isTopicActive && composeTopicId === topic.id;
                                     const topicMeta = getTopicTypeMeta();
-                                    const TopicIcon = topicMeta.icon;
-                                    const displayTitle = formatTopicDisplayTitle(topic.title, tIdx);
                                     // Same sequential rule, one level further down:
                                     // previous Topic (in render order) must be
                                     // leavable before this one can be expanded.
@@ -1414,10 +1427,12 @@ export function CourseComposerSidebar({
                                       <div key={topic.id}>
                                         {/* Topic Row */}
                                         <div
-                                          className={`group/topic flex items-center justify-between gap-1.5 pl-1 pr-1 py-1.5 rounded-lg cursor-pointer transition-colors ${
+                                          className={`group/topic flex items-center justify-between gap-1.5 pl-1 pr-1 py-1.5 rounded-lg cursor-pointer transition-colors border-l-2 ${
                                             isTopicActive
-                                              ? "bg-primary/15 text-primary font-semibold"
-                                              : "text-foreground/75 hover:text-foreground hover:bg-background/40"
+                                              ? "bg-primary/15 border-primary text-primary"
+                                              : topicHasActiveChild
+                                              ? "bg-background/40 border-primary/40 text-foreground"
+                                              : "border-transparent text-foreground hover:bg-background/40"
                                           }`}
                                           onClick={() => onSelectTopic?.(topic.id, lesson.id, mod.id)}
                                         >
@@ -1443,10 +1458,13 @@ export function CourseComposerSidebar({
                                             {isTopicLocked ? (
                                               <Lock size={12} className="shrink-0 text-muted-foreground" />
                                             ) : (
-                                              <TopicIcon size={12} className={`shrink-0 ${isTopicActive ? "text-primary" : topicMeta.color}`} />
+                                              <FileStack size={12} className={`shrink-0 ${isTopicActive ? "text-primary" : "text-primary/80"}`} />
                                             )}
-                                            <span className={`truncate text-[15px] leading-snug ${isTopicLocked ? "text-muted-foreground" : ""}`} title={topic.title}>
-                                              {displayTitle}
+                                            <span className="text-[12.5px] font-black text-muted-foreground tabular-nums shrink-0">
+                                              T{tIdx + 1}
+                                            </span>
+                                            <span className={`truncate text-[14.5px] leading-snug font-semibold ${isTopicLocked ? "text-muted-foreground" : ""}`} title={topic.title}>
+                                              {topic.title}
                                             </span>
                                             <DraftBadge node={topic} />
                                             {topicMeta.type !== "theory" && (
@@ -1489,6 +1507,7 @@ export function CourseComposerSidebar({
                                             {(subTopics, subTopicsState) => (
                                               <>
                                                 <ParentContentRows
+                                                  className={NESTED_CHILDREN_CLASS}
                                                   parent={{ parentType: "topic", parentId: topic.id }}
                                                   isActive={composerMode === "topic"}
                                                   selectedCellId={selectedCellId}

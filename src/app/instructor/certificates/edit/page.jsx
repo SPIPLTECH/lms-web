@@ -73,7 +73,7 @@ export default function UpdateCertificatePage() {
         onSuccess: () => {
           setSuccessMsg("Certificate updated successfully!");
           setErrorMsg("");
-          setTimeout(() => router.push("/instructor/dashboard"), 2000);
+          setTimeout(() => router.push("/instructor/courses"), 2000);
         },
         onError: (err) => {
           setErrorMsg(err.response?.data?.message || "Failed to update certificate. The API might not be fully configured yet.");
@@ -85,8 +85,8 @@ export default function UpdateCertificatePage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <Link href="/instructor/dashboard" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors">
-        <ArrowLeft size={16} /> Back to Dashboard
+      <Link href="/instructor/courses" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors">
+        <ArrowLeft size={16} /> Back to My Courses
       </Link>
 
       <div>

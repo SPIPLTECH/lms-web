@@ -3,7 +3,6 @@ import { AuthProvider } from "@/context/AuthContext";
 import { Bricolage_Grotesque, Geist_Mono, Instrument_Sans, Source_Serif_4 } from "next/font/google";
 import QueryProvider from "@/providers/QueryProvider";
 import { ThemeProvider } from "@/providers/ThemeProvider";
-import { PaletteProvider, PALETTE_ANTI_FLASH_SCRIPT } from "@/providers/PaletteProvider";
 import "@fontsource/playfair-display/700.css";
 import "./globals.css";
 import { ChatProvider } from "@/context/ChatContext";
@@ -58,28 +57,21 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${bricolageGrotesque.variable} ${instrumentSans.variable} ${sourceSerif4.variable} ${geistMono.variable}`}
     >
-      <head>
-        <script
-          dangerouslySetInnerHTML={{ __html: PALETTE_ANTI_FLASH_SCRIPT }}
-        />
-      </head>
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
-          <PaletteProvider>
-            <QueryProvider>
-              <AuthProvider>
-                <ToastProvider>
-                  <ConfirmProvider>
-                    <NotificationProvider>
-                      <ChatProvider>
-                        {children}
-                      </ChatProvider>
-                    </NotificationProvider>
-                  </ConfirmProvider>
-                </ToastProvider>
-              </AuthProvider>
-            </QueryProvider>
-          </PaletteProvider>
+          <QueryProvider>
+            <AuthProvider>
+              <ToastProvider>
+                <ConfirmProvider>
+                  <NotificationProvider>
+                    <ChatProvider>
+                      {children}
+                    </ChatProvider>
+                  </NotificationProvider>
+                </ConfirmProvider>
+              </ToastProvider>
+            </AuthProvider>
+          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>

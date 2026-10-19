@@ -3,7 +3,6 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/ToastProvider";
-import { getCalendarEvents } from "@/services/calendar.service";
 import Cookies from "js-cookie";
 import { useAuth } from "@/context/AuthContext";
 import socketService from "@/services/socket.service";
@@ -68,14 +67,6 @@ export const playNotificationChime = () => {
   }
 };
 
-// Shared query key for this context's own calendar polling (mount seed +
-// 60s interval). Routing both through React Query means the interval tick
-// that lands within staleTime of the mount fetch (or of each other, if
-// effects re-fire back-to-back) reuses the cached result instead of
-// issuing a second uncached network round-trip.
-const NOTIFICATION_CALENDAR_POLL_KEY = [QUERY_KEYS.CALENDAR];
-const NOTIFICATION_CALENDAR_POLL_STALE_TIME = 55000; // just under the 60s poll interval
-
 export function NotificationProvider({ children }) {
   const [notifications, setNotifications] = useState([]);
   const { showToast } = useToast();
@@ -88,16 +79,6 @@ export function NotificationProvider({ children }) {
   const isMountedRef = useRef(false);
   const { user } = useAuth();
   const queryClient = useQueryClient();
-
-  const fetchCalendarEventsCached = useCallback(
-    () =>
-      queryClient.fetchQuery({
-        queryKey: NOTIFICATION_CALENDAR_POLL_KEY,
-        queryFn: getCalendarEvents,
-        staleTime: NOTIFICATION_CALENDAR_POLL_STALE_TIME,
-      }),
-    [queryClient]
-  );
 
   const fetchNotificationsCached = useCallback(
     () =>
@@ -178,22 +159,7 @@ export function NotificationProvider({ children }) {
     };
 
     loadNotifications();
-
-    // Initialize seen calendar event IDs to avoid alerting for old existing events
-    const initSeenEvents = async () => {
-      if (!user) return;
-      try {
-        const events = await fetchCalendarEventsCached();
-        events.forEach(e => {
-          const id = e.id || e._id;
-          if (id) seenEventIdsRef.current.add(id);
-        });
-      } catch (err) {
-        console.error("Error loading initial calendar events for observer", err);
-      }
-    };
-    initSeenEvents();
-  }, [user, fetchCalendarEventsCached, fetchNotificationsCached]);
+  }, [user, fetchNotificationsCached]);
 
   // `dedupeKey` makes a call idempotent: the first call for a given key adds the
   // notification, later calls with the same key are dropped — no duplicate entry,
@@ -330,64 +296,16 @@ export function NotificationProvider({ children }) {
     };
   }, [user, showToast]);
 
-  // Schedule Observer: check for newly added calendar events periodically
+  // Keep notifications in sync across tabs.
   useEffect(() => {
-    const checkNewEvents = async () => {
-      if (!isMountedRef.current || !user) return;
-      try {
-        const events = await fetchCalendarEventsCached();
-
-        events.forEach(e => {
-          const id = e.id || e._id;
-          if (id && !seenEventIdsRef.current.has(id)) {
-            seenEventIdsRef.current.add(id);
-            
-            // Generate notification for this new event
-            let displayType = "system";
-            let actionType = "update";
-            
-            if (e.type === "class") {
-              displayType = "course";
-              actionType = "Live Lecture Scheduled";
-            } else if (e.type === "quiz") {
-              displayType = "quiz";
-              actionType = "Quiz Session Scheduled";
-            } else if (e.type === "assignment") {
-              displayType = "assignment";
-              actionType = "Assignment Deadline Added";
-            }
-
-            addNotification(
-              `${actionType}: ${e.title}`,
-              `Course: ${e.courseName} • Date: ${e.date} at ${e.startTime} ${e.instructorName ? `by ${e.instructorName}` : ""}`,
-              displayType,
-              e.type === "class" ? "/student/calendar" : e.type === "quiz" ? "/student/quizzes" : "/student/my-courses"
-            );
-          }
-        });
-      } catch (err) {
-        console.error("Error fetching events in observer", err);
-      }
-    };
-
-    // Poll every 60 seconds to detect new calendar additions (real-time cross-tab updates)
-    const interval = setInterval(checkNewEvents, 60000);
-
-    // Listen to storage events from other tabs for instant triggers
     const handleStorageChange = (e) => {
-      if (e.key === "calendar_events") {
-        checkNewEvents();
-      } else if (e.key === "lms_notifications" && e.newValue) {
+      if (e.key === "lms_notifications" && e.newValue) {
         setNotifications(JSON.parse(e.newValue));
       }
     };
     window.addEventListener("storage", handleStorageChange);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("storage", handleStorageChange);
-    };
-  }, [user, addNotification, fetchCalendarEventsCached]);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
 
   const markEventAsSeen = (eventId) => {
     if (eventId) seenEventIdsRef.current.add(eventId);

@@ -203,8 +203,11 @@ HTTP Status Codes,MATCH_PAIRS,Web Development,MEDIUM,2,Match each status code to
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-6 md:p-10 font-sans">
-      <div className="max-w-4xl mx-auto mb-8">
+    // instructor/layout.jsx gives this route a viewport-height shell: the page
+    // never scrolls; only the body below the back button does, and only when
+    // an import report makes it taller than the screen.
+    <div className="h-full flex flex-col bg-background text-foreground font-sans">
+      <div className="w-full max-w-4xl mx-auto shrink-0 px-4 md:px-6 pt-3 pb-3">
         <div className="flex items-center space-x-3">
           <Link
             href="/instructor/questions"
@@ -223,7 +226,8 @@ HTTP Status Codes,MATCH_PAIRS,Web Development,MEDIUM,2,Match each status code to
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 md:px-6 pb-4">
+      <div className="max-w-4xl mx-auto space-y-4">
         {/* Sample Download Bar */}
         <div className="p-4 rounded-2xl bg-background/90 border border-transparent flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
           <span className="text-foreground font-medium">Download Sample Template Formats:</span>
@@ -306,7 +310,7 @@ HTTP Status Codes,MATCH_PAIRS,Web Development,MEDIUM,2,Match each status code to
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          className={`relative border-2 border-dashed rounded-3xl p-10 text-center transition-all ${
+          className={`relative border-2 border-dashed rounded-3xl p-8 text-center transition-all ${
             dragActive
               ? "border-amber-400 bg-amber-500/10 scale-[1.01]"
               : selectedFile
@@ -445,6 +449,7 @@ HTTP Status Codes,MATCH_PAIRS,Web Development,MEDIUM,2,Match each status code to
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

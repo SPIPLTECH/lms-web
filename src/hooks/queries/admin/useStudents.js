@@ -1,13 +1,8 @@
-import {
-    useQuery,
-    useMutation,
-    useQueryClient,
-} from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 
 import {
     getStudents,
     getStudentById,
-    updateStudent,
 } from "@/services/student.service";
 
 import {QUERY_KEYS} from "@/constants/queryKeys";
@@ -40,34 +35,3 @@ export function useStudent(studentId) {
     });
 }
 
-/**
- * Update Student
- */
-export function useUpdateStudent() {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: ({
-                         studentId,
-                         studentData,
-                     }) =>
-            updateStudent(
-                studentId,
-                studentData
-            ),
-
-        onSuccess: () => {
-            queryClient.invalidateQueries({
-                queryKey: [
-                    QUERY_KEYS.ADMIN_STUDENTS,
-                ],
-            });
-
-            queryClient.invalidateQueries({
-                queryKey: [
-                    QUERY_KEYS.ADMIN_STUDENT,
-                ],
-            });
-        },
-    });
-}

@@ -7,26 +7,22 @@ import {
   Search,
   BookOpen,
   CheckSquare,
-  Video,
   StickyNote,
   Users,
-  Layers,
   CornerDownLeft,
 } from "lucide-react";
 
 import { getCourses } from "@/services/course.service";
 import { getAssignments } from "@/services/assignment.service";
-import { getLiveClasses } from "@/services/liveClass.service";
 import { getNotes } from "@/services/note.service";
 import { getStudents } from "@/services/student.service";
-import { listBatches } from "@/services/batch.service";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 
 const RESULTS_PER_CATEGORY = 4;
 
 // Global Search covers the data each role actually has live list hooks for
 // today. Student: Courses, Assignments, Live Classes, Notes. Instructor:
-// Courses (own, any status), Students, Batches. Lessons/Modules/Quizzes
+// Courses (own, any status), Students. Lessons/Modules/Quizzes
 // don't yet have a flat, filterable list endpoint, so they're intentionally
 // left out rather than faked.
 export default function GlobalSearch({ role = "student" }) {
@@ -50,12 +46,6 @@ export default function GlobalSearch({ role = "student" }) {
     enabled: open && !isInstructor,
     staleTime: 1000 * 60 * 5,
   });
-  const { data: liveClasses = [] } = useQuery({
-    queryKey: [QUERY_KEYS.LIVE_CLASSES, {}],
-    queryFn: () => getLiveClasses({}),
-    enabled: open && !isInstructor,
-    staleTime: 1000 * 60 * 5,
-  });
   const { data: notes = [] } = useQuery({
     queryKey: [QUERY_KEYS.NOTES, {}],
     queryFn: () => getNotes({}),
@@ -72,12 +62,6 @@ export default function GlobalSearch({ role = "student" }) {
   const { data: students = [] } = useQuery({
     queryKey: [QUERY_KEYS.ADMIN_STUDENTS || "students"],
     queryFn: getStudents,
-    enabled: open && isInstructor,
-    staleTime: 1000 * 60 * 5,
-  });
-  const { data: batches = [] } = useQuery({
-    queryKey: [QUERY_KEYS.MY_BATCHES, {}],
-    queryFn: () => listBatches({}),
     enabled: open && isInstructor,
     staleTime: 1000 * 60 * 5,
   });
@@ -131,15 +115,6 @@ export default function GlobalSearch({ role = "student" }) {
             .slice(0, RESULTS_PER_CATEGORY)
             .map((s) => ({ id: s.id, title: s.name, subtitle: s.email || "Student", href: "/instructor/students" })),
         },
-        {
-          id: "batches",
-          label: "Batches",
-          icon: Layers,
-          results: batches
-            .filter((b) => matches(b.name, ...(b.courseTitles || [])))
-            .slice(0, RESULTS_PER_CATEGORY)
-            .map((b) => ({ id: b.id, title: b.name, subtitle: (b.courseTitles || []).join(", ") || "Batch", href: `/instructor/batches/${b.id}` })),
-        },
       ].filter((group) => group.results.length > 0);
     }
 
@@ -168,15 +143,6 @@ export default function GlobalSearch({ role = "student" }) {
           })),
       },
       {
-        id: "liveClasses",
-        label: "Live Classes",
-        icon: Video,
-        results: liveClasses
-          .filter((c) => matches(c.title, c.topic, c.course?.title))
-          .slice(0, RESULTS_PER_CATEGORY)
-          .map((c) => ({ id: c.id, title: c.title, subtitle: c.topic || "Live class", href: "/student/live-classes" })),
-      },
-      {
         id: "notes",
         label: "Notes",
         icon: StickyNote,
@@ -186,7 +152,7 @@ export default function GlobalSearch({ role = "student" }) {
           .map((n) => ({ id: n.id, title: n.title, subtitle: n.category || "Note", href: "/student/notes" })),
       },
     ].filter((group) => group.results.length > 0);
-  }, [query, isInstructor, studentCourses, assignments, liveClasses, notes, instructorCourses, students, batches]);
+  }, [query, isInstructor, studentCourses, assignments, notes, instructorCourses, students]);
 
   const flatResults = useMemo(() => groups.flatMap((g) => g.results.map((r) => ({ ...r, group: g.label }))), [groups]);
 
@@ -245,7 +211,7 @@ export default function GlobalSearch({ role = "student" }) {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={isInstructor ? "Search courses, students, batches..." : "Search courses, assignments, live classes, notes..."}
+                placeholder={isInstructor ? "Search courses and students..." : "Search courses, assignments, notes..."}
                 aria-label="Search dashboard"
                 className="w-full bg-transparent text-sm text-foreground outline-none placeholder-slate-500"
               />
@@ -258,7 +224,7 @@ export default function GlobalSearch({ role = "student" }) {
               {!query.trim() ? (
                 <p className="px-3 py-10 text-center text-xs text-muted-foreground">
                   {isInstructor
-                    ? "Search across your courses, students, and batches."
+                    ? "Search across your courses and students."
                     : "Search across your courses, assignments, live classes, and notes."}
                 </p>
               ) : flatResults.length === 0 ? (

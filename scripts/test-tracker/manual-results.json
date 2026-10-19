@@ -540,6 +540,86 @@
       "actual": "Admin course detail page cannot be used at all (endless spinner, DEF-010); its source also has no price/discount/free-flag fields and no Store pricing service exists (TC-CL-008). Nothing saved.",
       "evidence": "test-evidence/browser/local/2026-10-15_admin-course-detail.png",
       "failure_details": "Admin cannot set Store pricing: page does not load (DEF-010) and the pricing UI is not implemented (DEF-003)."
+    },
+    {
+      "id": "TC-UI-AUTH-013",
+      "status": "PASS",
+      "executed_at": "2026-10-19T10:46:49",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "http://localhost:3000 (npm run dev, local working tree); /auth/verify-reset-otp (200) and /auth/reset-password (400 reuse message) mocked with page.route — no email sent, no DB write",
+      "actual": "Step 1: 1 form input (OTP) + 'Resend in 60s' + Verify OTP; POST verify-reset-otp {email, otp}. Step 2 'Create New Password': 2 inputs + 6-item requirement checklist; 'weakpass' blocked client-side with policy message (no request sent); 'Str0ng!Pass' sent {email, otp, newPassword}; error 'New password must be different from your previous password.' displayed.",
+      "evidence": "Playwright run 2026-10-19 with captured request bodies; screenshots reset-step1.png / reset-step2.png in the session scratchpad",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-AUTH-013",
+      "status": "PASS",
+      "executed_at": "2026-10-19T11:02:00",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "http://localhost:3000 (npm run dev, local working tree), light + dark theme, 1280px and 360px; /auth/verify-reset-otp and /auth/reset-password mocked with page.route — no email sent, no DB write",
+      "actual": "Typed '12345' → boxes '12345'; wrong code 123459 → API 'Invalid OTP' shown as \"That code isn't correct...\" and boxes border rgb(180,48,42); Backspace → '12345' and error cleared; paste '65 43-21' → '654321'; request bodies {email, otp}. Step 2: labelled 'New password'/'Confirm new password'; 'Str0ng!Pa' → 3 success bars + 'Strong'; 'weakpass1' → 2 warning bars + 'Fair'; mismatch → \"Passwords don't match\"; valid submit → 'Password updated' + Sign in. 360px: no horizontal overflow.",
+      "evidence": "Playwright runs 2026-10-19 with computed-style probes and captured request bodies; screenshots r2-*/r3-*/r4-* in the session scratchpad",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-AUTH-013",
+      "status": "PASS",
+      "executed_at": "2026-10-19T11:09:00",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "http://localhost:3000 (npm run dev, local working tree), dark theme, 1280px and 360px; /auth/verify-reset-otp mocked with page.route — no email sent, no DB write",
+      "actual": "Step 2 has no requirements checklist (#reset-password-requirements contains no <ul>). 'abc' → Weak, bars [destructive, border, border]; 'weakpass1' → Medium, bars [warning, warning, border]; 'Str0ng!Pass' → Strong, 3 success bars. Matching confirmation shows 'Passwords match'. No horizontal overflow at 1280px or 360px.",
+      "evidence": "Playwright run 2026-10-19 with computed-style probes; screenshots r5-step2-1280.png / r5-step2-360.png in the session scratchpad",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-INS-020",
+      "status": "PASS",
+      "executed_at": "2026-10-19T12:40:00",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "http://localhost:3000 (npm run dev, local working tree) + API http://localhost:5000; INSTRUCTOR account (credentials typed by the user, not stored); course cmv7xcix70003cm1gawuruyn0; 1600×900",
+      "actual": "navbar bottom 69px, Course Map top 89px, Course Overview card top 90px (1px border); documentElement does not scroll.",
+      "evidence": "getBoundingClientRect probe; screenshot v-composer.png in session scratchpad",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-INS-021",
+      "status": "PASS",
+      "executed_at": "2026-10-19T12:45:00",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "http://localhost:3000 (npm run dev, local working tree) + API http://localhost:5000; INSTRUCTOR account (credentials typed by the user, not stored); course cmv7xcix70003cm1gawuruyn0",
+      "actual": "Topic 'Spotting Errors' (in Grammar), SubTopic 'Subject Verb Agreement' (in Spotting Errors) and Concept 'Reference Material' each show their header; Edit Topic/SubTopic/Concept form opened prefilled with the record's title; closed with Escape, nothing saved.",
+      "evidence": "Playwright run; screenshots v-topic.png, v-topic-edit.png, v-subtopic.png",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-INS-022",
+      "status": "PASS",
+      "executed_at": "2026-10-19T12:55:00",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "http://localhost:3000 (npm run dev, local working tree) + API http://localhost:5000; INSTRUCTOR account (credentials typed by the user, not stored); course cmv7xcix70003cm1gawuruyn0",
+      "actual": "1600×900 and 1366×768: document does not scroll, content overflow 0px, back button 12px below navbar. 1280×720: document does not scroll; body below the back button scrolls 43px.",
+      "evidence": "scrollHeight/clientHeight probes; screenshot v-upload-1366.png",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-INS-023",
+      "status": "PASS",
+      "executed_at": "2026-10-19T12:35:00",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "http://localhost:3000 (npm run dev, local working tree) + API http://localhost:5000; INSTRUCTOR account (credentials typed by the user, not stored); course cmv7xcix70003cm1gawuruyn0",
+      "actual": "First-click open from: course '+ Add Content' (×4), module header (×3), Course Map ⋯ on course/module/lesson/topic/subtopic rows (real mouse, ×14), Add Above/Below (×3). After the preload change the picker chunk is already in performance entries before any click; first open 92ms (was 479ms cold). The user's original 2–3-click report could not be reproduced on this build.",
+      "evidence": "Playwright runs with click counters and performance.getEntriesByType('resource')",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-INS-024",
+      "status": "PASS",
+      "executed_at": "2026-10-19T13:20:00",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "http://localhost:3000 (npm run dev, local working tree) + API http://localhost:5000; INSTRUCTOR account; course cmuo9b5a40001e51g8gpp7hg0, lesson Vocabulary; new quiz cancelled after each run (nothing saved)",
+      "actual": "10 on page 1 + 9 on page 2, added from page 2 → 'Add Selected (19)' → '19 Questions • 19 Total Marks'. 2 + 3 across pages → 5 added. 1 ticked, search 'closest', 1 more → both added (5 → 7). Before the fix the user's recording showed 9 ticked → 5 added and 11 ticked → 4 added (only the open page's ticks).",
+      "evidence": "Playwright runs with question-count probes; screenshot v-repo-fix.png; user's recording 'Screen Recording 2026-10-19 131121.mp4'",
+      "failure_details": ""
     }
   ]
 }

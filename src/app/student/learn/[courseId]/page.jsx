@@ -31,10 +31,11 @@ import useMyCourses from "@/hooks/queries/student/useMyCourses";
 import useTrackCourseAccess from "@/hooks/queries/student/useTrackCourseAccess";
 import useLearningStateSync from "@/hooks/queries/student/useLearningStateSync";
 import useMediaQuery from "@/hooks/useMediaQuery";
+import useResizableWidth from "@/hooks/useResizableWidth";
+import ResizeHandle from "@/components/ui/ResizeHandle";
 
 import Loader from "@/components/common/Loader";
 import Card from "@/components/ui/Card";
-import { ChatWidget } from "@/components/chat";
 import { AiAssistantWidget } from "@/features/ai-assistant/components";
 
 
@@ -76,13 +77,14 @@ export default function LearnPage() {
 
   // Same enrollment gate as /student/courses/[courseId] — this is the actual
   // lesson content, not just an overview. A non-enrolled student who reaches
-  // this URL directly is sent to the public course page instead of the player.
+  // this URL directly is sent back to My Courses (enrollment happens on the
+  // main Orange Tree site).
   const { data: myEnrollments, isLoading: isEnrollmentsLoading } = useMyCourses();
   const isEnrolled = (myEnrollments || []).some((e) => (e.courseId || e.course?.id) === courseId);
 
   useEffect(() => {
     if (!isEnrollmentsLoading && !isEnrolled) {
-      router.replace(`/courses/${courseId}`);
+      router.replace("/student/my-courses");
     }
   }, [isEnrollmentsLoading, isEnrolled, courseId, router]);
 
@@ -189,6 +191,8 @@ export default function LearnPage() {
   // header carries no controls of its own.
   const workspaceCollapsed = workspaceCollapse !== null;
   const railOpen = !workspaceCollapsed;
+  // Desktop Course Map width: drag its right edge to read long names.
+  const courseMapResize = useResizableWidth({ storageKey: "lms.courseMapWidth.student" });
   const workspaceHeaderCollapsed = isDesktop && workspaceCollapsed;
 
   const videoPlayerRef = useRef(null);
@@ -459,12 +463,14 @@ export default function LearnPage() {
   const [, setVideoDuration] = useState(0);
 
   const trackAccessMutation = useTrackCourseAccess();
-  // Track course access whenever the student enters the course or moves to another step.
+  // Tracks entering the course. This is per-course (it backs
+  // Enrollment.lastAccessedAt), so it must not re-fire as the student moves
+  // between steps within that same course.
   useEffect(() => {
     if (courseId) {
       trackAccessMutation.mutate(courseId);
     }
-  }, [courseId, stepIndex]);
+  }, [courseId]);
 
   /**
    * Moves the player to step `index`. What is open is the server's answer: a
@@ -668,11 +674,20 @@ export default function LearnPage() {
       <div
         data-learn-chrome=""
         inert={!railOpen}
-        className={`hidden xl:block shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out ${railOpen ? "w-full xl:w-[320px]" : "w-full xl:w-0"}`}
+        style={{ "--course-map-w": `${courseMapResize.width}px` }}
+        className={`hidden xl:block relative shrink-0 overflow-hidden ${courseMapResize.isResizing ? "" : "transition-[width] duration-300 ease-in-out"} ${railOpen ? "w-full xl:w-[var(--course-map-w)]" : "w-full xl:w-0"}`}
       >
+        {railOpen && (
+          <ResizeHandle
+            handleProps={courseMapResize.handleProps}
+            isResizing={courseMapResize.isResizing}
+            label="Resize Course Map"
+          />
+        )}
         {/* Fixed-width inner box: while the rail animates its width the tree
-            is clipped, not squeezed and re-wrapped on every frame. */}
-        <div className="w-[320px] h-full">
+            is clipped, not squeezed and re-wrapped on every frame. Its width
+            follows the drag-resizable --course-map-w. */}
+        <div className="w-[var(--course-map-w)] h-full">
           {renderCourseTree({
             isOpen: railOpen,
             onToggleOpen: collapseWorkspace,
@@ -1109,7 +1124,6 @@ export default function LearnPage() {
           target={skipOffer?.target}
           quiz={skipOffer?.quiz}
         />
-        <ChatWidget />
         {/* AI Assistant. Reads the learning ids this page already owns — no
             duplicate learning state. Only ids are handed over; the backend
             refetches the material itself and re-checks enrollment per turn,

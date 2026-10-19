@@ -11,7 +11,6 @@ import {
   // FileEdit,
   HelpCircle,
   // Home,
-  // Layers,
   // Megaphone,
   // MessageSquareText,
   // NotebookPen,
@@ -82,11 +81,6 @@ export const PRIMARY_NAV_ITEMS: NavItem[] = [
   //     { label: "Notes", href: "/instructor/work/notes", icon: NotebookPen },
   //   ],
   // },
-  // Was a "People & Classes" section. With Batches hidden it held Students
-  // alone, so it is a flat link now — a dropdown with one child is a click of
-  // pure ceremony. Restoring Batches means turning this back into a section
-  // with both children, and uncommenting the Layers import.
-  // { label: "Batches", href: "/instructor/batches", icon: Layers },
   { label: "Students", href: "/instructor/students", icon: Users, primaryOnMobile: true },
   // Schedule & Communication and Insights sections — hidden from the nav for
   // now, same as Work above. To bring either back, uncomment its block and the

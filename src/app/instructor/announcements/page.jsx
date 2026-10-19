@@ -72,7 +72,7 @@ export default function InstructorAnnouncementsPage() {
       <div className="rounded-2xl border border-transparent bg-background/60 p-5 shadow-sm">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => router.push("/instructor/dashboard")}
+            onClick={() => router.push("/instructor/courses")}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-muted border border-transparent text-foreground hover:text-foreground hover:border-primary transition"
           >
             <ArrowLeft size={16} />

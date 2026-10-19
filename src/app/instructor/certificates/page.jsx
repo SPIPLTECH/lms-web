@@ -70,8 +70,8 @@ export default function CertificatesDashboardPage() {
     <div className="space-y-6 pb-12">
       {/* Header and Back Link */}
       <div className="flex flex-col gap-2">
-        <Link href="/instructor/dashboard" className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors">
-          <ArrowLeft size={13} /> Back to Dashboard
+        <Link href="/instructor/courses" className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors">
+          <ArrowLeft size={13} /> Back to My Courses
         </Link>
         <div className="flex items-start justify-between flex-wrap gap-4 mt-2">
           <div>

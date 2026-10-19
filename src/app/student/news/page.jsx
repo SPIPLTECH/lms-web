@@ -14,7 +14,6 @@ import PageHeader from "@/components/layouts/PageHeader";
 import EmptyState from "@/components/ui/EmptyState";
 import Loader from "@/components/common/Loader";
 import useDashboard from "@/hooks/queries/student/useDashboard";
-import useStudentCalendar from "@/hooks/queries/student/useStudentCalendar";
 import { PAGE_SIZE, CATEGORY_TABS, RECENT_LABELS } from "@/features/student/constants/newsConfig";
 import { buildNewsFeed } from "@/features/student/utils/newsHelpers";
 import NewsCard from "@/components/student/news/NewsCard";
@@ -99,7 +98,7 @@ export default function StudentNewsPage() {
 
   // Real backend queries using centralized React Query hooks
   const { data: dashboardData, isLoading: isDashboardLoading } = useDashboard();
-  const { data: calendarEvents = [] } = useStudentCalendar();
+  const calendarEvents = []; // calendar feature removed
 
   const enrolledCourses = dashboardData?.enrolledCoursesList ?? [];
 

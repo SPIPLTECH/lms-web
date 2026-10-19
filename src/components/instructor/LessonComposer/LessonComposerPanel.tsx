@@ -22,10 +22,12 @@ import { resolveAutoOpen } from "@/lib/autoOpenSignal";
 
 import dynamic from "next/dynamic";
 
-const AddCellModal = dynamic(
-  () => import("./AddCellModal").then((mod) => mod.AddCellModal),
-  { ssr: false }
-);
+// Split out of the page bundle, but fetched as soon as a panel mounts (see
+// the preload effect below) — loading it on the first Add Content click left
+// that click with no visible response until the chunk arrived (seconds on a
+// cold `next dev` compile), which read as needing two or three clicks.
+const loadAddCellModal = () => import("./AddCellModal").then((mod) => mod.AddCellModal);
+const AddCellModal = dynamic(loadAddCellModal, { ssr: false });
 import { TextCell } from "./cells/TextCell";
 import { HeadingCell } from "./cells/HeadingCell";
 import { ImageCell } from "./cells/ImageCell";
@@ -199,6 +201,11 @@ export function LessonComposerPanel({
   // everything in it. null = picker closed.
   const [addTarget, setAddTarget] = useState<{ order?: number } | null>(null);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+
+  // Warm the Add Content picker's chunk so its first open is immediate.
+  useEffect(() => {
+    void loadAddCellModal();
+  }, []);
   const { duplicate } = useDuplicateContent();
   const { showToast } = useToast();
 

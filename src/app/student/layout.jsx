@@ -55,6 +55,25 @@ export default function Layout({ children }) {
     );
   }
 
+  // My Courses fits the viewport from md up: the page itself doesn't scroll,
+  // only the Enrolled Courses grid does. Below md the cards are a horizontal
+  // slider, so the page keeps its normal document scroll there.
+  if (pathname === "/student/my-courses") {
+    return (
+      <QaProvider>
+        <StudentNavDrawerProvider>
+          <div className="min-h-screen md:h-screen flex flex-col md:overflow-hidden bg-background">
+            <DashboardNavbar role="STUDENT" title="Student Dashboard" />
+            <main className="flex-1 min-h-0 w-full max-w-[1728px] mx-auto flex flex-col p-3 sm:p-6">
+              {children}
+            </main>
+          </div>
+          <StudentNavDrawer />
+        </StudentNavDrawerProvider>
+      </QaProvider>
+    );
+  }
+
   return (
     <QaProvider>
       <StudentNavDrawerProvider>

@@ -1,4 +1,4 @@
-import { BookOpen, Users, Sparkles, Calendar, Video } from "lucide-react";
+import { BookOpen, Users, Sparkles, Calendar } from "lucide-react";
 
 // Builds the News & Updates feed: curated platform/course/batch items plus
 // any live calendar events merged in as batch-schedule updates. Isolated
@@ -33,21 +33,6 @@ export function buildNewsFeed({ enrolledCourses = [], calendarEvents = [] }) {
       actionLink: enrolledCourses[0] ? `/student/learn/${enrolledCourses[0].courseId}` : "/student/my-courses",
       actionLabel: "Start New Module",
       icon: BookOpen,
-    },
-    {
-      id: "news-2",
-      category: "BATCH",
-      categoryLabel: "Batch Alert",
-      title: "Weekend Live Doubt Solving Session Scheduled",
-      summary: "Special live Q&A session with Senior Instructor regarding System Design and Data Structures.",
-      content: "Attention all students in Active Batches! A live interactive doubt-clearing session has been scheduled for this Saturday at 4:00 PM IST. Please bring your project questions and assignment queries. Meeting link is active in your Live Classes section.",
-      timestamp: `${todayFormatted} • 08:00 AM`,
-      date: makeDate(0, 8, 0),
-      badgeColor: "bg-blue-500/10 text-blue-400 border-blue-500/30",
-      courseTag: "Live Class",
-      actionLink: "/student/live-classes",
-      actionLabel: "View Live Schedule",
-      icon: Video,
     },
     {
       id: "news-3",
@@ -111,8 +96,8 @@ export function buildNewsFeed({ enrolledCourses = [], calendarEvents = [] }) {
         date: Number.isNaN(parsedDate.getTime()) ? now : parsedDate,
         badgeColor: "bg-cyan-500/10 text-cyan-400 border-cyan-500/30",
         courseTag: event.courseName || "Scheduled Event",
-        actionLink: "/student/calendar",
-        actionLabel: "Open Calendar",
+        actionLink: "/student/my-courses",
+        actionLabel: "Open My Courses",
         icon: Calendar,
       });
     });
