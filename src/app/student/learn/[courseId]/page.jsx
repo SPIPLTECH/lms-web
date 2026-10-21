@@ -32,6 +32,7 @@ import useMyCourses from "@/hooks/queries/student/useMyCourses";
 import useTrackCourseAccess from "@/hooks/queries/student/useTrackCourseAccess";
 import useLearningStateSync from "@/hooks/queries/student/useLearningStateSync";
 import useMediaQuery from "@/hooks/useMediaQuery";
+import useAuth from "@/hooks/useAuth";
 import useResizableWidth from "@/hooks/useResizableWidth";
 import ResizeHandle from "@/components/ui/ResizeHandle";
 
@@ -71,6 +72,10 @@ function indexContainers(tree) {
 export default function LearnPage() {
   const { courseId } = useParams();
   const router = useRouter();
+  // Evaluator accounts have every step open (backend learningSequence
+  // `unlockAll`), so there is nothing for them to mark complete.
+  const { user } = useAuth();
+  const isEvaluator = Boolean(user?.evaluator);
 
   // Course metadata only (title, language): what the player walks comes from
   // the learning sequence below.
@@ -565,7 +570,7 @@ export default function LearnPage() {
     contentIds: isContentStep ? step.contentIds : [],
     completed: Boolean(step?.completed),
   };
-  const showCompletionBar = Boolean(step) && !step.locked && !qualifyingAttempt;
+  const showCompletionBar = Boolean(step) && !step.locked && !qualifyingAttempt && !isEvaluator;
   const completionBarProps = {
     completed: Boolean(step?.completed),
     isPending: completeContentMutation.isPending,

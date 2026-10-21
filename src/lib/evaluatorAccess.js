@@ -1,21 +1,22 @@
 /**
  * Evaluator (temporary testing) accounts — the client-side mirror of the
- * backend's utils/evaluatorAccess.js. The backend is authoritative: it
- * refuses every learning API outside the ACTIVE state. This copy only decides
- * which screen to show, and flips to EXPIRED at the deadline without waiting
- * for the next request to be refused.
+ * backend's utils/evaluatorAccess.js. Full access for 2 days from
+ * registration; after that learning access ends and, if it hasn't been given
+ * yet, the evaluator is asked for the external feedback. The backend is
+ * authoritative (it refuses every learning API once EXPIRED); this copy only
+ * decides which screen to show, and flips at the deadline without waiting for
+ * the next request to be refused.
  *
  * `evaluator` is the `evaluator` object on the session profile (null for
  * everyone who is not an evaluator).
  */
 
 export const EVALUATOR_STATES = {
-  FEEDBACK_REQUIRED: "FEEDBACK_REQUIRED",
   ACTIVE: "ACTIVE",
   EXPIRED: "EXPIRED",
 };
 
-export const EVALUATOR_BLOCK_CODES = ["EVALUATOR_FEEDBACK_REQUIRED", "EVALUATOR_ACCESS_EXPIRED"];
+export const EVALUATOR_BLOCK_CODES = ["EVALUATOR_ACCESS_EXPIRED"];
 
 export const EVALUATOR_ACCESS_PATH = "/evaluator/access";
 
@@ -30,8 +31,7 @@ export const EVALUATOR_MESSAGES = {
 
 export const evaluatorStateAt = (evaluator, now) => {
   if (!evaluator?.expiresAt) return null;
-  if (now >= new Date(evaluator.expiresAt).getTime()) return EVALUATOR_STATES.EXPIRED;
-  return evaluator.feedbackCompletedAt ? EVALUATOR_STATES.ACTIVE : EVALUATOR_STATES.FEEDBACK_REQUIRED;
+  return now >= new Date(evaluator.expiresAt).getTime() ? EVALUATOR_STATES.EXPIRED : EVALUATOR_STATES.ACTIVE;
 };
 
 export const formatEvaluatorDeadline = (value) =>

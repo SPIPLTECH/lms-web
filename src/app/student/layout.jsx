@@ -18,9 +18,10 @@ export default function Layout({ children }) {
   const pathname = usePathname();
   const { user, loading } = useAuth();
 
-  // Temporary evaluator accounts: no student page until feedback is verified,
-  // and none after the 2-day period. The API refuses the same requests; this
-  // just sends the browser to the page that says why, typed URL or not.
+  // Temporary evaluator accounts: full access for 2 days, then no student
+  // page (the access page asks for feedback if it hasn't been given). The API
+  // refuses the same requests; this just sends the browser to the page that
+  // says why, typed URL or not.
   const evaluatorState = useEvaluatorState(user?.evaluator);
   const evaluatorBlocked = Boolean(evaluatorState) && evaluatorState !== EVALUATOR_STATES.ACTIVE;
 
@@ -69,9 +70,18 @@ export default function Layout({ children }) {
   return (
     <QaProvider>
       <StudentNavDrawerProvider>
-        <DashboardLayout role="STUDENT" title="Student Dashboard">
+        <DashboardLayout
+          role="STUDENT"
+          title="Student Dashboard"
+          banner={
+            evaluatorState === EVALUATOR_STATES.ACTIVE ? (
+              <div className="max-w-[1600px] mx-auto">
+                <EvaluatorNotice evaluator={user.evaluator} />
+              </div>
+            ) : null
+          }
+        >
           <div className="max-w-[1600px] mx-auto w-full flex flex-col flex-1 min-h-0">
-            {evaluatorState === EVALUATOR_STATES.ACTIVE && <EvaluatorNotice evaluator={user.evaluator} />}
             {children}
           </div>
         </DashboardLayout>

@@ -6,7 +6,8 @@ import useAuth from "@/hooks/useAuth";
 
 /**
  * Link to the independent evaluation feedback site (configured on the server
- * as EVALUATOR_FEEDBACK_URL), shown to evaluator accounts only. Separate from
+ * as EVALUATOR_FEEDBACK_URL), shown to evaluator accounts until their
+ * feedback is recorded. Separate from
  * the LMS's own Feedback panel, which this does not touch. Renders nothing
  * when the URL is not configured, rather than a dead link.
  */
@@ -14,7 +15,8 @@ export default function EvaluatorFeedbackButton({ className = "" }) {
   const { user } = useAuth();
   const feedbackUrl = user?.evaluator?.feedbackUrl;
 
-  if (!feedbackUrl) return null;
+  // Not needed once the feedback is recorded.
+  if (!feedbackUrl || user.evaluator.feedbackCompletedAt) return null;
 
   return (
     <a

@@ -25,8 +25,9 @@ const homeFor = (role) =>
   role === "ADMIN" ? "/admin/dashboard" : role === "INSTRUCTOR" ? "/instructor/courses" : "/student/my-courses";
 
 /**
- * Where evaluator accounts land whenever learning access is closed, and the
- * one place feedback completion is confirmed. Reads its status straight from
+ * Where evaluator accounts land once their 2 days are over (asking for the
+ * feedback if it hasn't been given), and the one place feedback completion is
+ * confirmed, during the 2 days or after. Reads its status straight from
  * the server (GET /evaluators/me/status), not from the cached profile.
  */
 export default function EvaluatorAccessPage() {
@@ -80,7 +81,7 @@ export default function EvaluatorAccessPage() {
     runCheckRef.current = runCheck;
   });
   useEffect(() => {
-    if (state !== EVALUATOR_STATES.FEEDBACK_REQUIRED) return undefined;
+    if (!status || status.feedbackCompleted) return undefined;
     const onVisible = () => {
       if (
         document.visibilityState === "visible" &&
@@ -92,7 +93,7 @@ export default function EvaluatorAccessPage() {
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [state]);
+  }, [status]);
 
   const handleContinue = async () => {
     setContinuing(true);
@@ -134,64 +135,67 @@ export default function EvaluatorAccessPage() {
   }
 
   const deadline = formatEvaluatorDeadline(status.expiresAt);
+  const expired = state === EVALUATOR_STATES.EXPIRED;
 
-  if (state === EVALUATOR_STATES.EXPIRED) {
-    return (
-      <AuthLayout>
-        <AuthCard>
-          <AuthHeader
-            icon={<Clock className="h-9 w-9 text-primary" aria-hidden="true" />}
-            title="Testing Period Ended"
-          />
-          <p role="status" className="mt-6 text-center text-sm leading-relaxed text-foreground">
-            {status.feedbackCompleted ? EVALUATOR_MESSAGES.expiredWithFeedback : EVALUATOR_MESSAGES.expired}
-          </p>
-          <p className="mt-3 text-center text-xs text-muted-foreground">Access ended {deadline}.</p>
-          <div className="mt-8 border-t border-border pt-5">{signOut}</div>
-        </AuthCard>
-      </AuthLayout>
-    );
-  }
+  const continueButton = (
+    <Button className="w-full" onClick={handleContinue} loading={continuing}>
+      Continue to My Courses
+    </Button>
+  );
 
-  if (state === EVALUATOR_STATES.ACTIVE) {
+  // Feedback recorded: the confirmation (during the 2 days) or the closing
+  // thank-you (after them). No more feedback prompts.
+  if (status.feedbackCompleted) {
     return (
       <AuthLayout>
         <AuthCard>
           <AuthHeader
             icon={<CircleCheck className="h-9 w-9 text-primary" aria-hidden="true" />}
-            title="Feedback Recorded"
+            title={expired ? "Testing Period Ended" : "Feedback Recorded"}
           />
           <p role="status" className="mt-6 text-center text-sm leading-relaxed text-foreground">
-            {EVALUATOR_MESSAGES.feedbackRecorded}
+            {expired ? EVALUATOR_MESSAGES.expiredWithFeedback : EVALUATOR_MESSAGES.feedbackRecorded}
           </p>
-          <p className="mt-3 text-center text-xs text-muted-foreground">Access ends {deadline}.</p>
-          <Button className="mt-8 w-full" onClick={handleContinue} loading={continuing}>
-            Continue to My Courses
-          </Button>
+          <p className="mt-3 text-center text-xs text-muted-foreground">
+            {expired ? `Access ended ${deadline}.` : `Access ends ${deadline}.`}
+          </p>
+          {!expired && <div className="mt-8">{continueButton}</div>}
           <div className="mt-6 border-t border-border pt-5">{signOut}</div>
         </AuthCard>
       </AuthLayout>
     );
   }
 
-  // FEEDBACK_REQUIRED
+  // No feedback yet. After the 2 days this is where the evaluator lands; during
+  // them it is optional (reached from the reminder on the student pages).
   return (
     <AuthLayout>
       <AuthCard>
         <AuthHeader
-          icon={<FlaskConical className="h-9 w-9 text-primary" aria-hidden="true" />}
-          title="Feedback Required"
-          description="To continue using Orange Tree LMS, complete the independent evaluation feedback form."
+          icon={
+            expired ? (
+              <Clock className="h-9 w-9 text-primary" aria-hidden="true" />
+            ) : (
+              <FlaskConical className="h-9 w-9 text-primary" aria-hidden="true" />
+            )
+          }
+          title={expired ? "Feedback Required" : "Share Your Feedback"}
+          description={
+            expired
+              ? EVALUATOR_MESSAGES.expired
+              : "When you have finished evaluating, please complete the independent evaluation feedback form."
+          }
         />
 
         <div className="mt-6 space-y-2 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-xs text-muted-foreground">
+          {expired && <p className="text-sm font-semibold text-foreground">Please share your feedback on the evaluation.</p>}
           <p>
             The form is on a separate website, not the LMS&apos;s own Feedback section. Use this email on it so we can
             match your submission:
           </p>
           <p className="break-all text-sm font-semibold text-primary">{user.email}</p>
           <p>
-            Your testing account is available for 2 days from registration and ends{" "}
+            {expired ? "Your 2-day testing period ended " : "Your testing account is available for 2 days from registration and ends "}
             <strong className="text-foreground">{deadline}</strong>.
           </p>
         </div>
@@ -229,6 +233,8 @@ export default function EvaluatorAccessPage() {
           <div aria-live="polite">
             <AuthAlert type={checkMessage.type || "info"} message={checkMessage.text} />
           </div>
+
+          {!expired && continueButton}
         </div>
 
         <div className="mt-6 border-t border-border pt-5">{signOut}</div>
