@@ -8,6 +8,7 @@ import { ChevronDown, LifeBuoy, LogOut, X } from "lucide-react";
 import { useInstructorNavDrawer } from "@/context/InstructorNavDrawerContext";
 import { PRIMARY_NAV_ITEMS } from "@/components/instructor/NavigationStrip/navigationItems";
 import useAuth from "@/hooks/useAuth";
+import { useToast } from "@/components/ui/ToastProvider";
 import Modal from "@/components/ui/Modal";
 import { ThemeModeRow } from "@/components/ui/shadcn/theme-switcher";
 
@@ -96,6 +97,7 @@ function DrawerNavItem({ item, pathname, depth = 0, onNavigate }) {
 export default function InstructorNavDrawer() {
   const pathname = usePathname();
   const { logout } = useAuth();
+  const { showToast } = useToast();
   const { isOpen, close } = useInstructorNavDrawer();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
@@ -115,13 +117,15 @@ export default function InstructorNavDrawer() {
     };
   }, [isOpen, close]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setShowLogoutModal(false);
     close();
     // logout() itself clears auth state and redirects to the Landing Page —
     // navigating here too would race it while cookies/user state are still
     // present, which is what let the old redirect bounce back into the app.
-    logout();
+    // If the server couldn't end the session, the user stays signed in.
+    const result = await logout();
+    if (result?.ok === false) showToast(result.message, "error");
   };
 
   if (!isOpen) return null;

@@ -13,10 +13,13 @@ import AuthHeader from "@/components/auth/AuthHeader";
 import AuthAlert from "@/components/auth/AuthAlert";
 import AuthInput from "@/components/auth/AuthInput";
 import AuthButton from "@/components/auth/AuthButton";
+import GoogleSignInButton, { isGoogleSignInEnabled } from "@/components/auth/GoogleSignInButton";
+import { consumeLoginReason, signInErrorMessage } from "@/lib/sessionErrors";
+import { subscribeSignedIn } from "@/lib/authBroadcast";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, googleLogin } = useAuth();
 
   useEffect(() => {
     console.log("[LOGIN] page mounted");
@@ -27,12 +30,67 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [validationErrors, setValidationErrors] = useState({});
 
+  // Sent here after the session ended (expired, revoked, signed out in
+  // another tab): say why — once. The reason is taken out of the URL so a
+  // reload, Back or a bookmark does not show an old message again.
+  useEffect(() => {
+    const { message, url, changed } = consumeLoginReason(window.location.href);
+    if (message) setError(message);
+    if (changed) window.history.replaceState(window.history.state, "", url);
+  }, []);
+
+  // Signed in from another tab: whatever this page was showing is over.
+  useEffect(() => subscribeSignedIn(() => setError("")), []);
+
+  const redirectAfterSignIn = (user) => {
+    switch (user.role) {
+      case "ADMIN":
+        router.replace("/admin/dashboard");
+        return true;
+
+      case "INSTRUCTOR":
+        // Instructors land on My Courses (the "Teaching" section) rather than
+        // the dashboard — courses are the first thing they act on.
+        router.replace("/instructor/courses");
+        return true;
+
+      case "STUDENT": {
+        const params = new URLSearchParams(window.location.search);
+        const returnTo = params.get("returnTo") || sessionStorage.getItem("intended_course_return");
+        if (returnTo) {
+          sessionStorage.removeItem("intended_course_return");
+        }
+        router.replace(returnTo || "/student/my-courses");
+        return true;
+      }
+
+      default:
+        setError(`Unknown role: ${user.role}`);
+        return false;
+    }
+  };
+
+  const handleGoogleCredential = async (credential) => {
+    if (loading) return;
+    setLoading(true);
+    setError("");
+    try {
+      const user = await googleLogin(credential);
+      if (!redirectAfterSignIn(user)) setLoading(false);
+    } catch (err) {
+      setError(signInErrorMessage(err, "Google sign-in failed. Please try again."));
+      setLoading(false);
+    }
+  };
+
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
 
   const handleChange = (e) => {
+    // The user is acting on the message; don't leave it over the new attempt.
+    if (error) setError("");
     setFormData((prev) => ({
       ...prev,
       [e.target.name]: e.target.value,
@@ -68,35 +126,7 @@ export default function LoginPage() {
         password: formData.password,
       });
 
-      switch (user.role) {
-        case "ADMIN":
-          router.replace("/admin/dashboard");
-          break;
-
-        case "INSTRUCTOR":
-          // Instructors land on My Courses (the "Teaching" section) rather than
-          // the dashboard — courses are the first thing they act on.
-          router.replace("/instructor/courses");
-          break;
-
-        case "STUDENT": {
-          let returnTo = null;
-          if (typeof window !== "undefined") {
-            const params = new URLSearchParams(window.location.search);
-            returnTo = params.get("returnTo") || sessionStorage.getItem("intended_course_return");
-            if (returnTo) {
-              sessionStorage.removeItem("intended_course_return");
-            }
-          }
-          router.replace(returnTo || "/student/my-courses");
-          break;
-        }
-
-        default:
-          setError(`Unknown role: ${user.role}`);
-          setLoading(false);
-          return;
-      }
+      if (!redirectAfterSignIn(user)) setLoading(false);
     } catch (error) {
       const message = error.response?.data?.message || "Login failed";
 
@@ -107,7 +137,7 @@ export default function LoginPage() {
         return;
       }
 
-      setError("Invalid email or password.");
+      setError(signInErrorMessage(error, "Invalid email or password."));
       setLoading(false);
     }
   };
@@ -170,6 +200,17 @@ export default function LoginPage() {
           <AuthButton type="submit" loading={loading} loadingText="Signing In...">
             Login
           </AuthButton>
+
+          {isGoogleSignInEnabled() && (
+            <>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground" aria-hidden="true">
+                <span className="h-px flex-1 bg-border" />
+                or
+                <span className="h-px flex-1 bg-border" />
+              </div>
+              <GoogleSignInButton onCredential={handleGoogleCredential} disabled={loading} />
+            </>
+          )}
 
         </form>
       </AuthCard>

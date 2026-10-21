@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { put } from "@vercel/blob";
 import { resolveExternalFile } from "@/lib/external/resolveExternalFile";
+import { resolveCaller } from "@/lib/server/sessionCaller";
 
 export const dynamic = "force-dynamic";
+
+// Writing to the Blob store is an authoring action. It used to accept anyone.
+const WRITER_ROLES = new Set(["INSTRUCTOR", "ADMIN"]);
 
 /**
  * API route to store external document URL reference metadata in Vercel Blob.
@@ -17,6 +22,19 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request) {
   try {
+    const store = await cookies();
+    const caller = await resolveCaller({
+      apiUrl: process.env.NEXT_PUBLIC_API_URL,
+      accessToken: store.get("accessToken")?.value || request.headers.get("authorization")?.replace(/^Bearer /, ""),
+      deviceKey: store.get("deviceKey")?.value || request.headers.get("x-device-key") || undefined,
+    });
+    if (!caller) {
+      return NextResponse.json({ error: "Sign in to save a document link." }, { status: 401 });
+    }
+    if (!WRITER_ROLES.has(caller.role)) {
+      return NextResponse.json({ error: "Only instructors and admins can save document links." }, { status: 403 });
+    }
+
     const body = await request.json();
     const { url } = body || {};
 

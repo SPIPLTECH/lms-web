@@ -3,6 +3,10 @@ export const QUERY_KEYS = {
     // Auth
     // ==========================
     AUTH_SESSION: "auth-session",
+    /** GET /sessions/me — the signed-in browser's own session (keep-alive). */
+    SESSION_ME: "session-me",
+    /** GET /playback/status — this account's playback lease, as this device sees it. */
+    PLAYBACK_STATUS: "playback-status",
 
     // ==========================
     // Public / guest (no token required)
@@ -66,6 +70,7 @@ export const QUERY_KEYS = {
 
     ADMIN_USERS: "admin-users",
     ADMIN_USER: "admin-user",
+    ADMIN_USER_SESSIONS: "admin-user-sessions",
 
     ADMIN_STUDENTS: "admin-students",
     ADMIN_STUDENT: "admin-student",

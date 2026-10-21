@@ -225,6 +225,55 @@ def check_admin_course_page_loads_on_mount():
             f"{rel}: no useEffect/query hook; loadCourse() called only at lines {calls} (inside mutation handlers). Removed in commit bf1787c.")
 
 
+def check_bare_api_fetches_send_device_key():
+    """Every hand-built API request carrying a Bearer token also sends X-Device-Key."""
+    offenders = []
+    for rel in _walk(["src"]):
+        if rel.startswith("src/app/api/"):
+            continue
+        text = _read(rel)
+        if "Authorization: `Bearer ${token}`" in text and "X-Device-Key" not in text and rel != "src/lib/axios.js":
+            # /api/upload is same-origin: the route reads the deviceKey cookie itself.
+            if "fetch(\"/api/upload\"" in text:
+                continue
+            offenders.append(rel)
+    axios = _read("src/lib/axios.js")
+    if '"X-Device-Key"' not in axios:
+        offenders.append("src/lib/axios.js (request interceptor)")
+    if offenders:
+        return ("FAIL", f"{len(offenders)} file(s) send a Bearer token without the device key.", "\n".join(offenders))
+    return ("PASS", "axios and every bare API fetch send X-Device-Key with the Bearer token.",
+            "grep: Bearer header files under src (excl. app/api) all reference X-Device-Key")
+
+
+def check_blob_proxy_requires_session():
+    src = _read("src/app/api/blob-proxy/route.js")
+    problems = []
+    if "resolveCaller" not in src or "/auth/profile" not in src:
+        problems.append("no session check against the API")
+    if "public, max-age" in src:
+        problems.append("public caching header still present")
+    if "private, no-store" not in src:
+        problems.append("missing Cache-Control: private, no-store")
+    if "isMediaType" not in src:
+        problems.append("does not refuse video/audio to students")
+    if problems:
+        return ("FAIL", "blob-proxy: " + "; ".join(problems), "src/app/api/blob-proxy/route.js")
+    return ("PASS", "blob-proxy requires a valid session, refuses student media, never caches publicly.",
+            "src/app/api/blob-proxy/route.js: resolveCaller() -> GET /auth/profile; Cache-Control private, no-store")
+
+
+def check_video_player_uses_playback_lease():
+    src = _read("src/components/student/learning/VideoPlayer.jsx")
+    ok = ("usePlaybackLease" in src and "mediaProtected" in src and "lease.media" in src
+          and "PlaybackGate" in src)
+    if not ok:
+        return ("FAIL", "VideoPlayer does not gate protected videos on the playback lease.",
+                "src/components/student/learning/VideoPlayer.jsx")
+    return ("PASS", "Protected videos render only from the lease's media URL; conflicts show PlaybackGate.",
+            "VideoPlayer.jsx: usePlaybackLease(content.id, { enabled: mediaProtected }); player only when lease.media")
+
+
 def check_query_keys_constants():
     hits = _grep(["src/hooks", "src/app", "src/components", "src/features"], r"""queryKey:\s*\[\s*["'`]""")
     if hits:
@@ -301,6 +350,18 @@ CODE_CHECKS = [
          scenario="Admin course detail page fetches its course when it opens",
          expected="A useEffect calls loadCourse() on mount (or a course query hook is used)",
          ref="src/app/admin/courses/[courseId]/page.jsx; regression from commit bf1787c"),
+    dict(id="TC-CL-017", component="src/lib/axios.js", fn=check_bare_api_fetches_send_device_key,
+         scenario="Device binding: every authenticated API request sends the server-issued device key",
+         expected="axios interceptor and every bare fetch with a Bearer token add X-Device-Key",
+         ref="Technical spec §4.3, §7.1; backend auth.middleware.js validateAccess"),
+    dict(id="TC-CL-018", component="src/app/api/blob-proxy/route.js", fn=check_blob_proxy_requires_session,
+         scenario="Private Blob proxy is not public: session required, no shared caching, no student media",
+         expected="Session validated via GET /auth/profile; Cache-Control private, no-store; video/audio refused to students",
+         ref="Technical spec §12; docs/EXISTING_ARCHITECTURE_AUDIT.md §5.2"),
+    dict(id="TC-CL-019", component="src/components/student/learning/VideoPlayer.jsx", fn=check_video_player_uses_playback_lease,
+         scenario="Student video plays only after the playback lease is held",
+         expected="mediaProtected videos use usePlaybackLease; the player mounts only once lease.media exists",
+         ref="Technical spec §8, §11 ('obtain the lease before requesting the media URL')"),
 ]
 
 
@@ -644,6 +705,42 @@ MANUAL_CASES = [
          steps="node scripts/ui-smoke.mjs INSTRUCTOR ./ui-shots /instructor/dashboard:home (repeat per role/route)",
          expected="Report shows no overflow, no small tap targets, no console errors at 390/768/1440 px",
          ref="scripts/ui-smoke.mjs"),
+
+    # ---- Single session, device access, playback lease ------------------------
+    # Prerequisite for all: backend migrated with scripts/add-auth-sessions-playback.sql.
+    dict(id="TC-UI-SESS-001", component="src/app/login/page.jsx", type="UI – Browser",
+         scenario="Second device is refused while the first session is active",
+         pre=f"{_ENV}; migrated DB; STUDENT signed in on browser A.",
+         steps="1. In a second browser profile (B), open /login\n2. Sign in as the same STUDENT",
+         expected="B shows 'This account is already signed in on another device. Sign out there before signing in here.'; B stays on /login; A keeps working",
+         ref="Spec T-02; POST /auth/login 409 SESSION_ALREADY_ACTIVE"),
+    dict(id="TC-UI-SESS-002", component="src/app/login/page.jsx", type="UI – Browser",
+         scenario="After A logs out, B can sign in",
+         pre=f"{_ENV}; migrated DB; TC-UI-SESS-001 state.", steps="1. Log out on A\n2. Sign in on B",
+         expected="B reaches its dashboard; A's tabs are sent to /login on their next request", ref="Spec T-04"),
+    dict(id="TC-UI-SESS-003", component="src/components/auth/GoogleSignInButton.jsx", type="UI – Browser",
+         scenario="Google sign-in for a linked/matching account",
+         pre=f"{_ENV}; migrated DB; GOOGLE_CLIENT_ID + NEXT_PUBLIC_GOOGLE_CLIENT_ID set; Google account whose verified email matches an LMS user.",
+         steps="1. Open /login\n2. Click 'Sign in with Google' and complete the popup",
+         expected="Signed in to the matching account's dashboard; an unmatched Google account shows 'No Orange Tree LMS account is linked to this Google account.'",
+         ref="POST /auth/google"),
+    dict(id="TC-UI-SESS-004", component="src/components/student/learning/VideoPlayer.jsx", type="UI – Browser",
+         scenario="Protected video plays only after the lease; switching items keeps one lease",
+         pre=f"{_ENV}; migrated DB; enrolled STUDENT; course with an uploaded (non-YouTube) video.",
+         steps="1. Open the video step in /student/learn/<courseId>\n2. Watch the network tab\n3. Open another video step",
+         expected="POST /playback/start precedes any /playback/media request; heartbeats every ~20 s; course/content responses carry no videoUrl",
+         ref="Spec §8, §11, T-06"),
+    dict(id="TC-UI-SESS-005", component="src/components/student/learning/VideoPlayer.jsx", type="UI – Browser",
+         scenario="Lost lease pauses playback with a message",
+         pre=f"{_ENV}; migrated DB; video playing.",
+         steps="1. While playing, end the session as ADMIN from /admin/students/<id> (Active session → End session)",
+         expected="Player pauses / user is sent to /login with 'Your session is no longer valid…'", ref="Spec T-12, T-16"),
+    dict(id="TC-UI-SESS-006", component="src/components/admin/student/ActiveSessionCard.jsx", type="UI – Browser",
+         scenario="Admin sees and ends a student's active session",
+         pre=f"{_ENV}; migrated DB; ADMIN; student signed in elsewhere.",
+         steps="1. Open /admin/students/<id>\n2. Click 'End session' and confirm",
+         expected="Card shows device + sign-in time; after confirming it shows 'Not signed in on any device'; student can sign in on another device",
+         ref="POST /admin/sessions/:id/revoke (audited)"),
 ]
 
 

@@ -6,6 +6,7 @@ import Loader from "@/components/common/Loader";
 import Button from "@/components/ui/Button";
 import PageHeader from "@/components/layouts/PageHeader";
 import StudentDetails from "@/components/admin/student/StudentDetails";
+import ActiveSessionCard from "@/components/admin/student/ActiveSessionCard";
 
 import {useStudent} from "@/hooks/queries/admin/useStudents";
 
@@ -43,6 +44,8 @@ export default function StudentDetailsPage() {
             />
 
             <StudentDetails student={student}/>
+
+            <ActiveSessionCard userId={student.userId}/>
 
             <div className="flex justify-end gap-4">
                 <Button

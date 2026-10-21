@@ -61,7 +61,7 @@ const reset = () => {
   attrsByName.clear();
 };
 
-const { setSessionCookies, clearSessionCookies } = await import("../authCookies.js");
+const { setSessionCookies, clearSessionCookies, getDeviceKey, setDeviceKey } = await import("../authCookies.js");
 
 function runTests() {
   const cases = [];
@@ -156,6 +156,33 @@ function runTests() {
       return [jar.has("accessToken"), jar.has("refreshToken"), jar.has("role"), middlewareAllows("STUDENT")];
     },
     expected: [false, false, false, false],
+  });
+
+  // The device key identifies this browser to the API's session binding. It
+  // must outlive logout — the same browser is the same device next sign-in —
+  // and live long, unlike the session cookies.
+  cases.push({
+    name: "device key is stored long-lived and survives clearing the session cookies",
+    run: () => {
+      reset();
+      setDeviceKey("device-key-abc_123-XYZxyz0987654321abcdef");
+      setSessionCookies({ accessToken: "a", refreshToken: "r", role: "STUDENT" });
+      const lifetimeDays = Math.round((new Date(attr("deviceKey", "expires")) - Date.now()) / 86400000);
+      clearSessionCookies();
+      return [getDeviceKey(), jar.has("accessToken"), jar.has("refreshToken"), lifetimeDays > 300, attr("deviceKey", "path")];
+    },
+    expected: ["device-key-abc_123-XYZxyz0987654321abcdef", false, false, true, "/"],
+  });
+
+  cases.push({
+    name: "an empty device key is never written",
+    run: () => {
+      reset();
+      setDeviceKey("");
+      setDeviceKey(undefined);
+      return [getDeviceKey(), jar.has("deviceKey")];
+    },
+    expected: [null, false],
   });
 
   let passed = 0;

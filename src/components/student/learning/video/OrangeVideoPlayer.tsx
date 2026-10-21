@@ -44,6 +44,8 @@ type ErrorKind = "invalid" | "unavailable" | "network" | "playback";
 export interface OrangeVideoPlayerHandle {
   /** Jumps to a position and plays from it (sticky notes, transcript). */
   seekTo(seconds: number): void;
+  /** Pauses playback (e.g. when the playback lease is lost). */
+  pause(): void;
 }
 
 export interface OrangeVideoPlayerProps {
@@ -574,6 +576,9 @@ const YouTubeSurface = forwardRef<OrangeVideoPlayerHandle, SurfaceProps>(functio
       seekTo(seconds: number) {
         seekAndTrack(seconds);
         play();
+      },
+      pause() {
+        playerRef.current?.pauseVideo();
       },
     }),
     [seekAndTrack, play]

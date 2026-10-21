@@ -1,0 +1,85 @@
+/**
+ * Shared checks for the Next route handlers that read or write Vercel Blob
+ * with the server's Blob token (/api/blob-proxy, /api/external-file/*).
+ * Server-only. No Next imports, so it can be unit-tested with plain node.
+ */
+
+const BLOB_STORE_SUFFIX = ".blob.vercel-storage.com";
+
+/**
+ * True only for https URLs on Vercel's own hosts. The previous check,
+ * `hostname.endsWith("vercel.com")`, also matched attacker-registrable names
+ * such as `evilvercel.com`, and these handlers send the Blob read/write token
+ * to whatever host passes it.
+ */
+export function isAllowedBlobUrl(rawUrl) {
+  let url;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "https:") return false;
+  const host = url.hostname.toLowerCase();
+  return host.endsWith(BLOB_STORE_SUFFIX) || host === "vercel.com" || host.endsWith(".vercel.com");
+}
+
+/**
+ * The signed-in caller's role, validated by the API (GET /auth/profile runs
+ * the full session gate: ACTIVE, unexpired, bound device, active account), or
+ * null when there is no valid session.
+ *
+ * @param {{ apiUrl: string, accessToken?: string, deviceKey?: string, fetchImpl?: typeof fetch }} options
+ * @returns {Promise<{ role: string } | null>}
+ */
+export async function resolveCaller({ apiUrl, accessToken, deviceKey, fetchImpl = fetch }) {
+  if (!apiUrl || !accessToken) return null;
+  try {
+    const response = await fetchImpl(`${apiUrl}/auth/profile`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        ...(deviceKey ? { "X-Device-Key": deviceKey } : {}),
+      },
+      cache: "no-store",
+    });
+    if (!response.ok) return null;
+    const body = await response.json();
+    const role = body?.data?.role;
+    return typeof role === "string" ? { role } : null;
+  } catch {
+    return null;
+  }
+}
+
+export const CONTENT_ACTIVE_ON_ANOTHER_DEVICE = "CONTENT_ACTIVE_ON_ANOTHER_DEVICE";
+
+/**
+ * STUDENT content-access rule for the file routes (the API enforces the same
+ * rule on its content endpoints): while another device of the account holds
+ * the playback lease, this device gets no course file bytes. Asks the API's
+ * GET /playback/status, which answers for this session and device only.
+ *
+ * Fails closed: "unknown" (no answer) must be refused by the caller rather
+ * than serve the file. Other roles are never limited.
+ *
+ * @returns {Promise<"allowed" | "blocked" | "unknown">}
+ */
+export async function contentAccessFor({ role, apiUrl, accessToken, deviceKey, fetchImpl = fetch }) {
+  if (role !== "STUDENT") return "allowed";
+  if (!apiUrl || !accessToken) return "unknown";
+  try {
+    const response = await fetchImpl(`${apiUrl}/playback/status`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        ...(deviceKey ? { "X-Device-Key": deviceKey } : {}),
+      },
+      cache: "no-store",
+    });
+    if (!response.ok) return "unknown";
+    const data = (await response.json())?.data;
+    if (!data || typeof data.active !== "boolean") return "unknown";
+    return data.active && !data.heldByThisDevice ? "blocked" : "allowed";
+  } catch {
+    return "unknown";
+  }
+}

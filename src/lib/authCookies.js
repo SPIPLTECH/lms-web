@@ -59,6 +59,32 @@ export const setSessionCookies = ({ accessToken, refreshToken, role } = {}) => {
   }
 };
 
+/**
+ * The browser-install identifier the API issued at sign-in. Every request
+ * sends it (X-Device-Key) and the API checks it against the device the
+ * session is bound to, so a session's tokens do not work from another
+ * browser.
+ *
+ * It is a device slot identifier, not a credential and not a fingerprint: it
+ * survives logout on purpose (the same browser is the same device next
+ * time), and clearing site data makes this browser a new device. A cookie
+ * rather than localStorage so the Next route handlers (/api/blob-proxy,
+ * /api/upload) can forward it too.
+ */
+const DEVICE_KEY_COOKIE = "deviceKey";
+// Browsers cap cookie lifetimes at ~400 days.
+const DEVICE_KEY_DAYS = 400;
+
+export const getDeviceKey = () => Cookies.get(DEVICE_KEY_COOKIE) || null;
+
+export const setDeviceKey = (deviceKey) => {
+  if (!deviceKey) return;
+  Cookies.set(DEVICE_KEY_COOKIE, deviceKey, {
+    ...baseOptions(),
+    expires: DEVICE_KEY_DAYS,
+  });
+};
+
 export const clearSessionCookies = () => {
   // Removed both with and without an explicit path: a cookie written by an
   // older build (js-cookie's default path) and one written by the current one

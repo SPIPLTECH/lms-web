@@ -31,6 +31,15 @@ export const loginUser = async (credentials) => {
   return response.data;
 };
 
+/* ---------------- Google Sign-In ---------------- */
+
+// `credential` is the ID token Google Identity Services returned. Nothing
+// else about the Google account is sent: the API verifies the token itself.
+export const loginWithGoogle = async ({ credential, currentRefreshToken }) => {
+  const response = await api.post("/auth/google", { credential, currentRefreshToken });
+  return response.data;
+};
+
 /* ---------------- Profile ---------------- */
 
 export const getProfile = async () => {
