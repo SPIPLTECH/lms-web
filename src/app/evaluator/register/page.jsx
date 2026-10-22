@@ -86,7 +86,7 @@ export default function EvaluatorRegisterPage() {
     <AuthHeader
       icon={<FlaskConical className="h-9 w-9 text-primary" aria-hidden="true" />}
       title="Evaluator Registration"
-      description="Create a temporary testing account for the Orange Tree LMS evaluation."
+      description="Create your account to start evaluating Orange Tree LMS."
     />
   );
 
@@ -126,17 +126,33 @@ export default function EvaluatorRegisterPage() {
       <AuthCard>
         {header}
 
-        <ul className="mt-6 space-y-2 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-xs text-muted-foreground">
-          <li>
-            Access lasts <strong className="text-foreground">2 days ({registration.accessHours} hours) from registration</strong>.
-            It is not extended or restarted.
-          </li>
-          <li>You are enrolled in C-CAT Section A and Section B automatically.</li>
-          <li>
-            Before you can use the LMS you must complete the independent evaluation feedback form,{" "}
-            <strong className="text-foreground">using the same email address you register with here</strong>.
-          </li>
-        </ul>
+        <div className="mt-6 space-y-4 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-xs text-muted-foreground">
+          <div>
+            <p className="mb-2 text-sm font-bold text-foreground">What You Need to Do</p>
+            <ol className="list-decimal space-y-1.5 pl-4">
+              <li>Register using your name, email address, and password.</li>
+              <li>Log in and evaluate C-CAT Section A and Section B.</li>
+              <li>After completing your evaluation, submit your feedback using the separate external feedback form.</li>
+              <li>Use the same email address for LMS registration and the feedback form.</li>
+            </ol>
+          </div>
+          <div>
+            <p className="mb-2 text-sm font-bold text-foreground">Account Information</p>
+            <ul className="list-disc space-y-1.5 pl-4">
+              <li>
+                <strong className="text-foreground">Access Duration:</strong> Your account will remain active for{" "}
+                {registration.accessHours} hours from registration.
+              </li>
+              <li>
+                <strong className="text-foreground">Automatic Enrollment:</strong> You will get access to C-CAT Section A and
+                Section B automatically.
+              </li>
+              <li>
+                <strong className="text-foreground">Important:</strong> Your access period cannot be extended or restarted.
+              </li>
+            </ul>
+          </div>
+        </div>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-5" noValidate>
           <AuthAlert type="error" message={error} />
