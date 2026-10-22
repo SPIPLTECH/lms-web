@@ -2,18 +2,15 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FlaskConical } from "lucide-react";
+import { FlaskConical, Loader2 } from "lucide-react";
 
 import useEvaluatorRegistration from "@/hooks/queries/evaluator/useEvaluatorRegistration";
 import useRegisterEvaluator from "@/hooks/queries/evaluator/useRegisterEvaluator";
 
-import AuthLayout from "@/components/auth/AuthLayout";
-import AuthCard from "@/components/auth/AuthCard";
-import AuthHeader from "@/components/auth/AuthHeader";
 import AuthAlert from "@/components/auth/AuthAlert";
 import AuthInput from "@/components/auth/AuthInput";
-import AuthButton from "@/components/auth/AuthButton";
 import AuthFooter from "@/components/auth/AuthFooter";
+import Button from "@/components/ui/Button";
 import Loader from "@/components/common/Loader";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -35,9 +32,132 @@ const validate = (form) => {
   return errors;
 };
 
-function FieldError({ message }) {
+// AuthInput is shared with login and the other auth pages, so this page's
+// input look is passed in rather than changed there. `peer` and the right
+// padding keep AuthInput's show-password toggle working.
+const INPUT_CLASS =
+  "peer h-[46px] w-full rounded-lg border border-border bg-muted/60 pl-3.5 !pr-11 text-sm text-foreground " +
+  "placeholder:text-muted-foreground/70 outline-none transition-colors " +
+  "hover:border-primary/40 focus:border-primary focus:ring-2 focus:ring-primary/25 " +
+  "aria-[invalid=true]:!border-destructive";
+
+const STEPS = [
+  "Create your account and log in.",
+  "Evaluate C-CAT Section A and Section B.",
+  "After your evaluation, submit feedback through the separate external feedback form.",
+  "Use the same email address for registration and feedback.",
+];
+
+const ACCOUNT_INFO = (accessHours) => [
+  { label: "Access", value: `${accessHours} hours from registration.` },
+  { label: "Enrollment", value: "Section A and Section B are added automatically." },
+  { label: "Expiry", value: "Access cannot be extended or restarted." },
+];
+
+// One surface for all three cards: same background, border, rounding and shadow.
+const SURFACE = "rounded-2xl border border-border bg-background shadow-xl";
+const CARD = `${SURFACE} p-5 sm:p-6`;
+const PANEL = `${SURFACE} p-5 text-sm leading-relaxed text-muted-foreground`;
+
+// The shared AuthLayout caps its card at 448px for the short auth forms, so
+// this page uses the same brand heading and card styling in its own wrapper.
+// With an `aside` (the instructions): form on the left, the two info cards
+// stacked on the right from md up (form column ~1.2x the info column); on
+// phones the form comes first and the info cards follow.
+function RegisterShell({ children, aside }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-6 sm:px-6 sm:py-8">
+      <div className={`w-full ${aside ? "max-w-[480px] md:max-w-[880px]" : "max-w-[480px]"}`}>
+        <h1 className="mb-4 text-center text-3xl font-extrabold leading-none tracking-tight text-primary sm:mb-5 sm:text-4xl">
+          Orange Tree LMS
+        </h1>
+        {aside ? (
+          <div className="grid gap-5 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] md:items-start md:gap-4 lg:gap-5">
+            <div className={CARD}>{children}</div>
+            <aside className="space-y-5">{aside}</aside>
+          </div>
+        ) : (
+          <div className={CARD}>{children}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FieldError({ id, message }) {
   if (!message) return null;
-  return <p className="text-red-500 text-[11px] font-semibold mt-1.5 px-1 text-left">{message}</p>;
+  return (
+    <p id={id} className="mt-1.5 text-left text-[11px] font-semibold text-red-500">
+      {message}
+    </p>
+  );
+}
+
+function Field({ id, label, error, children }) {
+  return (
+    <div>
+      <label htmlFor={id} className="mb-1.5 block text-left text-xs font-semibold text-foreground">
+        {label}
+      </label>
+      {children}
+      <FieldError id={`${id}-error`} message={error} />
+    </div>
+  );
+}
+
+function PageHeader() {
+  return (
+    <div className="flex items-center gap-3.5">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20">
+        <FlaskConical className="h-5 w-5 text-primary" aria-hidden="true" />
+      </div>
+      <div className="min-w-0">
+        <h2 className="text-xl font-bold leading-tight text-foreground sm:text-2xl">Evaluator Registration</h2>
+        <p className="mt-0.5 text-pretty text-sm text-muted-foreground">Create your account to start evaluating Orange Tree LMS.</p>
+      </div>
+    </div>
+  );
+}
+
+function StepsPanel() {
+  return (
+    <section aria-labelledby="evaluator-steps" className={PANEL}>
+      <h3 id="evaluator-steps" className="text-sm font-semibold text-foreground">
+        What You Need to Do
+      </h3>
+      <ol className="mt-3 space-y-3">
+        {STEPS.map((step, index) => (
+          <li key={step} className="flex gap-2.5">
+            <span
+              aria-hidden="true"
+              className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[11px] font-bold text-primary"
+            >
+              {index + 1}
+            </span>
+            <span className="min-w-0">{step}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+function AccountPanel({ accessHours }) {
+  return (
+    <section aria-labelledby="evaluator-account" className={PANEL}>
+      <h3 id="evaluator-account" className="text-sm font-semibold text-foreground">
+        Account Information
+      </h3>
+      <dl className="mt-3 divide-y divide-border">
+        {ACCOUNT_INFO(accessHours).map(({ label, value }) => (
+          <div key={label} className="py-2.5 first:pt-0 last:pb-0">
+            <dt className="font-semibold text-foreground">{label}</dt>
+            <dd className="mt-0.5">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
 }
 
 export default function EvaluatorRegisterPage() {
@@ -82,113 +202,103 @@ export default function EvaluatorRegisterPage() {
     }
   };
 
-  const header = (
-    <AuthHeader
-      icon={<FlaskConical className="h-9 w-9 text-primary" aria-hidden="true" />}
-      title="Evaluator Registration"
-      description="Create your account to start evaluating Orange Tree LMS."
-    />
-  );
+  const header = <PageHeader />;
+
+  const inputProps = (name) => ({
+    id: `evaluator-${name}`,
+    name,
+    value: form[name],
+    onChange: handleChange,
+    className: INPUT_CLASS,
+    "aria-invalid": fieldErrors[name] ? "true" : undefined,
+    "aria-describedby": fieldErrors[name] ? `evaluator-${name}-error` : undefined,
+  });
 
   if (isLoading) {
     return (
-      <AuthLayout>
+      <RegisterShell>
         <div className="flex justify-center py-10">
           <Loader />
         </div>
-      </AuthLayout>
+      </RegisterShell>
     );
   }
 
   if (isError || !registration?.open) {
     return (
-      <AuthLayout>
-        <AuthCard>
-          {header}
-          <div className="mt-8 space-y-6">
-            <AuthAlert
-              type={isError ? "error" : "info"}
-              message={
-                isError
-                  ? "Could not check whether evaluator registration is open. Please try again later."
-                  : "Evaluator registration is not open right now."
-              }
-            />
-            <AuthFooter backHref="/login" backText="Back to login" />
-          </div>
-        </AuthCard>
-      </AuthLayout>
+      <RegisterShell>
+        {header}
+        <div className="mt-6 space-y-5">
+          <AuthAlert
+            type={isError ? "error" : "info"}
+            message={
+              isError
+                ? "Could not check whether evaluator registration is open. Please try again later."
+                : "Evaluator registration is not open right now."
+            }
+          />
+          <AuthFooter backHref="/login" backText="Back to login" />
+        </div>
+      </RegisterShell>
     );
   }
 
   return (
-    <AuthLayout>
-      <AuthCard>
-        {header}
+    <RegisterShell
+      aside={
+        <>
+          <StepsPanel />
+          <AccountPanel accessHours={registration.accessHours} />
+        </>
+      }
+    >
+      {header}
 
-        <div className="mt-6 space-y-4 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-xs text-muted-foreground">
-          <div>
-            <p className="mb-2 text-sm font-bold text-foreground">What You Need to Do</p>
-            <ol className="list-decimal space-y-1.5 pl-4">
-              <li>Register using your name, email address, and password.</li>
-              <li>Log in and evaluate C-CAT Section A and Section B.</li>
-              <li>After completing your evaluation, submit your feedback using the separate external feedback form.</li>
-              <li>Use the same email address for LMS registration and the feedback form.</li>
-            </ol>
-          </div>
-          <div>
-            <p className="mb-2 text-sm font-bold text-foreground">Account Information</p>
-            <ul className="list-disc space-y-1.5 pl-4">
-              <li>
-                <strong className="text-foreground">Access Duration:</strong> Your account will remain active for{" "}
-                {registration.accessHours} hours from registration.
-              </li>
-              <li>
-                <strong className="text-foreground">Automatic Enrollment:</strong> You will get access to C-CAT Section A and
-                Section B automatically.
-              </li>
-              <li>
-                <strong className="text-foreground">Important:</strong> Your access period cannot be extended or restarted.
-              </li>
-            </ul>
-          </div>
+      <form onSubmit={handleSubmit} className="mt-5" noValidate>
+        <AuthAlert type="error" message={error} />
+
+        <div className="space-y-3.5">
+          <Field id="evaluator-name" label="Full Name" error={fieldErrors.name}>
+            <AuthInput type="text" placeholder="Your full name" autoComplete="name" required {...inputProps("name")} />
+          </Field>
+
+          <Field id="evaluator-email" label="Email Address" error={fieldErrors.email}>
+            <AuthInput type="email" placeholder="you@example.com" autoComplete="email" required {...inputProps("email")} />
+          </Field>
+
+          <Field id="evaluator-phoneNumber" label="Phone Number (Optional)" error={fieldErrors.phoneNumber}>
+            <AuthInput type="tel" placeholder="e.g. 9876543210" autoComplete="tel" {...inputProps("phoneNumber")} />
+          </Field>
+
+          <Field id="evaluator-password" label="Password" error={fieldErrors.password}>
+            <AuthInput type="password" placeholder="At least 8 characters" autoComplete="new-password" required {...inputProps("password")} />
+          </Field>
+
+          <Field id="evaluator-confirmPassword" label="Confirm Password" error={fieldErrors.confirmPassword}>
+            <AuthInput type="password" placeholder="Re-enter your password" autoComplete="new-password" required {...inputProps("confirmPassword")} />
+          </Field>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-5" noValidate>
-          <AuthAlert type="error" message={error} />
+        <Button
+          type="submit"
+          disabled={registerMutation.isPending}
+          aria-busy={registerMutation.isPending}
+          className="mt-5 h-12 w-full font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        >
+          {registerMutation.isPending ? (
+            <span className="inline-flex items-center justify-center gap-2">
+              <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+              Creating account…
+            </span>
+          ) : (
+            "Create Evaluator Account"
+          )}
+        </Button>
 
-          <div>
-            <AuthInput type="text" name="name" placeholder="Full name" value={form.name} onChange={handleChange} autoComplete="name" aria-label="Full name" required />
-            <FieldError message={fieldErrors.name} />
-          </div>
-
-          <div>
-            <AuthInput type="email" name="email" placeholder="Email" value={form.email} onChange={handleChange} autoComplete="email" aria-label="Email" required />
-            <FieldError message={fieldErrors.email} />
-          </div>
-
-          <div>
-            <AuthInput type="tel" name="phoneNumber" placeholder="Phone number (optional)" value={form.phoneNumber} onChange={handleChange} autoComplete="tel" aria-label="Phone number (optional)" />
-            <FieldError message={fieldErrors.phoneNumber} />
-          </div>
-
-          <div>
-            <AuthInput type="password" name="password" placeholder="Password (at least 8 characters)" value={form.password} onChange={handleChange} autoComplete="new-password" aria-label="Password" required />
-            <FieldError message={fieldErrors.password} />
-          </div>
-
-          <div>
-            <AuthInput type="password" name="confirmPassword" placeholder="Confirm password" value={form.confirmPassword} onChange={handleChange} autoComplete="new-password" aria-label="Confirm password" required />
-            <FieldError message={fieldErrors.confirmPassword} />
-          </div>
-
-          <AuthButton type="submit" loading={registerMutation.isPending} loadingText="Creating account...">
-            Create Evaluator Account
-          </AuthButton>
-
+        <div className="mt-4 [&>div]:pt-1">
           <AuthFooter question="Already registered?" actionHref="/login" actionText="Log in" />
-        </form>
-      </AuthCard>
-    </AuthLayout>
+        </div>
+      </form>
+    </RegisterShell>
   );
 }
