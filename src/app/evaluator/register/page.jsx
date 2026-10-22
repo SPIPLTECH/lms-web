@@ -1,20 +1,25 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FlaskConical, Loader2 } from "lucide-react";
+import { CircleCheck, FlaskConical, Loader2 } from "lucide-react";
 
 import useEvaluatorRegistration from "@/hooks/queries/evaluator/useEvaluatorRegistration";
 import useRegisterEvaluator from "@/hooks/queries/evaluator/useRegisterEvaluator";
+import { useSendEvaluatorEmailCode, useVerifyEvaluatorEmailCode } from "@/hooks/queries/evaluator/useEvaluatorEmailCode";
 
 import AuthAlert from "@/components/auth/AuthAlert";
 import AuthInput from "@/components/auth/AuthInput";
 import AuthFooter from "@/components/auth/AuthFooter";
+import Countdown from "@/components/auth/Countdown";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/common/Loader";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_PATTERN = /^\+?[0-9]{7,15}$/;
+const RESEND_AFTER_SECONDS = 60;
+// A code that can't succeed any more: offer Resend straight away.
+const DEAD_CODE_ERRORS = ["EMAIL_OTP_LOCKED", "EMAIL_OTP_EXPIRED", "EMAIL_OTP_USED", "EMAIL_OTP_INVALID"];
 
 // Same rules as the backend's registerSchema (auth.validation.js).
 const validate = (form) => {
@@ -42,7 +47,7 @@ const INPUT_CLASS =
   "aria-[invalid=true]:!border-destructive";
 
 const STEPS = [
-  "Create your account and log in.",
+  "Verify your email, create your account and log in.",
   "Evaluate C-CAT Section A and Section B.",
   "After your evaluation, submit feedback through the separate external feedback form.",
   "Use the same email address for registration and feedback.",
@@ -102,6 +107,169 @@ function Field({ id, label, error, children }) {
       {children}
       <FieldError id={`${id}-error`} message={error} />
     </div>
+  );
+}
+
+const errorText = (err, fallback) =>
+  err.response?.data?.message || (err.request ? "Could not reach the server. Please check your connection." : fallback);
+
+/**
+ * The email field with its verification: Verify sends a 6-digit code, the
+ * code checks itself once all 6 digits are in, and Resend unlocks after a
+ * minute. The result (and the token registration needs) lives in the
+ * parent's `verification` state; changing the email invalidates it.
+ */
+function EmailVerifyField({ inputProps, email, error, onError, verification, setVerification }) {
+  const sendMutation = useSendEvaluatorEmailCode();
+  const verifyMutation = useVerifyEvaluatorEmailCode();
+  const [otp, setOtp] = useState("");
+  const [message, setMessage] = useState({ type: "", text: "" });
+  const [seconds, setSeconds] = useState(0);
+  const otpRef = useRef(null);
+
+  const trimmed = email.trim();
+  const sentHere = verification.status !== "idle" && verification.email === trimmed;
+  const verified = verification.status === "verified" && sentHere;
+  const awaitingCode = verification.status === "sent" && sentHere;
+
+  useEffect(() => {
+    if (seconds <= 0) return undefined;
+    const timer = setTimeout(() => setSeconds((value) => value - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [seconds]);
+
+  useEffect(() => {
+    if (awaitingCode) otpRef.current?.focus();
+  }, [awaitingCode, verification.challenge]);
+
+  const sendCode = async () => {
+    if (!EMAIL_PATTERN.test(trimmed)) {
+      onError("Please enter a valid email address.");
+      return;
+    }
+    onError("");
+    setMessage({ type: "", text: "" });
+    try {
+      const response = await sendMutation.mutateAsync(trimmed);
+      setVerification({ status: "sent", email: trimmed, challenge: response.data.challenge, token: null });
+      setOtp("");
+      setSeconds(RESEND_AFTER_SECONDS);
+      setMessage({ type: "info", text: response.message || `We sent a 6-digit code to ${trimmed}.` });
+    } catch (err) {
+      onError(errorText(err, "Could not send the code. Please try again."));
+    }
+  };
+
+  const checkCode = async (code) => {
+    setMessage({ type: "", text: "" });
+    try {
+      const response = await verifyMutation.mutateAsync({ email: trimmed, otp: code, challenge: verification.challenge });
+      setVerification((prev) => ({ ...prev, status: "verified", token: response.data.verificationToken }));
+      onError("");
+    } catch (err) {
+      setOtp("");
+      if (DEAD_CODE_ERRORS.includes(err.response?.data?.code)) setSeconds(0);
+      setMessage({ type: "error", text: errorText(err, "Could not verify the code. Please try again.") });
+      // The input is disabled while checking; focus once it is enabled again.
+      setTimeout(() => otpRef.current?.focus(), 0);
+    }
+  };
+
+  const handleOtpChange = (e) => {
+    const code = e.target.value.replace(/\D/g, "").slice(0, 6);
+    setOtp(code);
+    if (code.length === 6 && !verifyMutation.isPending) checkCode(code);
+  };
+
+  const changeEmail = () => {
+    setVerification({ status: "idle", email: "", challenge: null, token: null });
+    setOtp("");
+    setMessage({ type: "", text: "" });
+    setSeconds(0);
+  };
+
+  return (
+    <Field id="evaluator-email" label="Email Address" error={error}>
+      <div className="flex gap-2">
+        <div className="min-w-0 flex-1">
+          <AuthInput
+            type="email"
+            placeholder="you@example.com"
+            autoComplete="email"
+            required
+            readOnly={verified}
+            {...inputProps}
+          />
+        </div>
+        {verified ? (
+          <span className="inline-flex h-[46px] shrink-0 items-center gap-1.5 rounded-lg bg-primary/10 px-3 text-sm font-semibold text-primary ring-1 ring-primary/25">
+            <CircleCheck size={16} aria-hidden="true" /> Verified
+          </span>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={sendCode}
+            disabled={sendMutation.isPending || awaitingCode}
+            className="h-[46px] min-w-[84px] shrink-0 text-sm font-semibold"
+          >
+            {sendMutation.isPending ? (
+              <Loader2 size={16} className="mx-auto animate-spin" aria-label="Sending code" />
+            ) : awaitingCode ? (
+              "Code sent"
+            ) : (
+              "Verify"
+            )}
+          </Button>
+        )}
+      </div>
+
+      {verified && (
+        <button
+          type="button"
+          onClick={changeEmail}
+          className="mt-1.5 text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline cursor-pointer"
+        >
+          Use a different email
+        </button>
+      )}
+
+      {awaitingCode && (
+        <div className="mt-3 space-y-3 rounded-xl border border-primary/20 bg-primary/5 p-3.5">
+          <div aria-live="polite">
+            <AuthAlert type={message.type || "info"} message={message.text} />
+          </div>
+          <label htmlFor="evaluator-otp" className="block text-left text-xs font-semibold text-foreground">
+            Verification Code
+          </label>
+          <div className="relative">
+            <input
+              ref={otpRef}
+              id="evaluator-otp"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="6-digit code"
+              maxLength={6}
+              value={otp}
+              onChange={handleOtpChange}
+              disabled={verifyMutation.isPending}
+              className="h-[46px] w-full rounded-lg border border-border bg-muted/60 px-3.5 text-center font-mono text-lg tracking-[0.5em] text-foreground outline-none transition-colors placeholder:font-sans placeholder:text-sm placeholder:tracking-normal placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/25 disabled:opacity-60"
+            />
+            {verifyMutation.isPending && (
+              <Loader2
+                size={16}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 animate-spin text-primary"
+                aria-label="Verifying code"
+              />
+            )}
+          </div>
+          <div className="text-xs">
+            <Countdown seconds={seconds} loading={sendMutation.isPending} onResend={sendCode} />
+          </div>
+        </div>
+      )}
+    </Field>
   );
 }
 
@@ -170,14 +338,19 @@ export default function EvaluatorRegisterPage() {
   const [form, setForm] = useState({ name: "", email: "", phoneNumber: "", password: "", confirmPassword: "" });
   const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState("");
+  // Which email a code was sent to / verified for, and the server's tokens.
+  const [verification, setVerification] = useState({ status: "idle", email: "", challenge: null, token: null });
 
   const handleChange = (e) => setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  const setEmailError = (message) => setFieldErrors((prev) => ({ ...prev, email: message || undefined }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (submittingRef.current) return;
 
     const errors = validate(form);
+    const emailVerified = verification.status === "verified" && verification.email === form.email.trim();
+    if (!errors.email && !emailVerified) errors.email = "Please verify your email address first.";
     setFieldErrors(errors);
     setError("");
     if (Object.keys(errors).length) return;
@@ -189,15 +362,13 @@ export default function EvaluatorRegisterPage() {
         name: form.name.trim(),
         email,
         password: form.password,
+        emailVerificationToken: verification.token,
         ...(form.phoneNumber.trim() ? { phoneNumber: form.phoneNumber.trim() } : {}),
       });
-      // Same email verification as every other account; login comes after.
-      router.replace(`/verify-otp?email=${encodeURIComponent(email)}`);
+      // The email was verified before the account was created; log in next.
+      router.replace("/login");
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          (err.request ? "Could not reach the server. Please check your connection." : "Registration failed.")
-      );
+      setError(errorText(err, "Registration failed."));
       submittingRef.current = false;
     }
   };
@@ -262,9 +433,14 @@ export default function EvaluatorRegisterPage() {
             <AuthInput type="text" placeholder="Your full name" autoComplete="name" required {...inputProps("name")} />
           </Field>
 
-          <Field id="evaluator-email" label="Email Address" error={fieldErrors.email}>
-            <AuthInput type="email" placeholder="you@example.com" autoComplete="email" required {...inputProps("email")} />
-          </Field>
+          <EmailVerifyField
+            inputProps={inputProps("email")}
+            email={form.email}
+            error={fieldErrors.email}
+            onError={setEmailError}
+            verification={verification}
+            setVerification={setVerification}
+          />
 
           <Field id="evaluator-phoneNumber" label="Phone Number (Optional)" error={fieldErrors.phoneNumber}>
             <AuthInput type="tel" placeholder="e.g. 9876543210" autoComplete="tel" {...inputProps("phoneNumber")} />
