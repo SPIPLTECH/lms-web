@@ -11,11 +11,13 @@ import QuestionPreview from "@/components/instructor/questions/QuestionPreview";
 
 import {useQuestion} from "@/hooks/queries/instructor/useQuestion";
 import {useDeleteQuestion} from "@/hooks/queries/instructor/useDeleteQuestion";
+import {useConfirm} from "@/context/ConfirmContext";
 
 export default function QuestionDetailsPage() {
     const {questionId} = useParams();
 
     const router = useRouter();
+    const confirm = useConfirm();
 
     const {
         data: question,
@@ -27,9 +29,11 @@ export default function QuestionDetailsPage() {
         useDeleteQuestion();
 
     const handleDelete = async () => {
-        const confirmed = window.confirm(
-            "Delete this question?"
-        );
+        const confirmed = await confirm({
+            title: "Delete question",
+            message: "Delete this question?",
+            confirmText: "Delete",
+        });
 
         if (!confirmed) return;
 

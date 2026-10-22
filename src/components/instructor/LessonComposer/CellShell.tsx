@@ -187,7 +187,7 @@ export function CellShell({
               {headerActions}
 
               <div className={cn("flex items-center shrink-0", hoverVisible)}>
-                <DropdownMenu>
+                <DropdownMenu modal={false}>
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
@@ -243,7 +243,7 @@ export function CellShell({
         {/* Floating Actions when header is suppressed in text view mode */}
         {isTextOrHeading && !title && mode === "view" && (
           <div className={cn("absolute top-2 right-2 flex items-center shrink-0 z-10", hoverVisible)}>
-            <DropdownMenu>
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"

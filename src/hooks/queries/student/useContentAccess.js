@@ -8,8 +8,10 @@ import { QUERY_KEYS } from "@/constants/queryKeys";
 import { isContentBlockedError, isPlaybackHeldElsewhere } from "@/lib/sessionErrors";
 
 // How often an open content page re-checks whether another device of this
-// account started playing (also on returning to the tab).
-const RECHECK_MS = 30 * 1000;
+// account started playing. It also re-checks on returning to the tab and at
+// once after any refused request; each check is a database transaction on
+// the API, so this is not a tight loop.
+const RECHECK_MS = 10 * 1000;
 
 // Course content this browser may already hold in memory. Dropped when access
 // is blocked, so nothing previously fetched is shown again as if it were
@@ -20,9 +22,48 @@ const PROTECTED_KEYS = new Set([
   QUERY_KEYS.LEARNING_PATH,
   QUERY_KEYS.CONTENT,
   QUERY_KEYS.CONTENTS,
+  QUERY_KEYS.MODULE,
+  QUERY_KEYS.MODULES,
+  QUERY_KEYS.LESSON,
+  QUERY_KEYS.LESSONS,
+  QUERY_KEYS.TOPIC,
+  QUERY_KEYS.TOPICS,
+  QUERY_KEYS.SUBTOPIC,
+  QUERY_KEYS.SUBTOPICS,
+  QUERY_KEYS.CONCEPT,
+  QUERY_KEYS.CONCEPTS,
   QUERY_KEYS.QUIZ,
+  QUERY_KEYS.QUIZZES,
+  QUERY_KEYS.QUESTION,
+  QUERY_KEYS.QUESTIONS,
   QUERY_KEYS.QUIZ_RESULT,
+  QUERY_KEYS.STUDENT_QUIZZES,
+  QUERY_KEYS.STUDENT_QUIZ_SUBMISSIONS,
+  QUERY_KEYS.STUDENT_QUESTIONS,
   QUERY_KEYS.STUDENT_ASSIGNMENT,
+  QUERY_KEYS.STUDENT_ASSIGNMENTS,
+  QUERY_KEYS.STUDENT_STATE,
+  QUERY_KEYS.COURSE_STATE,
+  QUERY_KEYS.NOTES,
+  QUERY_KEYS.BOOKMARKS,
+  QUERY_KEYS.STICKY_NOTES,
+  QUERY_KEYS.LESSON_NOTES,
+  QUERY_KEYS.LESSON_QUERIES,
+  QUERY_KEYS.MY_LESSON_QUERIES,
+  QUERY_KEYS.PROGRESS,
+  QUERY_KEYS.COURSE_PROGRESS,
+  QUERY_KEYS.TRANSCRIPT,
+  QUERY_KEYS.MY_QUESTIONS,
+  QUERY_KEYS.DISCUSSIONS,
+  QUERY_KEYS.RECOMMENDATIONS,
+  QUERY_KEYS.NEXT_ACTION,
+  QUERY_KEYS.LEARNING_SIGNALS,
+  QUERY_KEYS.AI_CONVERSATIONS,
+  QUERY_KEYS.AI_MESSAGES,
+  QUERY_KEYS.EXAM,
+  QUERY_KEYS.EXAMS,
+  QUERY_KEYS.RESULTS,
+  QUERY_KEYS.ASSESSMENTS,
 ]);
 
 /**
@@ -30,15 +71,15 @@ const PROTECTED_KEYS = new Set([
  * account holds the playback lease, this device shows no course content.
  * The API enforces the rule (409 CONTENT_ACTIVE_ON_ANOTHER_DEVICE); this hook
  * makes the page follow it:
- *  - re-checks GET /playback/status every 30 s and on returning to the tab,
+ *  - re-checks GET /playback/status frequently and on returning to the tab,
  *    so a page opened BEFORE the other device started playing is blocked too;
  *  - reacts at once to any request the API refused with the rule's code;
- *  - on block, drops cached course content from React Query;
+ *  - on block, cancels pending queries and drops cached course content from React Query;
  *  - `retry()` re-checks; access resumes only when the API says the other
  *    device's lease is gone (stopped or expired). It also resumes by itself
  *    when a later check finds the lease gone.
  *
- * @returns {{ blocked: boolean, checking: boolean, retry: () => Promise<void> }}
+ * @returns {{ blocked: boolean, checking: boolean, loadingInitial: boolean, retry: () => Promise<void> }}
  */
 export default function useContentAccess({ enabled = true } = {}) {
   const queryClient = useQueryClient();
@@ -58,15 +99,21 @@ export default function useContentAccess({ enabled = true } = {}) {
   });
 
   const heldElsewhere = isPlaybackHeldElsewhere(status.data);
+  // Stable handle for listeners (the query object itself changes every render).
+  const refetchRef = useRef(status.refetch);
+  refetchRef.current = status.refetch;
 
-  // Any query or action refused by the API under this rule blocks the page
-  // now, without waiting for the next check.
+  // Any query or mutation refused by the API under this rule blocks the page
+  // now, without waiting for the next check. Also immediately refetches status.
   useEffect(() => {
     if (!enabled) return undefined;
     const onEvent = (event) => {
       if (event?.type !== "updated") return;
       const error = event.query?.state?.error ?? event.mutation?.state?.error;
-      if (error && isContentBlockedError(error)) setRefusedAt(Date.now());
+      if (error && isContentBlockedError(error)) {
+        setRefusedAt(Date.now());
+        refetchRef.current();
+      }
     };
     const offQueries = queryClient.getQueryCache().subscribe(onEvent);
     const offMutations = queryClient.getMutationCache().subscribe(onEvent);
@@ -76,6 +123,19 @@ export default function useContentAccess({ enabled = true } = {}) {
     };
   }, [enabled, queryClient]);
 
+  // Refusals outside React Query (file viewers, the axios interceptor).
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const onBlockedEvent = () => {
+      setRefusedAt(Date.now());
+      refetchRef.current();
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("lms:content-blocked", onBlockedEvent);
+      return () => window.removeEventListener("lms:content-blocked", onBlockedEvent);
+    }
+  }, [enabled]);
+
   // A check made after the refusal that finds no lease elsewhere lifts it.
   useEffect(() => {
     if (refusedAt && status.dataUpdatedAt > refusedAt && !heldElsewhere) setRefusedAt(0);
@@ -83,20 +143,27 @@ export default function useContentAccess({ enabled = true } = {}) {
 
   const blocked = enabled && (heldElsewhere || refusedAt > 0);
 
-  // Drop previously fetched course content once blocked. The guard has
-  // already unmounted the content, so nothing re-renders it from cache.
-  const wasBlocked = useRef(false);
+  // Drop and cancel previously fetched or in-flight course content once blocked.
+  // The guard unmounts the content so nothing re-renders from cache or memory.
   useEffect(() => {
-    if (blocked && !wasBlocked.current) {
+    if (blocked) {
+      queryClient.cancelQueries({ predicate: (query) => PROTECTED_KEYS.has(query.queryKey?.[0]) });
       queryClient.removeQueries({ predicate: (query) => PROTECTED_KEYS.has(query.queryKey?.[0]) });
     }
-    wasBlocked.current = blocked;
   }, [blocked, queryClient]);
 
   const retry = useCallback(async () => {
-    const result = await status.refetch();
+    const result = await refetchRef.current();
     if (!isPlaybackHeldElsewhere(result.data) && !result.error) setRefusedAt(0);
-  }, [status]);
+  }, []);
 
-  return { blocked, checking: status.isFetching, retry };
+  // Only the FIRST check gates the page: until it answers, nothing is shown;
+  // if it fails, the guard says so. After that a failed re-check keeps the
+  // last answer — tearing the page down over a network blip would unmount the
+  // lease holder's player (ending its lease) while the API, which enforces the
+  // rule itself, has refused nothing.
+  const loadingInitial = enabled && status.isLoading && status.data === undefined;
+  const isError = enabled && status.isError && status.data === undefined;
+
+  return { blocked, checking: status.isFetching, loadingInitial, isError, error: status.error, retry };
 }

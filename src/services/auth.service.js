@@ -1,4 +1,5 @@
 import api from "@/lib/axios";
+import { setSessionCookies } from "@/lib/authCookies";
 
 /* ---------------- Register ---------------- */
 
@@ -100,7 +101,11 @@ export const resetPassword = async ({
 };
 /* ---------------- Change Password ---------------- */
 
+// Changing the password signs out every other session; the response carries
+// fresh tokens so this one stays signed in.
 export const changePassword = async (data) => {
   const response = await api.post("/auth/change-password", data);
+  const { accessToken, refreshToken } = response.data?.data || {};
+  if (accessToken) setSessionCookies({ accessToken, refreshToken });
   return response.data;
 };

@@ -54,6 +54,29 @@ export async function resolveCaller({ apiUrl, accessToken, deviceKey, fetchImpl 
 export const CONTENT_ACTIVE_ON_ANOTHER_DEVICE = "CONTENT_ACTIVE_ON_ANOTHER_DEVICE";
 
 /**
+ * The API path /api/uploads-proxy may fetch: a file under /uploads/, as the
+ * API serves it. Null for anything else — another API route, a path that
+ * climbs out of /uploads (`..`, encoded or not), a backslash, a query or
+ * fragment, a protocol-relative or absolute URL — so the proxy can never be
+ * pointed at a different resource with the caller's credentials.
+ */
+export function normalizeUploadsPath(raw) {
+  if (typeof raw !== "string" || raw.length > 1024) return null;
+  let decoded = raw;
+  try {
+    // Fully decode, so double-encoded traversal (%252e%252e) is seen too.
+    for (let i = 0; i < 3 && /%[0-9a-f]{2}/i.test(decoded); i += 1) decoded = decodeURIComponent(decoded);
+  } catch {
+    return null;
+  }
+  if (!decoded.startsWith("/uploads/")) return null;
+  if (/[\\?#\0]/.test(decoded) || decoded.includes("//")) return null;
+  const segments = decoded.split("/").slice(2);
+  if (segments.length === 0 || segments.some((s) => s === "" || s === "." || s === "..")) return null;
+  return `/uploads/${segments.map(encodeURIComponent).join("/")}`;
+}
+
+/**
  * STUDENT content-access rule for the file routes (the API enforces the same
  * rule on its content endpoints): while another device of the account holds
  * the playback lease, this device gets no course file bytes. Asks the API's

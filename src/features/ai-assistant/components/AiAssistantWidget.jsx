@@ -26,6 +26,7 @@ const AiAssistantWindow = dynamic(() => import("./AiAssistantWindow"), { ssr: fa
  * @param {"GUEST"|"BROWSING"|"ENROLLED"} [props.scopeHint] override; otherwise derived
  * @param {boolean} [props.isEnrolled]
  * @param {() => object} [props.getPosition] returns the caller's current learning ids
+ * @param {"left"|"right"} [props.side] screen corner for the launcher and panel
  */
 export default function AiAssistantWidget({
   courseId,
@@ -33,6 +34,7 @@ export default function AiAssistantWidget({
   scopeHint,
   isEnrolled = false,
   getPosition,
+  side = "right",
 }) {
   const { user, loading } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
@@ -64,9 +66,10 @@ export default function AiAssistantWidget({
 
   return (
     <>
-      <AiAssistantButton isOpen={isOpen} onOpen={open} />
+      <AiAssistantButton isOpen={isOpen} onOpen={open} side={side} />
       {hasOpened && (
         <AiAssistantWindow
+          side={side}
           isOpen={isOpen}
           onClose={() => setIsOpen(false)}
           scope={scope}

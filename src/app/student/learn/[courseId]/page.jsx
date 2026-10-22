@@ -11,6 +11,7 @@ import QuizExperience from "@/components/student/attempt/QuizExperience";
 import LearnSidePanel from "@/components/student/learning/LearnSidePanel";
 import LessonNavigationControls from "@/components/student/learning/LessonNavigationControls";
 import LearnPageHeader from "@/components/student/learning/LearnPageHeader";
+import EvaluatorFeedbackButton from "@/components/evaluator/EvaluatorFeedbackButton";
 import SkipQualificationModal from "@/components/student/learning/SkipQualificationModal";
 import QualificationResultPanel from "@/components/student/learning/QualificationResultPanel";
 import StudentCourseMap from "@/components/student/learning/StudentCourseMap";
@@ -26,11 +27,13 @@ import {
 } from "@/hooks/queries/student";
 import useLearningPath from "@/hooks/queries/student/useLearningPath";
 import useLearningSequence from "@/hooks/queries/student/useLearningSequence";
+import usePlaybackLease from "@/hooks/queries/student/usePlaybackLease";
 import useQuizResult from "@/hooks/queries/student/useQuizResult";
 import useMyCourses from "@/hooks/queries/student/useMyCourses";
 import useTrackCourseAccess from "@/hooks/queries/student/useTrackCourseAccess";
 import useLearningStateSync from "@/hooks/queries/student/useLearningStateSync";
 import useMediaQuery from "@/hooks/useMediaQuery";
+import useAuth from "@/hooks/useAuth";
 import useResizableWidth from "@/hooks/useResizableWidth";
 import ResizeHandle from "@/components/ui/ResizeHandle";
 
@@ -70,6 +73,10 @@ function indexContainers(tree) {
 export default function LearnPage() {
   const { courseId } = useParams();
   const router = useRouter();
+  // Evaluator accounts have every step open (backend learningSequence
+  // `unlockAll`), so there is nothing for them to mark complete.
+  const { user } = useAuth();
+  const isEvaluator = Boolean(user?.evaluator);
 
   // Course metadata only (title, language): what the player walks comes from
   // the learning sequence below.
@@ -218,6 +225,10 @@ export default function LearnPage() {
   });
 
   const step = steps[stepIndex] || null;
+  const activeContentId = step?.contentId;
+  const learningLease = usePlaybackLease(activeContentId, {
+    enabled: Boolean(activeContentId && isEnrolled && !step?.locked),
+  });
   const stepPath = step?.path || {};
   const selectedLesson = stepPath.lessonId ? containersById.get(stepPath.lessonId) || null : null;
   // The most specific container below the lesson (Concept, SubTopic or
@@ -564,7 +575,7 @@ export default function LearnPage() {
     contentIds: isContentStep ? step.contentIds : [],
     completed: Boolean(step?.completed),
   };
-  const showCompletionBar = Boolean(step) && !step.locked && !qualifyingAttempt;
+  const showCompletionBar = Boolean(step) && !step.locked && !qualifyingAttempt && !isEvaluator;
   const completionBarProps = {
     completed: Boolean(step?.completed),
     isPending: completeContentMutation.isPending,
@@ -881,6 +892,12 @@ export default function LearnPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Phones only: LearnPageHeader, which carries this from sm
+                    up, is hidden below sm. Evaluator accounts only. */}
+                <div className="sm:hidden empty:hidden mt-3 flex">
+                  <EvaluatorFeedbackButton className="w-full" />
+                </div>
               </div>
 
               {/* CONTENT PLAYER FRAME — a bounded box at every width, so the
@@ -1013,6 +1030,7 @@ export default function LearnPage() {
                   ) : (
                     <LessonContentBlock
                       item={contentItem}
+                      lease={learningLease}
                       videoPlayerRef={videoPlayerRef}
                       onTimeUpdate={setCurrentTimestamp}
                       onDurationChange={setVideoDuration}
@@ -1129,12 +1147,14 @@ export default function LearnPage() {
             refetches the material itself and re-checks enrollment per turn,
             so `isEnrolled` here is a UI hint, never a grant. Quiz/assignment
             ids are deliberately NOT passed: the assistant never retrieves
-            assessment material. */}
+            assessment material. On a video step it sits bottom-left, clear
+            of the player's fullscreen control in the bottom-right. */}
         <AiAssistantWidget
           courseId={courseId}
           courseTitle={course?.title}
           isEnrolled={isEnrolled}
           getPosition={getAiLearningPosition}
+          side={playerMode === "aspect" ? "left" : "right"}
         />
       </div>
     </div>

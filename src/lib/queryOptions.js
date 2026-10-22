@@ -4,5 +4,6 @@ export const defaultQueryOptions = {
   retry: 1,
   refetchOnWindowFocus: false,
   refetchOnReconnect: false,
-  refetchOnMount: false,
+  // Only refetches when stale (see QueryProvider: every write marks queries stale).
+  refetchOnMount: true,
 };

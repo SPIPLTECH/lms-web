@@ -211,7 +211,8 @@ export const AuthProvider = ({ children }) => {
         "/login",
         "/forgot-password",
         "/reset-password",
-        "/verify-otp"
+        "/verify-otp",
+        "/evaluator/register"
       ];
       if (guestRoutes.includes(pathname)) {
         let returnTo = null;
@@ -235,6 +236,14 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (data) => {
     return await registerUser(data);
+  };
+
+  // Re-reads the session profile from the server, bypassing the cache — for
+  // when something server-side changed the user (an evaluator's feedback
+  // being confirmed).
+  const refreshUser = async () => {
+    await queryClient.invalidateQueries({ queryKey: AUTH_SESSION_KEY, refetchType: "none" });
+    return verifySession();
   };
 
   // Keep-alive / revocation check while signed in and visible.
@@ -388,6 +397,7 @@ export const AuthProvider = ({ children }) => {
         register,
         logout,
         logoutLocal,
+        refreshUser,
       }}
     >
       {children}

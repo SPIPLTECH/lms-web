@@ -183,9 +183,9 @@ export function isPlaybackHeldElsewhere(status) {
 }
 
 // Student pages that show course content (the learning workspace, a course,
-// an assignment, a quiz attempt or result). Lists, dashboards and profile
-// pages are not course content and stay available.
-const COURSE_CONTENT_PATH = /^\/student\/(?:learn|courses|assignments|attempt|result)\/[^/]+/;
+// assignments, quizzes, attempts, results, notes, bookmarks, QA, and reports).
+// Non-course-content pages (dashboard, my-courses list, profile, settings) stay available.
+const COURSE_CONTENT_PATH = /^\/student\/(?:learn\b|courses\/[^/]+|assignments\b|quizzes\b|attempt\b|result\b|notes\b|bookmarks\b|qa\b|reports\b)/;
 
 /** Whether a student page path shows course content (and so follows the lease rule). */
 export function isCourseContentPath(pathname) {

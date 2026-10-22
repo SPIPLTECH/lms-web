@@ -14,9 +14,11 @@ import { useInstructorCourses } from "@/hooks/queries/instructor/useInstructorCo
 import { useModules } from "@/hooks/queries/instructor/useModules";
 import { useCreateRepositoryQuestion } from "@/hooks/queries/instructor/useQuestionRepository";
 import { QUESTION_TYPE_OPTIONS } from "@/lib/questionType";
+import { useAlert } from "@/context/ConfirmContext";
 
 export default function CreateQuestionPage() {
   const router = useRouter();
+  const alert = useAlert();
 
   const [question, setQuestion] = useState("");
   const [questionType, setQuestionType] = useState("MCQ_SINGLE");

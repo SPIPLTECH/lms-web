@@ -11,21 +11,33 @@ import StudentNavDrawer from "@/components/layouts/StudentNavDrawer";
 import { StudentNavDrawerProvider } from "@/context/StudentNavDrawerContext";
 import ContentAccessGuard from "@/components/student/learning/ContentAccessGuard";
 import { isCourseContentPath } from "@/lib/sessionErrors";
+import EvaluatorNotice from "@/components/evaluator/EvaluatorNotice";
+import useEvaluatorState from "@/hooks/useEvaluatorState";
+import { EVALUATOR_STATES, EVALUATOR_ACCESS_PATH } from "@/lib/evaluatorAccess";
 
 export default function Layout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, loading } = useAuth();
 
+  // Temporary evaluator accounts: full access for 2 days, then no student
+  // page (the access page asks for feedback if it hasn't been given). The API
+  // refuses the same requests; this just sends the browser to the page that
+  // says why, typed URL or not.
+  const evaluatorState = useEvaluatorState(user?.evaluator);
+  const evaluatorBlocked = Boolean(evaluatorState) && evaluatorState !== EVALUATOR_STATES.ACTIVE;
+
   useEffect(() => {
     if (!loading) {
       if (!user || user.role !== "STUDENT") {
         router.replace("/");
+      } else if (evaluatorBlocked) {
+        router.replace(EVALUATOR_ACCESS_PATH);
       }
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, evaluatorBlocked]);
 
-  if (loading) {
+  if (loading || evaluatorBlocked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
         <Loader />
@@ -85,7 +97,17 @@ export default function Layout({ children }) {
   return (
     <QaProvider>
       <StudentNavDrawerProvider>
-        <DashboardLayout role="STUDENT" title="Student Dashboard">
+        <DashboardLayout
+          role="STUDENT"
+          title="Student Dashboard"
+          banner={
+            evaluatorState === EVALUATOR_STATES.ACTIVE ? (
+              <div className="max-w-[1600px] mx-auto">
+                <EvaluatorNotice evaluator={user.evaluator} />
+              </div>
+            ) : null
+          }
+        >
           <div className="max-w-[1600px] mx-auto w-full flex flex-col flex-1 min-h-0">
             {content}
           </div>

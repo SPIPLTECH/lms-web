@@ -1068,7 +1068,18 @@ export default function CourseImportPage() {
                     <Upload className="w-4 h-4" />
                     <span>Select ZIP Package</span>
                   </button>
-                  <p className="text-[11px] text-muted-foreground text-center font-mono">.zip file up to 2GB</p>
+                  <div className="flex items-center justify-between pt-1 text-xs">
+                    <p className="text-[11px] text-muted-foreground font-mono">.zip file up to 2GB</p>
+                    {/* A ready-to-import package showing the folder layout the importer reads. */}
+                    <button
+                      type="button"
+                      onClick={handleDownloadSampleZip}
+                      className="text-sky-400 hover:text-sky-300 font-bold flex items-center space-x-1 transition cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download Demo ZIP</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1645,7 +1656,7 @@ export default function CourseImportPage() {
                   <div className="p-3 bg-background rounded-xl">
                     <span className="font-bold text-rose-400 font-mono block">assignment</span>
                     <span className="text-muted-foreground block mt-0.5">
-                      On any level: title, description, dueDate (required by the LMS, ISO 8601), marks, assessmentType and estimatedTime in minutes.
+                      On any level: title, description, dueDate (optional, ISO 8601), marks, assessmentType and estimatedTime in minutes.
                     </span>
                   </div>
 

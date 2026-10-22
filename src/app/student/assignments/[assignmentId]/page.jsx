@@ -9,6 +9,7 @@ import PageHeader from "@/components/layouts/PageHeader";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import useAssignment from "@/hooks/queries/student/useAssignment";
+import usePlaybackLease from "@/hooks/queries/student/usePlaybackLease";
 import useTrackCourseAccess from "@/hooks/queries/student/useTrackCourseAccess";
 import AssignmentSubmissionPanel from "@/components/student/assignments/AssignmentSubmissionPanel";
 import SubmissionStatusBadge from "@/components/student/submissions/SubmissionStatusBadge";
@@ -33,6 +34,8 @@ function StatTile({ icon: Icon, label, value, detail }) {
 
 export default function AssignmentDetailPage({ params }) {
   const { assignmentId } = use(params);
+
+  usePlaybackLease(assignmentId, { enabled: Boolean(assignmentId) });
 
   const {
     data: assignment,

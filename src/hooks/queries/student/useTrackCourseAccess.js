@@ -15,6 +15,7 @@ const SKIPPED = Symbol("skipped");
 export default function useTrackCourseAccess() {
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { refreshAll: false },
     mutationFn: (courseId) => {
       const previous = lastTrackedAt.get(courseId);
       if (previous && Date.now() - previous < DEDUPE_WINDOW_MS) {

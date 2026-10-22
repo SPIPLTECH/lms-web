@@ -2,6 +2,7 @@ import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getDisplayUrl } from "@/lib/blob";
+import { CONTENT_ACTIVE_ON_ANOTHER_DEVICE, contentAccessFor } from "@/lib/server/sessionCaller";
 
 const ALLOWED_ROLES = ["INSTRUCTOR", "ADMIN"];
 
@@ -50,6 +51,19 @@ async function verifyAuth(request, { purpose } = {}) {
   if (ALLOWED_ROLES.includes(role)) return { role };
 
   if (role === "STUDENT" && purpose === STUDENT_UPLOAD_PURPOSE) {
+    // A submission is a course-content action: not while another device of
+    // the account holds the playback lease (the API refuses the submit too).
+    const access = await contentAccessFor({ role, apiUrl: process.env.NEXT_PUBLIC_API_URL, accessToken: token, deviceKey });
+    if (access !== "allowed") {
+      const refusal = new Error(
+        access === "blocked"
+          ? "This account is currently active on another device. Stop playback on that device to access course content here."
+          : "Could not confirm access. Please try again."
+      );
+      refusal.status = access === "blocked" ? 409 : 503;
+      refusal.code = access === "blocked" ? CONTENT_ACTIVE_ON_ANOTHER_DEVICE : undefined;
+      throw refusal;
+    }
     return { role };
   }
 
@@ -151,8 +165,9 @@ export async function POST(request) {
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Failed to upload file to Vercel Blob",
+        ...(error?.code ? { code: error.code } : {}),
       },
-      { status: 400 }
+      { status: error?.status || 400 }
     );
   }
 }

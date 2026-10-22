@@ -249,7 +249,7 @@ function RowMenu({ groupName, items: rawItems }) {
   const items = withoutStraySeparators(rawItems);
   return (
     <div onClick={(e) => e.stopPropagation()}>
-      <DropdownMenu>
+      <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <button
             type="button"

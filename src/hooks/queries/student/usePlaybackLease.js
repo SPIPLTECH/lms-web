@@ -69,9 +69,9 @@ export default function usePlaybackLease(contentId, { enabled = true } = {}) {
   const scheduleStop = useCallback((lease) => {
     const timer = window.setTimeout(() => {
       pendingStopRef.current = null;
-      if (claimingRef.current === lease.contentId) return;
-      stopPlayback({ leaseId: lease.leaseId, contentId: lease.contentId, reason: "CONTENT_CHANGED" }).catch(() => {});
-    }, 0);
+      if (claimingRef.current) return;
+      stopPlayback({ leaseId: lease.leaseId, contentId: lease.contentId, reason: "NAVIGATED_AWAY" }).catch(() => {});
+    }, 150);
     pendingStopRef.current = { timer, lease };
   }, []);
 
@@ -85,7 +85,7 @@ export default function usePlaybackLease(contentId, { enabled = true } = {}) {
 
     let cancelled = false;
     claimingRef.current = contentId;
-    if (pendingStopRef.current?.lease.contentId === contentId) {
+    if (pendingStopRef.current) {
       window.clearTimeout(pendingStopRef.current.timer);
       pendingStopRef.current = null;
     }
@@ -94,9 +94,9 @@ export default function usePlaybackLease(contentId, { enabled = true } = {}) {
     startOnce(contentId)
       .then((result) => {
         if (cancelled) {
-          // Superseded. Release it only if nothing here wants this item now.
-          if (claimingRef.current !== contentId) {
-            stopPlayback({ leaseId: result.leaseId, contentId, reason: "CONTENT_CHANGED" }).catch(() => {});
+          // Superseded. Release it only if nothing here wants this session now.
+          if (!claimingRef.current) {
+            stopPlayback({ leaseId: result.leaseId, contentId, reason: "NAVIGATED_AWAY" }).catch(() => {});
           }
           return;
         }

@@ -4,7 +4,7 @@
  * the API recognises as signed in. Runs the real lib/server/sessionCaller.js
  * with a fake fetch.
  */
-import { isAllowedBlobUrl, resolveCaller, contentAccessFor } from "../server/sessionCaller.js";
+import { isAllowedBlobUrl, resolveCaller, contentAccessFor, normalizeUploadsPath } from "../server/sessionCaller.js";
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const cases = [];
@@ -102,6 +102,34 @@ cases.push({
     return [results, calls.length];
   },
   expected: [["allowed", "allowed"], 0],
+});
+
+// /api/uploads-proxy forwards the caller's session to the API: it must only
+// ever fetch a file under /uploads/, never anything the path can be bent to.
+cases.push({
+  name: "uploads proxy: only files under /uploads/ — no traversal, other routes or hosts",
+  run: () => [
+    normalizeUploadsPath("/uploads/contents/lesson 1.pdf"),
+    normalizeUploadsPath("/uploads/attachments/a.docx"),
+    normalizeUploadsPath(encodeURIComponent("/uploads/contents/x.png")),
+    normalizeUploadsPath("/uploads/../auth/profile"),
+    normalizeUploadsPath("/uploads/contents/%2e%2e/%2e%2e/auth/profile"),
+    normalizeUploadsPath("/uploads/contents/%252e%252e/secret"),
+    normalizeUploadsPath("/uploads/contents\\..\\x"),
+    normalizeUploadsPath("/uploads//contents/x"),
+    normalizeUploadsPath("/uploads/contents/x.pdf?token=abc"),
+    normalizeUploadsPath("/contents/abc"),
+    normalizeUploadsPath("https://evil.example/uploads/x"),
+    normalizeUploadsPath("//evil.example/uploads/x"),
+    normalizeUploadsPath("/uploads/"),
+    normalizeUploadsPath(null),
+  ],
+  expected: [
+    "/uploads/contents/lesson%201.pdf",
+    "/uploads/attachments/a.docx",
+    "/uploads/contents/x.png",
+    null, null, null, null, null, null, null, null, null, null, null,
+  ],
 });
 
 for (const tc of cases) {

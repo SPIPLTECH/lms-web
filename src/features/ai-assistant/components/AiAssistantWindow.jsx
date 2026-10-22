@@ -26,6 +26,7 @@ export default function AiAssistantWindow({
   getPosition,
   conversationId,
   setConversationId,
+  side = "right",
 }) {
   const isGuest = scope === "GUEST";
   const [showHistory, setShowHistory] = useState(false);
@@ -76,7 +77,7 @@ export default function AiAssistantWindow({
     <div
       role="dialog"
       aria-label="AI Assistant"
-      className="fixed inset-x-0 bottom-0 z-[9200] flex h-[100dvh] w-full flex-col overflow-hidden border border-border bg-background shadow-2xl sm:inset-x-auto sm:bottom-6 sm:right-6 sm:h-[620px] sm:w-[400px] sm:rounded-2xl"
+      className={`fixed inset-x-0 bottom-0 z-[9200] flex h-[100dvh] w-full flex-col overflow-hidden border border-border bg-background shadow-2xl sm:inset-x-auto sm:bottom-6 ${side === "left" ? "sm:left-6" : "sm:right-6"} sm:h-[620px] sm:w-[400px] sm:rounded-2xl`}
     >
       {/* Header */}
       <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/30 px-3 py-2.5">

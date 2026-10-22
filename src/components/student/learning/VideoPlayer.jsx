@@ -123,7 +123,7 @@ function PlaybackGate({ lease }) {
 }
 
 const VideoPlayer = forwardRef(function VideoPlayer(
-    { content, onTimeUpdate, onEnded, onDurationChange, initialTime = 0, speechLanguage, lessonTitle, reserveHeaderCorner = false },
+    { content, lease: externalLease = null, onTimeUpdate, onEnded, onDurationChange, initialTime = 0, speechLanguage, lessonTitle, reserveHeaderCorner = false },
     ref
 ) {
     // The video itself is drawn by OrangeVideoPlayer (YouTube) or the shared
@@ -155,14 +155,10 @@ const VideoPlayer = forwardRef(function VideoPlayer(
     // (`mediaProtected`): it comes from the playback lease, claimed when the
     // item opens. Only one device per account holds that lease; the server
     // decides, and a second device gets a clear conflict instead of a video.
-    const protectedVideo = type === "VIDEO" && content?.mediaProtected === true;
-    const lease = usePlaybackLease(content?.id, { enabled: protectedVideo });
+    const protectedVideo = type === "VIDEO" && (content?.mediaProtected === true || Boolean(externalLease?.media));
+    const localLease = usePlaybackLease(content?.id, { enabled: !externalLease && protectedVideo });
+    const lease = externalLease || localLease;
 
-    // How this video renders (YouTube embed vs. our own hosted file) is decided
-    // once, in the shared resolver, so the student and the instructor cannot
-    // disagree about the same row. Private Vercel Blob URLs are routed through
-    // /api/blob-proxy by the resolver; lease-issued media URLs are resolved
-    // against the API origin the same way.
     const videoSource = protectedVideo
         ? resolveVideoSource(lease.media?.url || "")
         : resolveVideoSource(content);
@@ -214,18 +210,8 @@ const VideoPlayer = forwardRef(function VideoPlayer(
     // what they're showing and in which language.
     const documentReadAloud = content?.id ? { sessionKey: content.id, lang: resolveSpeechLang(speechLanguage) } : null;
 
-    if (!content) {
-        return (
-            <div className="flex aspect-video min-h-[220px] max-h-[520px] w-full items-center justify-center rounded-2xl border border-border bg-background p-6 text-center">
-                <div>
-                    <PlayCircle className="mx-auto mb-3 h-12 w-12 text-slate-600 animate-pulse" />
-                    <h3 className="text-lg sm:text-2xl font-semibold text-foreground">Select a lesson</h3>
-                    <p className="mt-1 text-sm sm:text-base text-muted-foreground">Choose a lesson from the sidebar to begin learning.</p>
-                </div>
-            </div>
-        );
-    }
-
+    // Images: computed and loaded before the empty-content return below, so
+    // every render calls the same hooks in the same order.
     const isImage =
         type === "IMAGE" ||
         type === "image" ||
@@ -273,6 +259,18 @@ const VideoPlayer = forwardRef(function VideoPlayer(
 
     const effectiveImageAlt = content?.title || parsedImg.alt || "Lesson image";
     const effectiveImageCaption = parsedImg.caption || (fileUrl ? htmlContent : "");
+
+    if (!content) {
+        return (
+            <div className="flex aspect-video min-h-[220px] max-h-[520px] w-full items-center justify-center rounded-2xl border border-border bg-background p-6 text-center">
+                <div>
+                    <PlayCircle className="mx-auto mb-3 h-12 w-12 text-slate-600 animate-pulse" />
+                    <h3 className="text-lg sm:text-2xl font-semibold text-foreground">Select a lesson</h3>
+                    <p className="mt-1 text-sm sm:text-base text-muted-foreground">Choose a lesson from the sidebar to begin learning.</p>
+                </div>
+            </div>
+        );
+    }
 
     const isTextLike = (type === "TEXT" || type === "HTML") && !isImage;
     const isPresentationLike = type === "PRESENTATION" || type === "SLIDE";

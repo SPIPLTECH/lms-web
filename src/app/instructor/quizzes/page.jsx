@@ -21,6 +21,7 @@ import {
 import Loader from "@/components/common/Loader";
 import Card from "@/components/ui/Card";
 import { useToast } from "@/components/ui/ToastProvider";
+import { useConfirm } from "@/context/ConfirmContext";
 
 import { useQuizzes } from "@/hooks/queries/instructor/useQuizzes";
 import { useDeleteQuiz } from "@/hooks/queries/instructor/useDeleteQuiz";
@@ -31,6 +32,7 @@ import { QUESTION_TYPE_OPTIONS } from "@/lib/questionType";
 
 export default function QuizzesPage() {
   const { showToast } = useToast();
+  const confirm = useConfirm();
 
   // Selected Quiz state for Master-Detail pattern
   const [selectedQuiz, setSelectedQuiz] = useState(null);
@@ -70,9 +72,12 @@ export default function QuizzesPage() {
 
   // Delete Quiz callback
   const handleDeleteQuiz = async (quizId, courseId) => {
-    if (!confirm("Are you sure you want to delete this quiz?")) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: "Delete quiz",
+      message: "Are you sure you want to delete this quiz?",
+      confirmText: "Delete",
+    });
+    if (!confirmed) return;
 
     try {
       await deleteQuizMutation.mutateAsync({
@@ -92,9 +97,8 @@ export default function QuizzesPage() {
 
   // Delete Question callback
   const handleDeleteQuestion = async (questionId) => {
-    if (!window.confirm("Delete this question?")) {
-      return;
-    }
+    const confirmed = await confirm({ title: "Delete question", message: "Delete this question?", confirmText: "Delete" });
+    if (!confirmed) return;
 
     try {
       await deleteQuestionMutation.mutateAsync({
