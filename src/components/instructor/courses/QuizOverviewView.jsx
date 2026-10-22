@@ -19,10 +19,12 @@ import {
   ChevronRight,
   ListFilter,
   Library,
+  FileUp,
   RotateCcw
 } from "lucide-react";
 
 import QuestionRepositoryPickerModal from "./QuestionRepositoryPickerModal";
+import QuizImportModal from "./QuizImportModal";
 import Modal from "@/components/ui/Modal";
 import { QUESTION_TYPE_OPTIONS, RETIRED_QUESTION_TYPES } from "@/lib/questionType";
 
@@ -140,6 +142,7 @@ export function QuizOverviewView({
   const [questions, setQuestions] = useState([]);
   const [error, setError] = useState("");
   const [showRepoPicker, setShowRepoPicker] = useState(false);
+  const [showImport, setShowImport] = useState(false);
 
   // Set once a save comes back successful — its presence opens the "Quiz
   // Saved" confirmation, and it carries the figures that dialog reports.
@@ -270,6 +273,32 @@ export function QuizOverviewView({
     }));
     setQuestions((prev) => [...prev, ...mapped]);
     setCurrentQuestionIndex(questions.length);
+  };
+
+  // Adds questions read from an imported file (QuizImportModal) to local edit
+  // state. They get draft ids like typed questions, so the save creates them;
+  // "replace" swaps out the current list instead of appending to it.
+  const handleImportQuestions = (rows, mode) => {
+    const stamp = Date.now();
+    const mapped = rows.map((r, i) => ({
+      id: `draft-que-${quiz?.id || "temp"}-import-${stamp}-${i + 1}`,
+      question: r.question,
+      questionType: r.questionType,
+      options: r.options,
+      correctAnswer: r.correctAnswer,
+      explanation: r.explanation || "",
+      hint: "",
+      marks: Number(r.marks) || 1,
+      difficulty: r.difficulty || "MEDIUM",
+      isMandatory: true,
+    }));
+    if (mode === "replace") {
+      setQuestions(mapped);
+      setCurrentQuestionIndex(0);
+    } else {
+      setQuestions((prev) => [...prev, ...mapped]);
+      setCurrentQuestionIndex(questions.length);
+    }
   };
 
   // Remove active question from local edit state
@@ -958,6 +987,15 @@ export function QuizOverviewView({
 
               <button
                 type="button"
+                onClick={() => setShowImport(true)}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-violet-500/40 bg-violet-500/10 text-violet-700 dark:text-violet-400 hover:bg-violet-500/20 text-sm font-bold transition cursor-pointer"
+                title="Import questions from a CSV, Excel, Word or PDF file"
+              >
+                <FileUp size={13} /> Import
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setCurrentQuestionIndex((prev) => Math.min(questions.length - 1, prev + 1))}
                 disabled={currentQuestionIndex >= questions.length - 1 || questions.length === 0}
                 className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-transparent bg-background hover:bg-muted text-foreground text-sm font-bold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
@@ -1195,6 +1233,13 @@ export function QuizOverviewView({
                 >
                   <Library size={14} /> From Repository
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setShowImport(true)}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-violet-500/40 bg-violet-500/10 text-violet-700 dark:text-violet-400 hover:bg-violet-500/20 text-sm font-bold cursor-pointer"
+                >
+                  <FileUp size={14} /> Import from File
+                </button>
               </div>
             </div>
           )}
@@ -1280,6 +1325,13 @@ export function QuizOverviewView({
         onAddQuestions={handleAddRepositoryQuestions}
         excludeIds={questions.map((q) => q.id)}
         courseId={courseId || quiz?.courseId || null}
+      />
+
+      <QuizImportModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        existingQuestions={questions}
+        onAdd={handleImportQuestions}
       />
     </div>
   );
