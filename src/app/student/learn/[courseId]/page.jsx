@@ -81,6 +81,10 @@ export default function LearnPage() {
   // Course metadata only (title, language): what the player walks comes from
   // the learning sequence below.
   const { data: course, isLoading, isError } = useCourse(courseId);
+  // Sequential learning off: every step is open (backend `unlockAll`) and the
+  // course keeps no progress — nothing is marked complete or visited, and the
+  // player shows no completion strip.
+  const isOpenCourse = course?.sequentialLearning === false;
 
   // Same enrollment gate as /student/courses/[courseId] — this is the actual
   // lesson content, not just an overview. A non-enrolled student who reaches
@@ -511,7 +515,7 @@ export default function LearnPage() {
   // sequence says the next step is open, so the gate never reads stale flags.
   const handleVideoEnded = async () => {
     const finished = step;
-    if (finished?.kind === "CONTENT" && !finished.completed) {
+    if (!isOpenCourse && finished?.kind === "CONTENT" && !finished.completed) {
       try {
         await completeContentMutation.mutateAsync({ contentIds: finished.contentIds, completed: true });
         const { data: fresh } = await refetchSequence();
@@ -528,13 +532,13 @@ export default function LearnPage() {
   // and a reached step stays open for good.
   const visitedIdsRef = useRef(new Set());
   useEffect(() => {
-    if (!step || step.locked || step.visited) return;
+    if (isOpenCourse || !step || step.locked || step.visited) return;
     const ids = step.contentIds.filter((id) => !visitedIdsRef.current.has(id));
     if (ids.length === 0) return;
     ids.forEach((id) => visitedIdsRef.current.add(id));
     markVisitedMutation.mutate({ contentIds: ids });
     // markVisitedMutation intentionally omitted; the ref guard prevents re-sending.
-  }, [step?.contentId, step?.locked, step?.visited]);
+  }, [isOpenCourse, step?.contentId, step?.locked, step?.visited]);
 
   // Mirrors the step on screen into ?item=, so a refresh returns to this exact
   // item. history.replaceState, not router.replace — this is not navigation.
@@ -575,7 +579,8 @@ export default function LearnPage() {
     contentIds: isContentStep ? step.contentIds : [],
     completed: Boolean(step?.completed),
   };
-  const showCompletionBar = Boolean(step) && !step.locked && !qualifyingAttempt && !isEvaluator;
+  // An open course keeps no progress, so it has no completion strip at all.
+  const showCompletionBar = Boolean(step) && !step.locked && !qualifyingAttempt && !isEvaluator && !isOpenCourse;
   const completionBarProps = {
     completed: Boolean(step?.completed),
     isPending: completeContentMutation.isPending,

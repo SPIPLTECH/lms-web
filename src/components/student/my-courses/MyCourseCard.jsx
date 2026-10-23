@@ -33,19 +33,29 @@ export default function MyCourseCard({ enrollment, course: rawCourse }) {
     ? course.modules.reduce((acc, m) => acc + (Array.isArray(m.lessons) ? m.lessons.length : 0), 0)
     : (course.stats?.lessonsCount ?? course.lessons ?? course._count?.lessons ?? 0);
 
+  // A course with sequential learning off keeps no progress: no percentage,
+  // no In Progress / Completed state.
+  const tracksProgress = course.sequentialLearning !== false;
+
   // GET /enrollments returns the stored roll-up as `progressPercent`; `progress`
   // never existed on it, so every card used to read 0%.
   const progress = Math.min(
     100,
     Math.max(0, Math.round(enrollment?.progressPercent ?? enrollment?.progress ?? 0))
   );
-  const isComplete = isEnrolled && progress >= 100;
-  const status = isEnrolled ? (isComplete ? "Completed" : progress > 0 ? "In Progress" : "Enrolled") : "Not Started";
+  const isComplete = isEnrolled && tracksProgress && progress >= 100;
+  const status = isEnrolled
+    ? isComplete
+      ? "Completed"
+      : tracksProgress && progress > 0
+        ? "In Progress"
+        : "Enrolled"
+    : "Not Started";
   const statusStyle = STATUS_STYLE[status];
 
   const instructorName = course.creator?.name;
 
-  const continueLabel = isComplete ? "Review" : "Continue Learning";
+  const continueLabel = isComplete ? "Review" : tracksProgress ? "Continue Learning" : "Open Course";
 
   const learnDestination = `/student/learn/${course.id}`;
   const detailsDestination = `/student/courses/${course.id}`;
@@ -85,7 +95,7 @@ export default function MyCourseCard({ enrollment, course: rawCourse }) {
           </span>
         </div>
 
-        {isEnrolled && (
+        {isEnrolled && tracksProgress && (
           <div className="absolute top-3 right-3">
             <span className="rounded-full bg-background px-2.5 py-1 text-[10px] font-bold text-foreground shadow-sm">
               {progress}%
@@ -155,7 +165,7 @@ export default function MyCourseCard({ enrollment, course: rawCourse }) {
               className="inline-flex flex-auto items-center justify-center gap-1 whitespace-nowrap rounded-md border border-primary/40 bg-transparent px-2 py-2 min-h-[40px] md:py-1 md:min-h-0 text-[11px] font-bold text-primary hover:bg-primary/10 hover:border-primary/60 transition"
             >
               <span className="max-[359px]:hidden">{continueLabel}</span>
-              <span className="hidden max-[359px]:inline">{isComplete ? "Review" : "Continue"}</span>
+              <span className="hidden max-[359px]:inline">{isComplete ? "Review" : tracksProgress ? "Continue" : "Open"}</span>
               <ArrowRight size={13} aria-hidden="true" />
             </button>
           )}

@@ -381,6 +381,7 @@ export default function CourseImportPage() {
           visibility: settings.visibility || "PUBLIC",
           certificatesEnabled: Boolean(settings.certificatesEnabled),
           discussionEnabled: settings.discussionEnabled !== false,
+          sequentialLearning: settings.sequentialLearning !== false,
         },
         quizzes,
         modules,
@@ -1628,7 +1629,7 @@ export default function CourseImportPage() {
                   <div className="p-3 bg-background rounded-xl">
                     <span className="font-bold text-amber-400 font-mono block">course</span>
                     <span className="text-muted-foreground block mt-0.5">
-                      title (required), description, category, level, thumbnailUrl, visibility (PUBLIC | PRIVATE | UNLISTED), language, tags, certificatesEnabled, discussionEnabled, estimatedLearningHours. Imported courses are always created as DRAFT.
+                      title (required), description, category, level, thumbnailUrl, visibility (PUBLIC | PRIVATE | UNLISTED), language, tags, certificatesEnabled, discussionEnabled, sequentialLearning, estimatedLearningHours. Imported courses are always created as DRAFT.
                     </span>
                   </div>
 

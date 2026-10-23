@@ -64,7 +64,7 @@ function ancestorIds(tree, index) {
   return new Set(path);
 }
 
-function StepRow({ step, isActive, onSelect, rowRef }) {
+function StepRow({ step, isActive, onSelect, rowRef, tracksProgress }) {
   const isQuiz = step.kind === "QUIZ";
   const isAssignment = step.kind === "ASSIGNMENT";
   const tagStyle = isQuiz ? getQuizTagStyle(step.quizTag) : null;
@@ -123,7 +123,7 @@ function StepRow({ step, isActive, onSelect, rowRef }) {
       <span className="shrink-0 flex items-center">
         {step.locked ? (
           <Lock size={12} className="text-muted-foreground/70" aria-label="Locked" />
-        ) : step.completed ? (
+        ) : tracksProgress && step.completed ? (
           <CheckCircle2 size={13} className="text-emerald-500" aria-label="Completed" />
         ) : null}
       </span>
@@ -131,7 +131,17 @@ function StepRow({ step, isActive, onSelect, rowRef }) {
   );
 }
 
-function ContainerNode({ node, numbering, steps, currentStepIndex, openIds, onToggle, onSelectStep, activeRowRef }) {
+function ContainerNode({
+  node,
+  numbering,
+  steps,
+  currentStepIndex,
+  openIds,
+  onToggle,
+  onSelectStep,
+  activeRowRef,
+  tracksProgress,
+}) {
   const { showToast } = useToast();
   const meta = LEVEL_META[node.kind] || LEVEL_META.TOPIC;
   const Icon = meta.icon;
@@ -185,7 +195,7 @@ function ContainerNode({ node, numbering, steps, currentStepIndex, openIds, onTo
           <span className={`truncate ${meta.text}`} title={node.title}>
             {node.title}
           </span>
-          <NodeBadge node={node} />
+          {tracksProgress && <NodeBadge node={node} />}
         </div>
       </div>
 
@@ -206,6 +216,7 @@ function ContainerNode({ node, numbering, steps, currentStepIndex, openIds, onTo
                   isActive={isActive}
                   onSelect={onSelectStep}
                   rowRef={isActive ? activeRowRef : undefined}
+                  tracksProgress={tracksProgress}
                 />
               );
             }
@@ -221,6 +232,7 @@ function ContainerNode({ node, numbering, steps, currentStepIndex, openIds, onTo
                 onToggle={onToggle}
                 onSelectStep={onSelectStep}
                 activeRowRef={activeRowRef}
+                tracksProgress={tracksProgress}
               />
             );
           })}
@@ -240,6 +252,9 @@ export default function StudentCourseMap({
 }) {
   const tree = sequence?.tree || null;
   const steps = sequence?.steps || [];
+  // A course with sequential learning off keeps no progress: no ticks, no
+  // percentages (the header falls back to "Course structure").
+  const tracksProgress = sequence?.progressTracked !== false;
 
   // Containers the student opened or closed by hand; the path down to the
   // current step is always open on top of these.
@@ -317,7 +332,7 @@ export default function StudentCourseMap({
       >
         <Home size={14} className="text-muted-foreground shrink-0" />
         <span className="truncate font-semibold flex-1">Course Overview</span>
-        {tree && <NodeBadge node={tree} />}
+        {tree && tracksProgress && <NodeBadge node={tree} />}
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto -mr-1 pr-1 space-y-0.5">
@@ -338,6 +353,7 @@ export default function StudentCourseMap({
                   isActive={isActive}
                   onSelect={onSelectStep}
                   rowRef={isActive ? activeRowRef : undefined}
+                  tracksProgress={tracksProgress}
                 />
               );
             }
@@ -353,6 +369,7 @@ export default function StudentCourseMap({
                 onToggle={toggle}
                 onSelectStep={onSelectStep}
                 activeRowRef={activeRowRef}
+                tracksProgress={tracksProgress}
               />
             );
           })
