@@ -678,6 +678,11 @@ MANUAL_CASES = [
          scenario="Store page shows an error state when the catalogue request fails",
          pre="Local or deployed with the API blocked (e.g. browser request blocking).", steps="1. Block GET /courses\n2. Open /student/store",
          expected="Error state rendered (isError), no crash, no empty 'FREE' cards", ref="src/app/student/store/page.jsx isError"),
+    dict(id="TC-UI-STU-014", component="src/app/student/my-courses/page.jsx", type="UI – Browser",
+         scenario="My Courses uses the standard page layout like Instructor Courses: no inner scrolling course grid",
+         pre=f"{_ENV}; STUDENT with enrolled courses. {_RO}", steps="1. Open /student/my-courses at desktop width\n2. Scroll the page",
+         expected="Enrolled Courses grid has no own scrollbar; the whole page scrolls; pagination sits under the grid",
+         ref="src/app/student/layout.jsx (no my-courses viewport shell); src/app/instructor/courses/page.jsx"),
 
     # ---- Admin -------------------------------------------------------------
     dict(id="TC-UI-ADM-001", component="src/app/admin/courses/[courseId]/page.jsx", type="UI – Browser",
