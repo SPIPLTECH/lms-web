@@ -11,6 +11,8 @@ import {
   useAssignmentSubmissions,
   useGradeSubmission,
 } from "@/hooks/queries/instructor/useAssignments";
+import SubmissionEvaluationReview from "@/components/instructor/assignments/evaluation/SubmissionEvaluationReview";
+import { EvaluationStatusBadge } from "@/components/instructor/assignments/evaluation/evaluationUi";
 
 /**
  * The students who have submitted one assignment, as a table: who they are,
@@ -100,6 +102,14 @@ function GradeForm({ submission, onSave, isPending }) {
     </form>
   );
 }
+
+/** Shown when the assignment uses auto-evaluation (or did, for older rows). */
+const EVALUATION_COLUMN = {
+  key: "evaluation",
+  header: "Auto-evaluation",
+  align: "center",
+  render: (s) => <EvaluationStatusBadge evaluation={s.evaluation} />,
+};
 
 const COLUMNS = [
   {
@@ -218,11 +228,14 @@ export default function AssignmentSubmissionsPanel({ assignmentId, open = true }
 
   const submissions = data?.submissions || [];
   const grading = submissions.find((s) => s.id === gradingId) || null;
+  const autoEvaluation = data?.assignment?.autoEvaluation || null;
+  const showEvaluation = Boolean(autoEvaluation?.enabled) || submissions.some((s) => s.evaluation);
+  const columns = showEvaluation ? [...COLUMNS.slice(0, 2), EVALUATION_COLUMN, ...COLUMNS.slice(2)] : COLUMNS;
 
   return (
     <div className="space-y-3">
       <DataTable
-        columns={COLUMNS}
+        columns={columns}
         rows={submissions}
         rowKey="id"
         isLoading={isLoading}
@@ -243,6 +256,18 @@ export default function AssignmentSubmissionsPanel({ assignmentId, open = true }
                 {grading.textAnswer}
               </p>
             </div>
+          )}
+
+          {showEvaluation && (
+            <SubmissionEvaluationReview
+              key={grading.id}
+              assignmentId={assignmentId}
+              submission={grading}
+              markStep={autoEvaluation?.markStep || 0.5}
+            />
+          )}
+          {showEvaluation && (
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Or grade by hand</p>
           )}
 
           {/* Keyed on the saved values so the form re-seeds after a save lands. */}

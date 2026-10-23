@@ -12,6 +12,7 @@ import {
 } from "@/services/assignment.service";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { defaultQueryOptions } from "@/lib/queryOptions";
+import { submissionsPollInterval } from "@/lib/assignmentEvaluationState";
 
 export function useInstructorAssignments(courseId) {
   return useQuery({
@@ -32,6 +33,8 @@ export function useAssignmentSubmissions(assignmentId, enabled = true) {
     queryFn: () => getAssignmentSubmissions(assignmentId),
     enabled: Boolean(assignmentId) && enabled,
     ...defaultQueryOptions,
+    // While auto-evaluation is running for a row, refresh until it is done.
+    refetchInterval: (query) => submissionsPollInterval(query.state.data),
   });
 }
 
@@ -48,6 +51,8 @@ export function useGradeSubmission({ assignmentId }) {
     onSuccess: () => {
       // Submission lists and the "ungraded" counts all live under ASSESSMENTS.
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ASSESSMENTS] });
+      // A hand grade replaces an auto-evaluated one ("Graded by hand").
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ASSIGNMENT_EVALUATION] });
     },
   });
 }

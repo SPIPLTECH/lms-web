@@ -269,6 +269,27 @@ export default function AssignmentDetailPage({ params }) {
         </Card>
       )}
 
+      {/* Marks per point behind an instructor-approved evaluation. The API
+          sends it only after approval; absent for hand-typed grades. */}
+      {graded && assignment?.evaluation?.criteria?.length > 0 && (
+        <Card tone="flat">
+          <h3 className="text-lg font-semibold text-foreground">Marks for each point</h3>
+          <ul className="mt-3 divide-y divide-border">
+            {assignment.evaluation.criteria.map((c, i) => (
+              <li key={i} className="flex items-center gap-3 py-2 text-sm">
+                <span className="flex-1 text-foreground">{c.description}</span>
+                <span className="font-mono font-semibold text-foreground">
+                  {c.awarded}/{c.maxMarks}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Marked against your instructor&apos;s marking scheme and approved by your instructor.
+          </p>
+        </Card>
+      )}
+
       {/* Once an instructor has graded it, the submission is final — no
           resubmit escape hatch that would let a student quietly swap out
           the work a grade was already given for. */}

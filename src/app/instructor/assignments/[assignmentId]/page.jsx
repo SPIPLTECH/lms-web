@@ -5,6 +5,7 @@ import { Suspense, use } from "react";
 import Card from "@/components/ui/Card";
 import Loader from "@/components/common/Loader";
 import AssignmentSubmissionsPanel from "@/components/instructor/assignments/AssignmentSubmissionsPanel";
+import AutoEvaluationPanel from "@/components/instructor/assignments/evaluation/AutoEvaluationPanel";
 import GradableDetailHeader from "@/components/instructor/assignments/GradableDetailHeader";
 import { useAssignmentSubmissions } from "@/hooks/queries/instructor/useAssignments";
 
@@ -36,6 +37,12 @@ function InstructorAssignmentDetailPageView({ params }) {
             : null
         }
       />
+
+      {!isError && (
+        <Card className="border border-slate-850 bg-background/40 p-5">
+          <AutoEvaluationPanel assignmentId={assignmentId} />
+        </Card>
+      )}
 
       <Card className="border border-slate-850 bg-background/40 p-5">
         {isError ? (
