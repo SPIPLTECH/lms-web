@@ -8,6 +8,7 @@ import Link from "next/link";
 import Image from "next/image";
 
 import useAuth from "@/hooks/useAuth";
+import { useToast } from "@/components/ui/ToastProvider";
 import useChat from "@/hooks/useChat";
 import { useNotification } from "@/context/NotificationContext";
 import { useStudentNavDrawer } from "@/context/StudentNavDrawerContext";
@@ -96,6 +97,7 @@ function ProfileDropdown({ user, onLogoutRequest, role }) {
 export default function Navbar({ title = "Dashboard", role }) {
   const router = useRouter();
   const { logout, user: currentUser } = useAuth();
+  const { showToast } = useToast();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const { open: openStudentNavDrawer } = useStudentNavDrawer();
   const { open: openInstructorNavDrawer } = useInstructorNavDrawer();
@@ -357,11 +359,16 @@ export default function Navbar({ title = "Dashboard", role }) {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     // logout() itself clears auth state and redirects to the Landing Page —
     // navigating here too would race it while cookies/user state are still
     // present, which is what let the old redirect bounce back into the app.
-    logout();
+    // If the server couldn't end the session, the user stays signed in.
+    const result = await logout();
+    if (result?.ok === false) {
+      setShowLogoutModal(false);
+      showToast(result.message, "error");
+    }
   };
 
   const handleMarkAllRead = () => {

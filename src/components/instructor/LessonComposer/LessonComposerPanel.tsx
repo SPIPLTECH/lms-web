@@ -201,6 +201,11 @@ export function LessonComposerPanel({
   // everything in it. null = picker closed.
   const [addTarget, setAddTarget] = useState<{ order?: number } | null>(null);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+
+  // Warm the Add Content picker's chunk so its first open is immediate.
+  useEffect(() => {
+    void loadAddCellModal();
+  }, []);
   const { duplicate } = useDuplicateContent();
   const { showToast } = useToast();
 

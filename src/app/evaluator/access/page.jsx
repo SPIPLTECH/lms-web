@@ -16,6 +16,7 @@ import AuthHeader from "@/components/auth/AuthHeader";
 import AuthAlert from "@/components/auth/AuthAlert";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/common/Loader";
+import { useToast } from "@/components/ui/ToastProvider";
 
 // Coming back to this tab after opening the form re-checks automatically, at
 // most this often (the server also rate-limits the check).
@@ -33,6 +34,7 @@ const homeFor = (role) =>
 export default function EvaluatorAccessPage() {
   const router = useRouter();
   const { user, loading, logout, refreshUser } = useAuth();
+  const { showToast } = useToast();
   const { data: status, isLoading, error } = useEvaluatorStatus({ enabled: Boolean(user) });
   const checkMutation = useCheckEvaluatorFeedback();
   const state = useEvaluatorState(status);
@@ -103,10 +105,17 @@ export default function EvaluatorAccessPage() {
     router.replace("/student/my-courses");
   };
 
+  // logout() keeps the user signed in (and says why) if the server could not
+  // end the session — show that, as the navigation menus do.
+  const handleSignOut = async () => {
+    const result = await logout();
+    if (result?.ok === false) showToast(result.message, "error");
+  };
+
   const signOut = (
     <button
       type="button"
-      onClick={logout}
+      onClick={handleSignOut}
       className="mx-auto flex items-center gap-2 text-sm font-medium text-muted-foreground transition hover:text-foreground cursor-pointer"
     >
       <LogOut size={14} aria-hidden="true" /> Sign out

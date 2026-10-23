@@ -27,6 +27,7 @@ import {
 } from "@/hooks/queries/student";
 import useLearningPath from "@/hooks/queries/student/useLearningPath";
 import useLearningSequence from "@/hooks/queries/student/useLearningSequence";
+import usePlaybackLease from "@/hooks/queries/student/usePlaybackLease";
 import useQuizResult from "@/hooks/queries/student/useQuizResult";
 import useMyCourses from "@/hooks/queries/student/useMyCourses";
 import useTrackCourseAccess from "@/hooks/queries/student/useTrackCourseAccess";
@@ -224,6 +225,10 @@ export default function LearnPage() {
   });
 
   const step = steps[stepIndex] || null;
+  const activeContentId = step?.contentId;
+  const learningLease = usePlaybackLease(activeContentId, {
+    enabled: Boolean(activeContentId && isEnrolled && !step?.locked),
+  });
   const stepPath = step?.path || {};
   const selectedLesson = stepPath.lessonId ? containersById.get(stepPath.lessonId) || null : null;
   // The most specific container below the lesson (Concept, SubTopic or
@@ -1025,6 +1030,7 @@ export default function LearnPage() {
                   ) : (
                     <LessonContentBlock
                       item={contentItem}
+                      lease={learningLease}
                       videoPlayerRef={videoPlayerRef}
                       onTimeUpdate={setCurrentTimestamp}
                       onDurationChange={setVideoDuration}

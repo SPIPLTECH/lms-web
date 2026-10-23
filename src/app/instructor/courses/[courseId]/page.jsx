@@ -43,6 +43,7 @@ import {
 
 import { CourseComposerHeader } from "@/components/instructor/courses/CourseComposerHeader";
 import { CourseComposerSidebar } from "@/components/instructor/courses/CourseComposerSidebar";
+import { ComposerNodeHeader } from "@/components/instructor/courses/ComposerNodeHeader";
 import ResizeHandle from "@/components/ui/ResizeHandle";
 import useResizableWidth from "@/hooks/useResizableWidth";
 import { CourseOverviewView } from "@/components/instructor/courses/CourseOverviewView";
@@ -2744,7 +2745,10 @@ export default function CourseDetailsPage() {
     // this fills that shell rather than pulling back padding that isn't
     // there any more. flex-col + min-h-0 lets the Notebook cell stack below
     // become the one scrollable region instead of the whole page.
-    <div className="h-full flex flex-col animate-fade-in duration-300">
+    // pt-3/sm:pt-5 is the gap under the navbar and lg:pl-5 the gap left of the
+    // Course Map rail (desktop only — below lg the map is a drawer) — both
+    // match the gap-5 between the Course Map and the workspace beside it.
+    <div className="h-full flex flex-col pt-3 sm:pt-5 lg:pl-5 animate-fade-in duration-300">
       {/* 1. APP HEADER — no visible bar now; just the mobile Course Map
           toggle (floating) and Ask OTree AI (floating). Status and the
           Publish/Unpublish/Restore/Save actions live on the Course Header
@@ -2913,7 +2917,7 @@ export default function CourseDetailsPage() {
           {/* Notebook Workspace Dynamic View — the one scrollable region in
               this page now; everything else (navbar, Course Map, this
               reopen button) stays fixed in place while these cells scroll. */}
-          <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl border border-transparent bg-background/60 p-2 sm:p-6 shadow-xl">
+          <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl border border-transparent bg-background/60 p-2 pt-0 sm:p-6 sm:pt-0 shadow-xl">
             {composerMode === "course" && (
               <CourseOverviewView
                 course={effectiveCourse}
@@ -3049,6 +3053,25 @@ export default function CourseDetailsPage() {
             )}
 
             {composerMode === "topic" && (
+              <>
+              <ComposerNodeHeader
+                type="topic"
+                title={composingTopic?.title}
+                description={composingTopic?.description}
+                parentTitle={composingLesson?.title}
+                onEdit={
+                  composingTopic && !isDraftMode
+                    ? () =>
+                        openEntityModal({
+                          entity: "topic",
+                          mode: "edit",
+                          entityData: composingTopic,
+                          parentId: composingLesson?.id || composeLessonId,
+                          moduleId: composingModule?.id || composeModuleId,
+                        })
+                    : undefined
+                }
+              />
               <LessonComposerPanel
                 parent={{ parentType: "topic", parentId: composeTopicId }}
                 selectedCellId={selectedCellId}
@@ -3077,9 +3100,29 @@ export default function CourseDetailsPage() {
                   }
                 }}
               />
+              </>
             )}
 
             {composerMode === "subTopic" && !isDraftMode && (
+              <>
+              <ComposerNodeHeader
+                type="subTopic"
+                title={composingSubTopicTitle}
+                description={activeSubTopic?.description}
+                parentTitle={composingTopic?.title}
+                onEdit={
+                  activeSubTopic
+                    ? () =>
+                        openEntityModal({
+                          entity: "subTopic",
+                          mode: "edit",
+                          entityData: activeSubTopic,
+                          parentId: activeSubTopic.topicId || composeTopicId,
+                          context: { module: composingModule, lesson: composingLesson, topic: composingTopic },
+                        })
+                    : undefined
+                }
+              />
               <LessonComposerPanel
                 parent={{ parentType: "subTopic", parentId: composeSubTopicId }}
                 selectedCellId={selectedCellId}
@@ -3090,9 +3133,34 @@ export default function CourseDetailsPage() {
                   handleAddSubTopicQuiz({ id: composeSubTopicId, title: composingSubTopicTitle }, {}, order)
                 }
               />
+              </>
             )}
 
             {composerMode === "concept" && !isDraftMode && (
+              <>
+              <ComposerNodeHeader
+                type="concept"
+                title={composingConceptTitle}
+                description={activeConcept?.description}
+                parentTitle={composingSubTopicTitle}
+                onEdit={
+                  activeConcept
+                    ? () =>
+                        openEntityModal({
+                          entity: "concept",
+                          mode: "edit",
+                          entityData: activeConcept,
+                          parentId: activeConcept.subTopicId || composeSubTopicId,
+                          context: {
+                            module: composingModule,
+                            lesson: composingLesson,
+                            topic: composingTopic,
+                            subTopic: activeSubTopic || { id: composeSubTopicId, title: composingSubTopicTitle },
+                          },
+                        })
+                    : undefined
+                }
+              />
               <LessonComposerPanel
                 parent={{ parentType: "concept", parentId: composeConceptId }}
                 selectedCellId={selectedCellId}
@@ -3103,6 +3171,7 @@ export default function CourseDetailsPage() {
                   handleAddConceptQuiz({ id: composeConceptId, title: composingConceptTitle }, {}, order)
                 }
               />
+              </>
             )}
           </div>
         </main>

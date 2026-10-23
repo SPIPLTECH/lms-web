@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 
 import Loader from "@/components/common/Loader";
 import QuizExperience from "@/components/student/attempt/QuizExperience";
+import usePlaybackLease from "@/hooks/queries/student/usePlaybackLease";
 
 function QuizAttemptPageContent() {
     const { quizId } = useParams();
@@ -14,6 +15,8 @@ function QuizAttemptPageContent() {
     // launched this quiz (e.g. the lesson's Assessment Quiz panel), so the
     // result page can return them there instead of the generic quizzes hub.
     const from = searchParams.get("from");
+
+    usePlaybackLease(quizId, { enabled: Boolean(quizId) });
 
     return (
         <div className="space-y-3 pb-3 max-w-full">

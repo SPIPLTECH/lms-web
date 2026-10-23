@@ -37,10 +37,49 @@ export function getDisplayUrl(url) {
   // Resolved per call, not once at module load: getApiOrigin() needs the host
   // this browser is on to serve /uploads over the LAN. See lib/apiOrigin.js.
   const apiOrigin = getApiOrigin();
+
+  // Course files on the API's disk need the session (sent as headers, which
+  // an <img>/<iframe>/link cannot add): they load through the same-origin
+  // proxy, which forwards it. Public images (avatars, thumbnails) do not.
+  const uploadsPath = apiUploadsPath(url, apiOrigin);
+  if (uploadsPath && !isPublicUploadsPath(uploadsPath)) {
+    return `/api/uploads-proxy?path=${encodeURIComponent(uploadsPath)}`;
+  }
+
   if (url.startsWith("/") && apiOrigin) {
     return `${apiOrigin}${url}`;
   }
   return url;
+}
+
+const PUBLIC_UPLOAD_DIRS = ["avatars", "thumbnails"];
+
+const isPublicUploadsPath = (uploadsPath) => PUBLIC_UPLOAD_DIRS.includes(uploadsPath.split("/")[2]);
+
+/**
+ * "/uploads/..." when `url` names a file on the API's own disk — written
+ * root-relative, or absolute on the API's origin (this browser's, or the
+ * configured one the API stamps into upload URLs). Null otherwise.
+ */
+function apiUploadsPath(url, apiOrigin) {
+  if (url.startsWith("/uploads/")) return url.split(/[?#]/)[0];
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (!parsed.pathname.startsWith("/uploads/")) return null;
+  const apiOrigins = [apiOrigin, process.env.NEXT_PUBLIC_API_URL]
+    .filter(Boolean)
+    .map((origin) => {
+      try {
+        return new URL(origin).origin;
+      } catch {
+        return null;
+      }
+    });
+  return apiOrigins.includes(parsed.origin) ? parsed.pathname : null;
 }
 
 const PRIVATE_BLOB_ATTR_RE = /(src|href)(\s*=\s*)(["'])(https:\/\/[^"']*\.private\.blob\.vercel-storage\.com[^"']*)\3/gi;

@@ -1,0 +1,625 @@
+{
+  "_readme": "Append-only log of manual / browser executions. Add a new entry per execution (never edit old ones). sync_tracker.py applies the newest entry per test case to the workbook and records every status change in 'Status History'. status: PASS | FAIL | BLOCKED | NOT RUN. PASS/FAIL need concrete evidence; BLOCKED needs the reason in failure_details.",
+  "results": [
+    {
+      "id": "TC-UI-AUTH-004",
+      "status": "PASS",
+      "executed_at": "2026-10-14T17:05:30",
+      "executed_by": "Claude via Playwright MCP (credentials typed by the user)",
+      "environment": "https://lms-web-demo.vercel.app (deployed build, ~12 days older than local HEAD) + API https://orange-tree-lms.onrender.com",
+      "actual": "Network: POST https://orange-tree-lms.onrender.com/auth/login -> 200, followed by RSC GET /instructor/courses -> 200. Final URL /instructor/courses. document.cookie: accessToken present, role=INSTRUCTOR.",
+      "evidence": "Playwright network log entries #30-#31 and page.evaluate cookie probe, session 2026-10-14 17:05 IST",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-INS-001",
+      "status": "PASS",
+      "executed_at": "2026-10-14T17:05:40",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "https://lms-web-demo.vercel.app (deployed build)",
+      "actual": "1 course card 'CDAC C-CAT Course Section A' (Published) with Edit (/instructor/courses/edit/cmuo9b5a40001e51g8gpp7hg0) and View Course links; pager 'Rows per page 12 - 1 total - Page 1 of 1'. GET /courses?sortBy=recently_updated&page=1&limit=12 -> 200. Console: 0 errors, 1 warning (unused CSS preload).",
+      "evidence": "Accessibility snapshot + network list + console (level=warning), session 2026-10-14 17:05 IST",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-AUTH-010",
+      "status": "PASS",
+      "executed_at": "2026-10-15T14:05:23",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "https://lms-web-demo.vercel.app (deployed build), fresh browser context",
+      "actual": "No session cookies (role cookie null). Navigated to /instructor/courses/cmuo9b5a40001e51g8gpp7hg0; final URL https://lms-web-demo.vercel.app/ with landing headings ('Learn. Practice. Prove Your Progress.'); no instructor UI rendered.",
+      "evidence": "page.evaluate probe after navigation, 2026-10-15 14:05 IST",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-PUB-001",
+      "status": "PASS",
+      "executed_at": "2026-10-15T14:05:30",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "https://lms-web-demo.vercel.app (deployed build), logged out",
+      "actual": "3 featured cards (/courses/cmv7xcix70003cm1gawuruyn0, /courses/cmuql2okv0001tpggzzh97wuz, /courses/cmuo9b5a40001e51g8gpp7hg0) each read '... Pricing unavailable VIEW COURSE'; no price and no Buy button. API GET /courses/<id> returned store=null for all three.",
+      "evidence": "page.evaluate link/text probe on '/', plus curl GET https://orange-tree-lms.onrender.com/courses/<id> (HTTP 200, store null), 2026-10-15",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-PUB-002",
+      "status": "PASS",
+      "executed_at": "2026-10-15T14:05:50",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "https://lms-web-demo.vercel.app (deployed build), logged out",
+      "actual": "/courses/cmuo9b5a40001e51g8gpp7hg0: h1 'CDAC C-CAT Course Section A'; text 'Pricing unavailable' present; no rupee amount; no '4,999'; only HOME and COURSES links, no Buy/Enroll/Continue button. API store=null for this course.",
+      "evidence": "test-evidence/browser/2026-10-15_public-course-detail_pricing-unavailable.png; page.evaluate probe",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-AUTH-001",
+      "status": "PASS",
+      "executed_at": "2026-10-15T14:21:07",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "https://lms-web-demo.vercel.app (deployed build), logged out",
+      "actual": "Clicked Login with both fields empty: page shows 'Email is required.' and 'Password is required.'; URL stays /login; network filter 'auth/login' shows no request.",
+      "evidence": "page.evaluate text probe + network request list after click, 2026-10-15 14:21 IST",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-AUTH-002",
+      "status": "PASS",
+      "executed_at": "2026-10-15T14:21:17",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "https://lms-web-demo.vercel.app (deployed build), logged out",
+      "actual": "Email 'abc', password 'x', Login: 'Please enter a valid email address.' shown; no POST /auth/login sent; URL stays /login.",
+      "evidence": "page.evaluate text probe + network request list after click, 2026-10-15 14:21 IST",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-AUTH-003",
+      "status": "PASS",
+      "executed_at": "2026-10-15T14:21:23",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "https://lms-web-demo.vercel.app (deployed build), logged out",
+      "actual": "Email qa-tracker-nonexistent@example.com: POST https://orange-tree-lms.onrender.com/auth/login -> 401; alert 'Invalid email or password.' visible; URL stays /login. Only console error is the browser's own 'Failed to load resource: 401' for that request.",
+      "evidence": "Playwright wait_for text + network request #29 (401) + console log, 2026-10-15 14:21 IST",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-AUTH-005",
+      "status": "BLOCKED",
+      "executed_at": "2026-10-15T14:10:00",
+      "executed_by": "Claude",
+      "environment": "https://lms-web-demo.vercel.app",
+      "actual": "",
+      "evidence": "",
+      "failure_details": "No ADMIN test account available for the deployed site (only an INSTRUCTOR session was provided)."
+    },
+    {
+      "id": "TC-UI-AUTH-006",
+      "status": "BLOCKED",
+      "executed_at": "2026-10-15T14:10:00",
+      "executed_by": "Claude",
+      "environment": "https://lms-web-demo.vercel.app",
+      "actual": "",
+      "evidence": "",
+      "failure_details": "No STUDENT test account available for the deployed site."
+    },
+    {
+      "id": "TC-UI-AUTH-007",
+      "status": "BLOCKED",
+      "executed_at": "2026-10-15T14:10:00",
+      "executed_by": "Claude",
+      "environment": "https://lms-web-demo.vercel.app",
+      "actual": "",
+      "evidence": "",
+      "failure_details": "No unverified test account available; creating one would write to the shared database (read-only policy)."
+    },
+    {
+      "id": "TC-UI-STU-001",
+      "status": "BLOCKED",
+      "executed_at": "2026-10-15T14:10:00",
+      "executed_by": "Claude",
+      "environment": "https://lms-web-demo.vercel.app",
+      "actual": "",
+      "evidence": "API: GET /courses?limit=200&status=PUBLISHED&sortBy=newest -> 3 courses, all store=null (the precondition exists in live data).",
+      "failure_details": "No STUDENT account to open /student/store. Code-level check TC-CL-005 FAILS for this behaviour (DEF-002)."
+    },
+    {
+      "id": "TC-UI-STU-002",
+      "status": "BLOCKED",
+      "executed_at": "2026-10-15T14:10:00",
+      "executed_by": "Claude",
+      "environment": "https://lms-web-demo.vercel.app",
+      "actual": "",
+      "evidence": "API: all 3 published courses have store=null (2026-10-15).",
+      "failure_details": "No priced course exists in the deployed data (admin pricing UI missing, DEF-003) and no STUDENT account."
+    },
+    {
+      "id": "TC-UI-STU-003",
+      "status": "BLOCKED",
+      "executed_at": "2026-10-15T14:10:00",
+      "executed_by": "Claude",
+      "environment": "https://lms-web-demo.vercel.app",
+      "actual": "",
+      "evidence": "",
+      "failure_details": "No enrolled STUDENT account available."
+    },
+    {
+      "id": "TC-UI-STU-006",
+      "status": "BLOCKED",
+      "executed_at": "2026-10-15T14:10:00",
+      "executed_by": "Claude",
+      "environment": "https://lms-web-demo.vercel.app",
+      "actual": "",
+      "evidence": "",
+      "failure_details": "No STUDENT account (student dashboard is behind the /student guard). Code-level check TC-CL-009 covers the source."
+    },
+    {
+      "id": "TC-UI-STU-007",
+      "status": "BLOCKED",
+      "executed_at": "2026-10-15T14:10:00",
+      "executed_by": "Claude",
+      "environment": "https://lms-web-demo.vercel.app",
+      "actual": "",
+      "evidence": "",
+      "failure_details": "No enrolled STUDENT account available."
+    },
+    {
+      "id": "TC-UI-STU-008",
+      "status": "BLOCKED",
+      "executed_at": "2026-10-15T14:10:00",
+      "executed_by": "Claude",
+      "environment": "https://lms-web-demo.vercel.app",
+      "actual": "",
+      "evidence": "",
+      "failure_details": "No enrolled STUDENT account available."
+    },
+    {
+      "id": "TC-UI-STU-009",
+      "status": "BLOCKED",
+      "executed_at": "2026-10-15T14:10:00",
+      "executed_by": "Claude",
+      "environment": "https://lms-web-demo.vercel.app",
+      "actual": "",
+      "evidence": "",
+      "failure_details": "No enrolled STUDENT account with progress available."
+    },
+    {
+      "id": "TC-UI-STU-012",
+      "status": "BLOCKED",
+      "executed_at": "2026-10-15T14:10:00",
+      "executed_by": "Claude",
+      "environment": "https://lms-web-demo.vercel.app",
+      "actual": "",
+      "evidence": "",
+      "failure_details": "No enrolled STUDENT account available."
+    },
+    {
+      "id": "TC-UI-STU-013",
+      "status": "BLOCKED",
+      "executed_at": "2026-10-15T14:10:00",
+      "executed_by": "Claude",
+      "environment": "https://lms-web-demo.vercel.app",
+      "actual": "",
+      "evidence": "",
+      "failure_details": "No STUDENT account (/student/store is behind the /student guard)."
+    },
+    {
+      "id": "TC-UI-ADM-001",
+      "status": "BLOCKED",
+      "executed_at": "2026-10-15T14:10:00",
+      "executed_by": "Claude",
+      "environment": "https://lms-web-demo.vercel.app",
+      "actual": "",
+      "evidence": "",
+      "failure_details": "Feature not implemented (DEF-003 / TC-CL-008) and no ADMIN account available."
+    },
+    {
+      "id": "TC-UI-ADM-003",
+      "status": "BLOCKED",
+      "executed_at": "2026-10-15T14:10:00",
+      "executed_by": "Claude",
+      "environment": "https://lms-web-demo.vercel.app",
+      "actual": "",
+      "evidence": "",
+      "failure_details": "No ADMIN account available."
+    },
+    {
+      "id": "TC-UI-AUTH-010",
+      "status": "PASS",
+      "executed_at": "2026-10-15T15:47:01",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "No cookies; opened /instructor/courses/cmuarm65w0001e41yf7se0an8 -> landed on http://localhost:3000/.",
+      "evidence": "Playwright run 15:47 IST (page.url after navigation)",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-AUTH-001",
+      "status": "PASS",
+      "executed_at": "2026-10-15T15:47:01",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "Empty form + Login: 'Email is required.' and 'Password is required.' shown; 0 requests to /auth/login; URL stays /login.",
+      "evidence": "Playwright run 15:47 IST (request listener count = 0)",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-AUTH-002",
+      "status": "PASS",
+      "executed_at": "2026-10-15T15:47:01",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "Email 'abc': 'Please enter a valid email address.' shown; 0 requests to /auth/login.",
+      "evidence": "Playwright run 15:47 IST",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-AUTH-003",
+      "status": "PASS",
+      "executed_at": "2026-10-15T15:47:01",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "Unknown well-formed email: POST http://localhost:5000/auth/login -> 401; alert 'Invalid email or password.'; URL stays /login.",
+      "evidence": "Playwright run 15:47 IST (waitForResponse + text wait)",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-AUTH-004",
+      "status": "PASS",
+      "executed_at": "2026-10-15T15:39:44",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "Instructor test account: POST /auth/login -> 200 'Login successful', role INSTRUCTOR; landed on /instructor/courses; role cookie INSTRUCTOR.",
+      "evidence": "Playwright run 15:39 IST (response JSON role + cookies)",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-AUTH-005",
+      "status": "BLOCKED",
+      "executed_at": "2026-10-15T15:39:18",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "",
+      "evidence": "POST http://localhost:5000/auth/login for the admin test account -> 401 'Invalid credentials'.",
+      "failure_details": "The password supplied for the admin account is rejected by the local backend (the student and instructor accounts accept the same password). Needs the correct admin password."
+    },
+    {
+      "id": "TC-UI-AUTH-006",
+      "status": "PASS",
+      "executed_at": "2026-10-15T15:40:20",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "Student test account via /login?returnTo=/student/store -> landed on /student/store (role STUDENT). Plain /login lands on /student/my-courses (15:39:36).",
+      "evidence": "Playwright runs 15:39-15:40 IST",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-AUTH-012",
+      "status": "PASS",
+      "executed_at": "2026-10-15T15:45:48",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "Profile menu -> Sign Out opens confirm 'Are you sure you want to sign out of your account?'; Yes, Logout -> POST /auth/logout 200; landed on '/'; accessToken/refreshToken/role cookies removed; /instructor/courses then redirects to '/'.",
+      "evidence": "Playwright run 15:45 IST",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-PUB-001",
+      "status": "PASS",
+      "executed_at": "2026-10-15T15:46:30",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "Home page featured cards (cmuconvl..., cmuconurm..., cmucont1l...) each end 'Pricing unavailable | VIEW COURSE'; local API: all 21 published courses have store=null.",
+      "evidence": "Playwright run 15:46 IST; GET http://localhost:5000/courses?limit=200&status=PUBLISHED",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-PUB-002",
+      "status": "PASS",
+      "executed_at": "2026-10-15T15:46:40",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "/courses/seed_course_java (store=null): h1 'Java Programming Fundamentals'; 'Pricing unavailable' present; no rupee amount; no 4,999; no Buy/Enroll/Checkout control.",
+      "evidence": "test-evidence/browser/local/2026-10-15_public-course-detail.png",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-PUB-003",
+      "status": "PASS",
+      "executed_at": "2026-10-15T15:46:55",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "/courses lists 12 course links; search 'C-CAT' -> 3 (C-CAT Section A/B/C); nonsense search -> 0 with 'No courses match your search'.",
+      "evidence": "test-evidence/browser/local/2026-10-15_public-catalogue-search.png",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-INS-001",
+      "status": "PASS",
+      "executed_at": "2026-10-15T15:41:30",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "4 courses (Java Programming Fundamentals, C-CAT Section A/B/C), all Published; pager '4 total, Page 1 of 1'; GET /courses?sortBy=recently_updated&page=1&limit=12 -> 200; no console errors.",
+      "evidence": "test-evidence/browser/local/2026-10-15_instructor-my-courses.png",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-INS-002",
+      "status": "PASS",
+      "executed_at": "2026-10-15T15:41:40",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "Search 'C-CAT' -> C-CAT Section C/B/A; nonsense search -> 'No courses found matching \"zzqx-no-such-course\"'.",
+      "evidence": "test-evidence/browser/local/2026-10-15_instructor-search-empty.png",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-INS-003",
+      "status": "FAIL",
+      "executed_at": "2026-10-15T15:42:10",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "PUBLISHED course C-CAT Section A (/instructor/courses/cmuarm65w0001e41yf7se0an8): header shows an 'Unpublish' button to the INSTRUCTOR (not clicked).",
+      "evidence": "test-evidence/browser/local/2026-10-15_instructor-course-detail-published.png",
+      "failure_details": "Instructor has a publication control (CLAUDE.md §8). See DEF-001 / TC-CL-006. No DRAFT course exists for this instructor, so the Publish variant was not observed."
+    },
+    {
+      "id": "TC-UI-INS-004",
+      "status": "PASS",
+      "executed_at": "2026-10-15T15:42:20",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "Edit form fields: title, description, category, level, thumbnailUrl, file, visibility, language, tags, estimatedLearningHours, certificatesEnabled, discussionEnabled; no price/discount/free text on the page. Nothing saved.",
+      "evidence": "test-evidence/browser/local/2026-10-15_instructor-course-edit.png",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-INS-005",
+      "status": "NOT RUN",
+      "executed_at": "2026-10-15T15:44:00",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "Partial only: composer for C-CAT Section A renders Course Map (Course Settings + 5 modules); expanding 'English' shows its 10 lessons; status 'Synced'; no console errors.",
+      "evidence": "test-evidence/browser/local/2026-10-15_instructor-composer-expanded.png",
+      "failure_details": "Topic / SubTopic / Concept rows and their lazy loading were not verified, so the case is not marked PASS."
+    },
+    {
+      "id": "TC-UI-INS-013",
+      "status": "PASS",
+      "executed_at": "2026-10-15T15:42:50",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "/instructor/assignments renders 'ASSIGNMENTS' with a 'Recently submitted' section; no console errors.",
+      "evidence": "test-evidence/browser/local/2026-10-15_instructor-grading.png",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-STU-001",
+      "status": "FAIL",
+      "executed_at": "2026-10-15T15:40:30",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "/student/store shows 20 'FREE' badges and 20 'Enroll Free' buttons, 0 'Pricing unavailable'; every published course in the local API has store=null.",
+      "evidence": "test-evidence/browser/local/2026-10-15_student-store.png",
+      "failure_details": "Courses with no Store are presented as free and enrollable (DEF-002 / TC-CL-005). Enroll Free was not clicked."
+    },
+    {
+      "id": "TC-UI-STU-002",
+      "status": "BLOCKED",
+      "executed_at": "2026-10-15T15:40:30",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "",
+      "evidence": "Local API: 21 published courses, all store=null.",
+      "failure_details": "No priced course exists in the local database and there is no admin pricing UI to create one (DEF-003)."
+    },
+    {
+      "id": "TC-UI-STU-003",
+      "status": "PASS",
+      "executed_at": "2026-10-15T15:41:10",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "Enrolled course /student/courses/seed_course_java shows 'Continue Learning' (x2) and no Buy/Enroll control.",
+      "evidence": "test-evidence/browser/local/2026-10-15_student-enrolled-course-details.png",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-STU-006",
+      "status": "PASS",
+      "executed_at": "2026-10-15T15:41:00",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "Dashboard recommendations are 'View Course' links (/student/courses/<id>); no Buy/Enroll buttons; clicking the first opened /courses/cmuconvl0000bue78ufxu3so6; window.Razorpay undefined, no Razorpay iframe.",
+      "evidence": "test-evidence/browser/local/2026-10-15_student-dashboard.png",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-STU-013",
+      "status": "PASS",
+      "executed_at": "2026-10-15T15:41:20",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "With GET localhost:5000/courses aborted in the browser, /student/store shows 'Unable to load the store' / 'Please try again later.' and 0 course cards.",
+      "evidence": "test-evidence/browser/local/2026-10-15_student-store-api-down.png",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-STU-007",
+      "status": "NOT RUN",
+      "executed_at": "2026-10-15T15:48:00",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "",
+      "evidence": "",
+      "failure_details": "Student account now available (no longer blocked). Not run: stepping through the player records learning progress for the student, which the read-only rule excludes until approved."
+    },
+    {
+      "id": "TC-UI-STU-008",
+      "status": "NOT RUN",
+      "executed_at": "2026-10-15T15:48:00",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "",
+      "evidence": "",
+      "failure_details": "Student account now available (no longer blocked). Not run: stepping through the player records learning progress for the student, which the read-only rule excludes until approved."
+    },
+    {
+      "id": "TC-UI-STU-009",
+      "status": "NOT RUN",
+      "executed_at": "2026-10-15T15:48:00",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "",
+      "evidence": "",
+      "failure_details": "Student account now available (no longer blocked). Not run: stepping through the player records learning progress for the student, which the read-only rule excludes until approved."
+    },
+    {
+      "id": "TC-UI-STU-012",
+      "status": "NOT RUN",
+      "executed_at": "2026-10-15T15:48:00",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "",
+      "evidence": "",
+      "failure_details": "Student account now available (no longer blocked). Not run: stepping through the player records learning progress for the student, which the read-only rule excludes until approved."
+    },
+    {
+      "id": "TC-UI-ADM-001",
+      "status": "BLOCKED",
+      "executed_at": "2026-10-15T15:48:00",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "",
+      "evidence": "",
+      "failure_details": "Admin pricing UI not implemented (DEF-003 / TC-CL-008), and the supplied admin password is rejected locally."
+    },
+    {
+      "id": "TC-UI-ADM-003",
+      "status": "BLOCKED",
+      "executed_at": "2026-10-15T15:48:00",
+      "executed_by": "Claude via Playwright MCP (test accounts supplied by the user; passwords not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "",
+      "evidence": "",
+      "failure_details": "The supplied admin password is rejected by the local backend (401 Invalid credentials)."
+    },
+    {
+      "id": "TC-UI-AUTH-005",
+      "status": "PASS",
+      "executed_at": "2026-10-15T15:53:17",
+      "executed_by": "Claude via Playwright MCP (admin test account supplied by the user; password not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "Admin test account: POST http://localhost:5000/auth/login -> 200 'Login successful', role ADMIN; landed on /admin/dashboard; role cookie ADMIN.",
+      "evidence": "Playwright run 15:53 IST (response JSON role + cookies)",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-ADM-003",
+      "status": "PASS",
+      "executed_at": "2026-10-15T15:53:30",
+      "executed_by": "Claude via Playwright MCP (admin test account supplied by the user; password not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "/admin/dashboard renders 'Good afternoon, Temp', 'Needs your attention', 'Today', 'Recent sign-ups', 'Recent activity', 'Course performance' with figures; 0 console errors; 0 API responses >= 400.",
+      "evidence": "test-evidence/browser/local/2026-10-15_admin-dashboard.png",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-ADM-004",
+      "status": "FAIL",
+      "executed_at": "2026-10-15T15:55:10",
+      "executed_by": "Claude via Playwright MCP (admin test account supplied by the user; password not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "/admin/courses/cmuarm65w0001e41yf7se0an8: loading spinner only after 30.6 s; no heading, no course content. API calls: GET /auth/profile 200, GET /notifications 200, GET /calendar 200 — no GET /courses/:id. No console errors.",
+      "evidence": "test-evidence/browser/local/2026-10-15_admin-course-detail.png",
+      "failure_details": "Page never fetches the course: loadCourse() is not called on mount (useEffect removed in commit bf1787c). See DEF-010 / TC-CL-016."
+    },
+    {
+      "id": "TC-UI-ADM-001",
+      "status": "FAIL",
+      "executed_at": "2026-10-15T15:55:10",
+      "executed_by": "Claude via Playwright MCP (admin test account supplied by the user; password not recorded)",
+      "environment": "local: frontend http://localhost:3000 (npm run dev) + backend http://localhost:5000 (npm start, backend/lms-api .env database)",
+      "actual": "Admin course detail page cannot be used at all (endless spinner, DEF-010); its source also has no price/discount/free-flag fields and no Store pricing service exists (TC-CL-008). Nothing saved.",
+      "evidence": "test-evidence/browser/local/2026-10-15_admin-course-detail.png",
+      "failure_details": "Admin cannot set Store pricing: page does not load (DEF-010) and the pricing UI is not implemented (DEF-003)."
+    },
+    {
+      "id": "TC-UI-AUTH-013",
+      "status": "PASS",
+      "executed_at": "2026-10-19T10:46:49",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "http://localhost:3000 (npm run dev, local working tree); /auth/verify-reset-otp (200) and /auth/reset-password (400 reuse message) mocked with page.route — no email sent, no DB write",
+      "actual": "Step 1: 1 form input (OTP) + 'Resend in 60s' + Verify OTP; POST verify-reset-otp {email, otp}. Step 2 'Create New Password': 2 inputs + 6-item requirement checklist; 'weakpass' blocked client-side with policy message (no request sent); 'Str0ng!Pass' sent {email, otp, newPassword}; error 'New password must be different from your previous password.' displayed.",
+      "evidence": "Playwright run 2026-10-19 with captured request bodies; screenshots reset-step1.png / reset-step2.png in the session scratchpad",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-AUTH-013",
+      "status": "PASS",
+      "executed_at": "2026-10-19T11:02:00",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "http://localhost:3000 (npm run dev, local working tree), light + dark theme, 1280px and 360px; /auth/verify-reset-otp and /auth/reset-password mocked with page.route — no email sent, no DB write",
+      "actual": "Typed '12345' → boxes '12345'; wrong code 123459 → API 'Invalid OTP' shown as \"That code isn't correct...\" and boxes border rgb(180,48,42); Backspace → '12345' and error cleared; paste '65 43-21' → '654321'; request bodies {email, otp}. Step 2: labelled 'New password'/'Confirm new password'; 'Str0ng!Pa' → 3 success bars + 'Strong'; 'weakpass1' → 2 warning bars + 'Fair'; mismatch → \"Passwords don't match\"; valid submit → 'Password updated' + Sign in. 360px: no horizontal overflow.",
+      "evidence": "Playwright runs 2026-10-19 with computed-style probes and captured request bodies; screenshots r2-*/r3-*/r4-* in the session scratchpad",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-AUTH-013",
+      "status": "PASS",
+      "executed_at": "2026-10-19T11:09:00",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "http://localhost:3000 (npm run dev, local working tree), dark theme, 1280px and 360px; /auth/verify-reset-otp mocked with page.route — no email sent, no DB write",
+      "actual": "Step 2 has no requirements checklist (#reset-password-requirements contains no <ul>). 'abc' → Weak, bars [destructive, border, border]; 'weakpass1' → Medium, bars [warning, warning, border]; 'Str0ng!Pass' → Strong, 3 success bars. Matching confirmation shows 'Passwords match'. No horizontal overflow at 1280px or 360px.",
+      "evidence": "Playwright run 2026-10-19 with computed-style probes; screenshots r5-step2-1280.png / r5-step2-360.png in the session scratchpad",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-INS-020",
+      "status": "PASS",
+      "executed_at": "2026-10-19T12:40:00",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "http://localhost:3000 (npm run dev, local working tree) + API http://localhost:5000; INSTRUCTOR account (credentials typed by the user, not stored); course cmv7xcix70003cm1gawuruyn0; 1600×900",
+      "actual": "navbar bottom 69px, Course Map top 89px, Course Overview card top 90px (1px border); documentElement does not scroll.",
+      "evidence": "getBoundingClientRect probe; screenshot v-composer.png in session scratchpad",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-INS-021",
+      "status": "PASS",
+      "executed_at": "2026-10-19T12:45:00",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "http://localhost:3000 (npm run dev, local working tree) + API http://localhost:5000; INSTRUCTOR account (credentials typed by the user, not stored); course cmv7xcix70003cm1gawuruyn0",
+      "actual": "Topic 'Spotting Errors' (in Grammar), SubTopic 'Subject Verb Agreement' (in Spotting Errors) and Concept 'Reference Material' each show their header; Edit Topic/SubTopic/Concept form opened prefilled with the record's title; closed with Escape, nothing saved.",
+      "evidence": "Playwright run; screenshots v-topic.png, v-topic-edit.png, v-subtopic.png",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-INS-022",
+      "status": "PASS",
+      "executed_at": "2026-10-19T12:55:00",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "http://localhost:3000 (npm run dev, local working tree) + API http://localhost:5000; INSTRUCTOR account (credentials typed by the user, not stored); course cmv7xcix70003cm1gawuruyn0",
+      "actual": "1600×900 and 1366×768: document does not scroll, content overflow 0px, back button 12px below navbar. 1280×720: document does not scroll; body below the back button scrolls 43px.",
+      "evidence": "scrollHeight/clientHeight probes; screenshot v-upload-1366.png",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-INS-023",
+      "status": "PASS",
+      "executed_at": "2026-10-19T12:35:00",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "http://localhost:3000 (npm run dev, local working tree) + API http://localhost:5000; INSTRUCTOR account (credentials typed by the user, not stored); course cmv7xcix70003cm1gawuruyn0",
+      "actual": "First-click open from: course '+ Add Content' (×4), module header (×3), Course Map ⋯ on course/module/lesson/topic/subtopic rows (real mouse, ×14), Add Above/Below (×3). After the preload change the picker chunk is already in performance entries before any click; first open 92ms (was 479ms cold). The user's original 2–3-click report could not be reproduced on this build.",
+      "evidence": "Playwright runs with click counters and performance.getEntriesByType('resource')",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-INS-024",
+      "status": "PASS",
+      "executed_at": "2026-10-19T13:20:00",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "http://localhost:3000 (npm run dev, local working tree) + API http://localhost:5000; INSTRUCTOR account; course cmuo9b5a40001e51g8gpp7hg0, lesson Vocabulary; new quiz cancelled after each run (nothing saved)",
+      "actual": "10 on page 1 + 9 on page 2, added from page 2 → 'Add Selected (19)' → '19 Questions • 19 Total Marks'. 2 + 3 across pages → 5 added. 1 ticked, search 'closest', 1 more → both added (5 → 7). Before the fix the user's recording showed 9 ticked → 5 added and 11 ticked → 4 added (only the open page's ticks).",
+      "evidence": "Playwright runs with question-count probes; screenshot v-repo-fix.png; user's recording 'Screen Recording 2026-10-19 131121.mp4'",
+      "failure_details": ""
+    }
+  ]
+}

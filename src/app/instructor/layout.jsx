@@ -46,11 +46,19 @@ export default function Layout({ children }) {
     segments.length === 3 &&
     !["edit", "import", "create"].includes(segments[2]);
 
-  if (isCourseComposerPage) {
+  // Question upload fits one screen: same bounded shell, so the page itself
+  // never scrolls and the back button sits right under the navbar instead of
+  // under DashboardLayout's p-16 padding.
+  const isQuestionUploadPage = pathname === "/instructor/questions/upload";
+
+  if (isCourseComposerPage || isQuestionUploadPage) {
     return (
       <InstructorNavDrawerProvider>
         <div className="h-screen flex flex-col overflow-hidden">
-          <DashboardNavbar role="INSTRUCTOR" title="Course Composer" />
+          <DashboardNavbar
+            role="INSTRUCTOR"
+            title={isCourseComposerPage ? "Course Composer" : "Instructor Home"}
+          />
           <div className="flex-1 min-h-0">{children}</div>
         </div>
         <InstructorNavDrawer />

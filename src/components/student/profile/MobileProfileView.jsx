@@ -23,6 +23,8 @@ import {
 
 import UserAvatar from "@/components/admin/users/UserAvatar";
 import { changePassword } from "@/services/auth.service";
+import { getNewPasswordError } from "@/lib/passwordPolicy";
+import PasswordRequirements from "@/components/auth/PasswordRequirements";
 
 function InfoRow({ icon: Icon, label, value, onClick }) {
   const content = (
@@ -226,8 +228,9 @@ function ChangePasswordModal({ onClose }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (form.newPassword !== form.confirmPassword) {
-      setStatus({ loading: false, error: "New passwords do not match.", success: "" });
+    const passwordError = getNewPasswordError(form);
+    if (passwordError) {
+      setStatus({ loading: false, error: passwordError, success: "" });
       return;
     }
 
@@ -293,6 +296,7 @@ function ChangePasswordModal({ onClose }) {
             onChange={(e) => setForm({ ...form, newPassword: e.target.value })}
             className="w-full bg-background border border-border rounded-xl px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-primary transition"
           />
+          <PasswordRequirements password={form.newPassword} />
           <input
             type="password"
             required

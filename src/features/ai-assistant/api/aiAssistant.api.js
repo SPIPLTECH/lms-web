@@ -1,6 +1,7 @@
 import Cookies from "js-cookie";
 import api from "@/lib/axios";
 import { getApiOrigin } from "@/lib/apiOrigin";
+import { getDeviceKey } from "@/lib/authCookies";
 
 /**
  * The only place the AI Assistant talks to the network.
@@ -124,6 +125,9 @@ export const streamConversationMessage = async ({
   signal,
 }) => {
   const token = Cookies.get("accessToken");
+  // Sessions are bound to a device; this bare fetch bypasses the axios
+  // interceptor that normally adds the key.
+  const deviceKey = getDeviceKey();
   const { courseId, moduleId, lessonId, topicId, contentIds } = position;
 
   const response = await fetch(
@@ -133,6 +137,7 @@ export const streamConversationMessage = async ({
       headers: {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(deviceKey ? { "X-Device-Key": deviceKey } : {}),
       },
       body: JSON.stringify({ message, courseId, moduleId, lessonId, topicId, contentIds }),
       signal,

@@ -23,7 +23,10 @@ export default function QuestionRepositoryPickerModal({ open, onClose, onAddQues
   const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [selectedIds, setSelectedIds] = useState(new Set());
+  // id → question. The whole question is kept, not just its id: `items` only
+  // ever holds the page (or search result) on screen, so resolving ids against
+  // it at "Add Selected" silently dropped everything ticked on another page.
+  const [selected, setSelected] = useState(() => new Map());
 
   const excludeSet = new Set(excludeIds.map(String));
 
@@ -31,7 +34,7 @@ export default function QuestionRepositoryPickerModal({ open, onClose, onAddQues
     if (!open) return;
     setSearch("");
     setPage(1);
-    setSelectedIds(new Set());
+    setSelected(new Map());
   }, [open]);
 
   useEffect(() => {
@@ -68,18 +71,19 @@ export default function QuestionRepositoryPickerModal({ open, onClose, onAddQues
     };
   }, [open, search, page, courseId]);
 
-  const toggleSelect = (id) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+  const toggleSelect = (question) => {
+    setSelected((prev) => {
+      const next = new Map(prev);
+      if (next.has(question.id)) next.delete(question.id);
+      else next.set(question.id, question);
       return next;
     });
   };
 
   const handleAddSelected = () => {
-    const chosen = items.filter((q) => selectedIds.has(q.id));
-    onAddQuestions?.(chosen);
+    // Every ticked question, in the order it was ticked, whichever page or
+    // search result is showing now.
+    onAddQuestions?.(Array.from(selected.values()));
     onClose();
   };
 
@@ -119,13 +123,13 @@ export default function QuestionRepositoryPickerModal({ open, onClose, onAddQues
           ) : (
             items.map((q) => {
               const alreadyInQuiz = excludeSet.has(String(q.id));
-              const isChecked = selectedIds.has(q.id);
+              const isChecked = selected.has(q.id);
               return (
                 <button
                   type="button"
                   key={q.id}
                   disabled={alreadyInQuiz}
-                  onClick={() => toggleSelect(q.id)}
+                  onClick={() => toggleSelect(q)}
                   className={`w-full flex items-start gap-3 p-3 rounded-xl border text-left transition ${
                     alreadyInQuiz
                       ? "border-border bg-background/30 opacity-50 cursor-not-allowed"
@@ -183,14 +187,14 @@ export default function QuestionRepositoryPickerModal({ open, onClose, onAddQues
         )}
 
         <div className="shrink-0 flex items-center justify-between pt-4 mt-1 border-t border-border">
-          <span className="text-sm text-muted-foreground">{selectedIds.size} selected</span>
+          <span className="text-sm text-muted-foreground">{selected.size} selected</span>
           <button
             type="button"
             onClick={handleAddSelected}
-            disabled={selectedIds.size === 0}
+            disabled={selected.size === 0}
             className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-foreground text-sm font-extrabold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           >
-            Add Selected ({selectedIds.size})
+            Add Selected ({selected.size})
           </button>
         </div>
       </div>
