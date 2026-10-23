@@ -53,7 +53,7 @@ export default function LearnPageHeader({
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <div className="hidden xl:block min-w-0">
                 <span className="text-[12px] font-black uppercase tracking-widest text-muted-foreground truncate block">
-                  LEARNING WORKSPACE
+                  LEARNING WORKSPACE 
                 </span>
                 <h2 className="text-base font-bold text-foreground truncate">
                   {selectedLesson ? `Lesson: ${selectedLesson.title}` : course?.title || "Course Overview"}
