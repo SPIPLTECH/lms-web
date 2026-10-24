@@ -46,14 +46,6 @@ export const getStudentById = async (studentId) => {
 };
 
 /**
- * Update Student
- */
-export const updateStudent = async (studentId, studentData) => {
-  const { data } = await api.put(`/students/${studentId}`, studentData);
-  return data;
-};
-
-/**
  * Get Student Learning State (Journey State)
  */
 export const getStudentState = async (courseId) => {

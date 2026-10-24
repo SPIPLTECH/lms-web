@@ -3,7 +3,6 @@ import { QUERY_KEYS } from "@/constants/queryKeys";
 import {
   markContentComplete,
   markContentCompleteBatch,
-  completeLesson as completeLessonApi,
   markVisited as markVisitedApi,
 } from "@/services/progress.service";
 
@@ -135,36 +134,3 @@ export function useMarkVisited() {
   });
 }
 
-export function useCompleteLesson() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ lessonId, completed = true }) => completeLessonApi(lessonId, completed),
-    onSuccess: (data) => {
-      // Same reasoning as useCompleteContent above: write the response's
-      // already-fresh rollup straight into the cache instead of paying for a
-      // second network round trip + a second full server-side rollup.
-      const fresh = data?.courseProgress;
-      if (fresh?.hierarchy) {
-        queryClient.setQueriesData({ queryKey: [QUERY_KEYS.COURSE_PROGRESS] }, (old) => {
-          if (!old || old.courseId !== fresh.courseId || old.studentId !== fresh.studentId) return old;
-          return fresh;
-        });
-      } else {
-        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.COURSE_PROGRESS] });
-      }
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.PROGRESS] });
-      // Completing content can settle the node the student is on and open
-      // the next one, so the gate has to be refetched alongside the numbers.
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_PATH] });
-      // …and the learning sequence the player walks, which carries the locks.
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_SEQUENCE] });
-      // The next action is derived from the path and the evidence, so it
-      // moves whenever either does.
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.NEXT_ACTION] });
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.RECOMMENDATIONS] });
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.STUDENT_DASHBOARD] });
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.MY_COURSES] });
-    }
-  });
-}

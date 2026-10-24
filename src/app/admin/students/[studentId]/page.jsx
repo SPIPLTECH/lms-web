@@ -55,19 +55,6 @@ export default function StudentDetailsPage() {
                 >
                     Back
                 </Button>
-
-                {/* Enable when edit page is available */}
-                {/*
-        <Button
-          onClick={() =>
-            router.push(
-              `/admin/student/edit/${student.id}`
-            )
-          }
-        >
-          Edit Student
-        </Button>
-        */}
             </div>
         </div>
     );

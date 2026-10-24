@@ -2,15 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  Code,
   FileText,
-  Image as ImageIcon,
   Layers,
-  Link as LinkIcon,
-  MoreHorizontal,
-  Table,
-  Type,
-  Video as VideoIcon,
 } from "lucide-react";
 
 import Loader from "@/components/common/Loader";
@@ -53,7 +46,6 @@ interface LessonComposerPanelProps {
   onAutoOpenConsumed?: () => void;
   draftContents?: ContentRow[];
   isDraftMode?: boolean;
-  onUpdateDraftContents?: (contents: ContentRow[]) => void;
   /** Opens the lesson-quiz creation flow for this topic's parent lesson — a Quiz isn't a Content row, so picking it from the Add Content grid hands off to that flow instead of an in-panel form. Passed for "topic", "subTopic" and "concept" parents. Omit to hide the Quiz option. */
   onAddQuiz?: () => void;
 }
@@ -188,7 +180,6 @@ export function LessonComposerPanel({
   onAutoOpenConsumed,
   draftContents,
   isDraftMode = false,
-  onUpdateDraftContents,
   onAddQuiz,
 }: LessonComposerPanelProps) {
   const { data: apiContents = [], isLoading: isApiLoading, isError: isApiError } = useContents(isDraftMode ? undefined : parent);

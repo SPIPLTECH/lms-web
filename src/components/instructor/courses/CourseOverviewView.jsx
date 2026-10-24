@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Archive, ChevronRight } from "lucide-react";
 import { UploadButton } from "@/components/instructor/courses/UploadButton";
-import { getDisplayUrl } from "@/lib/blob";
 import { LessonComposerPanel } from "@/components/instructor/LessonComposer/LessonComposerPanel";
 
 export function CourseOverviewView({

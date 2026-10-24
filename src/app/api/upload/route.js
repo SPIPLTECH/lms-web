@@ -1,7 +1,6 @@
 import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { getDisplayUrl } from "@/lib/blob";
 import { CONTENT_ACTIVE_ON_ANOTHER_DEVICE, contentAccessFor } from "@/lib/server/sessionCaller";
 
 const ALLOWED_ROLES = ["INSTRUCTOR", "ADMIN"];

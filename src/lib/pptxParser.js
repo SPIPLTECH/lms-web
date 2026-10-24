@@ -542,4 +542,3 @@ export async function parsePptxArrayBuffer(arrayBuffer) {
   return { slides };
 }
 
-export default parsePptxArrayBuffer;

@@ -143,7 +143,7 @@ export function parseSlideDeckJson(raw: string | null | undefined): SlideItemV2[
   return [];
 }
 
-export function adaptLegacySlide(slide: SlideItemV2 | LegacySlideItem): SlideItemV2 {
+function adaptLegacySlide(slide: SlideItemV2 | LegacySlideItem): SlideItemV2 {
   const anySlide = slide as SlideItemV2 & LegacySlideItem;
   const backgroundColor = isValidHexColor(anySlide.backgroundColor || "")
     ? (anySlide.backgroundColor as string)

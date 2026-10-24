@@ -8,21 +8,12 @@
  * actually allow, which is the whole reason the endpoint exists.
  */
 
-export const PATH_STATUS = {
+const PATH_STATUS = {
     COMPLETED: "COMPLETED",
     QUALIFIED: "QUALIFIED",
     CURRENT: "CURRENT",
     AVAILABLE: "AVAILABLE",
     LOCKED: "LOCKED",
-};
-
-/** How each status reads to a student, and how it should look. */
-export const PATH_STATUS_META = {
-    [PATH_STATUS.COMPLETED]: { label: "Completed", tone: "emerald" },
-    [PATH_STATUS.QUALIFIED]: { label: "Qualified to Skip", tone: "violet" },
-    [PATH_STATUS.CURRENT]: { label: "Currently learning", tone: "primary" },
-    [PATH_STATUS.AVAILABLE]: { label: "Available", tone: "sky" },
-    [PATH_STATUS.LOCKED]: { label: "Locked", tone: "muted" },
 };
 
 /**
@@ -47,24 +38,9 @@ export function buildPathIndex(path) {
 }
 
 /** The server's entry for one lesson/topic/module id, or null. */
-export function getPathEntry(pathIndex, nodeId) {
+function getPathEntry(pathIndex, nodeId) {
     if (!pathIndex || !nodeId) return null;
     return pathIndex.byId.get(nodeId) || null;
-}
-
-/**
- * True only when the server has said this node is locked. An unknown node —
- * or an unavailable path — is never treated as locked: the backend refuses
- * the request anyway, and guessing here would hide content a student has
- * earned.
- */
-export function isNodeLocked(pathIndex, nodeId) {
-    return getPathEntry(pathIndex, nodeId)?.locked === true;
-}
-
-/** True when the student skipped this node by passing its qualifying test. */
-export function isNodeQualified(pathIndex, nodeId) {
-    return getPathEntry(pathIndex, nodeId)?.qualified === true;
 }
 
 /**
@@ -74,7 +50,7 @@ export function isNodeQualified(pathIndex, nodeId) {
  * already accounts for the node being the student's current one, not already
  * finished, not locked, and the quiz having questions.
  */
-export function getSkipOffer(pathIndex, nodeId) {
+function getSkipOffer(pathIndex, nodeId) {
     const entry = getPathEntry(pathIndex, nodeId);
     if (!entry?.skippable || !entry.qualifyingQuiz) return null;
     return {

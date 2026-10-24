@@ -10,7 +10,7 @@
 import { asSentence, textsToChunks } from "./textToSpeech.js";
 import { checkAnswerCorrectness } from "./quizAnswers.js";
 
-export const optionText = (opt) => {
+const optionText = (opt) => {
   if (opt === null || opt === undefined) return "";
   if (typeof opt === "string") return opt;
   if (typeof opt === "object") return opt.optionText || opt.text || "";

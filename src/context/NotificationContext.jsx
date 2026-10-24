@@ -20,7 +20,7 @@ const NotificationContext = createContext();
 let audioCtxSingleton = null;
 
 // Self-contained chime player using HTML5 AudioContext
-export const playNotificationChime = () => {
+const playNotificationChime = () => {
   try {
     if (typeof window === "undefined") return;
     const AudioCtx = window.AudioContext || window.webkitAudioContext;

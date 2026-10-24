@@ -1,25 +1,5 @@
 import api from "@/lib/axios";
 
-export const getTopics =
-  async (lessonId) => {
-    const response =
-      await api.get(
-        `/topics?lessonId=${lessonId}`
-      );
-
-    return response.data;
-  };
-
-export const getTopicById =
-  async (topicId) => {
-    const response =
-      await api.get(
-        `/topics/${topicId}`
-      );
-
-    return response.data;
-  };
-
 export const createTopic =
   async (data) => {
     const response =
@@ -55,13 +35,3 @@ export const deleteTopic =
     return response.data;
   };
 
-export const reorderTopics =
-  async (lessonId, topics) => {
-    const response =
-      await api.patch(
-        "/topics/reorder",
-        { lessonId, topics }
-      );
-
-    return response.data;
-  };

@@ -18,7 +18,7 @@ export const QUESTION_STATUS = {
 };
 
 /** An answer the student has actually given, as opposed to a cleared one. */
-export function hasAnswer(answer) {
+function hasAnswer(answer) {
     if (answer === undefined || answer === null || answer === "") return false;
     if (Array.isArray(answer)) return answer.length > 0;
     if (typeof answer === "object") return Object.keys(answer).length > 0;
@@ -34,7 +34,7 @@ export function hasAnswer(answer) {
  * server re-derives status from its own grading at submit, so the two must
  * agree or the navigator and the stored record would tell different stories.
  */
-export function resolveStatus({ answered, skipped, visited }) {
+function resolveStatus({ answered, skipped, visited }) {
     if (answered) return QUESTION_STATUS.ANSWERED;
     if (skipped) return QUESTION_STATUS.SKIPPED;
     if (visited) return QUESTION_STATUS.VISITED;

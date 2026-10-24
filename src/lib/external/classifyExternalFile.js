@@ -148,4 +148,3 @@ export function classifyExternalFile(inputUrl) {
   };
 }
 
-export default classifyExternalFile;

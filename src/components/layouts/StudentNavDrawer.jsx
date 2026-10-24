@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 // `Settings` is imported by the commented-out Settings entry below only.
 import { ChevronDown, LifeBuoy, LogOut, X } from "lucide-react";
 
@@ -112,7 +112,7 @@ export default function StudentNavDrawer() {
   const handleLogout = async () => {
     setShowLogoutModal(false);
     close();
-    // logout() itself clears auth state and redirects to the Landing Page —
+    // logout() itself clears auth state and redirects to Login —
     // navigating here too would race it while cookies/user state are still
     // present, which is what let the old redirect bounce back into the app.
     // If the server couldn't end the session, the user stays signed in.

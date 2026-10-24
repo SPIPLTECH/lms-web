@@ -37,7 +37,7 @@ export const NEXT_ACTION = {
     NOTHING_TO_DO: "NOTHING_TO_DO",
 };
 
-export const ACTION_STYLE = {
+const ACTION_STYLE = {
     COURSE_COMPLETED: { icon: Trophy, tone: "emerald" },
     REVIEW_TOPIC: { icon: BookOpen, tone: "amber" },
     REVIEW_MISCONCEPTION: { icon: Lightbulb, tone: "amber" },

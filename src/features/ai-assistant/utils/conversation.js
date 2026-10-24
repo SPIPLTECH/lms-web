@@ -2,7 +2,7 @@
  * Presentation-only helpers for the AI Assistant. No network, no LLM.
  */
 
-export const DEFAULT_TITLE = "New conversation";
+const DEFAULT_TITLE = "New conversation";
 
 /** Groups conversations into Today / Earlier, preserving server ordering. */
 export function groupByRecency(conversations = []) {
@@ -34,7 +34,7 @@ export function displayTitle(conversation) {
  * advertise a refusal. The enrolled set is deliberately free of anything that
  * reads as "help me answer the quiz".
  */
-export const SUGGESTIONS = {
+const SUGGESTIONS = {
   GUEST: [
     "What courses are available on Orange Tree?",
     "What can I learn on this platform?",

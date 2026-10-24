@@ -7,34 +7,11 @@ export const getContents = async (parent) => {
   return response.data?.data ?? response.data ?? [];
 };
 
-/** Instructor-wide contents (no topicId = every topic across the instructor's own courses). */
-export const getInstructorContents = async () => {
-  const response = await api.get("/contents");
-  return response.data?.data ?? response.data ?? [];
-};
-
-export const getContentById = async (contentId) => {
-  const response = await api.get(`/contents/${contentId}`);
-  return response.data;
-};
-
 import { uploadFileToBlob } from "./blobUpload.service";
 
 /** Uploads a raw file (PDF/PPT/DOCX/ZIP/Video/Image) directly to Vercel Blob and returns { url, fileUrl, originalName, size }. */
 export const uploadFileToVercelBlob = async (file, options = {}) => {
   return await uploadFileToBlob(file, options);
-};
-
-/** Uploads a content file directly to Vercel Blob and returns its hosted URL and file metadata. */
-export const uploadContentFile = async (file, options = {}) => {
-  const result = await uploadFileToBlob(file, options);
-  return {
-    success: true,
-    fileUrl: result.url,
-    originalName: result.originalName,
-    size: result.size,
-    ...result,
-  };
 };
 
 export const createContent = async (data) => {

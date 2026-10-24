@@ -40,7 +40,7 @@ function escapeHtml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-export function buildImageHtml({ src, alt, caption }: ParsedImage): string {
+function buildImageHtml({ src, alt, caption }: ParsedImage): string {
   const figcaption = caption ? `<figcaption>${escapeHtml(caption)}</figcaption>` : "";
   return `<figure class="${IMAGE_MARKER_CLASS}"><img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" />${figcaption}</figure>`;
 }
@@ -293,7 +293,7 @@ export function ImageCell({
 
 export function CreateImageForm({ parent, order, onCreated, onCancel }: CreateCellFormProps) {
   const [src, setSrc] = useState("");
-  const [alt, setAlt] = useState("");
+  const alt = "";
   const [caption, setCaption] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);

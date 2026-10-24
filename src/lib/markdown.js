@@ -52,14 +52,6 @@ function ensureLanguagesRegistered() {
   registered = true;
 }
 
-/** Manual escape for code text that isn't run through highlight.js (unregistered/missing language). */
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
 const marked = new Marked({
   gfm: true,
   breaks: false,

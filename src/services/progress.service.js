@@ -26,17 +26,6 @@ export const markContentCompleteBatch = async (contentIds, completed = true) => 
 };
 
 /**
- * Mark a lesson (and all its topic contents) as complete or incomplete
- */
-export const completeLesson = async (lessonId, completed = true) => {
-  const { data } = await api.post("/progress/complete", {
-    lessonId,
-    completed
-  });
-  return data.data ?? data;
-};
-
-/**
  * Marks a Content/Quiz/Assignment/Topic/Lesson/Module as visited — drives
  * "Continue Learning" resume tracking. Pass exactly one of the entity ids
  * (contentId, quizId, assignmentId, topicId, lessonId, moduleId), matching
@@ -93,19 +82,3 @@ export const getLearningPath = async (courseId, studentId = null) => {
   };
 };
 
-/**
- * Fetch overall progress across enrolled courses (Student or Instructor viewing a student)
- */
-export const getOverallProgress = async (studentId = null) => {
-  const url = studentId ? `/progress?studentId=${studentId}` : "/progress";
-  const { data } = await api.get(url);
-  return data.data ?? data;
-};
-
-/**
- * Fetch read-only course progress analytics for Instructors
- */
-export const getInstructorCourseProgress = async (courseId) => {
-  const { data } = await api.get(`/progress/instructor/courses/${courseId}`);
-  return data.data ?? data;
-};

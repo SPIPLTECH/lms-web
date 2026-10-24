@@ -4,7 +4,6 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Sparkles,
-  Bot,
   X,
   AlertCircle,
   RefreshCw,
@@ -80,7 +79,6 @@ export default function AiComposerModal({
     lessonTitle: initialLessonTitle = "",
     topicId: initialTopicId,
     topicTitle: initialTopicTitle = "",
-    contentId,
     activeLevel = "COURSE",
     modules = [],
   } = contextData || {};

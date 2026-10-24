@@ -19,7 +19,7 @@ export const PASSWORD_RULES = [
 export const PASSWORD_POLICY_MESSAGE =
   "Password must be 8–128 characters with no spaces, and include an uppercase letter, a lowercase letter, a number and a special character.";
 
-export const isValidPassword = (password) => PASSWORD_REGEX.test(password || "");
+const isValidPassword = (password) => PASSWORD_REGEX.test(password || "");
 
 /**
  * Validate a new password before submit. Returns an error message, or "" when

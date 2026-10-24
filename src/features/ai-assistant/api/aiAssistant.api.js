@@ -35,16 +35,6 @@ export const getMessages = async (conversationId) => {
   return data.data ?? [];
 };
 
-export const updateConversation = async (conversationId, payload) => {
-  const { data } = await api.patch(`/ai-assistant/conversations/${conversationId}`, payload);
-  return data.data;
-};
-
-export const deleteConversation = async (conversationId) => {
-  const { data } = await api.delete(`/ai-assistant/conversations/${conversationId}`);
-  return data.data;
-};
-
 /* --------------------------------- streaming -------------------------------- */
 
 /**

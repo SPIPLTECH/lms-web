@@ -33,7 +33,7 @@ function sequenceKeys(parentType, parentId) {
  * already refetching from those joins that fetch (`cancelRefetch: false`)
  * instead of sending the same request twice.
  */
-export function invalidateSequenceQueries(queryClient, parentType, parentId) {
+function invalidateSequenceQueries(queryClient, parentType, parentId) {
     for (const queryKey of sequenceKeys(parentType, parentId)) {
         queryClient.invalidateQueries({ queryKey, refetchType: "all" }, { cancelRefetch: false });
     }
@@ -65,7 +65,7 @@ function withOrders(items, orders) {
  * it. Resolves to the undo for a failed request; after the request settles,
  * the refetch replaces these orders with the server's own 1..n numbering.
  */
-export async function applySequenceMoves(queryClient, parentType, parentId, moves) {
+async function applySequenceMoves(queryClient, parentType, parentId, moves) {
     const orders = new Map(
         (moves || [])
             .filter((move) => move?.id && Number.isFinite(Number(move.order)))

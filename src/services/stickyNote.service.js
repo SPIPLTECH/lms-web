@@ -17,16 +17,6 @@ export const getStickyNotes = async (
   return data.data;
 };
 
-export const getStickyNoteById = async (
-  stickyNoteId
-) => {
-  const { data } = await api.get(
-    `${BASE_URL}/${stickyNoteId}`
-  );
-
-  return data.data;
-};
-
 export const createStickyNote = async (
   payload
 ) => {

@@ -1,12 +1,3 @@
-/**
- * Published vs. draft split -> the "Course Status" donut chart.
- */
-export function deriveCourseStatusPie(publishedCourses = 0, draftCourses = 0) {
-  return [
-    { name: "Published", value: publishedCourses, color: "#f2c7c7" },
-    { name: "Draft", value: draftCourses, color: "#38bdf8" },
-  ];
-}
 
 function daysAgoLabel(date) {
   const diffMs = Date.now() - date.getTime();
@@ -49,20 +40,6 @@ export function deriveRecentActivity(enrollments, certificates) {
     .map((event) => ({ ...event, time: daysAgoLabel(event.at) }));
 }
 
-/**
- * Platform-wide calendar events -> the "Upcoming Events" widget. The
- * /calendar endpoint already returns every event for an ADMIN caller, so
- * this just filters out anything in the past and takes the nearest few.
- */
-export function deriveUpcomingEvents(events) {
-  const todayStr = new Date().toISOString().split("T")[0];
-
-  return (events ?? [])
-    .filter((e) => e.date >= todayStr)
-    .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? "").localeCompare(b.startTime ?? ""))
-    .slice(0, 6);
-}
-
 /* --------------------------- Admin review queue --------------------------- */
 
 /**
@@ -86,7 +63,7 @@ const isPublished = (c) => c.status === "PUBLISHED" || c.status === "Published";
 const isDraft = (c) => c.status === "DRAFT" || c.status === "Draft";
 
 /** Mirrors the purchasability rule the student Store and checkout enforce. */
-export function isPurchasable(course) {
+function isPurchasable(course) {
   const store = course?.store;
   if (!store) return false;
   if (store.isFree) return true;

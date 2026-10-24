@@ -6,8 +6,6 @@ import {
   Clock,
   CheckCircle2,
   Award,
-  FileText,
-  Check,
   ListChecks,
   Pencil,
   Save,
@@ -17,10 +15,9 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
-  ListFilter,
   Library,
   FileUp,
-  RotateCcw
+  RotateCcw,
 } from "lucide-react";
 
 import QuestionRepositoryPickerModal from "./QuestionRepositoryPickerModal";
@@ -44,7 +41,7 @@ const optionToText = getOptionText;
 
 // A quiz's tag is independent of its scope/level: Lesson + Self-Test and
 // Lesson + Final Quiz are both valid. Self-Test is never timed.
-export const QUIZ_TAG_LABELS = {
+const QUIZ_TAG_LABELS = {
   SELF_TEST: "Self-Test",
   FINAL: "Final Quiz",
   QUALIFYING: "Qualifying Test",

@@ -97,7 +97,3 @@ export function resolveVideoSource(input) {
   return { kind: "file", src: getDisplayUrl(url), url };
 }
 
-/** True when the source can drive an application-controlled player. */
-export function isAppControllable(source) {
-  return source?.kind === "file";
-}

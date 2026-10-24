@@ -14,15 +14,6 @@ export const getModules = async (
     throw error;
   }
 };
-export const getModuleById =
-  async (moduleId) => {
-    const response =
-      await api.get(
-        `/modules/${moduleId}`
-      );
-
-    return response.data;
-  };
 
 export const createModule =
   async (data) => {
@@ -59,13 +50,3 @@ export const deleteModule =
     return response.data;
   };
 
-export const reorderModules =
-  async (courseId, modules) => {
-    const response =
-      await api.patch(
-        "/modules/reorder",
-        { courseId, modules }
-      );
-
-    return response.data;
-  };

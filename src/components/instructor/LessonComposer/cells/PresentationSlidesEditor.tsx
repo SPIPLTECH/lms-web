@@ -21,7 +21,7 @@ import {
 } from "./slideCanvas/slideElementTypes";
 
 export type { SlideItemV2 } from "./slideCanvas/slideElementTypes";
-export { createDefaultSlideDeck, adaptLegacySlide, parseSlideDeckJson } from "./slideCanvas/slideElementTypes";
+export { createDefaultSlideDeck, parseSlideDeckJson } from "./slideCanvas/slideElementTypes";
 
 interface PresentationSlidesEditorProps {
   slides: SlideItemV2[];
