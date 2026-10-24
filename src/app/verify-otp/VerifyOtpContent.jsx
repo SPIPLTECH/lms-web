@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { HiOutlineShieldCheck } from "@/components/ui/reactIcons";
 
 import { verifyOtp, resendVerificationOtp } from "@/services/auth.service";
+import { clearSignedIn } from "@/lib/returningUser";
 
 import AuthLayout from "@/components/auth/AuthLayout";
 import AuthCard from "@/components/auth/AuthCard";
@@ -65,6 +66,9 @@ export default function VerifyOtpContent() {
       });
 
       setSuccess(response.message || "Email verified successfully.");
+      // A newly registered account: the login page should say "Sign In",
+      // not "Welcome Back", even if someone signed in on this browser before.
+      clearSignedIn();
 
       setTimeout(() => {
         router.replace("/login");

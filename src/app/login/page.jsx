@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { HiOutlineLockClosed } from "@/components/ui/reactIcons";
@@ -16,10 +16,22 @@ import AuthButton from "@/components/auth/AuthButton";
 import GoogleSignInButton, { isGoogleSignInEnabled } from "@/components/auth/GoogleSignInButton";
 import { consumeLoginReason, signInErrorMessage } from "@/lib/sessionErrors";
 import { subscribeSignedIn } from "@/lib/authBroadcast";
+import { hasSignedInBefore, subscribeReturningUser } from "@/lib/returningUser";
+
+// The server can't see this browser's storage, so it renders a blank heading
+// (null) rather than a guess that would flash to the other text.
+const HEADINGS = {
+  returning: { title: "Welcome Back", description: "Sign in to continue your learning journey." },
+  new: { title: "Sign In", description: "Sign in to start your learning journey." },
+  unknown: { title: " ", description: " " },
+};
 
 export default function LoginPage() {
   const router = useRouter();
   const { login, googleLogin } = useAuth();
+
+  const signedInBefore = useSyncExternalStore(subscribeReturningUser, hasSignedInBefore, () => null);
+  const heading = HEADINGS[signedInBefore === null ? "unknown" : signedInBefore ? "returning" : "new"];
 
   useEffect(() => {
     console.log("[LOGIN] page mounted");
@@ -147,8 +159,8 @@ export default function LoginPage() {
       <AuthCard>
         <AuthHeader
           icon={<HiOutlineLockClosed className="text-4xl text-primary" />}
-          title="Welcome Back"
-          description="Sign in to continue your learning journey."
+          title={heading.title}
+          description={heading.description}
         />
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-5" noValidate>
