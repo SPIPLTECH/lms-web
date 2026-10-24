@@ -13,23 +13,6 @@ export const getCourses = async () => {
 };
 
 /**
- * Every published course for the student Store, with pricing included.
- * GET /courses defaults to limit=10 (pagination for the admin/instructor
- * table views) -- the Store needs the full catalog, so this requests a
- * generously high limit explicitly instead of reusing getCourses() above.
- */
-export const getStoreCourses = async () => {
-    const {data} = await api.get("/courses?limit=200&status=PUBLISHED&sortBy=newest");
-    return data.data ?? data;
-};
-
-/** Real status-breakdown counts (total/published/draft/archived) for the My Courses summary cards. */
-export const getCourseStatusCounts = async () => {
-    const { data } = await api.get("/courses/stats/mine");
-    return data.data ?? data;
-};
-
-/**
  * Every course on the platform, for the admin Home review queue.
  *
  * getCourses() above hits the same endpoint but inherits its default
@@ -73,20 +56,6 @@ const getCoursesPage = async (filters = {}, config = {}) => {
  * array; this one returns { courses, pagination } for this page only.
  */
 export const getInstructorCoursesTable = async (filters = {}, config = {}) => getCoursesPage(filters, config);
-
-/**
- * One page of the PUBLIC published catalogue, for the guest-facing /courses
- * route. No token is attached for a signed-out visitor and none is needed:
- * GET /courses runs behind optionalToken, and for a GUEST (or STUDENT) the
- * backend forces `status = PUBLISHED` itself and ignores any status the
- * client sends — so drafts and archived courses can never come back here.
- *
- * `status: "PUBLISHED"` is still sent explicitly so a signed-in ADMIN or
- * INSTRUCTOR browsing this public page sees the same published-only
- * catalogue a guest does, rather than their own drafts.
- */
-export const getPublicCourses = async (filters = {}, config = {}) =>
-    getCoursesPage({ ...filters, status: "PUBLISHED" }, config);
 
 /**
  * Get Course By ID.
@@ -179,14 +148,6 @@ export const unpublishCourse = async (courseId) => {
 };
 
 /**
- * Archive Course
- */
-export const archiveCourse = async (courseId) => {
-    const { data } = await api.post(`/courses/${courseId}/archive`);
-    return data;
-};
-
-/**
  * Restore Archived Course to DRAFT
  */
 export const restoreCourse = async (courseId) => {
@@ -207,41 +168,6 @@ export const updateCourseStatus = async (
     );
 
     return data;
-};
-
-/**
- * Duplicate Course
- */
-export const duplicateCourse = async (
-    courseId
-) => {
-    const {data} = await api.post(
-        `/courses/${courseId}/duplicate`
-    );
-
-    return data;
-};
-
-/**
- * Get Students Enrolled In A Course (with real per-student progress/avgGrade)
- */
-export const getCourseStudents = async (
-    courseId
-) => {
-    const {data} = await api.get(
-        `/courses/${courseId}/students`
-    );
-
-    return data.data ?? data;
-};
-
-/**
- * Export Course ZIP package
- */
-export const exportCourse = async (courseId) => {
-    return api.get(`/courses/${courseId}/export`, {
-        responseType: "blob"
-    });
 };
 
 /**

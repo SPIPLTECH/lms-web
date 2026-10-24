@@ -62,3 +62,6 @@ next-env.d.ts
 
 # Local documentation & planning scratch
 /docs/
+
+# Python bytecode from scripts/test-tracker
+__pycache__/

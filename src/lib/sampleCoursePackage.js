@@ -18,7 +18,7 @@
  */
 
 /** Structural folder names. The importer keys off these exact names. */
-export const PACKAGE_FOLDERS = {
+const PACKAGE_FOLDERS = {
   ROOT: "Course",
   MODULES: "Modules",
   LESSONS: "Lessons",
@@ -363,4 +363,3 @@ int 2ndAttempt = 3;
   return zip;
 };
 
-export default buildSampleCoursePackage;

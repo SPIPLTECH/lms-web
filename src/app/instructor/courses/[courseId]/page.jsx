@@ -14,10 +14,8 @@ import { useModules } from "@/hooks/queries/instructor/useModules";
 import { useUpdateCourse } from "@/hooks/queries/instructor/useUpdateCourse";
 import { useUpdateLesson } from "@/hooks/queries/instructor/useUpdateLesson";
 import { useDeleteModule } from "@/hooks/queries/instructor/useDeleteModule";
-import { useDeleteCourse } from "@/hooks/queries/instructor/useDeleteCourse";
 import { usePublishCourse } from "@/hooks/queries/instructor/usePublishCourse";
 import { useUnpublishCourse } from "@/hooks/queries/instructor/useUnpublishCourse";
-import { useArchiveCourse } from "@/hooks/queries/instructor/useArchiveCourse";
 import { useRestoreCourse } from "@/hooks/queries/instructor/useRestoreCourse";
 import { useDeleteLesson } from "@/hooks/queries/instructor/useDeleteLesson";
 import { useDeleteTopic } from "@/hooks/queries/instructor/useDeleteTopic";
@@ -32,7 +30,6 @@ import { QUERY_KEYS } from "@/constants/queryKeys";
 import { useToast } from "@/components/ui/ToastProvider";
 import { useConfirm } from "@/context/ConfirmContext";
 import { LessonComposerPanel } from "@/components/instructor/LessonComposer/LessonComposerPanel";
-import { duplicateCourse } from "@/services/course.service";
 import { createQuiz as createQuizService, updateQuiz as updateQuizService, deleteQuiz as deleteQuizService, getQuizById as getQuizByIdService } from "@/services/quiz.service";
 import {
   bulkCreateQuestions as bulkCreateQuestionsService,
@@ -55,7 +52,6 @@ import { EntityFormModal } from "@/components/instructor/courses/EntityFormModal
 import { AssignmentFormModal } from "@/components/instructor/courses/AssignmentFormModal";
 import { useUpdateAssignment, useDeleteAssignment } from "@/hooks/queries/instructor/useAssignments";
 import { UnpublishModal } from "@/components/instructor/courses/UnpublishModal";
-import { DeleteCourseModal } from "@/components/instructor/courses/DeleteCourseModal";
 import AiComposerModal from "@/components/instructor/composer/AiComposerModal";
 
 /** Finds a lesson and its parent module by lessonId across all modules */
@@ -155,10 +151,8 @@ export default function CourseDetailsPage() {
   } = useModules(courseId);
 
   const deleteModuleMutation = useDeleteModule();
-  const deleteCourseMutation = useDeleteCourse();
   const publishCourseMutation = usePublishCourse();
   const unpublishCourseMutation = useUnpublishCourse();
-  const archiveCourseMutation = useArchiveCourse();
   const restoreCourseMutation = useRestoreCourse();
   const deleteLessonMutation = useDeleteLesson();
   const deleteTopicMutation = useDeleteTopic();
@@ -743,9 +737,6 @@ export default function CourseDetailsPage() {
   // Lifecycle Modal States
 
   const [unpublishModalOpen, setUnpublishModalOpen] = useState(false);
-
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [deleteHasStudentData, setDeleteHasStudentData] = useState(false);
 
   // Auto-open signal for Add Content picker
   const [autoOpenAddSignal, setAutoOpenAddSignal] = useState(0);
@@ -1541,7 +1532,7 @@ export default function CourseDetailsPage() {
           let freshQuiz = resQuiz;
           try {
             freshQuiz = await getQuizByIdService(resQuiz.id);
-          } catch (fetchErr) {
+          } catch {
             freshQuiz = { ...resQuiz, questions: updatedQuizData.questions || [] };
           }
 
@@ -1605,7 +1596,7 @@ export default function CourseDetailsPage() {
           let freshQuiz = updatedQuiz;
           try {
             freshQuiz = await getQuizByIdService(targetId);
-          } catch (fetchErr) {
+          } catch {
             freshQuiz = updatedQuiz;
           }
 
@@ -1732,7 +1723,7 @@ export default function CourseDetailsPage() {
         // here — the composer's tree and quiz lists, not just the course list.
         await queryClient.invalidateQueries();
         showToast("Quiz duplicated successfully!", "success");
-      } catch (err) {
+      } catch {
         showToast("Failed to duplicate quiz.", "error");
       }
     }
@@ -1811,7 +1802,7 @@ export default function CourseDetailsPage() {
         if (composeQuizId && String(composeQuizId) === String(qTargetId)) {
           handleSelectCourseOverview();
         }
-      } catch (err) {
+      } catch {
         showToast("Failed to delete quiz from server.", "error");
       }
     }
@@ -2278,7 +2269,7 @@ export default function CourseDetailsPage() {
       await deleteModuleMutation.mutateAsync(mod.id);
       showToast("Module deleted successfully", "success");
       handleSelectCourseOverview();
-    } catch (err) {
+    } catch {
       showToast("Failed to delete module", "error");
     }
   };
@@ -2310,7 +2301,7 @@ export default function CourseDetailsPage() {
       await deleteLessonMutation.mutateAsync({ lessonId: lesson.id, moduleId });
       showToast("Lesson deleted successfully", "success");
       handleSelectCourseOverview();
-    } catch (err) {
+    } catch {
       showToast("Failed to delete lesson", "error");
     }
   };
@@ -2350,7 +2341,7 @@ export default function CourseDetailsPage() {
         setComposeConceptId(null);
         setComposerMode("lesson");
       }
-    } catch (err) {
+    } catch {
       showToast("Failed to delete topic", "error");
     }
   };
@@ -2383,7 +2374,7 @@ export default function CourseDetailsPage() {
       await deleteContentMutation.mutateAsync({ contentId: content.id, topicId });
       showToast("Content deleted successfully", "success");
       if (selectedCellId === content.id) setSelectedCellId(null);
-    } catch (err) {
+    } catch {
       showToast("Failed to delete content", "error");
     }
   };
@@ -2399,7 +2390,7 @@ export default function CourseDetailsPage() {
       await deleteContentMutation.mutateAsync({ contentId: content.id, parent });
       showToast("Content deleted successfully", "success");
       if (selectedCellId === content.id) setSelectedCellId(null);
-    } catch (err) {
+    } catch {
       showToast("Failed to delete content", "error");
     }
   };
@@ -2584,7 +2575,7 @@ export default function CourseDetailsPage() {
       try {
         await updateCourseMutation.mutateAsync({ courseId, courseData: courseForm });
         showToast("Course saved successfully!", "success", "Saved");
-      } catch (err) {
+      } catch {
         showToast("Failed to save course", "error");
       }
     }
@@ -2620,52 +2611,7 @@ export default function CourseDetailsPage() {
     }
   };
 
-  // 3. Delete Modal & Handler
-  const handleOpenDeleteModal = () => {
-    setDeleteHasStudentData(false);
-    setDeleteModalOpen(true);
-  };
-
-  const handleConfirmDeleteCourse = async () => {
-    try {
-      if (isDraftMode || courseId === "draft") {
-        sessionStorage.removeItem("imported_course_draft");
-        setDeleteModalOpen(false);
-        showToast("Course draft discarded successfully", "info");
-        router.push("/instructor/courses");
-        return;
-      }
-      await deleteCourseMutation.mutateAsync(courseId);
-      await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.INSTRUCTOR_COURSES] });
-      await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.INSTRUCTOR_COURSES_TABLE] });
-      await queryClient.resetQueries({ queryKey: [QUERY_KEYS.INSTRUCTOR_COURSES_TABLE] });
-      setDeleteModalOpen(false);
-      showToast("Course deleted successfully", "success");
-      router.push("/instructor/courses");
-    } catch (err) {
-      const errRes = err?.response?.data;
-      if (errRes?.code === "COURSE_HAS_STUDENT_DATA" || errRes?.hasStudentData) {
-        setDeleteHasStudentData(true);
-      } else {
-        const msg = errRes?.message || err?.message || "Failed to delete course";
-        showToast(msg, "error");
-      }
-    }
-  };
-
-  // 4. Archive Handler
-  const handleConfirmArchiveCourse = async () => {
-    try {
-      await archiveCourseMutation.mutateAsync(courseId);
-      setDeleteModalOpen(false);
-      showToast("Course archived successfully", "success");
-    } catch (err) {
-      const msg = err?.response?.data?.message || err?.message || "Failed to archive course";
-      showToast(msg, "error");
-    }
-  };
-
-  // 5. Restore Handler
+  // Restore Handler
   const handleConfirmRestoreCourse = async () => {
     try {
       await restoreCourseMutation.mutateAsync(courseId);
@@ -2673,21 +2619,6 @@ export default function CourseDetailsPage() {
     } catch (err) {
       const msg = err?.response?.data?.message || err?.message || "Failed to restore course";
       showToast(msg, "error");
-    }
-  };
-
-  // 6. Duplicate Handler
-  const handleDuplicateCourse = async () => {
-    try {
-      const res = await duplicateCourse(courseId);
-      const newCourse = res?.data || res;
-      queryClient.invalidateQueries();
-      showToast("Course duplicated successfully!", "success");
-      if (newCourse?.id) {
-        router.push(`/instructor/courses/${newCourse.id}`);
-      }
-    } catch (err) {
-      showToast("Failed to duplicate course", "error");
     }
   };
 
@@ -2715,8 +2646,6 @@ export default function CourseDetailsPage() {
       </div>
     );
   }
-
-  const isPublished = effectiveCourse.status === "PUBLISHED";
 
   const courseMapEffectivelyOpen = mobileSidebarOpen || isCourseMapOpen;
 
@@ -2934,7 +2863,7 @@ export default function CourseDetailsPage() {
                       await updateCourseMutation.mutateAsync({ courseId, courseData: courseForm });
                       setIsEditingCourse(false);
                       showToast("Course details updated!", "success", "Saved");
-                    } catch (err) {
+                    } catch {
                       showToast("Failed to save course", "error");
                     }
                   }
@@ -3013,7 +2942,7 @@ export default function CourseDetailsPage() {
                       });
                       setIsEditingLesson(false);
                       showToast("Lesson updated!", "success", "Saved");
-                    } catch (err) {
+                    } catch {
                       showToast("Failed to save lesson", "error");
                     }
                   }
@@ -3081,24 +3010,6 @@ export default function CourseDetailsPage() {
                 onAddQuiz={composingTopic ? (order) => handleAddTopicQuiz(composingTopic, composingLesson, composingModule, order) : undefined}
                 draftContents={isDraftMode ? composingTopic?.contents || [] : undefined}
                 isDraftMode={isDraftMode}
-                onUpdateDraftContents={(newContents) => {
-                  if (!isDraftMode || !composeTopicId) return;
-                  const nextDraftModules = draftModules.map((m) => ({
-                    ...m,
-                    lessons: (m.lessons || []).map((l) => ({
-                      ...l,
-                      topics: (l.topics || []).map((t) =>
-                        t.id === composeTopicId ? { ...t, contents: newContents } : t
-                      ),
-                    })),
-                  }));
-                  setDraftModules(nextDraftModules);
-                  if (draftData) {
-                    const updatedDraft = { ...draftData, modules: nextDraftModules };
-                    setDraftData(updatedDraft);
-                    sessionStorage.setItem("imported_course_draft", JSON.stringify(updatedDraft));
-                  }
-                }}
               />
               </>
             )}
@@ -3199,19 +3110,6 @@ export default function CourseDetailsPage() {
         onUnpublish={handleConfirmUnpublish}
         isUnpublishing={unpublishCourseMutation.isPending}
         courseTitle={effectiveCourse?.title}
-      />
-
-      {/* Delete / Archive Safety Modal */}
-      <DeleteCourseModal
-        isOpen={deleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
-        onConfirmDelete={handleConfirmDeleteCourse}
-        onConfirmArchive={handleConfirmArchiveCourse}
-        isDeleting={deleteCourseMutation.isPending}
-        isArchiving={archiveCourseMutation.isPending}
-        courseTitle={effectiveCourse?.title}
-        hasStudentData={deleteHasStudentData}
-        isPublished={isPublished}
       />
 
       {/* Unified Ask OTree AI Assistant Modal */}

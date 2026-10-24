@@ -10,14 +10,6 @@ export const getRepositoryQuestions = async (params = {}) => {
 };
 
 /**
- * Get single repository question by ID
- */
-export const getRepositoryQuestionById = async (questionId) => {
-  const { data } = await api.get(`/questions/question/${questionId}`);
-  return data.data ?? data;
-};
-
-/**
  * Create manual repository question
  */
 export const createRepositoryQuestion = async (questionData) => {

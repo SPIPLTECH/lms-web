@@ -146,6 +146,8 @@ export const QUERY_KEYS = {
     MY_REVIEWS: "my-reviews",
     RESULTS: "results",
     ASSESSMENTS: "assessments",
+    ASSIGNMENT_EVALUATION: "assignment-evaluation",
+    EVALUATION_SYNONYMS: "evaluation-synonyms",
     INSTRUCTOR_CERTIFICATES: "instructor-certificates",
     COURSE_IMPORT_JOB: "course-import-job",
 };

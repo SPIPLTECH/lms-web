@@ -11,8 +11,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { detectHtmlCellVariant } from "./htmlCellVariant";
-import type { ContentRow } from "./types";
 
 /**
  * Mirrors the subset of the backend `ContentType` enum (prisma/schema.prisma,
@@ -154,34 +152,6 @@ export const CELL_TYPES: CellTypeDefinition[] = [
     supportedByApiToday: true,
   },
 ];
-
-/**
- * Resolves the `CellTypeDefinition` a given Content row renders as — the
- * same type-detection `LessonComposerPanel`'s `renderCell` switches on,
- * exposed for callers (the Block Settings panel) that need the icon/label
- * for the currently selected block without duplicating that switch.
- */
-export function getCellTypeForContent(content: ContentRow): CellTypeDefinition | undefined {
-  switch (content.type) {
-    case "HTML":
-      return CELL_TYPES.find((c) => c.id === detectHtmlCellVariant(content.htmlContent));
-    case "IMAGE":
-      return CELL_TYPES.find((c) => c.id === "image");
-    case "VIDEO":
-      return CELL_TYPES.find((c) => c.id === "video");
-    case "LINK":
-      return CELL_TYPES.find((c) => c.id === "link");
-    case "DOCUMENT":
-    case "FILE":
-      return CELL_TYPES.find((c) => c.id === "document") || CELL_TYPES.find((c) => c.id === "pdf");
-    case "PRESENTATION":
-      return CELL_TYPES.find((c) => c.id === "presentation");
-    case "ASSIGNMENT":
-      return CELL_TYPES.find((c) => c.id === "assignment");
-    default:
-      return CELL_TYPES.find((c) => c.id === "document") || CELL_TYPES.find((c) => c.id === "text");
-  }
-}
 
 // Quiz appears in the Add Content picker (AddCellModal) but is intentionally
 // NOT registered here — a Quiz isn't a Content row at all, it's a separate

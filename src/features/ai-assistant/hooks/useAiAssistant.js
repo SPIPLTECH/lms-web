@@ -1,13 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { defaultQueryOptions } from "@/lib/queryOptions";
 import {
-  createConversation,
-  deleteConversation,
   getConversations,
   getMessages,
-  updateConversation,
 } from "../api/aiAssistant.api";
 
 /**
@@ -34,38 +31,3 @@ export function useAiMessages(conversationId) {
   });
 }
 
-export function useCreateAiConversation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (payload) => createConversation(payload),
-    meta: { refreshAll: false },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: [QUERY_KEYS.AI_CONVERSATIONS, variables?.courseId ?? null],
-      });
-    },
-  });
-}
-
-export function useUpdateAiConversation(courseId) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ conversationId, ...payload }) => updateConversation(conversationId, payload),
-    meta: { refreshAll: false },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.AI_CONVERSATIONS, courseId ?? null] });
-    },
-  });
-}
-
-export function useDeleteAiConversation(courseId) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (conversationId) => deleteConversation(conversationId),
-    meta: { refreshAll: false },
-    onSuccess: (_data, conversationId) => {
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.AI_CONVERSATIONS, courseId ?? null] });
-      queryClient.removeQueries({ queryKey: [QUERY_KEYS.AI_MESSAGES, conversationId] });
-    },
-  });
-}

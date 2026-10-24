@@ -55,13 +55,3 @@ export const deleteConcept =
     return response.data;
   };
 
-export const reorderConcepts =
-  async (subTopicId, concepts) => {
-    const response =
-      await api.patch(
-        "/concepts/reorder",
-        { subTopicId, concepts }
-      );
-
-    return response.data;
-  };

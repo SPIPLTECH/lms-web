@@ -1,28 +1,14 @@
 import {
-    useQuery,
-    useMutation,
-    useQueryClient,
+  useMutation,
+  useQueryClient,
 } from "@tanstack/react-query";
 
 import {
-    getUsers,
-    updateUserRole,
-    deleteUser,
+  updateUserRole,
+  deleteUser,
 } from "@/services/user.service";
 
 import { QUERY_KEYS } from "@/constants/queryKeys";
-import { defaultQueryOptions } from "@/lib/queryOptions";
-
-/**
- * Get All Users
- */
-export function useUsers() {
-    return useQuery({
-        queryKey: [QUERY_KEYS.ADMIN_USERS],
-        queryFn: getUsers,
-        ...defaultQueryOptions,
-    });
-}
 
 /**
  * Update User Role

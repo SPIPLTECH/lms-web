@@ -79,7 +79,7 @@ export function formatDuration(seconds) {
  * ("18/20", "90%"), or a bare number against the assignment's marks, becomes
  * a score; anything else ("A+", "Excellent") stays text with no percentage.
  */
-export function parseAssignmentGrade(grade, marks) {
+function parseAssignmentGrade(grade, marks) {
   if (!grade) return null;
   const text = String(grade).trim();
 

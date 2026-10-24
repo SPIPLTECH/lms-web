@@ -40,51 +40,11 @@ const isPptUrl = (url) => {
     return !isPdfUrl(u) && u.includes(".ppt");
 };
 
-/**
- * True when a content item renders through PptViewer — an uploaded .ppt/.pptx
- * with no authored slide JSON to draw instead. PptViewer's canvas takes the
- * slide's own aspect ratio from its width, so unlike a PDF or a document it
- * has no further height to give; the learn page reads this to let the desktop
- * player frame size to the deck rather than leave dead backdrop beneath it.
- * Kept here, beside the branch it mirrors, so the two cannot drift apart.
- */
-export function rendersUploadedDeck(content) {
-    if (!isPptUrl(content?.fileUrl)) return false;
-    const type = content?.type;
-    if (type === "FILE" || type === "DOCUMENT") return true;
-    if (type !== "PRESENTATION" && type !== "SLIDE") return false;
-    // A Presentation authored in the canvas slide editor keeps its slides as
-    // JSON in htmlContent and renders through SlideColumnsView instead — see
-    // isFileLike below.
-    return parseSlideDeckJson(content?.htmlContent).length === 0;
-}
-
 const isGoogleSlidesUrl = (url) => Boolean(url?.includes("docs.google.com/presentation"));
 const getGoogleSlidesEmbedUrl = (url) => {
     if (!url) return "";
     return url.replace(/\/edit(\?.*)?$/, "/embed").replace(/\/pub(\?.*)?$/, "/embed");
 };
-/**
- * A human-readable name for an attached file. Prefers the original upload name
- * recorded on the Content row and falls back to the last path segment of the
- * stored URL, so the row never renders a blank label.
- */
-const getAttachmentName = (content) => {
-    const recorded = content?.data?.originalName || content?.data?.fileName;
-    if (recorded) return recorded;
-    const raw = content?.fileUrl;
-    if (!raw) return "Attachment";
-    try {
-        const last = raw.split("?")[0].split("#")[0].split("/").pop();
-        if (!last) return "Attachment";
-        // Uploads are stored as "<epoch>-<original name>"; show the part a
-        // student would recognise rather than the storage key.
-        return decodeURIComponent(last).replace(/^\d{10,}-/, "");
-    } catch {
-        return "Attachment";
-    }
-};
-
 const parseSlides = (html) => {
     if (!html) return [];
     const sections = html.split(/<hr\s*\/?>|<!--\s*slide\s*-->/i);

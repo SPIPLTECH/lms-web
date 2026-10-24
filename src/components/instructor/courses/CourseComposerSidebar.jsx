@@ -88,7 +88,7 @@ function DraftBadge({ node }) {
  * Written as complete class strings rather than interpolated colour names:
  * Tailwind scans source text, so `text-${colour}-400` would never be emitted.
  */
-export const QUIZ_TAG_STYLES = {
+const QUIZ_TAG_STYLES = {
   SELF_TEST: {
     label: "Self-Test",
     active: "bg-sky-500/10 text-sky-800 dark:bg-sky-500/15 dark:text-sky-400 font-semibold",
@@ -161,7 +161,7 @@ function sortByRenderOrder(items = []) {
  * exhaustive so any real Content row — however it was created — gets a
  * meaningful icon instead of falling back silently.
  */
-export const CONTENT_TYPE_META = {
+const CONTENT_TYPE_META = {
   VIDEO: { icon: Video, label: "Video", color: "text-red-700 dark:text-red-400" },
   AUDIO: { icon: Music2, label: "Audio", color: "text-teal-700 dark:text-teal-400" },
   DOCUMENT: { icon: FileText, label: "Document", color: "text-blue-700 dark:text-blue-400" },
@@ -181,7 +181,7 @@ export const CONTENT_TYPE_META = {
   INTERACTIVE_LAB: { icon: FlaskConical, label: "Interactive Lab", color: "text-pink-700 dark:text-pink-400" },
   EMBED: { icon: MonitorPlay, label: "Embed", color: "text-indigo-700 dark:text-indigo-400" },
 };
-export const DEFAULT_CONTENT_META = { icon: File, label: "Content", color: "text-muted-foreground" };
+const DEFAULT_CONTENT_META = { icon: File, label: "Content", color: "text-muted-foreground" };
 
 /** Heading and Image blocks are stored as HTML; these are their own looks. */
 const HTML_VARIANT_META = {
@@ -309,7 +309,6 @@ function ParentContentRows({
   selectedCellId,
   onSelectContent,
   onDeleteContent,
-  progress = null,
   quizzes = [],
   composerMode,
   composeQuizId,
@@ -1239,7 +1238,6 @@ export function CourseComposerSidebar({
                     <NodeBadge progress={progress} nodeId={mod.id} node={mod} />
                   </div>
 
-
                   {role === "INSTRUCTOR" && (
                     <RowMenu
                       groupName="module"
@@ -1357,7 +1355,6 @@ export function CourseComposerSidebar({
                                 <NodeBadge progress={progress} nodeId={lesson.id} node={lesson} />
                               </div>
 
-
                               {role === "INSTRUCTOR" && (
                                 <RowMenu
                                   groupName="lesson"
@@ -1474,7 +1471,6 @@ export function CourseComposerSidebar({
                                             )}
                                           </div>
 
-
                                           {role === "INSTRUCTOR" && (
                                             <RowMenu
                                               groupName="topic"
@@ -1568,4 +1564,3 @@ export function CourseComposerSidebar({
   );
 }
 
-export const CourseStructureSidebar = CourseComposerSidebar;

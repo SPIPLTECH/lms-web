@@ -13,13 +13,14 @@ import {
   clearAllNotifications,
 } from "@/services/notification.service";
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { EVALUATOR_STATES, evaluatorStateAt } from "@/lib/evaluatorAccess";
 
 const NotificationContext = createContext();
 
 let audioCtxSingleton = null;
 
 // Self-contained chime player using HTML5 AudioContext
-export const playNotificationChime = () => {
+const playNotificationChime = () => {
   try {
     if (typeof window === "undefined") return;
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -103,6 +104,11 @@ export function NotificationProvider({ children }) {
       if (!user) {
         setNotifications([]);
         seenNotifKeysRef.current.clear();
+        return;
+      }
+      // An expired evaluator is refused every non-auth API (403), so don't ask.
+      if (evaluatorStateAt(user.evaluator, Date.now()) === EVALUATOR_STATES.EXPIRED) {
+        setNotifications([]);
         return;
       }
       try {

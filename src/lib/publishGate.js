@@ -21,7 +21,7 @@
  * Accepts either a loaded relation array or Prisma's `_count` aggregate, since
  * different callers fetch the entity at different depths.
  */
-export function countDirectLearningItems(entity) {
+function countDirectLearningItems(entity) {
   if (!entity) return 0;
 
   const sizeOf = (relation, countKey) =>

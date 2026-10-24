@@ -5,7 +5,6 @@ import QueryProvider from "@/providers/QueryProvider";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 import "@fontsource/playfair-display/700.css";
 import "./globals.css";
-import { ChatProvider } from "@/context/ChatContext";
 import { ToastProvider } from "@/components/ui/ToastProvider";
 import { NotificationProvider } from "@/context/NotificationContext";
 import { ConfirmProvider } from "@/context/ConfirmContext";
@@ -64,9 +63,7 @@ export default function RootLayout({
               <ToastProvider>
                 <ConfirmProvider>
                   <NotificationProvider>
-                    <ChatProvider>
-                      {children}
-                    </ChatProvider>
+                    {children}
                   </NotificationProvider>
                 </ConfirmProvider>
               </ToastProvider>

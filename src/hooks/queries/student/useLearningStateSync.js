@@ -17,7 +17,9 @@ const SAVE_MAX_WAIT_MS = 10000;
  *      student was on (a Content id; an older link's quiz/assignment id still
  *      resolves to that item's step);
  *   2. `?lessonId=` — the first step of that lesson;
- *   3. the server's resume step (`sequence.resumeIndex`), the same "Continue
+ *   3. in a course that keeps no progress (`sequence.progressTracked`
+ *      false), the item saved in StudentState — where the student last was;
+ *   4. the server's resume step (`sequence.resumeIndex`), the same "Continue
  *      learning" answer every other surface uses.
  * A target the student cannot open yet falls back to their current step, so
  * the first thing a student sees is never a locked item.
@@ -59,10 +61,15 @@ export default function useLearningStateSync({
       );
     }
     if (index === -1 && lessonId) index = steps.findIndex((step) => step.path?.lessonId === lessonId);
+    const saved = stateData?.data || stateData;
+    // A course that keeps no progress has no resume step (nothing is visited),
+    // so it reopens where the student last was: the saved StudentState item.
+    if (index === -1 && sequence.progressTracked === false && saved?.contentId) {
+      index = steps.findIndex((step) => step.contentIds.includes(saved.contentId));
+    }
     if (index === -1) index = sequence.resumeIndex >= 0 ? sequence.resumeIndex : 0;
     if (steps[index]?.locked) index = sequence.currentIndex >= 0 ? sequence.currentIndex : 0;
 
-    const saved = stateData?.data || stateData;
     if (saved?.contentId && steps[index]?.contentIds.includes(saved.contentId) && saved.timestamp) {
       setInitialTime(saved.timestamp);
       setCurrentTimestamp(saved.timestamp);

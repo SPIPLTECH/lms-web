@@ -48,16 +48,6 @@ export const getProfile = async () => {
   return response.data;
 };
 
-/* ---------------- Refresh Token ---------------- */
-
-export const refreshToken = async (refreshToken) => {
-  const response = await api.post("/auth/refresh-token", {
-    refreshToken,
-  });
-
-  return response.data;
-};
-
 /* ---------------- Logout ---------------- */
 
 export const logoutUser = async (refreshToken) => {

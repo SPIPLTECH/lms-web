@@ -113,24 +113,6 @@ export function isItemComplete(progressIndex, itemId) {
 }
 
 /**
- * True once the student has submitted a Quiz — independent of `completed`,
- * which for a Quiz requires a PASSING submission. Lets the content player
- * allow moving past a quiz block on a bare attempt, while the Topic/Lesson/
- * Module crossing gate (canLeaveUnit, in the Learn page) still requires the
- * full roll-up completion — i.e. eventually passing — to leave that level.
- */
-export function isItemSubmitted(progressIndex, itemId) {
-  if (!progressIndex || !itemId) return false;
-  const item = progressIndex.items.get(itemId);
-  if (!item) return false;
-  if (item.kind === "QUIZ") return item.attempted === true;
-  if (item.kind === "ASSIGNMENT") {
-    return Boolean(item.submissionStatus) && item.submissionStatus !== "NotSubmitted";
-  }
-  return isItemComplete(progressIndex, itemId);
-}
-
-/**
  * True when a student may cross out of this Concept/SubTopic/Topic/Lesson/
  * Module to the next one. Every item under it counts, direct or in a
  * descendant (so a Topic's SubTopic and Concept items count toward that

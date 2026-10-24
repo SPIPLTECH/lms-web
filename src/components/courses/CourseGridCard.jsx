@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { formatDistanceToNow } from "date-fns";
-import { BookOpen, Clock, Users, Pencil, ArrowRight } from "lucide-react";
+import { BookOpen, Users, Pencil, ArrowRight } from "lucide-react";
 
 import ActionMenu from "@/components/menus/ActionMenu";
 import { useConfirm, useAlert } from "@/context/ConfirmContext";
@@ -15,12 +14,6 @@ const STATUS_STYLE = {
   PUBLISHED: { label: "Published", dot: "bg-emerald-400" },
   DRAFT: { label: "Draft", dot: "bg-amber-400" },
   ARCHIVED: { label: "Archived", dot: "bg-rose-400" },
-};
-
-const LEVEL_STYLE = {
-  Beginner: "bg-primary/10 text-primary border-primary/20",
-  Intermediate: "bg-primary/15 text-primary border-primary/30",
-  Advanced: "bg-primary/20 text-primary border-primary/40",
 };
 
 /** My Courses grid card — banner, meta row, tag pills, edit/view actions, and a

@@ -30,6 +30,9 @@ export default function StudentCourseOverview({ course, progress, sequence, hasP
   const modules = course.modules || [];
   const lessons = modules.flatMap((m) => m.lessons || []);
   const completedLessonIds = new Set(progress?.lessonProgresses || []);
+  // Sequential learning off: every lesson is open and no progress is kept, so
+  // the page shows no progress, no "Up next" and no completed lessons.
+  const tracksProgress = course.sequentialLearning !== false;
 
   // Each lesson's state, from the same learning sequence the player walks:
   // its first step (where opening it lands), whether it has any content,
@@ -40,7 +43,8 @@ export default function StudentCourseOverview({ course, progress, sequence, hasP
       const own = steps ? steps.filter((s) => s.path?.lessonId === lesson.id) : null;
       const hasContent = own ? own.length > 0 : true; // unknown until the sequence loads
       const done =
-        completedLessonIds.has(lesson.id) || (own != null && own.length > 0 && own.every((s) => s.completed));
+        tracksProgress &&
+        (completedLessonIds.has(lesson.id) || (own != null && own.length > 0 && own.every((s) => s.completed)));
       const locked = own != null && own.length > 0 && own.every((s) => s.locked);
       return [lesson.id, { hasContent, done, locked, canOpen: own != null && own.length > 0 && !locked }];
     })
@@ -60,15 +64,17 @@ export default function StudentCourseOverview({ course, progress, sequence, hasP
   const hasNoContent = Array.isArray(steps) && steps.length === 0;
   const actionLabel = hasNoContent
     ? "No content yet"
-    : isComplete
-      ? "Review course"
-      : hasProgress
-        ? "Continue learning"
-        : "Start learning";
+    : !tracksProgress
+      ? "Open course"
+      : isComplete
+        ? "Review course"
+        : hasProgress
+          ? "Continue learning"
+          : "Start learning";
 
   // Where Continue lands: the resume step and the lesson that holds it.
   const nextStep = sequence?.steps?.[sequence?.resumeIndex] || null;
-  const nextLessonId = isComplete ? null : nextStep?.path?.lessonId || null;
+  const nextLessonId = isComplete || !tracksProgress ? null : nextStep?.path?.lessonId || null;
   const nextLesson = lessons.find((l) => l.id === nextLessonId) || null;
   // Step titles are often generic ("Image", "Video"); the topic says more.
   const nextTopic = nextLesson?.topics?.find((t) => t.id === nextStep?.path?.topicId) || null;
@@ -152,30 +158,32 @@ export default function StudentCourseOverview({ course, progress, sequence, hasP
           </div>
 
           <div className="space-y-4 p-5">
-            <div className="space-y-2">
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm font-semibold text-foreground">Your progress</span>
-                <span className="font-display text-lg font-bold tabular-nums text-foreground">{progressPercent}%</span>
-              </div>
-              <div
-                className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
-                role="progressbar"
-                aria-valuenow={progressPercent}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label="Course progress"
-              >
+            {tracksProgress && (
+              <div className="space-y-2">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm font-semibold text-foreground">Your progress</span>
+                  <span className="font-display text-lg font-bold tabular-nums text-foreground">{progressPercent}%</span>
+                </div>
                 <div
-                  className="h-full rounded-full bg-primary motion-safe:transition-[width] motion-safe:duration-700"
-                  style={{ width: `${progressPercent}%` }}
-                />
+                  className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+                  role="progressbar"
+                  aria-valuenow={progressPercent}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label="Course progress"
+                >
+                  <div
+                    className="h-full rounded-full bg-primary motion-safe:transition-[width] motion-safe:duration-700"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {hasNoContent
+                    ? "Your instructor hasn't added any lessons with content yet."
+                    : `${courseCount.done} of ${courseCount.total} ${courseCount.total === 1 ? "lesson" : "lessons"} complete`}
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {hasNoContent
-                  ? "Your instructor hasn't added any lessons with content yet."
-                  : `${courseCount.done} of ${courseCount.total} ${courseCount.total === 1 ? "lesson" : "lessons"} complete`}
-              </p>
-            </div>
+            )}
 
             {nextLesson && (
               <div className="border-l-2 border-primary pl-3">
@@ -243,7 +251,11 @@ export default function StudentCourseOverview({ course, progress, sequence, hasP
                     <span
                       className={`shrink-0 text-xs tabular-nums ${isModDone ? "font-semibold text-success" : "text-muted-foreground"}`}
                     >
-                      {modCount.total > 0 ? `${modCount.done}/${modCount.total}` : "No content yet"}
+                      {modCount.total === 0
+                        ? "No content yet"
+                        : tracksProgress
+                          ? `${modCount.done}/${modCount.total}`
+                          : `${modCount.total} ${modCount.total === 1 ? "lesson" : "lessons"}`}
                     </span>
                   </div>
 

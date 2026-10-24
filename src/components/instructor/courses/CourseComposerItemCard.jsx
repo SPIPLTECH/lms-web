@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { MoreVertical, ChevronRight, ArrowRight } from "lucide-react";
+import { MoreVertical, ArrowRight } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,

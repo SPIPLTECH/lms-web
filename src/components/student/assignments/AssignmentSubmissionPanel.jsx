@@ -70,6 +70,10 @@ export default function AssignmentSubmissionPanel({
   // Assignment rows carry grade/feedback at the top level; content submissions on `submission`.
   const grade = submission?.grade || assignment?.grade || null;
   const feedback = submission?.feedback || assignment?.feedback || null;
+  // Marks per point behind an instructor-approved evaluation. The API sends
+  // it only once the instructor has approved or set the marks; absent for
+  // hand-typed grades and for anything still under review.
+  const evaluation = assignment?.evaluation || null;
   // Instructor-provided reference material — never the student's own answer.
   const attachments = Array.isArray(assignment?.attachments) ? assignment.attachments : [];
 
@@ -300,6 +304,23 @@ export default function AssignmentSubmissionPanel({
                 {feedback && (
                   <p className="text-[11px] font-semibold text-muted-foreground whitespace-pre-wrap break-words">
                     {feedback}
+                  </p>
+                )}
+                {evaluation && evaluation.criteria.length > 0 && (
+                  <ul className="space-y-0.5 pt-1" aria-label="Marks for each point">
+                    {evaluation.criteria.map((c, i) => (
+                      <li key={i} className="flex items-center gap-2 text-[11px]">
+                        <span className="flex-1 text-muted-foreground">{c.description}</span>
+                        <span className="font-mono font-bold text-foreground">
+                          {c.awarded}/{c.maxMarks}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {evaluation && (
+                  <p className="text-[10px] text-muted-foreground">
+                    Marked against your instructor&apos;s marking scheme and approved by your instructor.
                   </p>
                 )}
               </div>

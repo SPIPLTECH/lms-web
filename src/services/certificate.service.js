@@ -33,36 +33,3 @@ export const getCertificates = async (
   return response.data.data;
 };
 
-export const getCertificateById =
-  async (
-    certificateId
-  ) => {
-    const response =
-      await api.get(
-        `/certificates/${certificateId}`
-      );
-
-    return response.data.data;
-  };
-
-export const deleteCertificate =
-  async (
-    certificateId
-  ) => {
-  const response =
-    await api.delete(
-      `/certificates/${certificateId}`
-    );
-
-  return response.data;
-};
-
-export const createCertificate = async (data) => {
-  const response = await api.post("/certificates", data);
-  return response.data;
-};
-
-export const updateCertificate = async (certificateId, data) => {
-  const response = await api.put(`/certificates/${certificateId}`, data);
-  return response.data;
-};

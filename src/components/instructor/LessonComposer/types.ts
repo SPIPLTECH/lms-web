@@ -23,6 +23,8 @@ export interface ContentRow {
   duration?: number | null;
   /** Free-form JSON metadata (backend `Content.data`) — currently only populated by the Assignment cell, which stores `{ originalFileName }` for its uploaded attachment (see AssignmentCell.tsx). */
   data?: Record<string, unknown> | null;
+  /** For type ASSIGNMENT: the Assignment entity this block places (marking, submissions, auto-evaluation). */
+  assignmentId?: string | null;
 }
 
 /**

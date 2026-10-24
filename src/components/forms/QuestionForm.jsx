@@ -40,8 +40,6 @@ const INITIAL_FORM = {
 // as a translation layer at the submit/load boundary rather than renaming
 // the form's own state, since the <select> options and labels below are
 // title-case and every other handler here reads formData.type/.concept.
-const DIFFICULTY_LABEL_BY_DB_VALUE = { EASY: "Easy", MEDIUM: "Medium", HARD: "Hard" };
-
 export default function QuestionForm({
                                        mode = "create",
                                        initialValues = null,

@@ -55,13 +55,3 @@ export const deleteSubTopic =
     return response.data;
   };
 
-export const reorderSubTopics =
-  async (topicId, subTopics) => {
-    const response =
-      await api.patch(
-        "/subtopics/reorder",
-        { topicId, subTopics }
-      );
-
-    return response.data;
-  };

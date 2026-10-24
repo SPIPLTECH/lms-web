@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { FaBars } from "@/components/ui/reactIcons";
 import { ChevronRight, Menu } from "lucide-react";
 import Link from "next/link";
@@ -9,7 +9,6 @@ import Image from "next/image";
 
 import useAuth from "@/hooks/useAuth";
 import { useToast } from "@/components/ui/ToastProvider";
-import useChat from "@/hooks/useChat";
 import { useNotification } from "@/context/NotificationContext";
 import { useStudentNavDrawer } from "@/context/StudentNavDrawerContext";
 import { useInstructorNavDrawer } from "@/context/InstructorNavDrawerContext";
@@ -17,9 +16,6 @@ import { useAdminNavDrawer } from "@/context/AdminNavDrawerContext";
 import Modal from "@/components/ui/Modal";
 import { ThemeSwitcher } from "@/components/ui/shadcn/theme-switcher";
 import { useInstructorCourse } from "@/hooks/queries/instructor/useInstructorCourse";
-import { useModule } from "@/hooks/queries/instructor/useModule";
-import { useLesson } from "@/hooks/queries/instructor/useLesson";
-import { useContent } from "@/hooks/queries/instructor/useContent";
 import { useQuiz } from "@/hooks/queries/instructor/useQuiz";
 import { useQuestion } from "@/hooks/queries/instructor/useQuestion";
 
@@ -95,7 +91,6 @@ function ProfileDropdown({ user, onLogoutRequest, role }) {
 }
 
 export default function Navbar({ title = "Dashboard", role }) {
-  const router = useRouter();
   const { logout, user: currentUser } = useAuth();
   const { showToast } = useToast();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -111,26 +106,14 @@ export default function Navbar({ title = "Dashboard", role }) {
     const segments = pathname.split("/").filter(Boolean);
     const result = {
       courseId: null,
-      moduleId: null,
-      lessonId: null,
-      contentId: null,
       quizId: null,
       questionId: null,
     };
-    
+
     for (let i = 0; i < segments.length; i++) {
       const seg = segments[i];
-      if (seg === "courses" && segments[i + 1] && !["create", "edit", "import", "browse"].includes(segments[i + 1])) {
+      if (seg === "courses" && segments[i + 1] && !["create", "edit", "import"].includes(segments[i + 1])) {
         result.courseId = segments[i + 1];
-      }
-      if (seg === "modules" && segments[i + 1] && !["create", "edit"].includes(segments[i + 1])) {
-        result.moduleId = segments[i + 1];
-      }
-      if (seg === "lessons" && segments[i + 1] && !["create", "edit"].includes(segments[i + 1])) {
-        result.lessonId = segments[i + 1];
-      }
-      if (seg === "contents" && segments[i + 1] && !["create", "edit", "view"].includes(segments[i + 1])) {
-        result.contentId = segments[i + 1];
       }
       if (seg === "quizzes") {
         if (segments[i + 1]) {
@@ -166,15 +149,12 @@ export default function Navbar({ title = "Dashboard", role }) {
   
   // Queries with React Query dynamic enabling (Instructor role only)
   const isInstructorRole = role === "INSTRUCTOR";
-  const { data: moduleData } = useModule(parsedIds.moduleId, { enabled: !!parsedIds.moduleId && isInstructorRole });
-  const { data: lessonData } = useLesson(parsedIds.lessonId, { enabled: !!parsedIds.lessonId && isInstructorRole });
-  const { data: contentData } = useContent(parsedIds.contentId, { enabled: !!parsedIds.contentId && isInstructorRole });
   const { data: questionData } = useQuestion(parsedIds.questionId, { enabled: !!parsedIds.questionId && isInstructorRole });
   
   const quizId = parsedIds.quizId || questionData?.quizId;
   const { data: quizData } = useQuiz(quizId, { enabled: !!quizId && isInstructorRole });
   
-  const courseId = parsedIds.courseId || moduleData?.courseId || lessonData?.module?.courseId || quizData?.courseId;
+  const courseId = parsedIds.courseId || quizData?.courseId;
   // Breadcrumbs read only course.title / course.id, so this skips the whole
   // modules -> lessons -> topics -> contents tree. The navbar renders on every
   // instructor content page, so this was the widest-reaching over-fetch.
@@ -191,43 +171,22 @@ export default function Navbar({ title = "Dashboard", role }) {
     const role = segments[0]; // "instructor", "student", "admin"
     const breadcrumbs = [];
 
-    // Root link
-    breadcrumbs.push({ label: "DASHBOARD", href: `/${role}/dashboard` });
+    // Root link: only the admin portal has a dashboard; an instructor's home
+    // is My Courses, which the COURSES crumb below already links to.
+    if (role === "admin") {
+      breadcrumbs.push({ label: "DASHBOARD", href: "/admin/dashboard" });
+    }
 
     const hasCourses = segments.includes("courses");
-    const hasModules = segments.includes("modules");
-    const hasLessons = segments.includes("lessons");
-    const hasContents = segments.includes("contents");
     const hasQuizzes = segments.includes("quizzes");
     const hasQuestions = segments.includes("questions");
 
     // Add Course parent
-    if (hasCourses || hasModules || hasLessons || hasContents || hasQuizzes || hasQuestions) {
+    if (hasCourses || hasQuizzes || hasQuestions) {
       breadcrumbs.push({ label: "COURSES", href: `/${role}/courses` });
-      
+
       if (course) {
         breadcrumbs.push({ label: course.title, href: `/${role}/courses/${course.id}` });
-      }
-    }
-
-    // Add Modules parent and Module details
-    if (hasModules || hasLessons || hasContents) {
-      if (moduleData) {
-        breadcrumbs.push({ label: moduleData.title, href: `/${role}/modules/${moduleData.id}` });
-      }
-    }
-
-    // Add Lessons parent and Lesson details
-    if (hasLessons || hasContents) {
-      if (lessonData) {
-        breadcrumbs.push({ label: lessonData.title, href: `/${role}/lessons/${lessonData.id}` });
-      }
-    }
-
-    // Add Content leaf node
-    if (hasContents) {
-      if (contentData) {
-        breadcrumbs.push({ label: contentData.title, href: null });
       }
     }
 
@@ -253,10 +212,7 @@ export default function Navbar({ title = "Dashboard", role }) {
 
     // Handle Standalone sections
     const section = segments[1];
-    const standalonePages = [
-      "calendar", "profile", "assignments", "reports",
-      "announcements", "modules", "lessons", "contents",
-    ];
+    const standalonePages = ["profile", "assignments"];
     if (standalonePages.includes(section)) {
       // The student portal's /assignments page is titled "Submissions".
       const label =
@@ -276,17 +232,8 @@ export default function Navbar({ title = "Dashboard", role }) {
   };
 
   const breadcrumbs = getBreadcrumbs();
-  const { 
-    conversations = [], 
-    setConversations,
-    messages = [], 
-    isOpen, 
-    setIsOpen, 
-    activeConversation, 
-    setActiveConversation,
-  } = useChat();
 
-  const { notifications, markAllRead, clearAll, markAsRead, addNotification } = useNotification();
+  const { notifications, markAllRead, clearAll, markAsRead } = useNotification();
   const [isMounted, setIsMounted] = useState(false);
 
   // Client-side initialization to prevent hydration mismatch
@@ -294,73 +241,10 @@ export default function Navbar({ title = "Dashboard", role }) {
     setIsMounted(true);
   }, []);
 
-  // Listen to new messages in all background conversations
-  useEffect(() => {
-    if (!isMounted || !conversations || conversations.length === 0) return;
-    
-    conversations.forEach((conv) => {
-      if (conv.unread > 0 && conv.lastMessage) {
-        const lastMsgText = conv.lastMessage;
-        // The text alone is not enough to tell two messages apart — sending
-        // "hiii" twice would key the same. `unread` and `lastSeen` both advance
-        // when a message actually arrives and are otherwise stable across
-        // renders, which is exactly the property a dedupe key needs.
-        const notifId = `conv_${conv.id}_${conv.unread}_${conv.lastSeen || ""}_${lastMsgText.substring(0, 10)}`;
-        
-        // Don't show notification if we are actively focused on this conversation
-        const isFocused = isOpen && activeConversation && activeConversation.id === conv.id;
-        if (isFocused) return;
-        
-        // addNotification drops a repeat call for the same key, so the whole
-        // stream can be replayed on every render without stacking toasts.
-        addNotification(
-          `New message from ${conv.name || "User"}`,
-          lastMsgText,
-          "chat",
-          "",
-          notifId
-        );
-      }
-    });
-  }, [conversations, isMounted, isOpen, activeConversation, addNotification]);
-
-  // Listen to new messages in the currently active conversation
-  useEffect(() => {
-    if (!isMounted || !messages || messages.length === 0) return;
-    const lastMsg = messages[messages.length - 1];
-    
-    const currentUserId = currentUser?.id || currentUser?._id;
-    const msgSenderId = lastMsg.senderId || lastMsg.sender?._id || lastMsg.sender?.id;
-    const isMine = lastMsg.sender === "me" || lastMsg.senderId === "me" || (currentUserId && msgSenderId && msgSenderId === currentUserId);
-    
-    // Don't show notification if the chat widget is open and focused on this conversation
-    const isFocused = isOpen && activeConversation && (activeConversation.id === lastMsg.conversationId || lastMsg.conversationId === undefined);
-    
-    if (lastMsg && !isMine && !isFocused) {
-      // Key off the message's own id; when the socket payload carries none, derive
-      // one from its content instead. Anything render-stable works — what must NOT
-      // be used here is Date.now(), which yields a fresh key every pass and so
-      // never dedupes.
-      const msgKey =
-        lastMsg.id ||
-        lastMsg._id ||
-        `${lastMsg.conversationId || "conv"}_${(lastMsg.text || lastMsg.content || "").substring(0, 24)}_${lastMsg.createdAt || lastMsg.timestamp || ""}`;
-      const notifId = `msg_${msgKey}`;
-
-      addNotification(
-        `New message from ${lastMsg.sender?.name || "User"}`,
-        lastMsg.text || lastMsg.content || "Sent a message.",
-        "chat",
-        "",
-        notifId
-      );
-    }
-  }, [messages, currentUser, isMounted, isOpen, activeConversation, addNotification]);
-
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const handleLogout = async () => {
-    // logout() itself clears auth state and redirects to the Landing Page —
+    // logout() itself clears auth state and redirects to Login —
     // navigating here too would race it while cookies/user state are still
     // present, which is what let the old redirect bounce back into the app.
     // If the server couldn't end the session, the user stays signed in.

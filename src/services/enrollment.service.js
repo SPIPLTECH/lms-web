@@ -1,22 +1,6 @@
 import api from "@/lib/axios";
 
 /**
- * Enroll Course
- */
-export const enrollCourse = async (
-    courseId
-) => {
-    const {data} = await api.post(
-        "/enrollments",
-        {
-            courseId,
-        }
-    );
-
-    return data;
-};
-
-/**
  * Get All Enrollments
  */
 export const getEnrollments = async (
@@ -64,18 +48,6 @@ export const getMyEnrollments = async () => {
 
     return data.data ?? data;
 };
-/**
- * Unenroll Course
- */
-export const unenrollCourse =
-    async (enrollmentId) => {
-        const {data} =
-            await api.delete(
-                `/enrollments/${enrollmentId}`
-            );
-
-        return data;
-    };
 
 /**
  * Delete Enrollment
