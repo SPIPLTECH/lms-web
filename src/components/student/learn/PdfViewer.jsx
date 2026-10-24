@@ -38,21 +38,15 @@ export default function PdfViewer({
   hideToolbar = false,
   // Opt-in (the learn player below xl): instead of the standalone
   // reading-pane sizing, fill exactly the height the parent allots and let
-  // THIS viewport be the scroll container. Without it the viewer grows past
-  // the player frame, which hands scrolling back to the frame and pushes the
-  // page bar below the fold — the whole point of the fill.
+  // THIS viewport be the scroll container.
   fillHeight = false,
   // Reports this document's page STATE and handlers upward so consumers can
   // draw the controls wherever they belong — the indicator in the document
   // header, the buttons below the player — without ever owning the page
-  // state themselves. Lifting data rather than a rendered node is what lets
-  // two different places drive the same single set of handlers. Called with
-  // null when there is nothing to navigate (single-page, or the standalone
-  // toolbar mode, which has its own page controls in its own header).
+  // state themselves.
   onPageStateChange = null,
   onControlsRender,
-  // Opt-in read aloud for the student player: { sessionKey, lang }. Omitted
-  // by every other consumer (instructor views), which render as before.
+  // Opt-in read aloud for the student player: { sessionKey, lang }.
   readAloud = null,
 }) {
   const resolvedUrl = getDisplayUrl(fileUrl);
@@ -65,8 +59,6 @@ export default function PdfViewer({
 
   // Container measurement & zoom state
   const [containerWidth, setContainerWidth] = useState(0);
-  // fillHeight only: the canvas viewport's usable height and the current
-  // page's width/height ratio, so a page can be fitted whole (see below).
   const [viewportHeight, setViewportHeight] = useState(0);
   const [pageAspect, setPageAspect] = useState(null);
   const [isFitToWidth, setIsFitToWidth] = useState(true);
@@ -88,24 +80,22 @@ export default function PdfViewer({
     if (!containerRef.current) return;
 
     const measureContainer = () => {
-      if (containerRef.current) {
+      const target = viewportRef.current || containerRef.current;
+      if (target) {
         // Measure exact available inner width excluding outer border/padding
-        const width = containerRef.current.clientWidth;
-        const padding = width < 640 ? 12 : 24;
+        const width = target.clientWidth;
+        const padding = width < 640 ? 16 : 32;
         const available = Math.max(width - padding, 0);
-        // The floor guards only the pre-layout case where clientWidth is
-        // still 0. It used to apply unconditionally, which meant a viewer
-        // sitting in a container narrower than 260px rendered its page wider
-        // than its own box and pushed the whole page sideways — exactly the
-        // horizontal overflow this must not cause.
         setContainerWidth(available > 0 ? available : 260);
       }
       if (fillHeight && viewportRef.current) {
         const viewport = viewportRef.current;
         const cs = window.getComputedStyle(viewport);
-        // Content box, less the page wrapper's own py-1.5 (12px).
         const usable =
-          viewport.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - 12;
+          viewport.clientHeight -
+          (parseFloat(cs.paddingTop) || 0) -
+          (parseFloat(cs.paddingBottom) || 0) -
+          24;
         setViewportHeight(Math.max(usable, 0));
       }
     };
@@ -147,27 +137,14 @@ export default function PdfViewer({
     });
   };
 
-  // In hideToolbar mode the page nav lifted into the parent's document
-  // header is the ONLY thing that changes the page. It replaces an earlier click-to-turn region that
-  // treated the whole left/right half of the viewport as previous/next page:
-  // on the learn page the lesson's own Previous/Next content controls are
-  // overlaid at those same left and right edges, so one tap meant two
-  // different kinds of navigation depending on a few pixels, with no page
-  // indicator to tell them apart. An explicit, labelled control cannot be
-  // confused with lesson navigation, and leaves the viewport free to scroll.
   const showPageNav = hideToolbar && (numPages || 0) > 1;
 
-  // Height of the scrolling canvas. Both branches are literal class strings —
-  // Tailwind only generates classes it can see verbatim in the source, so
-  // these must never be built by string concatenation.
-  //
-  // fillHeight (the learn player): take exactly the height the parent leaves
-  // and never scroll — the page is fitted whole into it (renderPageWidth), and
-  // the document's own page control turns pages.
-  // Otherwise: the original scrolling reading pane at every width.
-  // The two branches never overlap, so no rule depends on stylesheet order.
+  // Viewport sizing:
+  // When fillHeight is true, take the full height allotted by the parent and let
+  // THIS viewport be the scroll container (overflow-y-auto).
+  // Otherwise, standalone reading-pane sizing.
   const viewportSizing = fillHeight
-    ? "flex-1 overflow-hidden"
+    ? "flex-1 min-h-0 overflow-y-auto overflow-x-auto"
     : "overflow-auto h-auto max-h-[70vh] sm:h-[82vh] sm:min-h-[560px] sm:max-h-[950px]";
 
   const handlePageInputChange = (e) => {
@@ -203,13 +180,18 @@ export default function PdfViewer({
   };
 
   // Calculate final page width for react-pdf Page component
-  const baseWidth = containerWidth ? Math.min(containerWidth, 1400) : 600;
-  // fillHeight fits the whole page — the narrower of fit-to-width and
-  // fit-to-height — so a portrait page is never taller than the viewer.
+  const availableWidth = containerWidth ? Math.min(containerWidth, 1400) : 600;
+
+  // Sizing strategy:
+  // For landscape documents (aspect > 1.15, e.g. slides), fit whole page inside viewport if possible.
+  // For portrait documents (aspect <= 1.15, e.g. A4/Letter sheets), scale comfortably to available width
+  // (capped at a readable maximum of 960px on wide screens) and let the viewport scroll vertically.
+  const isLandscape = Boolean(pageAspect && pageAspect > 1.15);
   const fitWidth =
-    fillHeight && pageAspect && viewportHeight > 0
-      ? Math.min(baseWidth, Math.floor(viewportHeight * pageAspect))
-      : baseWidth;
+    isLandscape && fillHeight && viewportHeight > 0
+      ? Math.min(availableWidth, Math.floor(viewportHeight * pageAspect))
+      : Math.min(availableWidth, 960);
+
   const renderPageWidth = isFitToWidth ? fitWidth : Math.round(fitWidth * customScale);
 
   const readAloudLang = readAloud?.lang || "";
@@ -331,9 +313,6 @@ export default function PdfViewer({
     </div>
   );
 
-  // The document's own page handlers. changePage is the single source of
-  // page movement — it updates pageNumber and nothing else, so nothing here
-  // can reach the lesson's content navigation.
   const goToPreviousPage = () => changePage(-1);
   const goToNextPage = () => changePage(1);
 
@@ -342,9 +321,6 @@ export default function PdfViewer({
     onPageStateChangeRef.current = onPageStateChange;
   }, [onPageStateChange]);
 
-  // Re-report whenever the page or the document changes. The handlers close
-  // over changePage, which uses a functional setState, so they stay correct
-  // without being listed here.
   useEffect(() => {
     onPageStateChangeRef.current?.(
       showPageNav
@@ -359,7 +335,6 @@ export default function PdfViewer({
     onControlsRenderRef.current = onControlsRender;
   }, [onControlsRender]);
 
-  // Notify parent of rendered controls when onControlsRender callback is supplied
   useEffect(() => {
     if (onControlsRenderRef.current) {
       onControlsRenderRef.current(controlsNode);
@@ -396,8 +371,6 @@ export default function PdfViewer({
   return (
     <div
       ref={containerRef}
-      /* min-w-0 / max-w-full keep the viewer inside its flex parent rather
-         than letting the rendered page size it. */
       className={`flex flex-col w-full min-w-0 max-w-full ${
         !hideToolbar
           ? "rounded-2xl border border-border bg-[#0B101D] shadow-2xl overflow-hidden"
@@ -434,15 +407,6 @@ export default function PdfViewer({
       {/* PDF CANVAS VIEWPORT CONTAINER */}
       <div
         ref={viewportRef}
-        /* The fixed 82vh height with a 560px floor is a reading-pane size that
-           only makes sense once the page is large enough to read. Fitted into
-           a phone-width column the page is ~300px tall, so that floor wrapped
-           it in roughly as much empty backdrop again. Below sm the viewport is
-           content-height instead, capped at 70vh so a zoomed page still
-           scrolls here rather than stretching the block.
-           When the page bar is shown the viewport gives back exactly the
-           height the bar takes, so adding it never changes the viewer's
-           overall footprint. */
         className={`relative w-full min-h-0 bg-[#060913] p-2 sm:p-3.5 flex justify-center items-start scroll-smooth rounded-2xl border border-border/80 ${viewportSizing}`}
       >
         {/* Loading Overlay */}
@@ -473,7 +437,7 @@ export default function PdfViewer({
             </a>
           </div>
         ) : (
-          /* PDF Document Rendering with Native Pixel Width */
+          /* PDF Document Rendering with Responsive Width */
           <Document
             file={resolvedUrl || fileUrl}
             onLoadSuccess={onDocumentLoadSuccess}
@@ -484,13 +448,10 @@ export default function PdfViewer({
                 <span className="text-sm font-semibold text-muted-foreground">Loading document pages…</span>
               </div>
             }
-            className="flex flex-col items-center max-w-full"
+            className="flex flex-col items-center min-h-full max-w-full"
           >
-            {/* Zooming past 100% deliberately renders the page wider than the
-                viewer. That overflow scrolls here, inside the document, so it
-                never becomes horizontal scrolling on the page itself. */}
-            <div className="my-auto py-1.5 transition-all duration-150 flex justify-center max-w-full overflow-x-auto">
-              <div className="relative">
+            <div className="my-auto py-3 sm:py-6 transition-all duration-150 flex justify-center max-w-full">
+              <div className="relative max-w-full">
                 <Page
                   pageNumber={pageNumber}
                   width={renderPageWidth}

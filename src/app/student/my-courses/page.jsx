@@ -72,10 +72,10 @@ export default function MyCoursesPage() {
   }, [totalPages]);
 
   return (
-    // student/layout.jsx gives this route its own viewport-height shell
-    // (p-3 sm:p-6, no DashboardLayout p-16/pb-32), so the page fills it
-    // directly; from md up only the Enrolled Courses grid scrolls.
-    <div className="space-y-4 md:space-y-6 flex flex-col flex-1 min-h-0">
+    // Same shell as the Instructor Courses page: bleeds out to DashboardLayout's
+    // padding (p-2 / sm:p-6 / md:p-16) and re-pads evenly; the page scrolls as
+    // a normal document, the Enrolled Courses grid does not scroll on its own.
+    <div className="-m-2 sm:-m-6 md:-m-16 p-3 sm:p-6 space-y-4 md:space-y-6 flex flex-col flex-1 min-h-0">
       <div className="shrink-0">
         <StudentWelcomeCard />
       </div>
@@ -121,7 +121,7 @@ export default function MyCoursesPage() {
             )}
           </div>
 
-          <div className="md:flex-1 md:min-h-0 md:overflow-y-auto md:pr-1 md:-mr-1 md:pb-1">
+          <div className="flex-1">
             <SnapCardSlider
               items={pagedEnrollments}
               getKey={(enrollment) => enrollment.id || enrollment.courseId}
@@ -139,7 +139,7 @@ export default function MyCoursesPage() {
             />
           </div>
 
-          {/* Pinned under the scrolling grid, with clear space above it. */}
+          {/* Under the grid, with clear space above it. */}
           {!isLoading && myEnrollments.length > 0 && (
             <div className="hidden md:block shrink-0 mt-6">
               <Pagination
