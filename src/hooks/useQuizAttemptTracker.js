@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
     createAttemptState,
+    markAnswerChecked,
     markHintViewed,
     markSkipped,
     markVisited,
@@ -191,6 +192,12 @@ export default function useQuizAttemptTracker({ quizId, questions, attemptsUsed 
         setQuestionStates((prev) => markHintViewed(prev, currentQuestionId));
     }, [currentQuestionId]);
 
+    /** Checks the current Self-Test answer against the key, locking it. */
+    const checkCurrentAnswer = useCallback(() => {
+        if (!currentQuestionId) return;
+        setQuestionStates((prev) => markAnswerChecked(prev, currentQuestionId));
+    }, [currentQuestionId]);
+
     /** Drops this attempt's stored progress — called once it is submitted. */
     const clearStoredProgress = useCallback(() => {
         if (!storageKey || typeof window === "undefined") return;
@@ -217,6 +224,7 @@ export default function useQuizAttemptTracker({ quizId, questions, attemptsUsed 
         currentQuestionIndex,
         currentQuestion,
         currentAnswer: currentQuestionId ? questionStates[currentQuestionId]?.answer ?? undefined : undefined,
+        currentAnswerChecked: Boolean(currentQuestionId && questionStates[currentQuestionId]?.answerChecked),
         summary,
         hydrated,
         goToQuestion,
@@ -225,6 +233,7 @@ export default function useQuizAttemptTracker({ quizId, questions, attemptsUsed 
         answerCurrentQuestion,
         skipCurrentQuestion,
         viewCurrentHint,
+        checkCurrentAnswer,
         buildSubmitPayload,
         clearStoredProgress,
     };

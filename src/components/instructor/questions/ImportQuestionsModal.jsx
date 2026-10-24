@@ -7,14 +7,23 @@ import { useImportQuestions } from "@/hooks/queries/instructor/useImportQuestion
 const ACCEPTED_FORMATS = ".csv,.xlsx,.xls,.json,.txt,.docx,.pdf";
 const FORMAT_LABELS = ["CSV", "Excel (.xlsx/.xls)", "JSON", "TXT", "DOCX", "PDF"];
 
-const CSV_TEMPLATE = `question,optionA,optionB,optionC,optionD,correctAnswer,marks,difficulty,explanation
-"What is JSX in React?","A templating engine","JavaScript XML syntax extension","Java Syntax Extension","A CSS framework","JavaScript XML syntax extension",1,EASY,"JSX allows writing HTML-like code in JavaScript"
-"Which hook manages state in React?","useEffect","useMemo","useState","useCallback","useState",2,MEDIUM,"useState hook is used to manage component local state"`;
+// `explanation` says why the correct answer is right. The optional
+// optionX_explanation columns (CSV) and an option's own `explanation` (JSON)
+// say why that option is wrong — shown on a Self-Test once the student checks
+// their answer. A correct option needs none.
+const CSV_TEMPLATE = `question,optionA,optionB,optionC,optionD,correctAnswer,marks,difficulty,explanation,optionA_explanation,optionB_explanation,optionC_explanation,optionD_explanation
+"What is JSX in React?","A templating engine","JavaScript XML syntax extension","Java Syntax Extension","A CSS framework","JavaScript XML syntax extension",1,EASY,"JSX allows writing HTML-like code in JavaScript","JSX is compiled to JavaScript calls; it is not a separate templating engine.",,"JSX stands for JavaScript XML and has nothing to do with Java.","JSX describes markup, not styles."
+"Which hook manages state in React?","useEffect","useMemo","useState","useCallback","useState",2,MEDIUM,"useState hook is used to manage component local state","useEffect runs side effects after render; it does not hold state.","useMemo caches a computed value between renders.",,"useCallback caches a function between renders."`;
 
 const JSON_TEMPLATE = JSON.stringify([
     {
         question: "What is the capital of France?",
-        options: ["London", "Berlin", "Paris", "Madrid"],
+        options: [
+            { optionText: "London", explanation: "London is the capital of the United Kingdom." },
+            { optionText: "Berlin", explanation: "Berlin is the capital of Germany." },
+            { optionText: "Paris" },
+            { optionText: "Madrid", explanation: "Madrid is the capital of Spain." },
+        ],
         correctAnswer: "Paris",
         marks: 1,
         difficulty: "EASY",
@@ -22,10 +31,16 @@ const JSON_TEMPLATE = JSON.stringify([
     },
     {
         question: "Which language runs in a web browser?",
-        options: ["Java", "C#", "Python", "JavaScript"],
+        options: [
+            { optionText: "Java", explanation: "Java runs on the JVM; browsers dropped Java applets years ago." },
+            { optionText: "C#", explanation: "C# runs on .NET, not natively in the browser." },
+            { optionText: "Python", explanation: "Browsers do not run Python natively." },
+            { optionText: "JavaScript" },
+        ],
         correctAnswer: "JavaScript",
         marks: 1,
         difficulty: "EASY",
+        explanation: "JavaScript is the language every web browser runs natively.",
     },
 ], null, 2);
 

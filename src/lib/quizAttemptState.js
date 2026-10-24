@@ -50,6 +50,10 @@ function blankState(questionId) {
         skipped: false,
         answered: false,
         hintViewed: false,
+        // A Self-Test answer the student has checked against the key. It is
+        // locked from then on: having seen the answer, changing it would
+        // only copy the key.
+        answerChecked: false,
         firstVisitedAt: null,
         lastVisitedAt: null,
         answeredAt: null,
@@ -127,6 +131,8 @@ export function setAnswer(state, questionId, answer, now = Date.now()) {
     if (!questionId) return state;
     const answered = hasAnswer(answer);
     const current = state[questionId] || blankState(questionId);
+    // A checked Self-Test answer is final.
+    if (current.answerChecked) return state;
 
     return patch(state, questionId, {
         answer: answered ? answer : null,
@@ -156,6 +162,17 @@ export function markSkipped(state, questionId, now = Date.now()) {
         lastVisitedAt: now,
         skippedAt: current.skippedAt ?? now,
     });
+}
+
+/**
+ * Records that the student checked this question's answer on a Self-Test,
+ * which locks it. Only an answered question can be checked.
+ */
+export function markAnswerChecked(state, questionId, now = Date.now()) {
+    if (!questionId) return state;
+    const current = state[questionId] || blankState(questionId);
+    if (!current.answered || current.answerChecked) return state;
+    return patch(state, questionId, { answerChecked: true, lastVisitedAt: now });
 }
 
 /** Records that the student revealed this question's hint. */

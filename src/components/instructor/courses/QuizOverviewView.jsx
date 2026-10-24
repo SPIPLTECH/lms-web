@@ -23,7 +23,7 @@ import {
 import QuestionRepositoryPickerModal from "./QuestionRepositoryPickerModal";
 import QuizImportModal from "./QuizImportModal";
 import Modal from "@/components/ui/Modal";
-import { QUESTION_TYPE_OPTIONS, RETIRED_QUESTION_TYPES } from "@/lib/questionType";
+import { QUESTION_TYPE_OPTIONS, RETIRED_QUESTION_TYPES, resolveQuestionType } from "@/lib/questionType";
 
 // Question.options (backend) may hold plain strings or richer
 // { optionText, isCorrect?, misconceptionTag? } objects (see
@@ -38,6 +38,48 @@ function getOptionText(opt) {
 }
 
 const optionToText = getOptionText;
+
+// Why an option is wrong, kept beside the plain-string options as an
+// index-aligned `optionExplanations` array while editing.
+const optionExplanationOf = (opt) =>
+  opt && typeof opt === "object" && typeof opt.explanation === "string" ? opt.explanation : "";
+
+const CHOICE_TYPES = ["MCQ_SINGLE", "MCQ_MULTI", "TRUE_FALSE"];
+
+// The API stores composer questions under its synonyms ("MCQ",
+// "MULTIPLE_CORRECT"); the editor branches on the UI's own keys, so a
+// reopened question has to be translated back or it loses its option list —
+// and, on the next save, its per-option reasons.
+const editorQuestionType = (q) => resolveQuestionType(String(q.questionType || q.type || "MCQ_SINGLE").toUpperCase());
+
+// The answer key in the shape the editor's controls expect: one string for a
+// single-choice question, a list for a multi-choice one. Imported and
+// generated questions often store a single answer as a one-item list (and a
+// lone multi answer as a string), which would otherwise show no option ticked
+// and block the save until one was picked again.
+function editorCorrectAnswer(type, value) {
+  if (value === undefined || value === null) return type === "MCQ_MULTI" ? [] : "";
+  if (type === "MCQ_SINGLE" && Array.isArray(value) && value.length === 1) return value[0];
+  if (type === "MCQ_MULTI" && !Array.isArray(value)) return value === "" ? [] : [value];
+  return value;
+}
+
+// What a question is saved as: an option with a reason becomes
+// { optionText, explanation }; one without stays a plain string. A correct
+// option needs no reason, so none is kept for it.
+function withOptionExplanations(q) {
+  const { optionExplanations = [], ...rest } = q;
+  if (!CHOICE_TYPES.includes(resolveQuestionType(rest.questionType)) || !Array.isArray(rest.options)) return rest;
+  const correct = (Array.isArray(rest.correctAnswer) ? rest.correctAnswer : [rest.correctAnswer]).map(getOptionText);
+  return {
+    ...rest,
+    options: rest.options.map((opt, i) => {
+      const text = getOptionText(opt);
+      const reason = String(optionExplanations[i] ?? "").trim();
+      return reason && !correct.includes(text) ? { optionText: text, explanation: reason } : text;
+    }),
+  };
+}
 
 // A quiz's tag is independent of its scope/level: Lesson + Self-Test and
 // Lesson + Final Quiz are both valid. Self-Test is never timed.
@@ -185,11 +227,12 @@ export function QuizOverviewView({
       const normalized = rawQuestions.map((q, idx) => ({
         id: q.id || `draft-que-${quiz.id || "temp"}-${idx + 1}`,
         question: q.question || q.title || "",
-        questionType: (q.questionType || q.type || "MCQ_SINGLE").toUpperCase(),
+        questionType: editorQuestionType(q),
         options: Array.isArray(q.options)
           ? q.options.map(optionToText)
           : (typeof q.options === "object" && q.options !== null ? Object.values(q.options).map(optionToText) : ["Option 1", "Option 2"]),
-        correctAnswer: q.correctAnswer !== undefined ? q.correctAnswer : "",
+        optionExplanations: Array.isArray(q.options) ? q.options.map(optionExplanationOf) : [],
+        correctAnswer: editorCorrectAnswer(editorQuestionType(q), q.correctAnswer),
         explanation: q.explanation || "",
         hint: q.hint || "",
         marks: q.marks !== undefined ? Number(q.marks) : 1,
@@ -238,6 +281,7 @@ export function QuizOverviewView({
       question: `New Question ${questions.length + 1}`,
       questionType: "MCQ_SINGLE",
       options: ["Option 1", "Option 2"],
+      optionExplanations: ["", ""],
       correctAnswer: "Option 1",
       explanation: "",
       hint: "",
@@ -259,9 +303,10 @@ export function QuizOverviewView({
     const mapped = chosen.map((q) => ({
       id: q.id,
       question: q.question || "",
-      questionType: (q.questionType || "MCQ_SINGLE").toUpperCase(),
+      questionType: editorQuestionType(q),
       options: Array.isArray(q.options) ? q.options.map(optionToText) : [],
-      correctAnswer: q.correctAnswer !== undefined ? q.correctAnswer : "",
+      optionExplanations: Array.isArray(q.options) ? q.options.map(optionExplanationOf) : [],
+      correctAnswer: editorCorrectAnswer(editorQuestionType(q), q.correctAnswer),
       explanation: q.explanation || "",
       hint: q.hint || "",
       marks: q.marks !== undefined ? Number(q.marks) : 1,
@@ -282,6 +327,7 @@ export function QuizOverviewView({
       question: r.question,
       questionType: r.questionType,
       options: r.options,
+      optionExplanations: Array.isArray(r.optionExplanations) ? r.optionExplanations : (r.options || []).map(() => ""),
       correctAnswer: r.correctAnswer,
       explanation: r.explanation || "",
       hint: "",
@@ -316,10 +362,12 @@ export function QuizOverviewView({
       if (field === "questionType") {
         if (value === "TRUE_FALSE") {
           target.options = ["True", "False"];
+          target.optionExplanations = ["", ""];
           target.correctAnswer = "True";
         } else if (value === "MCQ_SINGLE" || value === "MCQ_MULTI") {
           if (!Array.isArray(target.options) || target.options.length < 2) {
             target.options = ["Option 1", "Option 2"];
+            target.optionExplanations = ["", ""];
           }
           if (value === "MCQ_SINGLE" && Array.isArray(target.correctAnswer)) {
             // Never invent a key: if no option was selected under MCQ_MULTI,
@@ -366,6 +414,21 @@ export function QuizOverviewView({
       const opts = Array.isArray(q.options) ? [...q.options] : [];
       opts.push(`Option ${opts.length + 1}`);
       q.options = opts;
+      q.optionExplanations = opts.map((_, i) => q.optionExplanations?.[i] ?? "");
+      updated[currentQuestionIndex] = q;
+      return updated;
+    });
+  };
+
+  // Why one option is wrong — offered for every option not marked correct.
+  const handleOptionExplanationChange = (optIdx, text) => {
+    setQuestions((prev) => {
+      if (prev.length === 0) return prev;
+      const updated = [...prev];
+      const q = { ...updated[currentQuestionIndex] };
+      const reasons = (q.options || []).map((_, i) => q.optionExplanations?.[i] ?? "");
+      reasons[optIdx] = text;
+      q.optionExplanations = reasons;
       updated[currentQuestionIndex] = q;
       return updated;
     });
@@ -379,6 +442,7 @@ export function QuizOverviewView({
       const q = { ...updated[currentQuestionIndex] };
       const opts = (q.options || []).filter((_, i) => i !== optIdx);
       q.options = opts;
+      q.optionExplanations = (q.optionExplanations || []).filter((_, i) => i !== optIdx);
 
       if (q.questionType === "MCQ_SINGLE" && !opts.includes(q.correctAnswer)) {
         q.correctAnswer = opts[0] || "";
@@ -467,7 +531,7 @@ export function QuizOverviewView({
       attempts: quizForm.quizTag === "SELF_TEST" ? 0 : Math.max(1, Math.round(Number(quizForm.attempts)) || 1),
       isPublished: quizForm.isPublished,
       questions: questions.map((q, idx) => ({
-        ...q,
+        ...withOptionExplanations(q),
         order: idx + 1,
         marks: Number(q.marks) || 1,
       })),
@@ -702,7 +766,14 @@ export function QuizOverviewView({
                                   : "bg-background/80 border-border/80 text-foreground"
                               }`}
                             >
-                              <span>{opt}</span>
+                              <span className="min-w-0">
+                                {opt}
+                                {!isCorrect && q.optionExplanations?.[optIdx] && (
+                                  <span className="block pt-0.5 text-[13px] font-normal text-muted-foreground">
+                                    Why it&apos;s wrong: {q.optionExplanations[optIdx]}
+                                  </span>
+                                )}
+                              </span>
                               {isCorrect && (
                                 <span className="text-[12.5px] font-mono font-extrabold text-emerald-700 dark:text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-500/30 shrink-0">
                                   Correct Answer ✓
@@ -1109,7 +1180,8 @@ export function QuizOverviewView({
                         : Array.isArray(activeQuestion.correctAnswer) && activeQuestion.correctAnswer.map(getOptionText).includes(optStr);
 
                       return (
-                        <div key={optIdx} className="flex items-center gap-2">
+                        <div key={optIdx} className="space-y-1">
+                        <div className="flex items-center gap-2">
                           <input
                             type={activeQuestion.questionType === "MCQ_MULTI" ? "checkbox" : "radio"}
                             name={`correct-${currentQuestionIndex}`}
@@ -1135,6 +1207,20 @@ export function QuizOverviewView({
                               <Trash2 size={14} />
                             </button>
                           )}
+                        </div>
+                        {/* Why this option is wrong — shown on a Self-Test once
+                            the student checks their answer. A correct option
+                            needs none. */}
+                        {!isChecked && (
+                          <input
+                            type="text"
+                            value={activeQuestion.optionExplanations?.[optIdx] ?? ""}
+                            onChange={(e) => handleOptionExplanationChange(optIdx, e.target.value)}
+                            placeholder="Why this option is wrong (optional)"
+                            aria-label={`Why option ${optIdx + 1} is wrong`}
+                            className="ml-6 w-[calc(100%-1.5rem)] rounded-lg border border-border bg-background px-3 py-1 text-[13px] text-foreground outline-none focus:border-emerald-500"
+                          />
+                        )}
                         </div>
                       );
                     })}
@@ -1186,7 +1272,7 @@ export function QuizOverviewView({
                   type="text"
                   value={activeQuestion.explanation}
                   onChange={(e) => handleCurrentQuestionChange("explanation", e.target.value)}
-                  placeholder="Optional explanation shown to students after submission..."
+                  placeholder="Optional: why the correct answer is right, shown after submission (and on a Self-Test when the answer is checked)..."
                   className="w-full rounded-xl border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-emerald-500"
                 />
               </div>

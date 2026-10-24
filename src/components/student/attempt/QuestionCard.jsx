@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Lightbulb } from "lucide-react";
+import AnswerFeedback from "./AnswerFeedback";
 import OptionList from "./OptionList";
 import MCQMultiOptionList from "./MCQMultiOptionList";
 import ArrangeTokensList from "./ArrangeTokensList";
@@ -25,8 +26,22 @@ export default function QuestionCard({
   // the content.
   hintsUnlocked = false,
   onViewHint,
+  // A Self-Test: the server sent the answer key, so each answer can be
+  // checked as the student goes. Once checked it is locked and the feedback
+  // (right or wrong, the correct answer, why) is shown under it.
+  revealAnswers = false,
+  answerChecked = false,
+  onCheckAnswer,
 }) {
   const type = resolveQuestionType(question?.questionType);
+  const revealed = revealAnswers && answerChecked;
+  const hasAnswer = Array.isArray(selectedAnswer)
+    ? selectedAnswer.length > 0
+    : selectedAnswer && typeof selectedAnswer === "object"
+      ? Object.keys(selectedAnswer).length > 0
+      : typeof selectedAnswer === "string"
+        ? selectedAnswer.trim() !== ""
+        : selectedAnswer !== undefined && selectedAnswer !== null;
 
   // Revealed only on an explicit click, and never carried over to the next
   // question — a hint the student did not ask for is not a hint.
@@ -171,6 +186,8 @@ export default function QuestionCard({
             options={shuffledOptions}
             selectedAnswer={selectedAnswer}
             onSelect={onSelectAnswer}
+            revealed={revealed}
+            correctAnswer={question.correctAnswer}
           />
         )}
         {type === "MCQ_MULTI" && (
@@ -178,29 +195,60 @@ export default function QuestionCard({
             options={shuffledOptions}
             selectedAnswers={selectedAnswer || []}
             onSelect={onSelectAnswer}
+            revealed={revealed}
+            correctAnswer={question.correctAnswer}
           />
         )}
-        {type === "ARRANGE_TOKENS" && (
-          <ArrangeTokensList
-            options={shuffledOptions}
-            selectedOrder={selectedAnswer || []}
-            onOrderChange={onSelectAnswer}
-          />
-        )}
-        {type === "MATCH_PAIRS" && (
-          <MatchPairsGrid
-            options={shuffledMatchOptions}
-            selectedPairs={selectedAnswer || {}}
-            onPairsChange={onSelectAnswer}
-          />
-        )}
-        {type === "SELF_ASSESSMENT" && (
-          <SelfAssessmentInput
-            value={selectedAnswer || ""}
-            onChange={onSelectAnswer}
-          />
-        )}
+        {/* The other types have no checked look of their own; once checked
+            they are simply frozen, and the feedback below shows the key. */}
+        <fieldset disabled={revealed} className={`min-w-0 ${revealed ? "pointer-events-none opacity-80" : ""}`}>
+          {type === "ARRANGE_TOKENS" && (
+            <ArrangeTokensList
+              options={shuffledOptions}
+              selectedOrder={selectedAnswer || []}
+              onOrderChange={onSelectAnswer}
+            />
+          )}
+          {type === "MATCH_PAIRS" && (
+            <MatchPairsGrid
+              options={shuffledMatchOptions}
+              selectedPairs={selectedAnswer || {}}
+              onPairsChange={onSelectAnswer}
+            />
+          )}
+          {type === "SELF_ASSESSMENT" && (
+            <SelfAssessmentInput
+              value={selectedAnswer || ""}
+              onChange={onSelectAnswer}
+            />
+          )}
+        </fieldset>
       </div>
+
+      {revealAnswers && !answerChecked && (
+        <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 sm:mt-4">
+          <p className="text-[11px] text-muted-foreground sm:text-xs">
+            Pick an answer, then check it to see whether it is right and why.
+          </p>
+          <button
+            type="button"
+            onClick={onCheckAnswer}
+            disabled={!hasAnswer}
+            className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-primary px-4 text-xs font-bold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm cursor-pointer"
+          >
+            Check Answer
+          </button>
+        </div>
+      )}
+
+      {revealed && (
+        <AnswerFeedback
+          question={question}
+          type={type}
+          options={shuffledOptions}
+          selectedAnswer={selectedAnswer}
+        />
+      )}
     </div>
   );
 }

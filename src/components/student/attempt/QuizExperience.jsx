@@ -108,12 +108,14 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
         currentQuestionIndex,
         currentQuestion,
         currentAnswer,
+        currentAnswerChecked,
         summary,
         goToQuestion,
         goToNext,
         goToPrevious,
         answerCurrentQuestion,
         viewCurrentHint,
+        checkCurrentAnswer,
         skipCurrentQuestion,
         buildSubmitPayload,
         clearStoredProgress,
@@ -400,6 +402,11 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
                     // later attempt, and the hint text is absent otherwise.
                     hintsUnlocked={quiz.hintsUnlocked === true}
                     onViewHint={viewCurrentHint}
+                    // Also the server's decision: true only for a Self-Test,
+                    // the one quiz whose answer key is sent to the student.
+                    revealAnswers={quiz.revealAnswers === true}
+                    answerChecked={currentAnswerChecked}
+                    onCheckAnswer={checkCurrentAnswer}
                 />
 
                 <QuizNavigation

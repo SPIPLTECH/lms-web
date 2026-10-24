@@ -10,6 +10,14 @@
 const normalizeAnswerText = (value) => String(value ?? "").trim().toLowerCase();
 const asAnswerList = (value) => (Array.isArray(value) ? value : [value]);
 
+// Whether one option is (one of) the correct answer(s), by the same trimmed,
+// case-insensitive text rule — for marking options right or wrong once a
+// Self-Test answer has been checked.
+export function isCorrectOption(optionText, correct) {
+  if (correct === undefined || correct === null || correct === "") return false;
+  return asAnswerList(correct).some((c) => normalizeAnswerText(c) === normalizeAnswerText(optionText));
+}
+
 export function checkAnswerCorrectness(type, selected, correct) {
   if (selected === undefined || selected === null) return false;
 
@@ -19,7 +27,10 @@ export function checkAnswerCorrectness(type, selected, correct) {
 
   if (type === "MCQ_MULTI") {
     if (!Array.isArray(selected) || !Array.isArray(correct)) return false;
-    return selected.length === correct.length && selected.every((v) => correct.includes(v));
+    // Same trimmed, case-insensitive text rule as the server's scorer, so a
+    // review never calls an answer wrong that was scored right.
+    const key = correct.map(normalizeAnswerText);
+    return selected.length === correct.length && selected.every((v) => key.includes(normalizeAnswerText(v)));
   }
 
   if (type === "ARRANGE_TOKENS") {

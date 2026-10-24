@@ -101,7 +101,13 @@ export default function QuestionReviewCard({ question, index, userAnswer }) {
                   >
                     <div className="flex items-center min-w-0 pr-2">
                       {radioCircle}
-                      <span className="break-words leading-tight sm:leading-normal">{optionText}</span>
+                      <span className="break-words leading-tight sm:leading-normal">
+                        {optionText}
+                        {/* Why this option is wrong, when the instructor wrote one. */}
+                        {!isAnswerCorrect && typeof option === "object" && option?.explanation && (
+                          <span className="block pt-0.5 font-normal text-muted-foreground">{option.explanation}</span>
+                        )}
+                      </span>
                     </div>
                     {badgeIcon}
                   </div>
