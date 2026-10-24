@@ -14,6 +14,7 @@ import AuthFooter from "@/components/auth/AuthFooter";
 import Countdown from "@/components/auth/Countdown";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/common/Loader";
+import { clearSignedIn } from "@/lib/returningUser";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_PATTERN = /^\+?[0-9]{7,15}$/;
@@ -366,6 +367,8 @@ export default function EvaluatorRegisterPage() {
         ...(form.phoneNumber.trim() ? { phoneNumber: form.phoneNumber.trim() } : {}),
       });
       // The email was verified before the account was created; log in next.
+      // A new account: the login page should say "Sign In", not "Welcome Back".
+      clearSignedIn();
       router.replace("/login");
     } catch (err) {
       setError(errorText(err, "Registration failed."));
