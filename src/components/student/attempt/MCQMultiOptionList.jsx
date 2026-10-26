@@ -1,9 +1,7 @@
 "use client";
 
-import { Check, X } from "lucide-react";
+import { Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-
-import { isCorrectOption } from "@/lib/quizAnswers";
 
 const getOptionText = (opt) => {
   if (opt === null || opt === undefined) return "";
@@ -12,74 +10,11 @@ const getOptionText = (opt) => {
   return String(opt);
 };
 
-// `revealed` is a Self-Test answer the student has checked: the options lock,
-// every correct option turns green and each wrong pick turns red.
 export default function MCQMultiOptionList({
   options = [],
   selectedAnswers = [],
   onSelect,
-  revealed = false,
-  correctAnswer,
 }) {
-  if (revealed) {
-    return (
-      <div className="space-y-1.5 sm:space-y-2">
-        {options.map((option, index) => {
-          const optionText = getOptionText(option);
-          const isSelected = selectedAnswers.includes(optionText) || selectedAnswers.includes(option);
-          const isRight = isCorrectOption(optionText, correctAnswer);
-          const state = isRight ? "correct" : isSelected ? "wrong" : "other";
-
-          return (
-            <div
-              key={index}
-              className={`flex w-full items-center gap-2 sm:gap-2.5 rounded-lg sm:rounded-xl border py-1.5 px-2.5 sm:py-2.5 sm:px-3 min-h-[38px] sm:min-h-[44px] ${
-                state === "correct"
-                  ? "border-emerald-500/60 bg-emerald-500/10"
-                  : state === "wrong"
-                    ? "border-rose-500/60 bg-rose-500/10"
-                    : "border-border bg-background/60 opacity-70"
-              }`}
-            >
-              <div
-                className={`flex h-5 w-5 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-md sm:rounded-xl font-extrabold text-[11px] sm:text-sm ${
-                  state === "correct"
-                    ? "bg-emerald-600 text-white"
-                    : state === "wrong"
-                      ? "bg-rose-600 text-white"
-                      : "bg-muted text-muted-foreground"
-                }`}
-              >
-                {String.fromCharCode(65 + index)}
-              </div>
-              <p
-                className={`flex-1 min-w-0 text-xs sm:text-base leading-snug break-words ${
-                  state === "correct"
-                    ? "font-semibold text-emerald-800 dark:text-emerald-300"
-                    : state === "wrong"
-                      ? "font-semibold text-rose-800 dark:text-rose-300"
-                      : "text-muted-foreground"
-                }`}
-              >
-                {optionText}
-              </p>
-              {state === "correct" && (
-                <span className="inline-flex shrink-0 items-center gap-1 text-[11px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400">
-                  <Check size={14} aria-hidden /> {isSelected ? "Correct, you picked it" : "Correct answer"}
-                </span>
-              )}
-              {state === "wrong" && (
-                <span className="inline-flex shrink-0 items-center gap-1 text-[11px] sm:text-xs font-bold text-rose-700 dark:text-rose-400">
-                  <X size={14} aria-hidden /> Your answer
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
-
   const handleToggle = (optionText) => {
     let newAnswers;
     if (selectedAnswers.includes(optionText)) {

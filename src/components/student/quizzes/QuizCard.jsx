@@ -7,6 +7,8 @@ export default function QuizCard({ quiz }) {
   const submission = quiz.quizSubmissions?.[0];
   const hasSubmitted = !!submission;
   const passed = submission?.passed;
+  // A Self-Test is practice: no pass/fail and no result page.
+  const isPractice = quiz.quizTag === "SELF_TEST";
 
   return (
     <div className="rounded-2xl border border-border/80 bg-background/90 p-4 space-y-3 shadow-md hover:border-transparent transition">
@@ -21,7 +23,12 @@ export default function QuizCard({ quiz }) {
           </p>
         </div>
 
-        {hasSubmitted ? (
+        {hasSubmitted && isPractice ? (
+          <span className="shrink-0 inline-flex items-center gap-1 rounded-xl px-2.5 py-1 text-[10px] font-black uppercase tracking-wider bg-muted text-muted-foreground border border-border">
+            <CheckCircle size={12} />
+            <span>Practised</span>
+          </span>
+        ) : hasSubmitted ? (
           <span
             className={`shrink-0 inline-flex items-center gap-1 rounded-xl px-2.5 py-1 text-[10px] font-black uppercase tracking-wider border ${
               passed
@@ -71,7 +78,7 @@ export default function QuizCard({ quiz }) {
 
       {/* Primary Actions */}
       <div className="flex items-center gap-2 pt-1">
-        {hasSubmitted && (
+        {hasSubmitted && !isPractice && (
           <Link href={`/student/result/${quiz.id}`} className="flex-1">
             <button
               type="button"

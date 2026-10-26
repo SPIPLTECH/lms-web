@@ -18,6 +18,8 @@ export default function QuizRow({
     const submission = quiz.quizSubmissions?.[0];
     const hasSubmitted = !!submission;
     const passed = submission?.passed;
+    // A Self-Test is practice: no pass/fail and no result page.
+    const isPractice = quiz.quizTag === "SELF_TEST";
 
     return (
         <tr className="hover:bg-foreground/5 transition">
@@ -69,7 +71,12 @@ export default function QuizRow({
 
             {/* Status */}
             <td className="px-6 py-5">
-                {hasSubmitted ? (
+                {hasSubmitted && isPractice ? (
+                    <div className="flex items-center gap-2 text-muted-foreground font-medium text-sm">
+                        <CheckCircle className="h-4 w-4"/>
+                        <span>Practised ({submission.percentage}%)</span>
+                    </div>
+                ) : hasSubmitted ? (
                     passed ? (
                         <div className="flex items-center gap-2 text-emerald-500 font-medium text-sm">
                             <CheckCircle className="h-4 w-4 text-emerald-500"/>
@@ -92,7 +99,7 @@ export default function QuizRow({
             {/* Action */}
             <td className="px-6 py-5 text-right">
                 <div className="flex items-center justify-end gap-2">
-                    {hasSubmitted && (
+                    {hasSubmitted && !isPractice && (
                         <Link href={`/student/result/${quiz.id}`}>
                             <Button variant="secondary" className="px-3 py-1.5 text-xs">
                                 View Result

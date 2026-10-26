@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Lightbulb } from "lucide-react";
 import AnswerFeedback from "./AnswerFeedback";
 import OptionList from "./OptionList";
+import OptionReview from "@/components/student/quiz-review/OptionReview";
 import MCQMultiOptionList from "./MCQMultiOptionList";
 import ArrangeTokensList from "./ArrangeTokensList";
 import MatchPairsGrid from "./MatchPairsGrid";
@@ -34,6 +35,7 @@ export default function QuestionCard({
   onCheckAnswer,
 }) {
   const type = resolveQuestionType(question?.questionType);
+  const isChoice = type === "MCQ_SINGLE" || type === "MCQ_MULTI";
   const revealed = revealAnswers && answerChecked;
   const hasAnswer = Array.isArray(selectedAnswer)
     ? selectedAnswer.length > 0
@@ -63,9 +65,17 @@ export default function QuestionCard({
     onViewHint?.();
   };
 
+  // The shuffles below are keyed on the options' content, not on the question
+  // object: the quiz is refetched after a Self-Test saves itself (and on
+  // window focus), and a new object with the same options must not reorder
+  // what the student is looking at — the letters in the feedback would no
+  // longer match the ones they picked.
+  const rawQuestionType = question?.questionType;
+  const optionsKey = JSON.stringify(question?.options ?? null);
+
   // Deterministic-ish stable random shuffle helper for single option, multioption, and arrange tokens
   const shuffledOptions = useMemo(() => {
-    let opts = question?.options;
+    let opts = JSON.parse(optionsKey);
     if (typeof opts === "string") {
       try {
         opts = JSON.parse(opts);
@@ -74,19 +84,19 @@ export default function QuestionCard({
       }
     }
     // A True/False question saved without its options still has them.
-    if ((!Array.isArray(opts) || opts.length === 0) && question?.questionType === "TRUE_FALSE") {
+    if ((!Array.isArray(opts) || opts.length === 0) && rawQuestionType === "TRUE_FALSE") {
       opts = TRUE_FALSE_OPTIONS;
     }
     if (!Array.isArray(opts)) return [];
 
     return [...opts].sort(() => Math.random() - 0.5);
-  }, [question]);
+  }, [optionsKey, rawQuestionType]);
 
   // Deterministic-ish stable random shuffle for Match Pairs column B (Right side options)
   const shuffledMatchOptions = useMemo(() => {
-    if (type !== "MATCH_PAIRS" || !question?.options) return {};
+    let opts = JSON.parse(optionsKey);
+    if (type !== "MATCH_PAIRS" || !opts) return {};
 
-    let opts = question.options;
     if (typeof opts === "string") {
       try {
         opts = JSON.parse(opts);
@@ -102,7 +112,7 @@ export default function QuestionCard({
       columnA: colA,
       columnB: [...colB].sort(() => Math.random() - 0.5),
     };
-  }, [question, type]);
+  }, [optionsKey, type]);
 
   if (!question) return null;
 
@@ -184,22 +194,28 @@ export default function QuestionCard({
 
       {/* Options Rendering per Question Type */}
       <div>
-        {type === "MCQ_SINGLE" && (
+        {/* A checked Self-Test choice question: every option with whether it
+            is right and why, in the order the student saw them. */}
+        {revealed && isChoice && (
+          <OptionReview
+            options={shuffledOptions}
+            selectedAnswer={selectedAnswer}
+            correctAnswer={question.correctAnswer}
+            explanation={question.explanation}
+          />
+        )}
+        {!revealed && type === "MCQ_SINGLE" && (
           <OptionList
             options={shuffledOptions}
             selectedAnswer={selectedAnswer}
             onSelect={onSelectAnswer}
-            revealed={revealed}
-            correctAnswer={question.correctAnswer}
           />
         )}
-        {type === "MCQ_MULTI" && (
+        {!revealed && type === "MCQ_MULTI" && (
           <MCQMultiOptionList
             options={shuffledOptions}
             selectedAnswers={selectedAnswer || []}
             onSelect={onSelectAnswer}
-            revealed={revealed}
-            correctAnswer={question.correctAnswer}
           />
         )}
         {/* The other types have no checked look of their own; once checked

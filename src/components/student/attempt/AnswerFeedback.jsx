@@ -3,6 +3,7 @@
 import { CheckCircle2, Lock, XCircle } from "lucide-react";
 
 import { checkAnswerCorrectness, isCorrectOption } from "@/lib/quizAnswers";
+import { explanationInsideOption } from "@/components/student/quiz-review/OptionReview";
 
 const getOptionText = (opt) => {
   if (opt === null || opt === undefined) return "";
@@ -16,10 +17,14 @@ const joinLetters = (letters) =>
   letters.length <= 1 ? letters.join("") : `${letters.slice(0, -1).join(", ")} and ${letters[letters.length - 1]}`;
 
 /**
- * What a student sees once they check a Self-Test answer: whether it was
- * right, the correct answer, why it is correct, and — for choice questions —
- * why each other option is wrong. `options` are the options exactly as shown
- * on screen (shuffled), so "B" here is the "B" the student sees.
+ * The verdict under a checked Self-Test answer. For a choice question the
+ * options themselves already show what is right and why (OptionReview), so
+ * this adds only the one-line verdict and — when it is not already inside
+ * the correct option's card — the explanation. Other question types get the
+ * correct answer spelled out here, since their inputs have no checked look.
+ *
+ * `options` are the options exactly as shown on screen (shuffled), so "B"
+ * here is the "B" the student sees.
  */
 export default function AnswerFeedback({ question, type, options = [], selectedAnswer }) {
   const correctAnswer = question?.correctAnswer;
@@ -37,26 +42,11 @@ export default function AnswerFeedback({ question, type, options = [], selectedA
     ? options.map(getOptionText).filter((text) => isCorrectOption(text, correctAnswer))
     : [];
 
-  // Why each wrong option is wrong — only those an instructor wrote a reason for.
-  const wrongReasons = isChoice
-    ? options
-        .map((opt, i) => ({
-          letter: letterFor(i),
-          text: getOptionText(opt),
-          reason: opt && typeof opt === "object" && typeof opt.explanation === "string" ? opt.explanation.trim() : "",
-          isYours: Array.isArray(selectedAnswer)
-            ? selectedAnswer.includes(getOptionText(opt))
-            : selectedAnswer === getOptionText(opt),
-        }))
-        .filter((o) => o.reason && !isCorrectOption(o.text, correctAnswer))
-    : [];
-
+  // The explanation is already in the correct option's card when there is
+  // exactly one correct option; otherwise it is shown here.
+  const showExplanation = Boolean(explanation) && !(isChoice && explanationInsideOption(options, correctAnswer));
   const explanationHeading =
-    correctLetters.length === 1
-      ? `Why ${correctLetters[0]} is correct`
-      : correctLetters.length > 1
-        ? `Why ${joinLetters(correctLetters)} are correct`
-        : "Explanation";
+    correctLetters.length > 1 ? `Why ${joinLetters(correctLetters)} are correct` : "Explanation";
 
   let missedMessage = "Not quite. The correct answer is shown below.";
   if (type === "MCQ_SINGLE" && correctLetters.length === 1) {
@@ -69,27 +59,27 @@ export default function AnswerFeedback({ question, type, options = [], selectedA
     <div className="mt-2.5 space-y-2 sm:mt-4 sm:space-y-2.5" aria-live="polite">
       {hasVerdict && (
         <div
-          className={`flex items-start gap-2 rounded-lg border p-2.5 text-xs font-bold sm:rounded-xl sm:p-3.5 sm:text-sm ${
+          className={`flex items-start gap-2 rounded-xl border p-3 text-sm font-bold sm:p-3.5 ${
             isRight
               ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300"
               : "border-rose-500/40 bg-rose-500/10 text-rose-800 dark:text-rose-300"
           }`}
         >
           {isRight ? (
-            <CheckCircle2 size={16} className="mt-0.5 shrink-0" aria-hidden />
+            <CheckCircle2 size={18} className="mt-px shrink-0" aria-hidden />
           ) : (
-            <XCircle size={16} className="mt-0.5 shrink-0" aria-hidden />
+            <XCircle size={18} className="mt-px shrink-0" aria-hidden />
           )}
           <span className="break-words">{isRight ? "Correct! Well done." : missedMessage}</span>
         </div>
       )}
 
-      {/* The answer itself, for the types whose options don't already show it
-          — and for a choice question whose key matches none of its options,
-          where no option could be marked. */}
+      {/* The answer itself, for the types whose inputs don't show it — and
+          for a choice question whose key matches none of its options, where
+          no option could be marked. */}
       {(!isChoice || correctLetters.length === 0) && correctAnswer !== undefined && correctAnswer !== null && correctAnswer !== "" && (
-        <div className="rounded-lg border border-border bg-muted/40 p-2.5 sm:rounded-xl sm:p-3.5 space-y-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-primary sm:text-[11px]">
+        <div className="rounded-xl border border-border bg-muted/40 p-3 sm:p-3.5 space-y-1">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-primary">
             {type === "SELF_ASSESSMENT"
               ? "Model answer"
               : type === "ARRANGE_TOKENS"
@@ -99,9 +89,9 @@ export default function AnswerFeedback({ question, type, options = [], selectedA
                   : "Correct answer"}
           </span>
           {type === "ARRANGE_TOKENS" && Array.isArray(correctAnswer) ? (
-            <p className="text-xs leading-relaxed text-foreground sm:text-sm break-words">{correctAnswer.join("  →  ")}</p>
+            <p className="text-sm leading-relaxed text-foreground break-words">{correctAnswer.join("  →  ")}</p>
           ) : type === "MATCH_PAIRS" && typeof correctAnswer === "object" ? (
-            <ul className="space-y-0.5 text-xs text-foreground sm:text-sm">
+            <ul className="space-y-0.5 text-sm text-foreground">
               {Object.entries(correctAnswer).map(([left, right]) => (
                 <li key={left} className="break-words">
                   {left} → <span className="font-semibold">{String(right)}</span>
@@ -109,7 +99,7 @@ export default function AnswerFeedback({ question, type, options = [], selectedA
               ))}
             </ul>
           ) : (
-            <p className="whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground sm:text-sm">
+            <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
               {typeof correctAnswer === "string"
                 ? correctAnswer
                 : Array.isArray(correctAnswer)
@@ -120,46 +110,14 @@ export default function AnswerFeedback({ question, type, options = [], selectedA
         </div>
       )}
 
-      {explanation && (
-        <div className="rounded-lg border border-border bg-muted/40 p-2.5 sm:rounded-xl sm:p-3.5 space-y-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-primary sm:text-[11px]">{explanationHeading}</span>
-          <p className="whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground sm:text-sm">{explanation}</p>
+      {showExplanation && (
+        <div className="rounded-xl border border-border bg-muted/40 p-3 sm:p-3.5 space-y-1">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-primary">{explanationHeading}</span>
+          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">{explanation}</p>
         </div>
       )}
 
-      {wrongReasons.length > 0 && (
-        <div className="rounded-lg border border-border p-2.5 sm:rounded-xl sm:p-3.5 space-y-2">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground sm:text-[11px]">
-            Why the other options are wrong
-          </span>
-          <ul className="space-y-2">
-            {wrongReasons.map((o) => (
-              <li key={o.letter} className="flex items-start gap-2">
-                <span
-                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[11px] font-extrabold sm:h-6 sm:w-6 sm:text-xs ${
-                    o.isYours ? "bg-rose-600 text-white" : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {o.letter}
-                </span>
-                <div className="min-w-0 space-y-0.5">
-                  <p className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-foreground sm:text-sm">
-                    <span className="break-words">{o.text}</span>
-                    {o.isYours && (
-                      <span className="rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold text-rose-700 dark:text-rose-300">
-                        Your answer
-                      </span>
-                    )}
-                  </p>
-                  <p className="break-words text-xs leading-relaxed text-muted-foreground sm:text-sm">{o.reason}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground sm:text-xs">
+      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <Lock size={12} className="shrink-0" aria-hidden /> Your answer is locked for this question.
       </p>
     </div>

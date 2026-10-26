@@ -1,4 +1,11 @@
-import { createAttemptState, markAnswerChecked, setAnswer, toQuestionStatesPayload } from "../quizAttemptState.js";
+import {
+  allQuestionsChecked,
+  createAttemptState,
+  markAnswerChecked,
+  setAnswer,
+  summarize,
+  toQuestionStatesPayload,
+} from "../quizAttemptState.js";
 import { checkAnswerCorrectness, isCorrectOption } from "../quizAnswers.js";
 
 // A checked Self-Test answer is final: the student has seen the key, so
@@ -8,7 +15,29 @@ function runTests() {
   const answered = setAnswer(createAttemptState(questions), "q1", "func");
   const checked = markAnswerChecked(answered, "q1");
 
+  const bothChecked = markAnswerChecked(setAnswer(checked, "q2", "def"), "q2");
+
   const testCases = [
+    {
+      name: "a Self-Test is not finished while a question is still unchecked",
+      actual: allQuestionsChecked(checked, questions),
+      expected: false,
+    },
+    {
+      name: "a Self-Test is finished once every question is checked",
+      actual: allQuestionsChecked(bothChecked, questions),
+      expected: true,
+    },
+    {
+      name: "a quiz with no questions is never 'all checked' (nothing to save)",
+      actual: allQuestionsChecked({}, []),
+      expected: false,
+    },
+    {
+      name: "the summary counts checked questions",
+      actual: `${summarize(checked, questions).checkedCount}/${summarize(bothChecked, questions).checkedCount}`,
+      expected: "1/2",
+    },
     {
       name: "checking an answered question marks it checked",
       actual: checked.q1.answerChecked,

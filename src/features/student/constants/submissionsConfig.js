@@ -142,6 +142,34 @@ function quizRecord(q) {
   // A quiz with no marks to earn has no score and no pass/fail.
   const graded = Number(latest?.totalMarks) > 0;
 
+  // A Self-Test is practice: it is listed with its score, but has no pass or
+  // fail, no result page to open (its answers were shown during the attempt)
+  // and no retake control — opening it again from its lesson starts it fresh.
+  if (q.quizTag === "SELF_TEST") {
+    return {
+      key: `quiz:${q.id}`,
+      type: "quiz",
+      id: q.id,
+      title: q.title || "Quiz",
+      courseTitle: q.course?.title || null,
+      moduleTitle: q.moduleTitle || null,
+      quizType: QUIZ_TAG_TO_FILTER[q.quizTag] || "final",
+      status: "submitted",
+      submitted: true,
+      submittedAt: latest?.submittedAt || null,
+      sortDate: latest?.submittedAt || null,
+      percentage: graded ? latest.percentage : null,
+      score: graded ? { value: latest.score, max: latest.totalMarks } : null,
+      attemptsUsed: q.attemptsUsed,
+      maxAttempts: q.maxAttempts,
+      unlimitedAttempts: q.unlimitedAttempts,
+      canRetake: false,
+      href: null,
+      retakeHref: null,
+      actionLabel: null,
+    };
+  }
+
   return {
     key: `quiz:${q.id}`,
     type: "quiz",

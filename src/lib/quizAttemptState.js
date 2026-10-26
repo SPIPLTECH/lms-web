@@ -206,7 +206,15 @@ export function summarize(state = {}, questions = []) {
         skippedUnansweredCount: records.filter((r) => r.skipped && !r.answered).length,
         visitedCount: visited,
         notVisitedCount: questions.length - visited,
+        // Self-Test answers checked against the key. Every question checked
+        // is what ends a Self-Test — it then saves itself.
+        checkedCount: records.filter((r) => r.answerChecked).length,
     };
+}
+
+/** Whether every question in a Self-Test attempt has been checked. */
+export function allQuestionsChecked(state = {}, questions = []) {
+    return questions.length > 0 && questions.every((q) => state[q?.id]?.answerChecked === true);
 }
 
 /** The answers half of the submit payload: one entry per answered question. */

@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   BookOpen,
@@ -81,7 +81,19 @@ function QuizResultPageContent() {
   const nextActionCourseId = submission?.quiz?.courseId ?? null;
   const { data: nextAction } = useNextAction(nextActionCourseId, { quizId });
 
-  if (isLoading) {
+  // A Self-Test has no result page: its answers and reasons were shown while
+  // it was taken. A link that still lands here (an old bookmark, history)
+  // goes back to where it came from, or to its course.
+  const router = useRouter();
+  const selfTestFallback =
+    submission?.quiz?.quizTag === "SELF_TEST"
+      ? returnTo || (submission.quiz.courseId ? `/student/learn/${submission.quiz.courseId}` : SUBMISSIONS_HREF)
+      : null;
+  useEffect(() => {
+    if (selfTestFallback) router.replace(selfTestFallback);
+  }, [selfTestFallback, router]);
+
+  if (isLoading || selfTestFallback) {
     return <Loader />;
   }
 

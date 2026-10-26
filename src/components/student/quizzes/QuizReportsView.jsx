@@ -2,6 +2,19 @@
 
 import Link from "next/link";
 
+// A Self-Test is practice: listed with its score, but no pass/fail and no
+// result page to open.
+const isPractice = (quiz) => quiz.quizTag === "SELF_TEST";
+
+const STATUS_BADGE = {
+  practice: "bg-muted text-muted-foreground border-border",
+  passed: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  failed: "bg-rose-500/10 text-rose-400 border-rose-500/20",
+};
+
+const statusOf = (quiz, submission) => (isPractice(quiz) ? "practice" : submission.passed ? "passed" : "failed");
+const STATUS_LABEL = { practice: "Practised", passed: "Passed", failed: "Failed" };
+
 export default function QuizReportsView({ reportStats, filteredByCourse }) {
   const completedQuizzes = filteredByCourse.filter((q) => !!q.quizSubmissions?.[0]);
 
@@ -42,23 +55,21 @@ export default function QuizReportsView({ reportStats, filteredByCourse }) {
                 <div key={quiz.id} className="p-4 rounded-2xl border border-border bg-background/90 space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <h4 className="text-xs font-extrabold text-foreground">{quiz.title}</h4>
-                    <span className={`inline-flex rounded-xl px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider border ${
-                      submission.passed
-                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                        : "bg-rose-500/10 text-rose-400 border-rose-500/20"
-                    }`}>
-                      {submission.passed ? "Passed" : "Failed"}
+                    <span className={`inline-flex rounded-xl px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider border ${STATUS_BADGE[statusOf(quiz, submission)]}`}>
+                      {STATUS_LABEL[statusOf(quiz, submission)]}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/50 font-mono">
                     <span>Date: {new Date(submission.createdAt).toLocaleDateString()}</span>
                     <span className="font-extrabold text-foreground">Score: {submission.score}/{quiz._count?.questions ?? 10} ({submission.percentage}%)</span>
                   </div>
-                  <Link href={`/student/result/${quiz.id}`} className="block pt-1">
-                    <button className="w-full py-2.5 rounded-xl bg-muted hover:bg-slate-700 text-foreground text-xs font-extrabold min-h-[44px]">
-                      View Result
-                    </button>
-                  </Link>
+                  {!isPractice(quiz) && (
+                    <Link href={`/student/result/${quiz.id}`} className="block pt-1">
+                      <button className="w-full py-2.5 rounded-xl bg-muted hover:bg-slate-700 text-foreground text-xs font-extrabold min-h-[44px]">
+                        View Result
+                      </button>
+                    </Link>
+                  )}
                 </div>
               );
             })
@@ -99,20 +110,18 @@ export default function QuizReportsView({ reportStats, filteredByCourse }) {
                         {submission.score}/{quiz._count?.questions ?? 10} ({submission.percentage}%)
                       </td>
                       <td className="py-3.5">
-                        <span className={`inline-flex rounded-xl px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider border ${
-                          submission.passed
-                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                            : "bg-rose-500/10 text-rose-400 border-rose-500/20"
-                        }`}>
-                          {submission.passed ? "Passed" : "Failed"}
+                        <span className={`inline-flex rounded-xl px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider border ${STATUS_BADGE[statusOf(quiz, submission)]}`}>
+                          {STATUS_LABEL[statusOf(quiz, submission)]}
                         </span>
                       </td>
                       <td className="py-3.5 pr-3 text-right">
-                        <Link href={`/student/result/${quiz.id}`}>
-                          <button className="px-3.5 py-2 text-xs font-bold text-foreground hover:text-foreground bg-muted border border-transparent/60 rounded-xl transition cursor-pointer min-h-[44px]">
-                            View Result
-                          </button>
-                        </Link>
+                        {!isPractice(quiz) && (
+                          <Link href={`/student/result/${quiz.id}`}>
+                            <button className="px-3.5 py-2 text-xs font-bold text-foreground hover:text-foreground bg-muted border border-transparent/60 rounded-xl transition cursor-pointer min-h-[44px]">
+                              View Result
+                            </button>
+                          </Link>
+                        )}
                       </td>
                     </tr>
                   );

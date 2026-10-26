@@ -87,7 +87,7 @@ function readStoredProgress(storageKey, questions) {
  * quiz UI. The attempt screen reads `questionStates` for the navigator and
  * calls `buildSubmitPayload()` when the student submits.
  */
-export default function useQuizAttemptTracker({ quizId, questions, attemptsUsed = 0, active = true }) {
+export default function useQuizAttemptTracker({ quizId, questions, attemptsUsed = 0, active = true, forgetOnLeave = false }) {
     const [questionStates, setQuestionStates] = useState(() => createAttemptState(questions));
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
@@ -143,6 +143,32 @@ export default function useQuizAttemptTracker({ quizId, questions, attemptsUsed 
             // not the attempt — the in-memory state is unaffected.
         }
     }, [active, hydrated, storageKey, currentQuestionIndex, questionStates]);
+
+    // `forgetOnLeave` (a Self-Test): leaving the quiz — the next item, the
+    // course map, any in-app navigation — drops this attempt's stored
+    // progress, so coming back starts it fresh. A refresh, or closing the
+    // tab, fires pagehide first and keeps it, so a refresh mid-quiz still
+    // lands on the same answers. Effect cleanup is the only signal an in-app
+    // navigation gives; pagehide is what tells the two apart.
+    useEffect(() => {
+        if (!forgetOnLeave || !storageKey || typeof window === "undefined") return undefined;
+        let unloading = false;
+        const markUnloading = () => {
+            unloading = true;
+        };
+        window.addEventListener("pagehide", markUnloading);
+        window.addEventListener("beforeunload", markUnloading);
+        return () => {
+            window.removeEventListener("pagehide", markUnloading);
+            window.removeEventListener("beforeunload", markUnloading);
+            if (unloading) return;
+            try {
+                window.sessionStorage.removeItem(storageKey);
+            } catch {
+                // Nothing to undo: an unavailable store held nothing.
+            }
+        };
+    }, [forgetOnLeave, storageKey]);
 
     const currentQuestion = questions[currentQuestionIndex];
     const currentQuestionId = currentQuestion?.id;

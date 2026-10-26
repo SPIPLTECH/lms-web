@@ -14,7 +14,7 @@ const ACCEPTED = ".csv,.xlsx,.xls,.docx,.pdf,.txt,.json";
 // says why that option is wrong, and is left empty for a correct option.
 const SAMPLE_CSV = `question,optionA,optionB,optionC,optionD,correctAnswer,marks,difficulty,explanation,optionA_explanation,optionB_explanation,optionC_explanation,optionD_explanation
 "Which planet is known as the Red Planet?",Venus,Mars,Jupiter,Saturn,B,1,EASY,"Iron oxide (rust) in its soil makes it look red.","Venus looks yellow-white because of its thick clouds.",,"Jupiter shows bands of cream, brown and orange.","Saturn looks pale gold."
-"Which of these are prime numbers?",2,4,5,9,"A;C",2,MEDIUM,"2 and 5 can only be divided by 1 and themselves. Separate several correct answers with a semicolon.",,"4 = 2 × 2, so it has a divisor other than 1 and itself.",,"9 = 3 × 3, so it is not prime."
+"Which of these are prime numbers?",2,4,5,9,"A;C",2,MEDIUM,"2 and 5 can only be divided by 1 and themselves.",,"4 = 2 × 2, so it has a divisor other than 1 and itself.",,"9 = 3 × 3, so it is not prime."
 "The Sun is a star.",True,False,,,True,1,EASY,"The Sun makes its own light by nuclear fusion, which is what a star is.",,"Planets and moons only reflect light. The Sun makes its own, so it is a star.",,
 `;
 
