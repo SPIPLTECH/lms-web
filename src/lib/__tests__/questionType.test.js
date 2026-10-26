@@ -8,6 +8,7 @@ function runTests() {
     { name: "MCQ_MULTI passes through unchanged", input: "MCQ_MULTI", expected: "MCQ_MULTI" },
     { name: "ARRANGE_TOKENS passes through unchanged", input: "ARRANGE_TOKENS", expected: "ARRANGE_TOKENS" },
     { name: "MATCH_PAIRS passes through unchanged", input: "MATCH_PAIRS", expected: "MATCH_PAIRS" },
+    { name: "TRUE_FALSE is answered as single choice (the server files True/False MCQs under it)", input: "TRUE_FALSE", expected: "MCQ_SINGLE" },
     { name: "an unmapped type (no UI branch yet) still passes through", input: "FILL_BLANK", expected: "FILL_BLANK" },
     { name: "missing type defaults to MCQ_SINGLE", input: undefined, expected: "MCQ_SINGLE" },
     { name: "null type defaults to MCQ_SINGLE", input: null, expected: "MCQ_SINGLE" },

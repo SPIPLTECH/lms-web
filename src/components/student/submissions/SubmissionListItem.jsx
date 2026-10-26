@@ -241,30 +241,35 @@ export default function SubmissionListItem({ record }) {
             ))}
           </dl>
 
-          <div
-            className={`grid gap-2 md:flex md:w-[14.5rem] md:shrink-0 md:justify-end ${
-              showRetake ? "grid-cols-2" : "grid-cols-1"
-            }`}
-          >
-            {showRetake && (
-              <Link
-                href={record.retakeHref}
-                className={`${LINK_BASE} relative z-10 bg-muted text-foreground hover:bg-muted/70`}
-                aria-label={`Retake ${record.title}`}
-              >
-                <RotateCcw size={15} aria-hidden />
-                Retake
-              </Link>
-            )}
-            <Link
-              href={record.href}
-              className={`${LINK_BASE} bg-primary/10 text-primary hover:bg-primary/15 after:absolute after:inset-0 after:rounded-2xl`}
-              aria-label={`${record.actionLabel}: ${record.title}`}
+          {/* A Self-Test row has neither: it is listed for its score only. */}
+          {(showRetake || record.href) && (
+            <div
+              className={`grid gap-2 md:flex md:w-[14.5rem] md:shrink-0 md:justify-end ${
+                showRetake && record.href ? "grid-cols-2" : "grid-cols-1"
+              }`}
             >
-              {record.actionLabel}
-              <ArrowRight size={15} aria-hidden />
-            </Link>
-          </div>
+              {showRetake && (
+                <Link
+                  href={record.retakeHref}
+                  className={`${LINK_BASE} relative z-10 bg-muted text-foreground hover:bg-muted/70`}
+                  aria-label={`Retake ${record.title}`}
+                >
+                  <RotateCcw size={15} aria-hidden />
+                  Retake
+                </Link>
+              )}
+              {record.href && (
+                <Link
+                  href={record.href}
+                  className={`${LINK_BASE} bg-primary/10 text-primary hover:bg-primary/15 after:absolute after:inset-0 after:rounded-2xl`}
+                  aria-label={`${record.actionLabel}: ${record.title}`}
+                >
+                  {record.actionLabel}
+                  <ArrowRight size={15} aria-hidden />
+                </Link>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </article>

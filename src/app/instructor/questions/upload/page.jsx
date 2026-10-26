@@ -110,10 +110,12 @@ export default function UploadQuestionsPage() {
         topic: "Lists",
         difficulty: "EASY",
         marks: 2,
+        // `explanation` on a wrong option says why it is wrong; a Self-Test
+        // shows it once the student checks their answer.
         options: [
           { optionText: "[0, 2, 4]", isCorrect: true },
-          { optionText: "[0, 1, 2]", isCorrect: false },
-          { optionText: "[2, 4, 6]", isCorrect: false }
+          { optionText: "[0, 1, 2]", isCorrect: false, explanation: "That is range(3) itself — each value still has to be multiplied by 2." },
+          { optionText: "[2, 4, 6]", isCorrect: false, explanation: "range(3) starts at 0, not 1, so the first value is 0 * 2 = 0." }
         ],
         correctAnswer: "[0, 2, 4]",
         explanation: "range(3) produces 0, 1, 2. Multiplying by 2 gives 0, 2, 4."
@@ -129,10 +131,11 @@ export default function UploadQuestionsPage() {
         marks: 1,
         options: [
           { optionText: "201", isCorrect: true },
-          { optionText: "200", isCorrect: false },
-          { optionText: "404", isCorrect: false }
+          { optionText: "200", isCorrect: false, explanation: "200 means OK — the request succeeded, but nothing new was created." },
+          { optionText: "404", isCorrect: false, explanation: "404 means Not Found — the server has nothing at that address." }
         ],
-        correctAnswer: "201"
+        correctAnswer: "201",
+        explanation: "201 Created is returned when a request has made a new resource."
       },
       {
         title: "HTTP Request Flow",

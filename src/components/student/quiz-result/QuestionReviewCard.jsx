@@ -1,11 +1,12 @@
 "use client";
 
-import { Check, X, ArrowRight, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowRight, CheckCircle2, XCircle } from "lucide-react";
 
 import Card from "@/components/ui/Card";
 import ListenButton from "@/components/student/tts/ListenButton";
+import OptionReview, { explanationInsideOption } from "@/components/student/quiz-review/OptionReview";
 import { checkAnswerCorrectness } from "@/lib/quizAnswers";
-import { resolveQuestionType } from "@/lib/questionType";
+import { resolveQuestionType, TRUE_FALSE_OPTIONS } from "@/lib/questionType";
 import { buildAnswerReviewSpeech } from "@/lib/quizSpeech";
 
 // One question's row in the "Detailed Question Review" list — options review
@@ -16,9 +17,11 @@ export default function QuestionReviewCard({ question, index, userAnswer }) {
   const selectedOption = userAnswer?.answer ?? userAnswer?.selectedOption;
   const isCorrect = checkAnswerCorrectness(qType, selectedOption, question.correctAnswer);
 
+  const isChoice = qType === "MCQ_SINGLE" || qType === "MCQ_MULTI";
+
   // Format option text mapping
   let optionsList = [];
-  if (qType === "MCQ_SINGLE" || qType === "MCQ_MULTI") {
+  if (isChoice) {
     if (typeof question.options === "string") {
       try {
         optionsList = JSON.parse(question.options);
@@ -27,6 +30,10 @@ export default function QuestionReviewCard({ question, index, userAnswer }) {
       }
     } else if (Array.isArray(question.options)) {
       optionsList = question.options;
+    }
+    // A True/False question saved without its options still has them.
+    if (optionsList.length === 0 && question.questionType === "TRUE_FALSE") {
+      optionsList = TRUE_FALSE_OPTIONS;
     }
   }
 
@@ -59,55 +66,15 @@ export default function QuestionReviewCard({ question, index, userAnswer }) {
 
           {/* Conditional Display per Question Type */}
 
-          {/* 1. MCQ_SINGLE / MCQ_MULTI Options Review */}
-          {(qType === "MCQ_SINGLE" || qType === "MCQ_MULTI") && (
-            <div className="grid gap-2 sm:gap-2.5">
-              {optionsList.map((option, optIdx) => {
-                const optionText = typeof option === "string" ? option : (option?.optionText || option?.text || String(option));
-                const isSelected = qType === "MCQ_SINGLE"
-                  ? selectedOption === optionText || selectedOption === option
-                  : Array.isArray(selectedOption) && (selectedOption.includes(optionText) || selectedOption.includes(option));
-                // The key may be a string or a one-element array — the same
-                // rule checkAnswerCorrectness applies to the summary line.
-                const isAnswerCorrect = qType === "MCQ_SINGLE"
-                  ? checkAnswerCorrectness("MCQ_SINGLE", optionText, question.correctAnswer) ||
-                    (typeof option === "object" && option?.isCorrect)
-                  : Array.isArray(question.correctAnswer) && question.correctAnswer.includes(optionText);
-
-                let optionStyle = "border-slate-800/80 bg-background/40 text-muted-foreground";
-                let badgeIcon = null;
-                let radioCircle = <span className="h-3.5 w-3.5 rounded-full border border-slate-600 shrink-0 mr-2.5" />;
-
-                if (isSelected) {
-                  if (isAnswerCorrect) {
-                    optionStyle = "border-emerald-500/40 bg-emerald-500/10 text-emerald-300 font-medium";
-                    badgeIcon = <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" />;
-                    radioCircle = <span className="h-3.5 w-3.5 rounded-full border-2 border-emerald-400 bg-emerald-400/30 flex items-center justify-center shrink-0 mr-2.5"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /></span>;
-                  } else {
-                    optionStyle = "border-rose-500/40 bg-rose-500/10 text-rose-300 font-medium";
-                    badgeIcon = <X className="h-3.5 w-3.5 text-rose-400 shrink-0" />;
-                    radioCircle = <span className="h-3.5 w-3.5 rounded-full border-2 border-rose-400 bg-rose-400/30 flex items-center justify-center shrink-0 mr-2.5"><span className="h-1.5 w-1.5 rounded-full bg-rose-400" /></span>;
-                  }
-                } else if (isAnswerCorrect) {
-                  optionStyle = "border-emerald-500/30 bg-emerald-500/5 text-emerald-400";
-                  badgeIcon = <Check className="h-3.5 w-3.5 text-emerald-500/60 shrink-0" />;
-                  radioCircle = <span className="h-3.5 w-3.5 rounded-full border border-emerald-500/50 shrink-0 mr-2.5" />;
-                }
-
-                return (
-                  <div
-                    key={optIdx}
-                    className={`flex items-center justify-between rounded-lg sm:rounded-xl border px-3 py-2 sm:p-3.5 text-[11px] sm:text-xs min-h-[36px] transition ${optionStyle}`}
-                  >
-                    <div className="flex items-center min-w-0 pr-2">
-                      {radioCircle}
-                      <span className="break-words leading-tight sm:leading-normal">{optionText}</span>
-                    </div>
-                    {badgeIcon}
-                  </div>
-                );
-              })}
-            </div>
+          {/* 1. MCQ_SINGLE / MCQ_MULTI Options Review — the same cards a
+              Self-Test shows once an answer is checked. */}
+          {isChoice && (
+            <OptionReview
+              options={optionsList}
+              selectedAnswer={selectedOption}
+              correctAnswer={question.correctAnswer}
+              explanation={question.explanation}
+            />
           )}
 
           {/* 2. ARRANGE_TOKENS Review */}
@@ -205,11 +172,15 @@ export default function QuestionReviewCard({ question, index, userAnswer }) {
           )}
 
           {/* Explanation — sent with the result once the attempt is
-              submitted; shown (and read aloud) when the question has one. */}
-          {question.explanation && String(question.explanation).trim() && (
+              submitted; shown (and read aloud) when the question has one.
+              For a single-answer choice question it is already inside the
+              correct option's card ("Why it's correct"). */}
+          {question.explanation &&
+            String(question.explanation).trim() &&
+            !(isChoice && explanationInsideOption(optionsList, question.correctAnswer)) && (
             <div className="rounded-xl border border-border bg-muted/40 p-3 sm:p-4 space-y-1">
-              <span className="text-[9px] sm:text-[10px] text-primary font-bold uppercase tracking-wider">Explanation</span>
-              <p className="text-[11px] sm:text-xs text-foreground leading-relaxed whitespace-pre-wrap break-words">
+              <span className="text-[11px] text-primary font-bold uppercase tracking-wider">Explanation</span>
+              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap break-words">
                 {question.explanation}
               </p>
             </div>

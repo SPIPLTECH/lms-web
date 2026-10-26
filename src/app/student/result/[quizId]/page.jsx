@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   BookOpen,
@@ -81,7 +81,19 @@ function QuizResultPageContent() {
   const nextActionCourseId = submission?.quiz?.courseId ?? null;
   const { data: nextAction } = useNextAction(nextActionCourseId, { quizId });
 
-  if (isLoading) {
+  // A Self-Test has no result page: its answers and reasons were shown while
+  // it was taken. A link that still lands here (an old bookmark, history)
+  // goes back to where it came from, or to its course.
+  const router = useRouter();
+  const selfTestFallback =
+    submission?.quiz?.quizTag === "SELF_TEST"
+      ? returnTo || (submission.quiz.courseId ? `/student/learn/${submission.quiz.courseId}` : SUBMISSIONS_HREF)
+      : null;
+  useEffect(() => {
+    if (selfTestFallback) router.replace(selfTestFallback);
+  }, [selfTestFallback, router]);
+
+  if (isLoading || selfTestFallback) {
     return <Loader />;
   }
 
@@ -421,14 +433,14 @@ function QuizResultPageContent() {
           </h3>
           <p className="text-[11px] text-muted-foreground mt-0.5 sm:mt-1 sm:text-xs">
             {!answerKeyRevealed
-              ? "Which questions you got right, while this qualifying test can still be retaken."
+              ? "Which questions you got right, while this quiz can still be retaken."
               : submission.isLatestAttempt === false
                 ? `Your answers in attempt ${attemptNumber}, alongside the correct options.`
                 : "Review your selections alongside correct options."}
           </p>
         </div>
 
-        {/* ANSWER KEY WITHHELD — a qualifying test the student may still
+        {/* ANSWER KEY WITHHELD — a graded quiz the student may still
             retake. The full review below marks each option against
             `correctAnswer`, which the server deliberately does not send in
             that case; rendering it anyway would mark every answer wrong,
@@ -438,8 +450,8 @@ function QuizResultPageContent() {
         {!answerKeyRevealed ? (
           <div className="space-y-2">
             <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs text-foreground sm:px-4 sm:text-sm">
-              Answers are hidden until you pass this qualifying test or run out of attempts — otherwise
-              the retake would just be a memory test.
+              Answers are hidden until you pass this quiz or run out of attempts — otherwise the retake
+              would just be a memory test.
             </p>
             <ul className="space-y-1.5">
               {(submission.questionAttempts || []).map((row, index) => (

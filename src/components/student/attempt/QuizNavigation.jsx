@@ -30,6 +30,12 @@ const STATUS_LABELS = {
     [QUESTION_STATUS.NOT_VISITED]: "not visited",
 };
 
+// A Self-Test question once its answer is checked: right or wrong.
+const CHECKED_STYLES = {
+    right: "border-emerald-500/60 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:border-emerald-400",
+    wrong: "border-rose-500/60 bg-rose-500/15 text-rose-700 dark:text-rose-400 hover:border-rose-400",
+};
+
 /**
  * Bottom nav bar for a quiz attempt: previous/next arrows around a
  * horizontally-scrollable strip of question-jump buttons, a Skip control, and
@@ -51,11 +57,30 @@ export default function QuizNavigation({
                                            canGoPrevious,
                                            canGoNext,
                                            isSubmitting = false,
+                                           // A Self-Test: no Skip and no Submit — it saves itself once
+                                           // every answer is checked — and each checked question is
+                                           // coloured by whether it was right. `checkedResults` maps a
+                                           // question id to true (right), false (wrong) or null (checked,
+                                           // nothing to mark, e.g. a written answer).
+                                           practice = false,
+                                           checkedResults = {},
                                        }) {
     const numbersContainerRef = useRef(null);
 
     const statusFor = (questionId) =>
         questionStates[questionId]?.status ?? QUESTION_STATUS.NOT_VISITED;
+
+    const checkedStyleFor = (questionId) => {
+        if (!practice || !(questionId in checkedResults)) return null;
+        return checkedResults[questionId] === false ? CHECKED_STYLES.wrong : CHECKED_STYLES.right;
+    };
+
+    const labelFor = (questionId) => {
+        if (practice && questionId in checkedResults) {
+            return checkedResults[questionId] === false ? "checked, wrong" : checkedResults[questionId] === true ? "checked, right" : "checked";
+        }
+        return STATUS_LABELS[statusFor(questionId)];
+    };
 
     // The open question is highlighted as current, but its underlying status
     // still drives its label — so an answered question you're looking at
@@ -63,7 +88,7 @@ export default function QuizNavigation({
     const styleFor = (index, questionId) =>
         index === currentQuestionIndex
             ? STATUS_STYLES.current
-            : STATUS_STYLES[statusFor(questionId)];
+            : checkedStyleFor(questionId) ?? STATUS_STYLES[statusFor(questionId)];
 
     const currentQuestionId = questions[currentQuestionIndex]?.id;
     // Skipping means "not this one, for now". A question that already carries
@@ -112,8 +137,8 @@ export default function QuizNavigation({
                                     data-active={isCurrent ? "true" : "false"}
                                     data-status={status}
                                     onClick={() => onJumpTo?.(index)}
-                                    title={`Go to question ${index + 1} — ${STATUS_LABELS[status]}`}
-                                    aria-label={`Question ${index + 1}, ${STATUS_LABELS[status]}`}
+                                    title={`Go to question ${index + 1} — ${labelFor(question.id)}`}
+                                    aria-label={`Question ${index + 1}, ${labelFor(question.id)}`}
                                     aria-current={isCurrent ? "true" : undefined}
                                     className={`flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl border text-xs sm:text-sm font-bold transition cursor-pointer ${styleFor(
                                         index,
@@ -137,7 +162,11 @@ export default function QuizNavigation({
                     </button>
                 </div>
 
-                {/* Skip + Submit (fixed right) */}
+                {/* Skip + Submit (fixed right). A Self-Test has neither, but
+                    keeps the spacer so the numbers stay centred. */}
+                {practice ? (
+                    <div className="hidden sm:block sm:flex-1" />
+                ) : (
                 <div className="flex shrink-0 items-center gap-1 sm:gap-2 sm:flex-1 sm:justify-end">
                     {onSkip && (
                         <button
@@ -167,6 +196,7 @@ export default function QuizNavigation({
                         {isSubmitting ? "Submitting..." : "Submit"}
                     </button>
                 </div>
+                )}
             </div>
         </div>
     );
