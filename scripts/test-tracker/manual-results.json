@@ -680,6 +680,46 @@
       "actual": "Spacing above the mobile video moved from the Mark as Complete wrapper (mb-3) to the video frame (aspect mode max-xl:mt-5). Completed video (user's case): frame, Previous and Next +20px; header, lesson menu and launcher unchanged; gap above video 12 -> 32px; frame size unchanged; Previous/Next 12px under it. Not-completed video: Mark as Complete unchanged, frame +8px (gap 24 -> 32px). Desktop and PDF step unchanged. Launcher clear of Previous/Next and opens the assistant.",
       "evidence": "test-evidence/browser/TC-UI-STU-018/video-gap-20px-2026-10-26/: before/, after/, spacing-compare-390.png, sp-*.json",
       "failure_details": ""
+    },
+    {
+      "id": "TC-UI-AUTH-015",
+      "status": "PASS",
+      "executed_at": "2026-10-26T14:45:00",
+      "executed_by": "Claude via Playwright (node script)",
+      "environment": "http://localhost:3000/login (npm run dev, local working tree); :5000 answered 401 by a route fixture. Headless Chromium (no browser toolbar).",
+      "actual": "After AuthLayout min-h-screen -> min-h-dvh: document scrollHeight equals the viewport height at 360x640, 360x780, 390x844, 430x932, 768x1024, 1280x720, 1440x900 and 1920x1080 (no vertical or horizontal scroll); form content 532px (mobile) / 562px (desktop) + padding fits every size. The phone address-bar case (the reported scroll) cannot be produced headless — step 2 to confirm on a device.",
+      "evidence": "test-evidence/browser/TC-UI-AUTH-015/: login-after-<size>.png, login-before.jsonl, login-after.jsonl",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-STU-020",
+      "status": "PASS",
+      "executed_at": "2026-10-26T15:05:00",
+      "executed_by": "Claude via Playwright (node script)",
+      "environment": "http://localhost:3000/student/my-courses (npm run dev, local working tree); /auth/profile and /enrollments answered by fixtures (1 and 3 courses). Headless Chromium (no browser toolbar).",
+      "actual": "Before -> after (page scroll): 390x844 50px -> none (1 course), 70px -> none (3); 430x932 none -> none (1), 2px -> none (3); 360x640 239 -> 143px and 259 -> 163px (content itself taller than the screen). At the end of the scroll the launcher overlaps neither View Course nor Continue Learning at any size. 768x1024 / 1280x720 / 1440x900 / 1920x1080: unchanged (the 768 3-course and 1280x720 scrolls are content height, not padding). No horizontal scroll. The phone address-bar case (min-h-dvh) cannot be produced headless — confirm on a device.",
+      "evidence": "test-evidence/browser/TC-UI-STU-020/: mycourses-after-<n>-<size>.png, mc-before.jsonl, mc-after.jsonl",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-STU-020",
+      "status": "PASS",
+      "executed_at": "2026-10-26T15:40:00",
+      "executed_by": "Claude via Playwright (node script)",
+      "environment": "http://localhost:3000/student/my-courses (npm run dev, local working tree); /auth/profile and /enrollments answered by fixtures (1, 3 and 12 courses, year filter shown). Headless Chromium (no browser toolbar); measured after document.fonts.ready.",
+      "actual": "1 and 3 courses at 360x640, 375x667, 390x740, 390x844, 412x780, 430x932, 768x1024, 1280x720, 1366x657, 1440x900, 1920x1080: no page scroll, no inner (main) scroll, no horizontal scroll, course card never clipped (buttons inside the card), launcher overlaps no control. Thumbnail height adapts (e.g. 53px at 360x640/3 courses, 117 at 390x740, 167 at 390x844, 148 desktop). 12 courses: phones still fit (slider); md+ shows 3+ grid rows and the content area scrolls (fallback). Address-bar case relies on h-dvh — confirm on a device.",
+      "evidence": "test-evidence/browser/TC-UI-STU-020/fit-screen-2026-10-26/: mycourses-fit-<n>-<size>.png, mc-fit-view.png, mc-fit.jsonl",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-STU-021",
+      "status": "PASS",
+      "executed_at": "2026-10-26T16:20:00",
+      "executed_by": "Claude via Playwright (node script)",
+      "environment": "http://localhost:3000/student/assignments?type=quiz (npm run dev, local working tree); /auth/profile, /assignments (empty) and /quizzes/my-submissions (7 quizzes: 6 failed self-test/final/qualifying, 1 passed final) answered by fixtures. 360x640, 390x844 (touch), 1440x900.",
+      "actual": "Phones: rows 70px with one-line titles; 4 fully visible at 360x640, 6 at 390x844 (was ~1.5 cards); tap at the Retake link hits /student/attempt/q0, tap on the row hits /student/result/q0; Filters sheet Failed + Final Quiz -> 'Show 1 quiz' and the list shows 1; badge 'Filters, 2 in use'; chips Failed / Final Quiz, removing Final Quiz -> 6 rows; Escape closes the sheet; Assignments tab (0): search and Filters hidden, empty state without border. No horizontal scroll, no page errors. 1440x900: no Filters button, dropdowns shown, 7 'View Result' cards (desktop layout unchanged).",
+      "evidence": "test-evidence/browser/TC-UI-STU-021/: sub-360x640-*.png, sub-390x844-*.png, sub-390-view.png, sub-1440x900.png",
+      "failure_details": ""
     }
   ]
 }

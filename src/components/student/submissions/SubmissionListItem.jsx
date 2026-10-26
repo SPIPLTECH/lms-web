@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { ArrowRight, FileText, ListChecks, Quote, RotateCcw } from "lucide-react";
+import { ArrowRight, ChevronRight, FileText, ListChecks, Quote, RotateCcw } from "lucide-react";
 
 import SubmissionStatusBadge from "@/components/student/submissions/SubmissionStatusBadge";
-import { formatDate, formatTime } from "@/features/student/constants/submissionsConfig";
+import { SUBMISSION_STATUS_LABELS, formatDate, formatTime } from "@/features/student/constants/submissionsConfig";
 
 const TYPE_META = {
   quiz: {
@@ -90,6 +90,93 @@ function assignmentFacts(r) {
   ];
 }
 
+const QUIZ_TYPE_SHORT = { self: "Self-test", final: "Final", qualifying: "Qualifying" };
+
+const RING = {
+  passed: "border-emerald-500 text-emerald-600 dark:text-emerald-400",
+  graded: "border-emerald-500 text-emerald-600 dark:text-emerald-400",
+  failed: "border-red-500 text-red-600 dark:text-red-400",
+  pending: "border-dashed border-warning text-warning",
+};
+
+const shortDate = (value) =>
+  value ? new Date(value).toLocaleDateString([], { day: "numeric", month: "short" }) : null;
+
+function attemptsText(r) {
+  if (r.unlimitedAttempts) return `${r.attemptsUsed} ${r.attemptsUsed === 1 ? "attempt" : "attempts"}`;
+  return `${r.attemptsUsed} of ${r.maxAttempts} attempts`;
+}
+
+/**
+ * The phone row (below md): score ring · title · one meta line · Retake.
+ * The title is the link to the result/submission and covers the row; Retake
+ * sits above that overlay. Status is in the ring's colour and, for screen
+ * readers, in text.
+ */
+function CompactItem({ record, showRetake }) {
+  const isQuiz = record.type === "quiz";
+  const gradeText = record.grade?.text;
+  const ringText = isQuiz
+    ? record.score
+      ? `${record.score.value}/${record.score.max}`
+      : "—"
+    : gradeText && gradeText.length <= 5
+      ? gradeText
+      : null;
+  const meta = isQuiz
+    ? [QUIZ_TYPE_SHORT[record.quizType], attemptsText(record), shortDate(record.submittedAt)]
+    : [
+        record.status === "pending" ? "Pending review" : record.status === "graded" ? "Graded" : null,
+        record.submittedAt ? `Submitted ${shortDate(record.submittedAt)}` : null,
+      ];
+
+  return (
+    <article className="relative flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary/40 md:hidden">
+      <span
+        aria-hidden
+        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-[3px] text-[11px] font-bold tabular-nums ${
+          RING[record.status] || "border-border text-muted-foreground"
+        }`}
+      >
+        {ringText ?? (isQuiz ? <ListChecks size={16} /> : <FileText size={16} />)}
+      </span>
+
+      <div className="min-w-0 flex-1">
+        {/* truncate sits on the link: globals.css gives headings an
+            unlayered text-wrap: balance that a utility on the h3 can't beat. */}
+        <h3 className="text-sm font-semibold text-foreground">
+          <Link
+            href={record.href}
+            className="block truncate after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring"
+          >
+            {record.title}
+            <span className="sr-only">
+              {" "}
+              — {SUBMISSION_STATUS_LABELS[record.status] || record.status}
+              {record.score ? `, ${record.score.value} out of ${record.score.max}` : ""}. {record.actionLabel}
+            </span>
+          </Link>
+        </h3>
+        <div className="mt-1 flex items-center justify-between gap-2">
+          <p className="min-w-0 truncate text-xs text-muted-foreground">{meta.filter(Boolean).join(" · ")}</p>
+          {showRetake && (
+            <Link
+              href={record.retakeHref}
+              aria-label={`Retake ${record.title}`}
+              className="relative z-10 -my-2 inline-flex min-h-[36px] shrink-0 items-center gap-1 rounded-lg px-1.5 text-xs font-semibold text-foreground hover:bg-muted"
+            >
+              <RotateCcw size={13} aria-hidden />
+              Retake
+            </Link>
+          )}
+        </div>
+      </div>
+
+      <ChevronRight size={16} aria-hidden className="shrink-0 text-muted-foreground" />
+    </article>
+  );
+}
+
 /**
  * One assignment or quiz on the student Submissions page, laid out in
  * priority order: title → type → status → score → attempts/due → date →
@@ -104,7 +191,9 @@ export default function SubmissionListItem({ record }) {
   const showRetake = record.type === "quiz" && record.canRetake;
 
   return (
-    <article className="relative rounded-2xl border border-border bg-card p-4 shadow-sm transition-colors hover:border-primary/40 sm:p-5">
+    <>
+    <CompactItem record={record} showRetake={showRetake} />
+    <article className="relative rounded-2xl border border-border bg-card p-4 shadow-sm transition-colors hover:border-primary/40 sm:p-5 max-md:hidden">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:gap-6">
         {/* Identity */}
         <div className="flex min-w-0 flex-1 items-start gap-3">
@@ -179,5 +268,6 @@ export default function SubmissionListItem({ record }) {
         </div>
       </div>
     </article>
+    </>
   );
 }

@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-// `Settings` is imported by the commented-out Settings entry below only.
-import { ChevronDown, LifeBuoy, LogOut, X } from "lucide-react";
+// `Settings` would be imported by the commented-out Settings entry below only.
+import { ChevronDown, LogOut, X } from "lucide-react";
 
 import { useStudentNavDrawer } from "@/context/StudentNavDrawerContext";
 import { PRIMARY_NAV_ITEMS } from "@/components/student/NavigationStrip/navigationItems";
@@ -18,7 +18,7 @@ const SECONDARY_ITEMS = [
   // itself is untouched and still reachable by URL; only the way in from the
   // nav is gone. To restore, uncomment this and the `Settings` icon import.
   // { id: "settings", label: "Settings", icon: Settings, href: "/student/settings" },
-  { id: "help", label: "Help & Support", icon: LifeBuoy, href: "/student/settings" },
+  // Help & Support — removed (it only linked to /student/settings).
 ];
 
 function isHrefActive(pathname, href) {
