@@ -79,8 +79,9 @@ export default function LearnPage() {
   const isEvaluator = Boolean(user?.evaluator);
 
   // Course metadata only (title, language): what the player walks comes from
-  // the learning sequence below.
-  const { data: course, isLoading, isError } = useCourse(courseId);
+  // the learning sequence below. Shallow — the full tree (~300 KB, seconds
+  // slower) is never read here, and the page waits for this query.
+  const { data: course, isLoading, isError } = useCourse(courseId, { shallow: true });
   // Sequential learning off: every step is open (backend `unlockAll`) and the
   // course keeps no progress — nothing is marked complete or visited, and the
   // player shows no completion strip.
@@ -103,12 +104,15 @@ export default function LearnPage() {
   // assignments — as one ordered list of steps, with the server's completed /
   // visited / locked flags. Prev/Next, the Course Map, resume and the
   // completion strip all read it; nothing here orders, merges or gates items.
+  // Fetched alongside the enrollment list rather than after it: the server
+  // refuses a student who is not enrolled (403), and the loader below keeps
+  // such a student on a spinner until the redirect above sends them away.
   const {
     data: sequence,
     isPending: isSequencePending,
     isError: isSequenceError,
     refetch: refetchSequence,
-  } = useLearningSequence(courseId, { enabled: isEnrolled });
+  } = useLearningSequence(courseId);
   const steps = sequence?.steps || [];
   const containersById = useMemo(() => indexContainers(sequence?.tree), [sequence]);
 
@@ -116,8 +120,10 @@ export default function LearnPage() {
   const markVisitedMutation = useMarkVisited();
 
   // The server's lesson/topic path — read here only for qualifying-test
-  // (skip) offers.
-  const { data: learningPathData } = useLearningPath(courseId);
+  // (skip) offers. Asked for once the sequence is in, so its roll-up does not
+  // compete with the sequence's on the way to first paint; a skip offer
+  // appearing a moment later costs nothing.
+  const { data: learningPathData } = useLearningPath(courseId, { enabled: Boolean(sequence) });
   const pathIndex = useMemo(
     () => buildPathIndex(learningPathData?.path),
     [learningPathData]
@@ -196,7 +202,6 @@ export default function LearnPage() {
   // panel that shares rightPanelOpen. Desktop behaviour has to stay exactly
   // as it was.
   const isDesktop = useMediaQuery("(min-width: 1280px)");
-  const moreMenuRef = useRef(null);
 
   // The header collapse is desktop only: below xl the map is a drawer and the
   // header carries no controls of its own.
@@ -337,11 +342,12 @@ export default function LearnPage() {
 
   // IDLE LAYOUT — the one inactivity mechanism on this page: one timer, one
   // set of window listeners, mounted once. After IDLE_AFTER_MS without input
-  // the Course Map and the Learning Workspace header get out of the way
-  // (desktop: rail and header collapse; below xl: the drawer closes, as the
-  // old auto-close did), and the next real input brings them back. The
-  // drawer is not reopened by activity — it is a modal sheet, and popping it
-  // over the lesson on a tap would cover what was tapped.
+  // the desktop Course Map rail and the Learning Workspace header get out of
+  // the way, and the next real input brings them back. Desktop only — below
+  // xl it is not mounted at all: the Course Map there is a modal sheet the
+  // student opened, and on a touch screen "no input" means reading it. The
+  // sheet closes on its own terms only — picking an item, ✕, the backdrop or
+  // Escape.
   //
   // What counts as input, and what does not:
   //  - Pointer movement only after it has really moved: browsers emit a
@@ -361,6 +367,7 @@ export default function LearnPage() {
   // While active, input only stamps lastActivity; the single timer re-checks
   // when it fires, so continuous movement never thrashes timers or state.
   useEffect(() => {
+    if (!isDesktop) return undefined;
     let idle = false;
     let lastActivity = Date.now();
     let lastPointer = null;
@@ -386,7 +393,6 @@ export default function LearnPage() {
       idleAnchor = lastPointer;
       // Same transition the hide buttons make; a manual collapse is kept.
       setWorkspaceCollapse((current) => current ?? "idle");
-      setCourseMapOpen(false);
     }
 
     const markActive = () => {
@@ -448,32 +454,34 @@ export default function LearnPage() {
       listeners.forEach(([name, handler]) => {
         window.removeEventListener(name, handler, { capture: true });
       });
+      // Narrowed below xl while idle: nothing would undo the timer's collapse.
+      setWorkspaceCollapse((current) => (current === "idle" ? null : current));
     };
-  }, []);
+  }, [isDesktop]);
 
-  // The below-xl "More" popover dismisses on a tap outside it or Escape —
-  // the same idiom AskInstructorCard's own popover uses. moreMenuRef wraps
-  // the trigger as well as the menu, so pressing the button dismisses via
-  // its onClick toggle rather than closing here and reopening. Bound only
-  // while the popover is actually mounted (below xl, panel open), so the
-  // desktop side panel never listens.
+  // Escape closes the below-xl Learning tools sheet, the same as its X, its
+  // scrim and a swipe down. Bound only while the sheet is mounted (below xl,
+  // panel open), so the desktop side panel never listens.
   useEffect(() => {
     if (isDesktop || !rightPanelOpen) return;
-    const onPointerDown = (event) => {
-      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target)) {
-        setRightPanelOpen(false);
-      }
-    };
     const onKeyDown = (event) => {
       if (event.key === "Escape") setRightPanelOpen(false);
     };
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [isDesktop, rightPanelOpen]);
+
+  // Swipe down on the sheet's handle/title bar closes it.
+  const toolsSheetSwipeRef = useRef(null);
+  const onToolsSheetTouchStart = (event) => {
+    toolsSheetSwipeRef.current = event.touches[0]?.clientY ?? null;
+  };
+  const onToolsSheetTouchEnd = (event) => {
+    const startY = toolsSheetSwipeRef.current;
+    toolsSheetSwipeRef.current = null;
+    const endY = event.changedTouches[0]?.clientY;
+    if (startY != null && endY != null && endY - startY > 60) setRightPanelOpen(false);
+  };
 
   const [, setVideoDuration] = useState(0);
 
@@ -596,7 +604,7 @@ export default function LearnPage() {
 
   const resultReturnTo = `/student/learn/${courseId}${step ? `?item=${step.contentId}` : ""}`;
 
-  const renderSidePanel = ({ compact = false } = {}) => (
+  const renderSidePanel = ({ compact = false, tabs = false } = {}) => (
     <LearnSidePanel
       activeFeature={sidePanelFeature}
       onChangeFeature={setSidePanelFeature}
@@ -613,6 +621,7 @@ export default function LearnPage() {
       currentTimestamp={currentTimestamp}
       onSeek={handleTranscriptSeek}
       compact={compact}
+      tabs={tabs}
     />
   );
 
@@ -649,10 +658,15 @@ export default function LearnPage() {
       : "fill";
 
   // Literal class strings — Tailwind only emits what it can see verbatim.
+  // The below-xl floor lives here, not on the frame: given both, the
+  // stylesheet's order made max-xl:min-h-[280px] beat aspect's min-h-0, which
+  // left ~100px of empty frame under a phone's 16:9 video.
+  // aspect's max-xl:mt-5 sets the video a little below whatever is above it
+  // (the lesson header, or Mark as Complete when it shows).
   const FRAME_MODE_CLASSES = {
-    fill: "",
-    aspect: "max-xl:flex-none max-xl:min-h-0",
-    form: "",
+    fill: "max-xl:min-h-[280px]",
+    aspect: "max-xl:flex-none max-xl:min-h-0 max-xl:mt-5",
+    form: "max-xl:min-h-[280px]",
   };
   const BODY_MODE_CLASSES = {
     fill: "overflow-hidden",
@@ -763,6 +777,45 @@ export default function LearnPage() {
         </div>
       )}
 
+      {/* LEARNING TOOLS SHEET (below xl) — Ask instructor and Sticky notes
+          as two tabs in a sheet from the bottom edge, opened by the lesson
+          context row's More button. Same dialog idiom as the course map
+          drawer above (scrim, X, Escape), plus a swipe down on its title bar.
+          A fixed height, so switching tabs never makes the sheet jump; the
+          tab's content scrolls inside it. */}
+      {!isDesktop && rightPanelOpen && (
+        <div
+          id="learn-tools-sheet"
+          className="xl:hidden fixed inset-0 z-50"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Learning tools"
+        >
+          <div
+            aria-hidden="true"
+            onClick={() => setRightPanelOpen(false)}
+            className="absolute inset-0 bg-black/70 animate-scrim-in"
+          />
+          <section className="absolute inset-x-0 bottom-0 flex h-[min(78dvh,640px)] flex-col rounded-t-2xl border-t border-border bg-card px-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl shadow-black/60 animate-sheet-in-up">
+            <div className="shrink-0 pt-2" onTouchStart={onToolsSheetTouchStart} onTouchEnd={onToolsSheetTouchEnd}>
+              <div aria-hidden="true" className="mx-auto h-1 w-10 rounded-full bg-muted-foreground/40" />
+              <div className="flex items-center justify-between gap-3 py-2.5">
+                <h2 className="text-base font-bold text-foreground">Learning tools</h2>
+                <button
+                  type="button"
+                  onClick={() => setRightPanelOpen(false)}
+                  aria-label="Close learning tools"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground cursor-pointer"
+                >
+                  <X size={18} aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+            {renderSidePanel({ compact: true, tabs: true })}
+          </section>
+        </div>
+      )}
+
       {/* ========================================================================= */}
       {/* MAIN WORKSPACE CONTENT */}
       {/* ========================================================================= */}
@@ -789,7 +842,10 @@ export default function LearnPage() {
         {/* Phone: keep the 16px side gutter so lesson text never runs to the
             screen edge, but trim the top so the lesson starts higher. At xl the
             padding all but disappears, leaving the player the most room. */}
-        <div className="flex-1 min-h-0 flex flex-col px-4 pt-3 pb-4 sm:px-6 sm:pt-6 sm:pb-6 md:px-8 md:pt-8 md:pb-8 xl:px-[3.2px] xl:pt-[3.2px] xl:pb-[3.2px] min-w-0">
+        {/* Below xl the bottom padding clears the AI Assistant launcher
+            (fixed bottom-right: 20px + 56px), so a frame that fills the
+            height (documents) never leaves Previous/Next under it. */}
+        <div className="flex-1 min-h-0 flex flex-col px-4 pt-3 pb-[calc(5.25rem_+_env(safe-area-inset-bottom))] sm:px-6 sm:pt-6 md:px-8 md:pt-8 xl:px-[3.2px] xl:pt-[3.2px] xl:pb-[3.2px] min-w-0">
           {/*
             Priority-driven order: below xl the student only sees one column, so every
             block that comes before the video costs them a scroll. DOM order follows
@@ -847,15 +903,16 @@ export default function LearnPage() {
                   {/* MORE — the below-xl entry point to LearnSidePanel (Ask
                       instructor / Sticky notes), the same component and the
                       same rightPanelOpen/sidePanelFeature state the xl+
-                      column uses. The 44px cell keeps the row's geometry; the
-                      button inside it is the compact 36px circle. */}
-                  <div ref={moreMenuRef} className="relative flex h-11 w-11 shrink-0 items-center justify-center">
+                      column uses; it opens the Learning tools sheet. The 44px
+                      cell keeps the row's geometry; the button inside it is
+                      the compact 36px circle. */}
+                  <div className="relative flex h-11 w-11 shrink-0 items-center justify-center">
                     <button
                       type="button"
                       onClick={() => setRightPanelOpen((prev) => !prev)}
                       aria-expanded={rightPanelOpen}
                       aria-haspopup="dialog"
-                      aria-controls="learn-more-menu"
+                      aria-controls="learn-tools-sheet"
                       // globals.css stamps an UNLAYERED border-radius on every
                       // <button>, and unlayered rules beat Tailwind's layered
                       // utilities — `rounded-full` alone renders a 6px square.
@@ -871,30 +928,6 @@ export default function LearnPage() {
                     >
                       <MoreHorizontal size={18} aria-hidden="true" />
                     </button>
-
-                    {/* Anchored to the trigger and capped to the viewport's
-                        gutters, so it never widens the page or pushes the
-                        player down — same technique, and the same role, as
-                        AskInstructorCard's own popover. Tall content scrolls
-                        inside it rather than running off the bottom of the
-                        screen.
-
-                        LearnSidePanel lays its two triggers out side by side,
-                        which fits the 360px desktop column but truncates
-                        ("Ask instruc…") at every phone width. Stacking them
-                        is presentation only, scoped to this call site — same
-                        treatment the course map drawer gives the course tree
-                        — so the desktop panel keeps its two-up row. */}
-                    {!isDesktop && rightPanelOpen && (
-                      <div
-                        id="learn-more-menu"
-                        role="dialog"
-                        aria-label="Learning tools"
-                        className="absolute right-0 top-full z-40 mt-2 max-h-[70vh] w-[min(22rem,calc(100vw-2.5rem))] overflow-y-auto overscroll-contain rounded-2xl border border-border bg-card p-2.5 text-left shadow-2xl shadow-black/40 [&_[role=group]]:grid-cols-1"
-                      >
-                        {renderSidePanel({ compact: true })}
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -951,11 +984,30 @@ export default function LearnPage() {
                 </div>
               )}
 
+              {/* COMPLETION (below xl) — a real button above the frame, NOT
+                  the hover-reveal overlay used at xl: there is no hover on
+                  touch, so an overlay keyed to group-hover would leave "mark
+                  complete" permanently invisible and the block impossible to
+                  finish. Above the player, so the frame is followed directly
+                  by Previous/Next. Applies to whatever the frame is showing:
+                  Course-, Module-, Lesson- or Topic-direct Content alike.
+                  empty:hidden — the bar renders nothing once the item is
+                  complete, and an empty wrapper would still add the column's
+                  gap above the frame. Spaced by the column's own gap (the
+                  video frame adds its own space above it — FRAME_MODE_CLASSES);
+                  its smaller size is set here, the button's own styles (and
+                  the xl overlay) are untouched. */}
+              {showCompletionBar && (
+                <div className="xl:hidden empty:hidden [&>button]:min-h-8 [&>button]:py-1 [&>button]:text-xs">
+                  <ContentCompletionBar {...completionBarProps} />
+                </div>
+              )}
+
               {/* flex-1: the frame takes all the height left in the column —
                   more when the header collapses, wider when the rail does —
                   with no viewport calc to drift out of date. */}
               <div
-                className={`group relative flex flex-col flex-1 min-h-[440px] max-xl:min-h-[280px] rounded-2xl border border-border bg-card overflow-hidden ${FRAME_MODE_CLASSES[playerMode]}`}
+                className={`group relative flex flex-col flex-1 min-h-[440px] rounded-2xl border border-border bg-card overflow-hidden ${FRAME_MODE_CLASSES[playerMode]}`}
               >
                 {/* No dedicated header bar — lesson/topic name, the Course
                     Index reopen and the side-panel toggle all live in the top
@@ -1107,17 +1159,6 @@ export default function LearnPage() {
                 </div>
               )}
 
-              {/* COMPLETION (below xl) — a real bar under the frame, NOT the
-                  hover-reveal overlay used at xl: there is no hover on touch,
-                  so an overlay keyed to group-hover would leave "mark complete"
-                  permanently invisible and the block impossible to finish.
-                  Applies to whatever the frame is showing: Course-, Module-,
-                  Lesson- or Topic-direct Content alike. */}
-              {showCompletionBar && (
-                <div className="xl:hidden">
-                  <ContentCompletionBar {...completionBarProps} />
-                </div>
-              )}
             </div>
 
             {/* SIDE PANEL — the xl+ surface. Collapsed state renders no grid
@@ -1152,14 +1193,16 @@ export default function LearnPage() {
             refetches the material itself and re-checks enrollment per turn,
             so `isEnrolled` here is a UI hint, never a grant. Quiz/assignment
             ids are deliberately NOT passed: the assistant never retrieves
-            assessment material. On a video step it sits bottom-left, clear
-            of the player's fullscreen control in the bottom-right. */}
+            assessment material. On a desktop video step it sits bottom-left,
+            clear of the player's fullscreen control in the bottom-right.
+            Below xl the player hugs its 16:9 box near the top of the page,
+            so the launcher keeps the usual bottom-right corner there. */}
         <AiAssistantWidget
           courseId={courseId}
           courseTitle={course?.title}
           isEnrolled={isEnrolled}
           getPosition={getAiLearningPosition}
-          side={playerMode === "aspect" ? "left" : "right"}
+          side={isDesktop && playerMode === "aspect" ? "left" : "right"}
         />
       </div>
     </div>

@@ -62,10 +62,14 @@ export default function Layout({ children }) {
     // owns its own fixed-viewport, internally-scrolling layout below it
     // (not DashboardLayout's Sidebar/padded <main>/ChatWidget — the learn
     // page already renders its own ChatWidget).
+    // h-dvh, not h-screen: on a phone 100vh is the height with the browser's
+    // address bar hidden, so while the bar shows, the bottom of this shell
+    // (Previous/Next) sat behind it and under the fixed AI launcher. The
+    // dynamic viewport follows the bar; on desktop the two are the same.
     return (
       <QaProvider>
         <StudentNavDrawerProvider>
-          <div className="h-screen flex flex-col overflow-hidden">
+          <div className="h-dvh flex flex-col overflow-hidden">
             <DashboardNavbar role="STUDENT" title="Learning Workspace" />
             <div className="flex-1 min-h-0">{content}</div>
           </div>

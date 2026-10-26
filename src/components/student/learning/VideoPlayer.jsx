@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import {
     FileText,
     ExternalLink,
@@ -17,6 +17,7 @@ import { resolveVideoSource } from "@/lib/videoSource";
 import VideoSurface from "@/components/shared/video/VideoSurface";
 import OrangeVideoPlayer from "@/components/student/learning/video/OrangeVideoPlayer";
 import usePlaybackLease from "@/hooks/queries/student/usePlaybackLease";
+import useMediaQuery from "@/hooks/useMediaQuery";
 import { Button } from "@/components/ui/shadcn/button";
 import { getDisplayUrl } from "@/lib/blob";
 import MarkdownRenderer from "@/components/ui/MarkdownEditor/MarkdownRenderer";
@@ -106,6 +107,10 @@ const VideoPlayer = forwardRef(function VideoPlayer(
     const [pdfPage, setPdfPage] = useState(null);
     const reportPdfPage = (state) => setPdfPage(state);
 
+    // Below xl a fitted PDF page is too small to read, so it gets pinch/zoom
+    // (PdfViewer touchZoom); the desktop reading pane is unchanged.
+    const isBelowXl = useMediaQuery("(max-width: 1279.98px)");
+
     const type = content?.type;
     const fileUrl = content?.fileUrl;
     const htmlContent = content?.htmlContent;
@@ -128,6 +133,32 @@ const VideoPlayer = forwardRef(function VideoPlayer(
     useEffect(() => {
         if (lease.status === "lost") surfaceRef.current?.pause?.();
     }, [lease.status]);
+
+    // A lease re-claimed in the background (usePlaybackLease) comes with a new
+    // signed URL for the same video; the player reloads it, so pick up where
+    // the picture was rather than at the step's resume point.
+    const lastTimeRef = useRef(0);
+    const mediaUrl = protectedVideo ? lease.media?.url || null : null;
+    const shownMediaRef = useRef({ contentId: content?.id, url: mediaUrl });
+    const [renewedFrom, setRenewedFrom] = useState(null);
+    useEffect(() => {
+        const shown = shownMediaRef.current;
+        shownMediaRef.current = { contentId: content?.id, url: mediaUrl };
+        if (shown.contentId !== content?.id) {
+            lastTimeRef.current = 0;
+            setRenewedFrom(null);
+        } else if (shown.url && mediaUrl && shown.url !== mediaUrl) {
+            setRenewedFrom({ url: mediaUrl, time: lastTimeRef.current });
+        }
+    }, [content?.id, mediaUrl]);
+    const videoInitialTime = renewedFrom && renewedFrom.url === mediaUrl ? renewedFrom.time : initialTime;
+    const handleTimeUpdate = useCallback(
+        (seconds) => {
+            lastTimeRef.current = seconds;
+            onTimeUpdate?.(seconds);
+        },
+        [onTimeUpdate]
+    );
 
     // A layout effect, so it runs before the new content's viewer reports its
     // first page state (children's passive effects) rather than wiping it.
@@ -438,8 +469,8 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                         <VideoSurface
                             ref={surfaceRef}
                             source={videoSource}
-                            initialTime={initialTime}
-                            onTimeUpdate={onTimeUpdate}
+                            initialTime={videoInitialTime}
+                            onTimeUpdate={handleTimeUpdate}
                             onEnded={onEnded}
                             onDurationChange={onDurationChange}
                             title={content?.title}
@@ -471,7 +502,7 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                        slide or reflowed document into. */
                     <div className="w-full flex-1 min-h-0 flex flex-col">
                         {isPdfUrl(displayFileUrl) ? (
-                            <PdfViewer fileUrl={displayFileUrl} title={content?.title} hideToolbar fillHeight onPageStateChange={reportPdfPage} readAloud={documentReadAloud} />
+                            <PdfViewer fileUrl={displayFileUrl} title={content?.title} hideToolbar fillHeight onPageStateChange={reportPdfPage} readAloud={documentReadAloud} touchZoom={isBelowXl} />
                         ) : isPptUrl(displayFileUrl) ? (
                             /* No fillHeight: the slide area sizes itself from
                                the deck's aspect ratio at every width, and the

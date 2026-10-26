@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { markStepsVisited } from "@/lib/learningSequence";
 import {
   markContentComplete,
   markContentCompleteBatch,
@@ -115,7 +116,7 @@ export function useMarkVisited() {
       }
       return markVisitedApi(rest);
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables = {}) => {
       // The backend now skips the write (and the rollup) entirely for a
       // revisit that doesn't change anything, and reports that via
       // `changed: false`. Mirror that here: don't invalidate (and force a
@@ -127,8 +128,29 @@ export function useMarkVisited() {
       const anyChanged = results.some((r) => r?.changed !== false);
       if (anyChanged) {
         queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.COURSE_PROGRESS] });
-        // A visit moves "Continue learning" and keeps a step open for good.
-        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_SEQUENCE] });
+        // A visit moves "Continue learning" and keeps a step open for good —
+        // but it never unlocks anything (locks follow completion only, and a
+        // step can only be visited once it is open). So the steps just visited
+        // are marked in the cached sequence instead of refetching the whole
+        // sequence (a full roll-up and ~0.5 MB) on every newly opened step.
+        // The query is still marked stale, so its next mount reads the
+        // server's numbers (container flags, resume pointer).
+        const ids = new Set(
+          (Array.isArray(variables.contentIds) && variables.contentIds.length > 0
+            ? variables.contentIds
+            : [variables.contentId]
+          ).filter(Boolean)
+        );
+        if (ids.size === 0) {
+          // A container or quiz visit: nothing to mark locally.
+          queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_SEQUENCE] });
+          return;
+        }
+        const visitedAt = new Date().toISOString();
+        queryClient.setQueriesData({ queryKey: [QUERY_KEYS.LEARNING_SEQUENCE] }, (old) =>
+          markStepsVisited(old, ids, visitedAt)
+        );
+        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_SEQUENCE], refetchType: "none" });
       }
     }
   });
