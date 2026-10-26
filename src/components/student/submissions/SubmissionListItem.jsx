@@ -111,7 +111,8 @@ function attemptsText(r) {
  * The phone row (below md): score ring · title · one meta line · Retake.
  * The title is the link to the result/submission and covers the row; Retake
  * sits above that overlay. Status is in the ring's colour and, for screen
- * readers, in text.
+ * readers, in text. A Self-Test has no result page (record.href is null): its
+ * row shows the score only — plain title, no overlay link, no chevron.
  */
 function CompactItem({ record, showRetake }) {
   const isQuiz = record.type === "quiz";
@@ -131,7 +132,11 @@ function CompactItem({ record, showRetake }) {
       ];
 
   return (
-    <article className="relative flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary/40 md:hidden">
+    <article
+      className={`relative flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-colors md:hidden ${
+        record.href ? "hover:border-primary/40" : ""
+      }`}
+    >
       <span
         aria-hidden
         className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-[3px] text-[11px] font-bold tabular-nums ${
@@ -145,17 +150,26 @@ function CompactItem({ record, showRetake }) {
         {/* truncate sits on the link: globals.css gives headings an
             unlayered text-wrap: balance that a utility on the h3 can't beat. */}
         <h3 className="text-sm font-semibold text-foreground">
-          <Link
-            href={record.href}
-            className="block truncate after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring"
-          >
-            {record.title}
-            <span className="sr-only">
-              {" "}
-              — {SUBMISSION_STATUS_LABELS[record.status] || record.status}
-              {record.score ? `, ${record.score.value} out of ${record.score.max}` : ""}. {record.actionLabel}
+          {record.href ? (
+            <Link
+              href={record.href}
+              className="block truncate after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring"
+            >
+              {record.title}
+              <span className="sr-only">
+                {" "}
+                — {SUBMISSION_STATUS_LABELS[record.status] || record.status}
+                {record.score ? `, ${record.score.value} out of ${record.score.max}` : ""}. {record.actionLabel}
+              </span>
+            </Link>
+          ) : (
+            <span className="block truncate">
+              {record.title}
+              <span className="sr-only">
+                {record.score ? ` — ${record.score.value} out of ${record.score.max}` : ""}
+              </span>
             </span>
-          </Link>
+          )}
         </h3>
         <div className="mt-1 flex items-center justify-between gap-2">
           <p className="min-w-0 truncate text-xs text-muted-foreground">{meta.filter(Boolean).join(" · ")}</p>
@@ -172,7 +186,7 @@ function CompactItem({ record, showRetake }) {
         </div>
       </div>
 
-      <ChevronRight size={16} aria-hidden className="shrink-0 text-muted-foreground" />
+      {record.href && <ChevronRight size={16} aria-hidden className="shrink-0 text-muted-foreground" />}
     </article>
   );
 }

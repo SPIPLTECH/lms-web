@@ -720,6 +720,26 @@
       "actual": "Phones: rows 70px with one-line titles; 4 fully visible at 360x640, 6 at 390x844 (was ~1.5 cards); tap at the Retake link hits /student/attempt/q0, tap on the row hits /student/result/q0; Filters sheet Failed + Final Quiz -> 'Show 1 quiz' and the list shows 1; badge 'Filters, 2 in use'; chips Failed / Final Quiz, removing Final Quiz -> 6 rows; Escape closes the sheet; Assignments tab (0): search and Filters hidden, empty state without border. No horizontal scroll, no page errors. 1440x900: no Filters button, dropdowns shown, 7 'View Result' cards (desktop layout unchanged).",
       "evidence": "test-evidence/browser/TC-UI-STU-021/: sub-360x640-*.png, sub-390x844-*.png, sub-390-view.png, sub-1440x900.png",
       "failure_details": ""
+    },
+    {
+      "id": "TC-UI-STU-022",
+      "status": "PASS",
+      "executed_at": "2026-10-26T15:55:00",
+      "executed_by": "Claude via Playwright (node script)",
+      "environment": "http://localhost:3000/student/result/quiz1 (npm run dev, local working tree); /auth/profile and /quizzes/quiz1/result answered by fixtures (30 single-choice questions: 12 correct, 2 wrong, 16 skipped; and a second run with answerKeyRevealed=false, canAttempt=true). 360x740, 390x844 dark and light, 1440x900.",
+      "actual": "All sizes: no page errors, no horizontal scroll; title in Bricolage Grotesque, question text in Source Serif 4; filters All 30 / Wrong 2 / Skipped 16 / Correct 12 fit at 360px; first card 'Question 1 of 30, 1 mark' + 'Correct'. Wrong -> 2 cards tagged Wrong; Skipped -> 16. Filters pinned at 72px (navbar bottom 65) after scrolling 1500 and 4000px on phones. Answers-hidden run: 'Review answers' + 'Which questions you got right, while this quiz can still be retaken.' + Retake Quiz shown, no errors (the per-question verdict list was empty only because the fixture had no questionAttempts).",
+      "evidence": "test-evidence/browser/TC-UI-STU-022/: result-<size>-<theme>-top.png, -wrong.png, -scrolled.png, -hidden.png",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-STU-022",
+      "status": "PASS",
+      "executed_at": "2026-10-26T16:05:00",
+      "executed_by": "Claude via Playwright (node script)",
+      "environment": "http://localhost:3000/student/result/quiz1 (npm run dev, local working tree); fixtures: 30 questions (12 correct, 2 wrong, 16 skipped). 390x844 (touch) and 1440x900, dark.",
+      "actual": "Pagination, 10 per page: page 1 shows questions 1-10 (Previous disabled), Next -> 11-20 and the review heading scrolls to 80px (under the sticky navbar), Next -> 21-30 (Next disabled); pager text 'Page n of 3 / Questions a-b of 30'. Skipped filter -> page 1 of 2, questions 15-24 of 16. Wrong (2) -> no pager. Pager buttons 44px tall. No page errors.",
+      "evidence": "test-evidence/browser/TC-UI-STU-022/paging-390-p3.png, paging-1440-p3.png",
+      "failure_details": ""
     }
   ]
 }
