@@ -23,7 +23,7 @@ import {
 import QuestionRepositoryPickerModal from "./QuestionRepositoryPickerModal";
 import QuizImportModal from "./QuizImportModal";
 import Modal from "@/components/ui/Modal";
-import { QUESTION_TYPE_OPTIONS, RETIRED_QUESTION_TYPES, resolveQuestionType } from "@/lib/questionType";
+import { QUESTION_TYPE_OPTIONS, RETIRED_QUESTION_TYPES, TRUE_FALSE_OPTIONS, resolveQuestionType } from "@/lib/questionType";
 
 // Question.options (backend) may hold plain strings or richer
 // { optionText, isCorrect?, misconceptionTag? } objects (see
@@ -228,9 +228,13 @@ export function QuizOverviewView({
         id: q.id || `draft-que-${quiz.id || "temp"}-${idx + 1}`,
         question: q.question || q.title || "",
         questionType: editorQuestionType(q),
-        options: Array.isArray(q.options)
+        options: Array.isArray(q.options) && q.options.length > 0
           ? q.options.map(optionToText)
-          : (typeof q.options === "object" && q.options !== null ? Object.values(q.options).map(optionToText) : ["Option 1", "Option 2"]),
+          : String(q.questionType || "").toUpperCase() === "TRUE_FALSE"
+            ? [...TRUE_FALSE_OPTIONS]
+            : Array.isArray(q.options)
+              ? []
+              : (typeof q.options === "object" && q.options !== null ? Object.values(q.options).map(optionToText) : ["Option 1", "Option 2"]),
         optionExplanations: Array.isArray(q.options) ? q.options.map(optionExplanationOf) : [],
         correctAnswer: editorCorrectAnswer(editorQuestionType(q), q.correctAnswer),
         explanation: q.explanation || "",

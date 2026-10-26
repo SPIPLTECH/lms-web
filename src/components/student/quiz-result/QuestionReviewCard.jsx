@@ -5,7 +5,7 @@ import { Check, X, ArrowRight, CheckCircle2, XCircle } from "lucide-react";
 import Card from "@/components/ui/Card";
 import ListenButton from "@/components/student/tts/ListenButton";
 import { checkAnswerCorrectness } from "@/lib/quizAnswers";
-import { resolveQuestionType } from "@/lib/questionType";
+import { resolveQuestionType, TRUE_FALSE_OPTIONS } from "@/lib/questionType";
 import { buildAnswerReviewSpeech } from "@/lib/quizSpeech";
 
 // One question's row in the "Detailed Question Review" list — options review
@@ -27,6 +27,10 @@ export default function QuestionReviewCard({ question, index, userAnswer }) {
       }
     } else if (Array.isArray(question.options)) {
       optionsList = question.options;
+    }
+    // A True/False question saved without its options still has them.
+    if (optionsList.length === 0 && question.questionType === "TRUE_FALSE") {
+      optionsList = TRUE_FALSE_OPTIONS;
     }
   }
 

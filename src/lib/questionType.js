@@ -7,14 +7,27 @@
 // that translation happens, so every consumer stays in agreement.
 //
 // ARRANGE_TOKENS and MATCH_PAIRS already match the UI's keys and pass
-// through unchanged. TRUE_FALSE/FILL_BLANK/SHORT_ANSWER/LONG_ANSWER have no
-// dedicated UI or grading branch yet (see QuestionCard.jsx/quizAnswers.js) —
-// they pass through as-is rather than being silently coerced to the wrong
-// type; adding real support for them is separate, future work.
+// through unchanged.
+//
+// TRUE_FALSE is a single-choice question whose options are "True" and
+// "False" — the same rule the composer's import applies — and is answered,
+// graded and reviewed exactly as one. It has to be translated: the server
+// files any single-choice question with exactly those two options under
+// TRUE_FALSE when it saves, and the student screen draws nothing for a type
+// it has no branch for, so such a question showed no options at all.
+//
+// FILL_BLANK/SHORT_ANSWER/LONG_ANSWER have no dedicated UI or grading branch
+// yet (see QuestionCard.jsx/quizAnswers.js) — they pass through as-is rather
+// than being silently coerced to the wrong type; adding real support for them
+// is separate, future work.
 const QUESTION_TYPE_ALIASES = {
   MCQ: "MCQ_SINGLE",
   MULTIPLE_CORRECT: "MCQ_MULTI",
+  TRUE_FALSE: "MCQ_SINGLE",
 };
+
+/** A True/False question stored without its two options still offers them. */
+export const TRUE_FALSE_OPTIONS = ["True", "False"];
 
 /**
  * Types withdrawn from the authoring pickers: an instructor can no longer

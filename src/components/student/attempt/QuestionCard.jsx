@@ -9,7 +9,7 @@ import ArrangeTokensList from "./ArrangeTokensList";
 import MatchPairsGrid from "./MatchPairsGrid";
 import SelfAssessmentInput from "./SelfAssessmentInput";
 import ListenButton from "@/components/student/tts/ListenButton";
-import { resolveQuestionType } from "@/lib/questionType";
+import { resolveQuestionType, TRUE_FALSE_OPTIONS } from "@/lib/questionType";
 import { buildQuestionSpeech } from "@/lib/quizSpeech";
 import { resolveSpeechLang } from "@/lib/textToSpeech";
 
@@ -65,14 +65,17 @@ export default function QuestionCard({
 
   // Deterministic-ish stable random shuffle helper for single option, multioption, and arrange tokens
   const shuffledOptions = useMemo(() => {
-    if (!question?.options) return [];
-    let opts = question.options;
+    let opts = question?.options;
     if (typeof opts === "string") {
       try {
         opts = JSON.parse(opts);
       } catch {
         opts = [];
       }
+    }
+    // A True/False question saved without its options still has them.
+    if ((!Array.isArray(opts) || opts.length === 0) && question?.questionType === "TRUE_FALSE") {
+      opts = TRUE_FALSE_OPTIONS;
     }
     if (!Array.isArray(opts)) return [];
 
