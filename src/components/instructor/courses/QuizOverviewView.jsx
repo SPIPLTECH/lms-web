@@ -756,10 +756,12 @@ export function QuizOverviewView({
                       <span className="text-[13px] font-mono font-bold uppercase tracking-wider text-muted-foreground block">Options:</span>
                       <div className="grid grid-cols-1 gap-1.5">
                         {q.options.map((opt, optIdx) => {
-                          const correctAnswerStr = typeof q.correctAnswer === "string" || typeof q.correctAnswer === "number"
-                            ? String(q.correctAnswer)
-                            : JSON.stringify(q.correctAnswer || "");
-                          const isCorrect = correctAnswerStr.includes(String(opt)) || String(opt) === correctAnswerStr;
+                          // Whole-answer match, trimmed and case-insensitive
+                          // like the grader — a substring test marked "PROM"
+                          // correct when the answer was "EEPROM".
+                          const norm = (v) => getOptionText(v).trim().toLowerCase();
+                          const isCorrect = (Array.isArray(q.correctAnswer) ? q.correctAnswer : [q.correctAnswer])
+                            .some((answer) => norm(answer) === norm(opt));
 
                           return (
                             <div
