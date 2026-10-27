@@ -111,13 +111,14 @@ export default function UploadQuestionsPage() {
         difficulty: "EASY",
         marks: 2,
         // `explanation` on a wrong option says why it is wrong; a Self-Test
-        // shows it once the student checks their answer.
+        // shows it once the student checks their answer. `correctAnswer` is
+        // the correct option's number — 1 for the first option.
         options: [
-          { optionText: "[0, 2, 4]", isCorrect: true },
-          { optionText: "[0, 1, 2]", isCorrect: false, explanation: "That is range(3) itself — each value still has to be multiplied by 2." },
-          { optionText: "[2, 4, 6]", isCorrect: false, explanation: "range(3) starts at 0, not 1, so the first value is 0 * 2 = 0." }
+          { optionText: "[0, 2, 4]" },
+          { optionText: "[0, 1, 2]", explanation: "That is range(3) itself — each value still has to be multiplied by 2." },
+          { optionText: "[2, 4, 6]", explanation: "range(3) starts at 0, not 1, so the first value is 0 * 2 = 0." }
         ],
-        correctAnswer: "[0, 2, 4]",
+        correctAnswer: 1,
         explanation: "range(3) produces 0, 1, 2. Multiplying by 2 gives 0, 2, 4."
       },
       {
@@ -130,11 +131,11 @@ export default function UploadQuestionsPage() {
         difficulty: "EASY",
         marks: 1,
         options: [
-          { optionText: "201", isCorrect: true },
-          { optionText: "200", isCorrect: false, explanation: "200 means OK — the request succeeded, but nothing new was created." },
-          { optionText: "404", isCorrect: false, explanation: "404 means Not Found — the server has nothing at that address." }
+          { optionText: "201" },
+          { optionText: "200", explanation: "200 means OK — the request succeeded, but nothing new was created." },
+          { optionText: "404", explanation: "404 means Not Found — the server has nothing at that address." }
         ],
-        correctAnswer: "201",
+        correctAnswer: 1,
         explanation: "201 Created is returned when a request has made a new resource."
       },
       {
@@ -176,11 +177,13 @@ export default function UploadQuestionsPage() {
 
   const handleDownloadSampleCsv = () => {
     // `course` and `module` are optional: the last two rows leave them blank.
+    // `correctAnswer` is the correct option's number (1 for option1), with
+    // several separated by a semicolon.
     const course = csvCell(sampleCourseTitle);
     const courseModule = csvCell(sampleModuleTitle);
     const csvContent = `title,type,subject,difficulty,marks,question,option1,option2,option3,option4,correctAnswer,explanation,course,module
-Python Variables,MCQ_SINGLE,Python,EASY,1,What is the keyword to define a function in Python?,func,def,function,define,option 2,Functions in Python are defined using the def keyword.,${course},${courseModule}
-JavaScript Async,MCQ_MULTI,Web Development,MEDIUM,2,Which of these are JavaScript primitive types?,string,number,array,object,string|number,Arrays and objects are reference types.,${course},
+Python Variables,MCQ_SINGLE,Python,EASY,1,What is the keyword to define a function in Python?,func,def,function,define,2,Functions in Python are defined using the def keyword.,${course},${courseModule}
+JavaScript Async,MCQ_MULTI,Web Development,MEDIUM,2,Which of these are JavaScript primitive types?,string,number,array,object,1;2,Arrays and objects are reference types.,${course},
 HTTP Request Flow,ARRANGE_TOKENS,Web Development,MEDIUM,2,Arrange the steps of an HTTP request in order,DNS lookup,TCP handshake,HTTP request sent,Response received,,Option columns are the tokens in their correct order.,,
 HTTP Status Codes,MATCH_PAIRS,Web Development,MEDIUM,2,Match each status code to its meaning,200 => OK,404 => Not Found,500 => Server Error,301 => Moved Permanently,,Each option column holds one pair written as left => right.,,`;
 

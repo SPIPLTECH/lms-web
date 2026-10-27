@@ -69,9 +69,19 @@ function runTests() {
       expected: false,
     },
     {
-      name: "isCorrectOption matches a string key ignoring case and spaces",
-      actual: isCorrectOption("  Def ", "def"),
+      name: "isCorrectOption ignores surrounding spaces",
+      actual: isCorrectOption("  def ", "def"),
       expected: true,
+    },
+    {
+      name: "isCorrectOption tells options apart by case (int float vs int Float)",
+      actual: `${isCorrectOption("int float = 4;", "int Float = 4;")}/${isCorrectOption("int Float = 4;", "int Float = 4;")}`,
+      expected: "false/true",
+    },
+    {
+      name: "a single answer in the wrong case is wrong, as the server scores it",
+      actual: checkAnswerCorrectness("MCQ_SINGLE", "int float = 4;", ["int Float = 4;"]),
+      expected: false,
     },
     {
       name: "isCorrectOption matches one entry of a multi-answer key",
@@ -89,9 +99,9 @@ function runTests() {
       expected: false,
     },
     {
-      name: "a multi answer differing from the key only in case counts as right, as the server scores it",
-      actual: checkAnswerCorrectness("MCQ_MULTI", ["Paris ", "rome"], ["paris", "Rome"]),
-      expected: true,
+      name: "a multi answer is matched exactly, spaces aside, as the server scores it",
+      actual: `${checkAnswerCorrectness("MCQ_MULTI", ["Paris ", "Rome"], ["Paris", "Rome"])}/${checkAnswerCorrectness("MCQ_MULTI", ["paris", "Rome"], ["Paris", "Rome"])}`,
+      expected: "true/false",
     },
     {
       name: "a multi answer missing one correct option is still wrong",

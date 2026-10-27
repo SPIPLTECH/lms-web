@@ -3,16 +3,16 @@
 // against a question's correctAnswer (result summary counts, per-question
 // review highlighting).
 // The stored key for a single-answer question can be a plain string or a
-// one-element array (how imported/generated questions arrive), and the
-// backend scorer compares trimmed, case-insensitive text. The review has to
-// apply the same rule, or an answer the server scored as right is shown as
-// "Incorrect Choice" underneath a full score.
-const normalizeAnswerText = (value) => String(value ?? "").trim().toLowerCase();
+// one-element array (how imported/generated questions arrive). A choice
+// answer is an option's own text, so — like the server's scorer — it is
+// compared exactly, spaces aside: options can differ only by case ("int
+// float" / "int Float") and are then different answers. Matching the
+// server is what keeps the review from calling a scored answer wrong.
+const normalizeAnswerText = (value) => String(value ?? "").trim().replace(/\s+/g, " ");
 const asAnswerList = (value) => (Array.isArray(value) ? value : [value]);
 
-// Whether one option is (one of) the correct answer(s), by the same trimmed,
-// case-insensitive text rule — for marking options right or wrong once a
-// Self-Test answer has been checked.
+// Whether one option is (one of) the correct answer(s), by the same rule —
+// for marking options right or wrong once an answer is known.
 export function isCorrectOption(optionText, correct) {
   if (correct === undefined || correct === null || correct === "") return false;
   return asAnswerList(correct).some((c) => normalizeAnswerText(c) === normalizeAnswerText(optionText));
@@ -27,8 +27,6 @@ export function checkAnswerCorrectness(type, selected, correct) {
 
   if (type === "MCQ_MULTI") {
     if (!Array.isArray(selected) || !Array.isArray(correct)) return false;
-    // Same trimmed, case-insensitive text rule as the server's scorer, so a
-    // review never calls an answer wrong that was scored right.
     const key = correct.map(normalizeAnswerText);
     return selected.length === correct.length && selected.every((v) => key.includes(normalizeAnswerText(v)));
   }

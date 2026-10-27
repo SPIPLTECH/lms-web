@@ -7,13 +7,15 @@ import { useImportQuestions } from "@/hooks/queries/instructor/useImportQuestion
 const ACCEPTED_FORMATS = ".csv,.xlsx,.xls,.json,.txt,.docx,.pdf";
 const FORMAT_LABELS = ["CSV", "Excel (.xlsx/.xls)", "JSON", "TXT", "DOCX", "PDF"];
 
-// `explanation` says why the correct answer is right. The optional
+// `correctAnswer` is the correct option's number — 1 for the first option
+// (several: "1;3" in CSV, [1, 3] in JSON). `explanation` says why the correct
+// answer is right. The optional
 // optionX_explanation columns (CSV) and an option's own `explanation` (JSON)
 // say why that option is wrong — shown on a Self-Test once the student checks
 // their answer. A correct option needs none.
 const CSV_TEMPLATE = `question,optionA,optionB,optionC,optionD,correctAnswer,marks,difficulty,explanation,optionA_explanation,optionB_explanation,optionC_explanation,optionD_explanation
-"What is JSX in React?","A templating engine","JavaScript XML syntax extension","Java Syntax Extension","A CSS framework","JavaScript XML syntax extension",1,EASY,"JSX allows writing HTML-like code in JavaScript","JSX is compiled to JavaScript calls; it is not a separate templating engine.",,"JSX stands for JavaScript XML and has nothing to do with Java.","JSX describes markup, not styles."
-"Which hook manages state in React?","useEffect","useMemo","useState","useCallback","useState",2,MEDIUM,"useState hook is used to manage component local state","useEffect runs side effects after render; it does not hold state.","useMemo caches a computed value between renders.",,"useCallback caches a function between renders."`;
+"What is JSX in React?","A templating engine","JavaScript XML syntax extension","Java Syntax Extension","A CSS framework",2,1,EASY,"JSX allows writing HTML-like code in JavaScript","JSX is compiled to JavaScript calls; it is not a separate templating engine.",,"JSX stands for JavaScript XML and has nothing to do with Java.","JSX describes markup, not styles."
+"Which hook manages state in React?","useEffect","useMemo","useState","useCallback",3,2,MEDIUM,"useState hook is used to manage component local state","useEffect runs side effects after render; it does not hold state.","useMemo caches a computed value between renders.",,"useCallback caches a function between renders."`;
 
 const JSON_TEMPLATE = JSON.stringify([
     {
@@ -24,7 +26,7 @@ const JSON_TEMPLATE = JSON.stringify([
             { optionText: "Paris" },
             { optionText: "Madrid", explanation: "Madrid is the capital of Spain." },
         ],
-        correctAnswer: "Paris",
+        correctAnswer: 3,
         marks: 1,
         difficulty: "EASY",
         explanation: "Paris is the capital and largest city of France.",
@@ -37,7 +39,7 @@ const JSON_TEMPLATE = JSON.stringify([
             { optionText: "Python", explanation: "Browsers do not run Python natively." },
             { optionText: "JavaScript" },
         ],
-        correctAnswer: "JavaScript",
+        correctAnswer: 4,
         marks: 1,
         difficulty: "EASY",
         explanation: "JavaScript is the language every web browser runs natively.",
