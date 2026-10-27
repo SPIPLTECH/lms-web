@@ -625,6 +625,12 @@ MANUAL_CASES = [
          scenario="Grading & Results page loads submissions with loading and empty states",
          pre=f"{_ENV}; INSTRUCTOR. {_RO}", steps="1. Open /instructor/assignments",
          expected="List or empty state; no console errors", ref="src/app/instructor/assignments/page.jsx"),
+    dict(id="TC-UI-INS-014", component="src/app/instructor/students/page.jsx", type="UI – Browser",
+         scenario="Student Directory loads for an instructor with many enrollments without starving other requests",
+         pre=f"{_ENV}; INSTRUCTOR with ~40+ student enrollments. {_RO}",
+         steps="1. Open /instructor/students\n2. Watch the Network tab for GET /students and GET /courses",
+         expected="Students listed with progress; no 'Failed to load students'; no 500 with Prisma P2024 (pool timeout) on /students or /courses",
+         ref="backend lms-api src/utils/progressRollup.js computeCourseProgressForStudents"),
 
     # ---- Student -----------------------------------------------------------
     dict(id="TC-UI-STU-001", component="src/components/student/store/StoreCourseCard.jsx", type="UI – Browser",
@@ -737,6 +743,12 @@ MANUAL_CASES = [
          pre=f"{_ENV}; STUDENT with enrolled courses. {_RO}", steps="1. Open /student/my-courses at desktop width\n2. Scroll the page",
          expected="Enrolled Courses grid has no own scrollbar; the whole page scrolls; pagination sits under the grid",
          ref="src/app/student/layout.jsx (no my-courses viewport shell); src/app/instructor/courses/page.jsx"),
+    dict(id="TC-UI-STU-015", component="src/app/student/my-courses/page.jsx", type="UI – Browser",
+         scenario="My Courses loading skeletons render as full-width placeholder cards, not thin vertical lines",
+         pre=f"{_ENV}; STUDENT with enrolled courses. {_RO}",
+         steps="1. Open /student/my-courses at desktop width (xl)\n2. Reload with DevTools network throttling so the loading state is visible",
+         expected="Placeholder cards fill each grid column (4 per row at xl) in theme colours; no 2px white lines; loaded layout unchanged",
+         ref="src/app/student/my-courses/page.jsx gridClassName md:w-full"),
 
     # ---- Admin -------------------------------------------------------------
     dict(id="TC-UI-ADM-001", component="src/app/admin/courses/[courseId]/page.jsx", type="UI – Browser",

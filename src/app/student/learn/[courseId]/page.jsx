@@ -56,8 +56,6 @@ const LEVEL_LABELS = {
 // How long without input before the Course Map and the Learning Workspace
 // header hide (the idle layout effect in LearnPage).
 const IDLE_AFTER_MS = 2500;
-// Pointer travel, in px, that counts as "the student moved" while hidden.
-const MOVE_THRESHOLD_PX = 8;
 
 /** Every container node (Course, Module, … Concept) of the learning-sequence tree, by id. */
 function indexContainers(tree) {
@@ -340,39 +338,24 @@ export default function LearnPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [courseMapOpen]);
 
-  // IDLE LAYOUT — the one inactivity mechanism on this page: one timer, one
-  // set of window listeners, mounted once. After IDLE_AFTER_MS without input
-  // the desktop Course Map rail and the Learning Workspace header get out of
-  // the way, and the next real input brings them back. Desktop only — below
-  // xl it is not mounted at all: the Course Map there is a modal sheet the
-  // student opened, and on a touch screen "no input" means reading it. The
-  // sheet closes on its own terms only — picking an item, ✕, the backdrop or
-  // Escape.
+  // IDLE LAYOUT — inactivity auto-hide on desktop (xl+).
+  // After IDLE_AFTER_MS (2.5s) without input, the Course Map rail and Learning Workspace
+  // header hide to maximize content focus.
   //
-  // What counts as input, and what does not:
-  //  - Pointer movement only after it has really moved: browsers emit a
-  //    mousemove at the same coordinates when the layout shifts under a still
-  //    cursor (as it does when this very effect collapses things), and while
-  //    hidden a few pixels of jitter (< MOVE_THRESHOLD_PX) are not a reveal.
-  //  - A press while hidden reveals on RELEASE, not on press: re-laying out
-  //    between pointerdown and click would move the control being clicked
-  //    (Next, Listen, a settings button) out from under the pointer.
-  //  - Keys and wheel count. "scroll" does not — it also fires for
-  //    programmatic scrolling.
-  // The only hold: KEYBOARD focus (:focus-visible) inside the Course Map or
-  // header (data-learn-chrome), so a keyboard user's focus is never swallowed
-  // by a collapsing panel. Mouse focus does not hold — clicking a lesson row
-  // leaves focus on it, and holding on that (or on a resting pointer) is what
-  // stopped the auto-close from ever firing after a lesson was picked.
-  // While active, input only stamps lastActivity; the single timer re-checks
-  // when it fires, so continuous movement never thrashes timers or state.
+  // Idle behavior rules:
+  //  - When panels are visible, pointer moves, clicks, and keyboard inputs reset the
+  //    idle timer so the student can interact with the Course Map and chrome without
+  //    it collapsing beneath them.
+  //  - When panels are hidden, pointer movement, mouse wheel/scrolling, clicking lesson
+  //    content/video/documents, and arbitrary keypresses NEVER reopen them.
+  //  - Only explicit controls (the expand tab button on the left edge) reopen the panels.
+  //  - The only hold: KEYBOARD focus (:focus-visible) inside data-learn-chrome keeps
+  //    the panels open so a keyboard user's focus is never swallowed.
   useEffect(() => {
     if (!isDesktop) return undefined;
-    let idle = false;
+    const idle = workspaceCollapse !== null;
     let lastActivity = Date.now();
     let lastPointer = null;
-    let idleAnchor = null;
-    let revealOnRelease = false;
     let timerId = null;
 
     const keyboardFocusOnChrome = () => {
@@ -389,19 +372,12 @@ export default function LearnPage() {
       const quietFor = Date.now() - lastActivity;
       if (quietFor < IDLE_AFTER_MS) return schedule(IDLE_AFTER_MS - quietFor);
       if (keyboardFocusOnChrome()) return schedule(IDLE_AFTER_MS);
-      idle = true;
-      idleAnchor = lastPointer;
       // Same transition the hide buttons make; a manual collapse is kept.
       setWorkspaceCollapse((current) => current ?? "idle");
     }
 
-    const markActive = () => {
+    const resetIdleTimer = () => {
       lastActivity = Date.now();
-      if (!idle) return;
-      idle = false;
-      idleAnchor = null;
-      // Activity only undoes what the timer did — never the student's own close.
-      setWorkspaceCollapse((current) => (current === "idle" ? null : current));
       schedule(IDLE_AFTER_MS);
     };
 
@@ -409,55 +385,47 @@ export default function LearnPage() {
       const point = { x: event.clientX, y: event.clientY };
       if (lastPointer && point.x === lastPointer.x && point.y === lastPointer.y) return;
       lastPointer = point;
-      if (idle) {
-        if (!idleAnchor) {
-          idleAnchor = point;
-          return;
-        }
-        if (
-          Math.abs(point.x - idleAnchor.x) < MOVE_THRESHOLD_PX &&
-          Math.abs(point.y - idleAnchor.y) < MOVE_THRESHOLD_PX
-        ) {
-          return;
-        }
-      }
-      markActive();
+      if (idle) return;
+      resetIdleTimer();
     };
 
     const onPointerDown = () => {
-      if (idle) revealOnRelease = true;
-      else lastActivity = Date.now();
+      if (idle) return;
+      resetIdleTimer();
     };
 
-    const onPointerUp = () => {
-      if (!revealOnRelease) return;
-      revealOnRelease = false;
-      // After this click has been dispatched to what was under the pointer.
-      setTimeout(markActive, 0);
+    const onKeyDown = () => {
+      if (idle) return;
+      resetIdleTimer();
     };
 
     const listeners = [
       ["pointermove", onPointerMove],
       ["pointerdown", onPointerDown],
-      ["pointerup", onPointerUp],
-      ["pointercancel", onPointerUp],
-      ["keydown", markActive],
-      ["wheel", markActive],
+      ["keydown", onKeyDown],
     ];
     listeners.forEach(([name, handler]) => {
       window.addEventListener(name, handler, { capture: true, passive: true });
     });
-    schedule(IDLE_AFTER_MS);
+
+    if (!idle) {
+      schedule(IDLE_AFTER_MS);
+    }
 
     return () => {
       clearTimeout(timerId);
       listeners.forEach(([name, handler]) => {
         window.removeEventListener(name, handler, { capture: true });
       });
-      // Narrowed below xl while idle: nothing would undo the timer's collapse.
-      setWorkspaceCollapse((current) => (current === "idle" ? null : current));
     };
-  }, [isDesktop]);
+  }, [isDesktop, workspaceCollapse]);
+
+  // Narrowed below xl while idle: nothing would undo the timer's collapse on desktop.
+  useEffect(() => {
+    if (!isDesktop && workspaceCollapse === "idle") {
+      setWorkspaceCollapse(null);
+    }
+  }, [isDesktop, workspaceCollapse]);
 
   // Escape closes the below-xl Learning tools sheet, the same as its X, its
   // scrim and a swipe down. Bound only while the sheet is mounted (below xl,

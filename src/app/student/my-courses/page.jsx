@@ -126,18 +126,22 @@ export default function MyCoursesPage() {
           {/* The height left for the cards, handed down: the slider row (or
               the md+ grid rows) fill it, each item is a column the card is
               capped to, and MyCourseCard's thumbnail shrinks when the card
-              would not fit. Rows never go below a card's smallest size. */}
+              would not fit. Rows never go below a card's smallest size.
+              md:w-full: with mx-auto in this flex column the grid would
+              shrink to its content, and the empty loading skeletons have
+              none — every 1fr column collapsed to 0px, leaving only each
+              skeleton's borders on screen as thin vertical lines. */}
           <div className="flex flex-1 min-h-0 flex-col">
             <SnapCardSlider
               items={pagedEnrollments}
               getKey={(enrollment) => enrollment.id || enrollment.courseId}
               renderItem={(enrollment) => <MyCourseCard enrollment={enrollment} />}
-              gridClassName="flex-1 min-h-0 md:auto-rows-[minmax(16rem,1fr)] md:justify-items-center md:mx-auto md:max-w-[1328px] md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              gridClassName="flex-1 min-h-0 md:auto-rows-[minmax(16rem,1fr)] md:justify-items-center md:mx-auto md:w-full md:max-w-[1328px] md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
               itemClassName="flex flex-col md:max-w-[320px]"
               isLoading={isLoading}
               skeletonCount={6}
               skeleton={
-                <div className="h-72 md:h-72 rounded-2xl border border-slate-200 bg-white/10 animate-pulse" />
+                <div className="h-full min-h-64 w-full rounded-2xl border border-border bg-muted animate-pulse" />
               }
               emptyState={<EmptyState title="No courses enrolled in the selected year." />}
               dotsLabel="Course slides"

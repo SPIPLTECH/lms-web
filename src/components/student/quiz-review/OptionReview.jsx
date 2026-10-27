@@ -42,7 +42,7 @@ export default function OptionReview({ options = [], selectedAnswer, correctAnsw
   const showWhyCorrect = Boolean(whyCorrect) && explanationInsideOption(options, correctAnswer);
 
   return (
-    <ul className="space-y-2 sm:space-y-2.5">
+    <ul className="space-y-1.5 sm:space-y-2">
       {options.map((opt, index) => {
         const text = optionText(opt);
         const isCorrect = isOptionCorrect(opt, correctAnswer);
@@ -53,7 +53,7 @@ export default function OptionReview({ options = [], selectedAnswer, correctAnsw
         return (
           <li
             key={`${index}-${text}`}
-            className={`rounded-xl border ${
+            className={`rounded-lg sm:rounded-xl border ${
               state === "correct"
                 ? "border-emerald-500/50 bg-emerald-500/[0.08]"
                 : state === "wrong"
@@ -61,9 +61,9 @@ export default function OptionReview({ options = [], selectedAnswer, correctAnsw
                   : "border-border bg-background/60"
             }`}
           >
-            <div className="flex items-center gap-2.5 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
+            <div className="flex items-center gap-2 px-2.5 py-1.5 sm:gap-2.5 sm:px-3 sm:py-2">
               <span
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-xs font-extrabold sm:h-7 sm:w-7 sm:text-sm ${
+                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-[11px] font-extrabold sm:h-5.5 sm:w-5.5 sm:text-xs ${
                   state === "correct"
                     ? "bg-emerald-600 text-white"
                     : state === "wrong"
@@ -75,21 +75,21 @@ export default function OptionReview({ options = [], selectedAnswer, correctAnsw
                 {String.fromCharCode(65 + index)}
               </span>
               <span
-                className={`min-w-0 flex-1 break-words text-sm leading-snug sm:text-base ${
+                className={`min-w-0 flex-1 break-words text-xs leading-snug sm:text-sm ${
                   state === "other" ? "text-foreground" : "font-semibold text-foreground"
                 }`}
               >
                 {text}
               </span>
               {state === "correct" && (
-                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 sm:text-xs">
-                  <Check size={13} aria-hidden />
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 sm:text-[11px]">
+                  <Check size={11} aria-hidden />
                   {isPicked ? "Correct · your answer" : "Correct answer"}
                 </span>
               )}
               {state === "wrong" && (
-                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-rose-500/15 px-2 py-0.5 text-[11px] font-bold text-rose-700 dark:text-rose-300 sm:text-xs">
-                  <X size={13} aria-hidden />
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold text-rose-700 dark:text-rose-300 sm:text-[11px]">
+                  <X size={11} aria-hidden />
                   Your answer
                 </span>
               )}
@@ -97,27 +97,31 @@ export default function OptionReview({ options = [], selectedAnswer, correctAnsw
 
             {reason && (
               <div
-                className={`border-t px-3 pb-3 pt-2.5 sm:px-4 sm:pb-3.5 ${
+                className={`border-t px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-[13px] leading-snug ${
                   state === "correct"
-                    ? "border-emerald-500/25"
+                    ? "border-emerald-500/20 bg-emerald-500/[0.03]"
                     : state === "wrong"
-                      ? "border-rose-500/25"
-                      : "border-border"
+                      ? "border-rose-500/20 bg-rose-500/[0.03]"
+                      : "border-border/60 bg-muted/20"
                 }`}
               >
-                <p
-                  className={`flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider ${
-                    state === "correct"
-                      ? "text-emerald-700 dark:text-emerald-300"
-                      : state === "wrong"
-                        ? "text-rose-700 dark:text-rose-300"
-                        : "text-muted-foreground"
-                  }`}
-                >
-                  {state === "correct" ? <Check size={12} aria-hidden /> : <X size={12} aria-hidden />}
-                  {state === "correct" ? "Why it's correct" : "Why it's wrong"}
-                </p>
-                <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/85">{reason}</p>
+                <div className="flex items-start gap-2 sm:gap-2.5">
+                  <span
+                    className={`inline-flex shrink-0 items-center gap-1 pt-0.5 text-[10px] font-bold uppercase tracking-wider sm:text-[10.5px] ${
+                      state === "correct"
+                        ? "text-emerald-700 dark:text-emerald-300"
+                        : state === "wrong"
+                          ? "text-rose-700 dark:text-rose-300"
+                          : "text-muted-foreground"
+                    }`}
+                  >
+                    {state === "correct" ? <Check size={11} aria-hidden /> : <X size={11} aria-hidden />}
+                    {state === "correct" ? "Why it's correct:" : "Why it's wrong:"}
+                  </span>
+                  <p className="min-w-0 flex-1 break-words text-xs leading-snug text-foreground/85 sm:text-[13px]">
+                    {reason}
+                  </p>
+                </div>
               </div>
             )}
           </li>

@@ -84,10 +84,10 @@ export default function QuestionReviewCard({ question, index, total, userAnswer 
   return (
     // Inline radius: globals.css styles .bg-card unlayered (8px), which a
     // rounded-* utility can't override.
-    <article style={{ borderRadius: 16 }} className="min-w-0 border border-border bg-card p-4 sm:p-6">
-      <div className="space-y-3 sm:space-y-4">
+    <article style={{ borderRadius: 14 }} className="min-w-0 border border-border bg-card p-3 sm:p-4">
+      <div className="space-y-2 sm:space-y-2.5">
           {/* Position and marks, and what happened to the question. */}
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-2.5">
             <p className="min-w-0 text-xs font-semibold tabular-nums text-muted-foreground">
               Question {index + 1}
               <span className="font-normal">
@@ -97,14 +97,14 @@ export default function QuestionReviewCard({ question, index, total, userAnswer 
             </p>
             <span
               style={{ borderRadius: 9999 }}
-              className={`inline-flex shrink-0 items-center gap-1 px-2.5 py-0.5 text-xs font-semibold ${tag.className}`}
+              className={`inline-flex shrink-0 items-center gap-1 px-2 py-0.5 text-[11px] font-semibold sm:text-xs ${tag.className}`}
             >
-              <TagIcon size={13} strokeWidth={2.6} aria-hidden />
+              <TagIcon size={12} strokeWidth={2.6} aria-hidden />
               {tag.label}
             </span>
           </div>
 
-          <h4 className="break-words font-serif text-base font-medium leading-snug text-foreground sm:text-lg">
+          <h4 className="break-words font-serif text-sm font-medium leading-snug text-foreground sm:text-base">
             {question.question}
           </h4>
 
@@ -124,10 +124,10 @@ export default function QuestionReviewCard({ question, index, total, userAnswer 
 
           {/* 2. ARRANGE_TOKENS Review */}
           {qType === "ARRANGE_TOKENS" && (
-            <div className="space-y-2.5 sm:space-y-3 bg-background/40 p-3 sm:p-4 rounded-xl border border-slate-800">
-              <div className="space-y-1.5 sm:space-y-2">
+            <div className="space-y-2 bg-background/40 p-2.5 sm:p-3 rounded-xl border border-slate-800">
+              <div className="space-y-1 sm:space-y-1.5">
                 <span className="text-[9px] sm:text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Your Sequence:</span>
-                <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                <div className="flex flex-wrap gap-1 sm:gap-1.5">
                   {Array.isArray(selectedOption) && selectedOption.length > 0 ? (
                     selectedOption.map((token, tIdx) => {
                       const tokenText = typeof token === "string" ? token : (token?.optionText || token?.text || String(token));
@@ -168,9 +168,9 @@ export default function QuestionReviewCard({ question, index, total, userAnswer 
 
           {/* 3. MATCH_PAIRS Review */}
           {qType === "MATCH_PAIRS" && (
-            <div className="space-y-2.5 sm:space-y-3 bg-background/40 p-3 sm:p-4 rounded-xl border border-slate-800">
+            <div className="space-y-2 bg-background/40 p-2.5 sm:p-3 rounded-xl border border-slate-800">
               <span className="text-[9px] sm:text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Matches Review:</span>
-              <div className="grid gap-2 sm:gap-3">
+              <div className="grid gap-1.5 sm:gap-2">
                 {Object.entries(question.correctAnswer || {}).map(([leftItem, rightItem]) => {
                   const studentMatch = selectedOption?.[leftItem] || "";
                   const isMatchCorrect = studentMatch === rightItem;
@@ -227,12 +227,12 @@ export default function QuestionReviewCard({ question, index, total, userAnswer 
               submitted — with Listen, which reads the whole review of this
               question. Without an explanation, Listen stands on its own. */}
           {explanation ? (
-            <div className="rounded-xl border-l-[3px] border-emerald-500 bg-muted/50 py-3 pl-3.5 pr-3 sm:py-3.5 sm:pl-4">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[13px] font-semibold text-foreground">{explanationTitle}</p>
+            <div className="rounded-lg sm:rounded-xl border-l-[3px] border-emerald-500 bg-muted/50 py-1.5 pl-3 pr-2.5 sm:py-2 sm:pl-3.5 sm:pr-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-foreground sm:text-[13px]">{explanationTitle}</p>
                 {listen}
               </div>
-              <p className="mt-1.5 whitespace-pre-wrap break-words font-serif text-[15px] leading-relaxed text-foreground/85">
+              <p className="mt-0.5 whitespace-pre-wrap break-words text-xs leading-snug text-foreground/85 sm:text-[13px]">
                 {explanation}
               </p>
             </div>

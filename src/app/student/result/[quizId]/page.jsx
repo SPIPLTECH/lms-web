@@ -497,24 +497,26 @@ function QuizResultPageContent() {
         )}
       </section>
 
-      {/* Attempt history and concept analysis come after the review: the
-          questions are what a student opens a result to see. */}
-      <section aria-labelledby="attempt-history" className="space-y-4">
-        <div>
-          <h2 id="attempt-history" className="text-base font-semibold text-foreground sm:text-lg">
-            Attempt history
-          </h2>
-          <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
-            {allowanceText}
-            {bestPercentage !== null && (
-              <>
-                {" "}· best <span className="font-semibold text-foreground">{bestPercentage}%</span>
-              </>
-            )}
-          </p>
-        </div>
-        <AttemptHistory attempts={attempts} currentAttemptId={submission.attemptId} hrefFor={attemptHref} />
-      </section>
+      {/* Attempt history — shown only when the student has multiple
+          attempts to compare or switch between. */}
+      {attempts.length > 1 && (
+        <section aria-labelledby="attempt-history" className="space-y-4">
+          <div>
+            <h2 id="attempt-history" className="text-base font-semibold text-foreground sm:text-lg">
+              Attempt history
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
+              {allowanceText}
+              {bestPercentage !== null && (
+                <>
+                  {" "}· best <span className="font-semibold text-foreground">{bestPercentage}%</span>
+                </>
+              )}
+            </p>
+          </div>
+          <AttemptHistory attempts={attempts} currentAttemptId={submission.attemptId} hrefFor={attemptHref} />
+        </section>
+      )}
 
       {/* Concept Performance Analysis */}
       {conceptScores && Object.keys(conceptScores).length > 0 && (
