@@ -362,7 +362,7 @@ export function CourseOverviewView({
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {course.quizzes.map((quiz) => {
-                      const qCount = quiz.questions?.length || quiz.quizQuestions?.length || 0;
+                      const qCount = quiz.questions?.length || quiz.quizQuestions?.length || quiz._count?.quizQuestions || 0;
                       return (
                         <div
                           key={quiz.id || quiz._id || `cq-${quiz.title}`}

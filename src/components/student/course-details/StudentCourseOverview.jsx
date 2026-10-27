@@ -18,7 +18,7 @@ import { getDisplayUrl } from "@/lib/blob";
  *
  * @param {object} props
  * @param {object} props.course          normalized course (normalizeCourseHierarchy)
- * @param {object} [props.progress]      GET /progress/courses/:id payload
+ * @param {object} [props.progress]      { lessonProgresses: completed lesson ids }
  * @param {object} [props.sequence]      GET /progress/learning-sequence payload
  * @param {boolean} props.hasProgress    any visited/completed item
  * @param {() => void} props.onContinue  opens the player at the resume step

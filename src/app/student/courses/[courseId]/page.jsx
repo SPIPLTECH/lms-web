@@ -11,8 +11,15 @@ import useCourse from "@/hooks/queries/student/useCourse";
 import useMyCourses from "@/hooks/queries/student/useMyCourses";
 import useTrackCourseAccess from "@/hooks/queries/student/useTrackCourseAccess";
 import useLearningSequence from "@/hooks/queries/student/useLearningSequence";
-import { useCourseProgress } from "@/hooks/queries/student";
 import { normalizeCourseHierarchy } from "@/lib/courseMapper";
+
+// Every LESSON node of a learning-sequence tree.
+function sequenceLessons(node, out = []) {
+  if (!node) return out;
+  if (node.kind === "LESSON") out.push(node);
+  for (const entry of node.entries || []) if (entry.type === "container") sequenceLessons(entry.node, out);
+  return out;
+}
 
 /**
  * Course overview for an enrolled student (see StudentCourseOverview). This
@@ -28,19 +35,18 @@ export default function CourseDetailsPage({ params }) {
 
   const { data: rawCourse, isLoading, isError } = useCourse(courseId);
   const course = normalizeCourseHierarchy(rawCourse);
-  const { data: progressData } = useCourseProgress(courseId);
   const { data: sequence } = useLearningSequence(courseId);
+  // What the page needs from progress — which lessons are complete, and
+  // whether anything has been started — is all in the learning sequence, built
+  // from the same roll-up. Reading it there spares the server a second roll-up
+  // of the same progress (GET /progress/courses) on every visit.
+  const completedLessonIds = sequenceLessons(sequence?.tree)
+    .filter((node) => node.completed)
+    .map((node) => node.id);
+  const progressData = sequence ? { lessonProgresses: completedLessonIds } : undefined;
   // Any progress at all (a visited item, a completed one, or a quiz attempt —
   // attempting a quiz marks it visited too) means Start has already happened.
-  // Read from the item-level id lists: the course-level visitedItems /
-  // completedItems count only the course's direct children (its modules), so
-  // they stay 0 until a whole module is visited.
-  const hasProgress = [
-    progressData?.visitedContentIds,
-    progressData?.completedContentIds,
-    progressData?.visitedQuizIds,
-    progressData?.visitedAssignmentIds,
-  ].some((ids) => (ids?.length ?? 0) > 0);
+  const hasProgress = (sequence?.steps || []).some((step) => step.visited || step.completed);
 
   // Nothing here should be reachable before enrollment: a logged-in student
   // could otherwise reach the course just by typing the URL. Enrollment

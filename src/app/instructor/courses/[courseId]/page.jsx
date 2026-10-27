@@ -47,6 +47,7 @@ import { CourseOverviewView } from "@/components/instructor/courses/CourseOvervi
 import { ModuleOverviewView } from "@/components/instructor/courses/ModuleOverviewView";
 import { LessonOverviewView } from "@/components/instructor/courses/LessonOverviewView";
 import { QuizOverviewView } from "@/components/instructor/courses/QuizOverviewView";
+import { useQuiz } from "@/hooks/queries/instructor/useQuiz";
 import { AssignmentOverviewView } from "@/components/instructor/courses/AssignmentOverviewView";
 import { EntityFormModal } from "@/components/instructor/courses/EntityFormModal";
 import { AssignmentFormModal } from "@/components/instructor/courses/AssignmentFormModal";
@@ -197,6 +198,14 @@ export default function CourseDetailsPage() {
     if (node?.id && node.title) setKnownNodeTitles((prev) => (prev[node.id] === node.title ? prev : { ...prev, [node.id]: node.title }));
   };
   const [composeQuizId, setComposeQuizId] = useState(searchParams.get("quiz") || null);
+  // The course response carries each quiz's question count only, so the open
+  // quiz's questions (answer key and junction rows included) come from
+  // GET /quizzes/:id. Draft-course quizzes are local and never fetched.
+  const isSavedCourseRoute = courseId !== "draft" && courseId !== "new";
+  const {
+    data: activeQuizFull,
+    isError: activeQuizError,
+  } = useQuiz(isSavedCourseRoute && composeQuizId ? composeQuizId : null);
   const [composeAssignmentId, setComposeAssignmentId] = useState(null);
   // The row that was clicked (or just created), used until the refetched tree
   // carries it — the same fallback selectedQuizState gives a new quiz.
@@ -1532,6 +1541,7 @@ export default function CourseDetailsPage() {
           let freshQuiz = resQuiz;
           try {
             freshQuiz = await getQuizByIdService(resQuiz.id);
+            queryClient.setQueryData([QUERY_KEYS.QUIZ, resQuiz.id], freshQuiz);
           } catch {
             freshQuiz = { ...resQuiz, questions: updatedQuizData.questions || [] };
           }
@@ -1584,7 +1594,9 @@ export default function CourseDetailsPage() {
           const updatedQuiz = resQuiz || { ...selectedQuizState, ...updatedQuizData };
 
           try {
-            const originalQuestionIds = (selectedQuizState.quizQuestions || [])
+            // From the fetched quiz: the course's quiz rows carry no questions,
+            // and without the originals a removed question would stay attached.
+            const originalQuestionIds = (activeQuizFull?.quizQuestions || selectedQuizState.quizQuestions || [])
               .map((qq) => qq.question?.id || qq.questionId)
               .filter(Boolean);
             await syncQuizQuestions(targetId, updatedQuizData.questions || [], originalQuestionIds);
@@ -1990,9 +2002,13 @@ export default function CourseDetailsPage() {
     }
   }
 
-  const activeQuizObj = composeQuizId
+  const listedQuizObj = composeQuizId
     ? (quizzesById.get(String(composeQuizId)) || (selectedQuizState && (String(selectedQuizState.id) === String(composeQuizId) || String(selectedQuizState._id) === String(composeQuizId)) ? selectedQuizState : null))
     : null;
+  // A saved quiz is shown (and edited) only from its fetched copy — the listed
+  // one has no questions, and editing it would start from an empty list.
+  const activeQuizPending = Boolean(isSavedCourseRoute && composeQuizId && quizMode !== "create" && !activeQuizFull);
+  const activeQuizObj = isSavedCourseRoute && composeQuizId ? activeQuizFull || null : listedQuizObj;
 
   // Every assignment the Composer can show, from whichever tree it is reading:
   // an import draft's lists, or — for a saved course — the course's own
@@ -2890,7 +2906,13 @@ export default function CourseDetailsPage() {
               />
             )}
 
-            {composerMode === "quiz" && (
+            {composerMode === "quiz" && activeQuizPending && (
+              <div className="notebook-cell rounded-2xl border border-border bg-background p-8 text-center text-sm text-muted-foreground shadow-md">
+                {activeQuizError ? "Couldn't load this quiz. Try selecting it again." : "Loading quiz…"}
+              </div>
+            )}
+
+            {composerMode === "quiz" && !activeQuizPending && (
               <QuizOverviewView
                 key={composeQuizId || `new-quiz-${composeConceptId || composeSubTopicId || composeTopicId || composeLessonId || composeModuleId || "course"}`}
                 quiz={activeQuizObj}
