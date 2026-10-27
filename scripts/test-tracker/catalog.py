@@ -749,6 +749,12 @@ MANUAL_CASES = [
          steps="1. Open /student/my-courses at desktop width (xl)\n2. Reload with DevTools network throttling so the loading state is visible",
          expected="Placeholder cards fill each grid column (4 per row at xl) in theme colours; no 2px white lines; loaded layout unchanged",
          ref="src/app/student/my-courses/page.jsx gridClassName md:w-full"),
+    dict(id="TC-UI-STU-023", component="src/components/student/profile/DesktopEditProfileView.jsx", type="UI – Browser",
+         scenario="Desktop profile of a new student shows only stored data: empty fields stay empty, no sample values",
+         pre=f"{_ENV}; new STUDENT with only name/phone stored (education, institution, year, guardian, gender, DOB, address null). {_RO}",
+         steps="1. Open /student/profile at 1440 wide\n2. Check every field and the Profile Completion card\n3. Type in a field, then Cancel",
+         expected="1. Empty fields are blank / 'Select gender' / 'Select education degree' / 'Select Date of Birth'; address placeholder 'Enter your address'; no 'Manohar Tiwari', 'Dr. Babasaheb Ambedkar Technological University', '2026', '28 Jun 2001', 'Male', 'B.Tech in AI & ML'\n2. Completion counts only stored fields (e.g. 38% for name + phone + email)\n3. Cancel restores the stored values, still with no sample values",
+         ref="DesktopEditProfileView.jsx toFormData (was: hardcoded fallbacks in useEffect and Cancel)"),
 
     # ---- Admin -------------------------------------------------------------
     dict(id="TC-UI-ADM-001", component="src/app/admin/courses/[courseId]/page.jsx", type="UI – Browser",
