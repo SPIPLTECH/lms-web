@@ -79,7 +79,8 @@ export default function StudentCourseOverview({ course, progress, sequence, hasP
   // Step titles are often generic ("Image", "Video"); the topic says more.
   const nextTopic = nextLesson?.topics?.find((t) => t.id === nextStep?.path?.topicId) || null;
 
-  const courseImage = course.thumbnailUrl ? getDisplayUrl(course.thumbnailUrl) : null;
+  // Shown at most about half a page wide: a 1280 px copy, not the full upload.
+  const courseImage = course.thumbnailUrl ? getDisplayUrl(course.thumbnailUrl, { width: 1280 }) : null;
   const description = course.description || "";
   const isLongDescription = description.length > 320;
 

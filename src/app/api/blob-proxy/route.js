@@ -4,9 +4,9 @@ import { get } from "@vercel/blob";
 
 import {
   CONTENT_ACTIVE_ON_ANOTHER_DEVICE,
-  contentAccessFor,
+  createCallerCache,
   isAllowedBlobUrl,
-  resolveCaller,
+  resolveCallerWithAccess,
 } from "@/lib/server/sessionCaller";
 
 /**
@@ -33,9 +33,17 @@ import {
  */
 
 const PRIVATE_NO_STORE = "private, no-store";
+// An image may stay in this viewer's own browser for an hour: a Blob URL is
+// unique per upload, so a kept copy is never stale, and `private` keeps it
+// out of every shared cache. PDFs, video and audio stay no-store.
+const PRIVATE_IMAGE_CACHE = "private, max-age=3600";
 
 const jsonError = (status, error, code) =>
   NextResponse.json({ success: false, error, code }, { status, headers: { "Cache-Control": PRIVATE_NO_STORE } });
+
+// Successful session/lease checks, remembered for 60 s per session and
+// device so a page's many file requests don't each wait on two API calls.
+const callerCache = createCallerCache({ ttlMs: 60_000 });
 
 async function callerFromCookies() {
   const store = await cookies();
@@ -44,13 +52,53 @@ async function callerFromCookies() {
     accessToken: store.get("accessToken")?.value,
     deviceKey: store.get("deviceKey")?.value,
   };
-  const caller = await resolveCaller(credentials);
   // STUDENT only: no course file bytes while another device of the account
   // is playing (the API's content endpoints apply the same rule).
-  return caller && { ...caller, access: await contentAccessFor({ ...credentials, role: caller.role }) };
+  return resolveCallerWithAccess(credentials, callerCache);
 }
 
 const isMediaType = (contentType) => /^(video|audio)\//i.test(contentType || "");
+const isImageType = (contentType) => /^image\//i.test(contentType || "");
+
+// ?w= asks for an image scaled down to that width — a course card shows a
+// 1672 px, 1.7 MB cover at ~320 px. Only these widths, so the resize cache
+// below stays small and the route can't be used to burn CPU.
+const RESIZE_WIDTHS = [320, 480, 640, 960, 1280, 1920];
+const RESIZABLE = /^image\/(jpeg|jpg|png|webp|avif)$/i;
+const requestedWidth = (searchParams) => {
+  const w = Number(searchParams.get("w"));
+  return RESIZE_WIDTHS.includes(w) ? w : null;
+};
+
+// Resized images, kept in memory so the same cover isn't fetched from Blob
+// and re-encoded for every viewer. Served only after the caller's own check
+// above, like any other file. Bounded by total bytes; oldest out first.
+const RESIZED_BUDGET_BYTES = 40 * 1024 * 1024;
+const resizedImages = new Map();
+let resizedBytes = 0;
+const rememberResized = (key, entry) => {
+  if (entry.body.length > RESIZED_BUDGET_BYTES / 4) return;
+  resizedImages.set(key, entry);
+  resizedBytes += entry.body.length;
+  while (resizedBytes > RESIZED_BUDGET_BYTES) {
+    const [oldestKey, oldest] = resizedImages.entries().next().value;
+    resizedImages.delete(oldestKey);
+    resizedBytes -= oldest.body.length;
+  }
+};
+
+/** The image scaled to `width` as WebP, or null when it can't be (no sharp, bad image). */
+async function resizeImage(stream, width) {
+  try {
+    const { default: sharp } = await import("sharp");
+    const input = Buffer.from(await new Response(stream).arrayBuffer());
+    const body = await sharp(input).rotate().resize({ width, withoutEnlargement: true }).webp({ quality: 78 }).toBuffer();
+    return { body, contentType: "image/webp" };
+  } catch (error) {
+    console.warn("[BLOB PROXY] image resize skipped:", error?.message || error);
+    return null;
+  }
+}
 
 export async function GET(request) {
   try {
@@ -111,6 +159,21 @@ export async function GET(request) {
 
     // Optional Range header for react-pdf / PDF.js and media seeking
     const rangeHeader = request.headers.get("range");
+    const width = rangeHeader ? null : requestedWidth(searchParams);
+
+    // A resized copy already made for another viewer.
+    const resizedKey = width ? `${targetUrl}\u0000${width}` : null;
+    const cachedResized = resizedKey && resizedImages.get(resizedKey);
+    if (cachedResized) {
+      return new NextResponse(cachedResized.body, {
+        status: 200,
+        headers: {
+          "Content-Type": cachedResized.contentType,
+          "Content-Length": String(cachedResized.body.length),
+          "Cache-Control": PRIVATE_IMAGE_CACHE,
+        },
+      });
+    }
 
     // 1. No range requested: the SDK's private read, streamed through.
     if (!rangeHeader) {
@@ -122,13 +185,30 @@ export async function GET(request) {
             blobResult.stream.cancel?.().catch?.(() => {});
             return mediaRefused();
           }
-          const headers = {
-            "Content-Type": contentType,
-            "Cache-Control": PRIVATE_NO_STORE,
-            "Accept-Ranges": "bytes",
-          };
-          if (blobResult.blob?.size) headers["Content-Length"] = String(blobResult.blob.size);
-          return new NextResponse(blobResult.stream, { status: 200, headers });
+          if (width && RESIZABLE.test(contentType)) {
+            const resized = await resizeImage(blobResult.stream, width);
+            if (resized) {
+              rememberResized(resizedKey, resized);
+              return new NextResponse(resized.body, {
+                status: 200,
+                headers: {
+                  "Content-Type": resized.contentType,
+                  "Content-Length": String(resized.body.length),
+                  "Cache-Control": PRIVATE_IMAGE_CACHE,
+                },
+              });
+            }
+            // Couldn't resize: the stream is spent, so read the original
+            // again below rather than send nothing.
+          } else {
+            const headers = {
+              "Content-Type": contentType,
+              "Cache-Control": isImageType(contentType) ? PRIVATE_IMAGE_CACHE : PRIVATE_NO_STORE,
+              "Accept-Ranges": "bytes",
+            };
+            if (blobResult.blob?.size) headers["Content-Length"] = String(blobResult.blob.size);
+            return new NextResponse(blobResult.stream, { status: 200, headers });
+          }
         }
       } catch (sdkErr) {
         console.warn("[BLOB PROXY] @vercel/blob SDK get() note:", sdkErr?.message || sdkErr);
@@ -159,7 +239,7 @@ export async function GET(request) {
 
     const headers = {
       "Content-Type": contentType,
-      "Cache-Control": PRIVATE_NO_STORE,
+      "Cache-Control": isImageType(contentType) && !rangeHeader ? PRIVATE_IMAGE_CACHE : PRIVATE_NO_STORE,
       "Accept-Ranges": "bytes",
     };
     const contentLength = upstream.headers.get("content-length");

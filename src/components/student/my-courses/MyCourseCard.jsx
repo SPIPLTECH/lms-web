@@ -77,9 +77,12 @@ export default function MyCourseCard({ enrollment, course: rawCourse }) {
         {course.thumbnailUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={getDisplayUrl(course.thumbnailUrl)}
+            // A card is ~320 px wide: ask for a 640 px copy (sharp on 2x
+            // screens) rather than the full multi-MB upload.
+            src={getDisplayUrl(course.thumbnailUrl, { width: 640 })}
             alt=""
             loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
           />
         ) : (

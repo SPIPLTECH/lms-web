@@ -10,8 +10,16 @@ import { getApiOrigin } from "@/lib/apiOrigin";
  *   with the API origin. Otherwise a relative path resolves against the frontend's own origin
  *   (e.g. the Vercel deployment) and 404s, since that file only exists on the API server.
  */
-export function getDisplayUrl(url) {
+export function getDisplayUrl(url, { width } = {}) {
   if (!url || typeof url !== "string") return "";
+
+  // `width`: an image shown small (a course card) asks the Blob proxy for a
+  // copy scaled to that width instead of the full upload (see
+  // /api/blob-proxy RESIZE_WIDTHS). Ignored for anything not served there.
+  if (width) {
+    const full = getDisplayUrl(url);
+    return full.startsWith("/api/blob-proxy?") ? `${full}&w=${width}` : full;
+  }
 
   // Convert Google Drive view/share links to direct image CDN links
   const driveFileMatch = url.match(/drive\.google\.com\/file\/d\/([^\/\?#]+)/);
