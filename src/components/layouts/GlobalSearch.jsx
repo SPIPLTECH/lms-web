@@ -185,7 +185,9 @@ export default function GlobalSearch({ role = "student" }) {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Search dashboard (Ctrl+K)"
-        className="flex items-center gap-2 rounded-xl border border-border bg-card px-2 sm:px-3.5 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+        // h-9 / min-w-9: the same 36px box as the theme and notification
+        // buttons beside it, so the icon-only phone version is not smaller.
+        className="flex h-9 min-w-9 items-center justify-center gap-2 rounded-xl border border-border bg-card px-2 sm:px-3.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-border hover:text-foreground"
       >
         <Search size={16} aria-hidden="true" />
         <span className="hidden sm:inline">Search</span>

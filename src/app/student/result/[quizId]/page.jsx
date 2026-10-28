@@ -1,29 +1,16 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import {
-  ArrowLeft,
-  BookOpen,
-  CalendarClock,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  CircleSlash,
-  HelpCircle,
-  ListChecks,
-  RotateCcw,
-  Timer,
-  XCircle,
-} from "lucide-react";
+import { ArrowLeft, BookOpen, ChevronLeft, ChevronRight, RotateCcw, XCircle } from "lucide-react";
 
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import PageHeader from "@/components/layouts/PageHeader";
 import Loader from "@/components/common/Loader";
 import useQuizResult from "@/hooks/queries/student/useQuizResult";
-import QuestionReviewCard from "@/components/student/quiz-result/QuestionReviewCard";
+import QuestionReviewCard, { getQuestionReviewStatus } from "@/components/student/quiz-result/QuestionReviewCard";
 import AttemptHistory from "@/components/student/quiz-result/AttemptHistory";
 import ResultNextStep from "@/components/student/quiz-result/ResultNextStep";
 import useNextAction from "@/hooks/queries/student/useNextAction";
@@ -35,19 +22,32 @@ import { formatDate, formatDuration, formatTime } from "@/features/student/const
 
 const SUBMISSIONS_HREF = "/student/assignments";
 
-/** A read-only fact about the attempt — tinted, not bordered. */
-function StatTile({ icon: Icon, iconClassName, label, value, detail }) {
+/** One labelled value in the result summary (Score, Pass mark, Attempt). */
+function SummaryFact({ label, children, divided = false }) {
   return (
-    <div className="min-w-0 rounded-xl bg-muted/50 p-2.5 sm:p-4">
-      <p className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:gap-1.5 sm:text-[11px]">
-        <Icon size={12} className={`shrink-0 sm:w-[13px] sm:h-[13px] ${iconClassName}`} aria-hidden />
-        <span className="truncate">{label}</span>
-      </p>
-      <p className="mt-1 break-words text-[13px] font-semibold leading-snug tabular-nums text-foreground sm:mt-1.5 sm:text-lg">{value}</p>
-      {detail && <p className="truncate text-[10px] tabular-nums text-muted-foreground sm:text-xs">{detail}</p>}
+    <div className={`min-w-0 ${divided ? "border-l border-border pl-3 sm:pl-5" : ""}`}>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 font-display text-lg font-semibold tabular-nums text-foreground sm:text-xl">{children}</dd>
     </div>
   );
 }
+
+// The review filters, in the order the pills show them.
+const REVIEW_FILTERS = [
+  { key: "all", label: "All" },
+  { key: "wrong", label: "Wrong" },
+  { key: "skipped", label: "Skipped" },
+  { key: "correct", label: "Correct" },
+];
+
+// Questions per review page.
+const REVIEW_PAGE_SIZE = 10;
+
+const EMPTY_FILTER_TEXT = {
+  wrong: "No wrong answers in this attempt.",
+  skipped: "You answered every question.",
+  correct: "No correct answers in this attempt yet.",
+};
 
 function QuizResultPageContent() {
   const { quizId } = useParams();
@@ -57,7 +57,12 @@ function QuizResultPageContent() {
   const attemptId = searchParams.get("attempt");
   const { data, isLoading, isError } = useQuizResult(quizId, { attemptId });
 
-  const [mobileReviewIndex, setMobileReviewIndex] = useState(0);
+  // Which questions the review shows: all, or only the wrong / skipped /
+  // correct ones.
+  const [reviewFilter, setReviewFilter] = useState("all");
+  // The review shows REVIEW_PAGE_SIZE questions at a time, within the filter.
+  const [reviewPage, setReviewPage] = useState(1);
+  const reviewTopRef = useRef(null);
 
   const submission = data?.data || data;
 
@@ -165,9 +170,6 @@ function QuizResultPageContent() {
   const attemptNumber = submission.attemptNumber ?? 1;
   const attemptsUsed = submission.attemptsUsed ?? attempts.length;
   const limited = !submission.unlimitedAttempts && Number(submission.maxAttempts) > 0;
-  const attemptLabel = limited
-    ? `Attempt ${attemptNumber} of ${submission.maxAttempts}`
-    : `Attempt ${attemptNumber}`;
   const allowanceText = limited
     ? `${attemptsUsed} of ${submission.maxAttempts} attempts used · ${
         submission.attemptsRemaining > 0 ? `${submission.attemptsRemaining} remaining` : "no attempts left"
@@ -179,18 +181,44 @@ function QuizResultPageContent() {
   // withholds correctAnswer/explanation there, so the review below has to
   // change shape rather than mark everything wrong.
   const answerKeyRevealed = submission.answerKeyRevealed !== false;
-  const totalQuestions = submission.totalQuestions ?? quiz?.questions?.length ?? 0;
   const timeTaken = formatDuration(submission.timeTakenSeconds);
   const moduleTitle = quiz?.module?.title || null;
 
-  const scoreTone = !graded
-    ? "text-foreground"
-    : passed
-      ? "text-emerald-600 dark:text-emerald-400"
-      : "text-red-600 dark:text-red-400";
+  const courseLine = [quiz?.course?.title, moduleTitle].filter(Boolean).join(", ");
+  // Marks still needed to reach the pass mark, for the line under the bar.
+  const marksToPass = graded ? Math.ceil((passingScore / 100) * Number(totalMarks)) : 0;
+  const marksShort = Math.max(0, marksToPass - Number(score || 0));
+  const passCaption = passed
+    ? "Pass mark reached"
+    : Number(score || 0) === 0
+      ? `${marksToPass} needed to pass`
+      : `${marksShort} more needed to pass`;
+
+  // The review list: every question with what happened to it, so the filter
+  // counts and each card's tag come from the same rule.
+  const reviewRows = (quiz?.questions || []).map((question, index) => {
+    const userAnswer = parsedAnswers.find((ans) => ans.questionId === question.id);
+    return { question, index, userAnswer, status: getQuestionReviewStatus(question, userAnswer) };
+  });
+  const reviewCounts = reviewRows.reduce(
+    (counts, row) => ({ ...counts, [row.status]: (counts[row.status] || 0) + 1 }),
+    { all: reviewRows.length }
+  );
+  const visibleRows = reviewFilter === "all" ? reviewRows : reviewRows.filter((row) => row.status === reviewFilter);
+  const pageCount = Math.max(1, Math.ceil(visibleRows.length / REVIEW_PAGE_SIZE));
+  const currentPage = Math.min(reviewPage, pageCount);
+  const pageStart = (currentPage - 1) * REVIEW_PAGE_SIZE;
+  const pageRows = visibleRows.slice(pageStart, pageStart + REVIEW_PAGE_SIZE);
+  // A new page starts at its first question, under the pinned filters.
+  const goToReviewPage = (next) => {
+    setReviewPage(next);
+    reviewTopRef.current?.scrollIntoView({ block: "start" });
+  };
 
   return (
-    <div className="mx-auto w-full min-w-0 max-w-5xl space-y-4 overflow-x-hidden px-3 pb-12 sm:space-y-8 sm:px-6">
+    // overflow-x-clip, not -hidden: hidden makes this a scroll container,
+    // which would pin the review filters to it instead of the window.
+    <div className="mx-auto w-full min-w-0 max-w-5xl space-y-4 overflow-x-clip px-3 pb-12 sm:space-y-8 sm:px-6">
       <div className="flex items-center justify-between gap-2 sm:gap-3">
         <Link
           href={backHref}
@@ -226,110 +254,85 @@ function QuizResultPageContent() {
         </p>
       )}
 
-      {/* Result overview — on phones this stacks title, then score, then attempt. */}
-      <section
-        aria-labelledby="result-title"
-        className="rounded-2xl border border-border bg-card p-3.5 shadow-sm sm:p-7"
-      >
-        <div className="flex flex-col gap-3 sm:gap-6 md:flex-row md:items-start md:justify-between">
+      {/* RESULT — title and status, then one summary card: score, pass
+          mark, attempt, a bar with the pass mark on it and how far off it
+          was, and when it was submitted. */}
+      <section aria-labelledby="result-title" className="space-y-3 sm:space-y-4">
+        <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-600 dark:text-violet-400 sm:text-xs">
-              Quiz{moduleTitle ? ` · ${moduleTitle}` : ""}
-            </p>
             <h1
               id="result-title"
-              className="mt-1 break-words text-lg font-bold leading-snug tracking-tight text-foreground sm:mt-1.5 sm:text-3xl"
+              className="break-words font-display text-2xl font-semibold leading-tight tracking-tight text-foreground sm:text-3xl"
             >
               {quiz?.title || "Quiz"}
             </h1>
-            {quiz?.course?.title && (
-              <p className="mt-0.5 text-xs text-muted-foreground sm:mt-1 sm:text-sm">{quiz.course.title}</p>
-            )}
-            <p className="mt-2 text-xs font-semibold text-foreground sm:mt-3 sm:text-sm">{attemptLabel}</p>
+            {courseLine && <p className="mt-1 text-sm text-muted-foreground">{courseLine}</p>}
+          </div>
+          <div className="flex shrink-0 flex-col items-end gap-2">
+            <SubmissionStatusBadge status={status} />
             <ListenButton
               sessionKey={`quiz-result:${submission.attemptId || quizId}`}
               getChunks={() => buildResultOverviewSpeech({ submission })}
-              label="Listen to result"
+              label="Listen"
               ariaLabel="Listen to quiz result"
-              className="mt-3"
+              compact
             />
-          </div>
-
-          <div className="flex shrink-0 items-center gap-4 sm:gap-5 md:flex-col md:items-end md:gap-2 md:text-right">
-            <p className={`text-3xl font-bold leading-none tracking-tight tabular-nums sm:text-5xl ${scoreTone}`}>
-              {graded ? `${percentage}%` : "—"}
-            </p>
-            <div className="space-y-1 sm:space-y-1.5 md:flex md:flex-col md:items-end">
-              <p className="text-xs font-semibold tabular-nums text-foreground sm:text-sm">
-                {graded ? (
-                  <>
-                    {score} / {totalMarks} <span className="font-normal text-muted-foreground">marks</span>
-                  </>
-                ) : (
-                  "Not graded"
-                )}
-              </p>
-              <SubmissionStatusBadge status={status} />
-            </div>
           </div>
         </div>
 
-        {graded && (
-          <div className="mt-4 sm:mt-6">
-            <div
-              className="relative h-2 rounded-full bg-muted"
-              role="img"
-              aria-label={`Scored ${percentage}%. Pass mark ${passingScore}%.`}
-            >
-              <div
-                className={`h-full rounded-full ${passed ? "bg-emerald-500" : "bg-red-500"}`}
-                style={{ width: `${Math.min(100, Math.max(0, percentage))}%` }}
-              />
-              <span
-                aria-hidden
-                className="absolute top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-foreground/70"
-                style={{ left: `${Math.min(100, Math.max(0, passingScore))}%` }}
-              />
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">Pass mark {passingScore}%</p>
-          </div>
-        )}
-      </section>
+        <div style={{ borderRadius: 16 }} className="border border-border bg-card p-4 sm:p-5">
+          <dl className="grid grid-cols-3">
+            <SummaryFact label="Score">
+              {graded ? (
+                <>
+                  {score}
+                  <span className="text-sm font-medium text-muted-foreground"> / {totalMarks}</span>
+                </>
+              ) : (
+                "Not graded"
+              )}
+            </SummaryFact>
+            <SummaryFact label="Pass mark" divided>
+              {passingScore}%
+            </SummaryFact>
+            <SummaryFact label="Attempt" divided>
+              {attemptNumber}
+              {limited && (
+                <span className="text-sm font-medium text-muted-foreground"> of {submission.maxAttempts}</span>
+              )}
+            </SummaryFact>
+          </dl>
 
-      <section aria-label="Attempt details" className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-6">
-        <StatTile
-          icon={CalendarClock}
-          iconClassName="text-primary"
-          label="Submitted"
-          value={formatDate(submittedAt)}
-          detail={formatTime(submittedAt)}
-        />
-        <StatTile
-          icon={Timer}
-          iconClassName="text-sky-500"
-          label="Time taken"
-          value={timeTaken ?? "—"}
-          detail={timeTaken ? null : "Not recorded"}
-        />
-        <StatTile icon={ListChecks} iconClassName="text-violet-500" label="Questions" value={totalQuestions} />
-        <StatTile
-          icon={CheckCircle2}
-          iconClassName="text-emerald-500"
-          label="Correct"
-          value={submission.correctCount ?? "—"}
-        />
-        <StatTile
-          icon={XCircle}
-          iconClassName="text-red-500"
-          label="Incorrect"
-          value={submission.incorrectCount ?? "—"}
-        />
-        <StatTile
-          icon={CircleSlash}
-          iconClassName="text-muted-foreground"
-          label="Unanswered"
-          value={submission.unansweredCount ?? "—"}
-        />
+          {graded && (
+            <>
+              <div
+                className="relative mt-4 h-2 rounded-full bg-muted"
+                role="img"
+                aria-label={`Scored ${percentage}%. Pass mark ${passingScore}%.`}
+              >
+                <div
+                  className="h-full rounded-full bg-emerald-500"
+                  style={{ width: `${Math.min(100, Math.max(0, percentage))}%` }}
+                />
+                <span
+                  aria-hidden
+                  className="absolute -top-1.5 h-5 w-0.5 rounded-full bg-foreground"
+                  style={{ left: `${Math.min(100, Math.max(0, passingScore))}%` }}
+                />
+              </div>
+              <div className="mt-2 flex justify-between gap-3 text-xs text-muted-foreground">
+                <span className="tabular-nums">{percentage}% scored</span>
+                <span className="tabular-nums">{passCaption}</span>
+              </div>
+            </>
+          )}
+
+          <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">
+            Submitted {formatDate(submittedAt)}
+            {formatTime(submittedAt) ? ` at ${formatTime(submittedAt)}` : ""}
+            {timeTaken ? `, took ${timeTaken}` : ""}
+          </p>
+        </div>
       </section>
 
       {/* WHAT TO DO NEXT — the server's next action, asked in the context of
@@ -341,22 +344,179 @@ function QuizResultPageContent() {
         <ResultNextStep courseId={quiz.courseId} quizId={quizId} returnTo={returnTo} />
       )}
 
-      <section aria-labelledby="attempt-history" className="space-y-4">
-        <div>
-          <h2 id="attempt-history" className="text-base font-semibold text-foreground sm:text-lg">
-            Attempt history
+      {/* QUESTION REVIEW — every question, filtered by what happened to it. */}
+      <section aria-labelledby="review-title" className="space-y-3 sm:space-y-4">
+        {/* scroll-mt clears the sticky navbar when a page change scrolls here. */}
+        <div ref={reviewTopRef} className="scroll-mt-20">
+          <h2 id="review-title" className="font-display text-lg font-semibold text-foreground sm:text-xl">
+            Review answers
           </h2>
-          <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
-            {allowanceText}
-            {bestPercentage !== null && (
-              <>
-                {" "}· best <span className="font-semibold text-foreground">{bestPercentage}%</span>
-              </>
-            )}
-          </p>
+          {/* Only when it says something the list doesn't. */}
+          {(!answerKeyRevealed || submission.isLatestAttempt === false) && (
+            <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
+              {!answerKeyRevealed
+                ? "Which questions you got right, while this quiz can still be retaken."
+                : `Your answers in attempt ${attemptNumber}, alongside the correct options.`}
+            </p>
+          )}
         </div>
-        <AttemptHistory attempts={attempts} currentAttemptId={submission.attemptId} hrefFor={attemptHref} />
+
+        {/* ANSWER KEY WITHHELD — a graded quiz the student may still
+            retake. The full review below marks each option against
+            `correctAnswer`, which the server deliberately does not send in
+            that case; rendering it anyway would mark every answer wrong,
+            including the ones they got right. So this shows the server's own
+            per-question verdict instead: honest about what they got right,
+            without handing over the answers to the retake. */}
+        {!answerKeyRevealed ? (
+          <div className="space-y-2">
+            <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs text-foreground sm:px-4 sm:text-sm">
+              Answers are hidden until you pass this quiz or run out of attempts — otherwise the retake
+              would just be a memory test.
+            </p>
+            <ul className="space-y-1.5">
+              {(submission.questionAttempts || []).map((row, index) => (
+                <li
+                  key={row.questionId || index}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-3 py-2 sm:px-4"
+                >
+                  <span className="min-w-0 flex-1 truncate text-xs text-foreground sm:text-sm">
+                    Question {row.order ?? index + 1}
+                  </span>
+                  {row.hintViewed && (
+                    <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-400">
+                      Hint used
+                    </span>
+                  )}
+                  <span
+                    className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
+                      row.isCorrect === true
+                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                        : row.answered
+                          ? "bg-red-500/15 text-red-700 dark:text-red-400"
+                          : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {row.isCorrect === true ? "Correct" : row.answered ? "Incorrect" : "Not answered"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+        <>
+        {/* Filters — pinned under the navbar while the list scrolls, so
+            Wrong / Skipped is one tap away anywhere in it. Four equal pills
+            that always fit a phone. Inline radius: globals.css gives every
+            <button> an unlayered 6px radius that rounded-full can't beat. */}
+        <div className="sticky top-16 z-20 -mx-3 bg-background/95 px-3 py-2 backdrop-blur sm:-mx-6 sm:px-6">
+          <div role="group" aria-label="Show questions" className="grid grid-cols-4 gap-1.5 sm:max-w-xl sm:gap-2">
+            {REVIEW_FILTERS.map((filter) => {
+              const active = reviewFilter === filter.key;
+              return (
+                <button
+                  key={filter.key}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => {
+                    setReviewFilter(filter.key);
+                    setReviewPage(1);
+                  }}
+                  style={{ borderRadius: 9999 }}
+                  className={`inline-flex min-h-[38px] cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap border px-1 text-[13px] font-semibold transition-colors ${
+                    active
+                      ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                      : "border-border bg-card text-foreground hover:border-emerald-500/40"
+                  }`}
+                >
+                  {filter.label}
+                  <span className={`tabular-nums ${active ? "" : "text-muted-foreground"}`}>
+                    {reviewCounts[filter.key] || 0}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {visibleRows.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+            {EMPTY_FILTER_TEXT[reviewFilter]}
+          </p>
+        ) : (
+          <div className="space-y-3 sm:space-y-4">
+            {pageRows.map((row) => (
+              <QuestionReviewCard
+                key={row.question.id || row.index}
+                question={row.question}
+                index={row.index}
+                total={reviewRows.length}
+                userAnswer={row.userAnswer}
+              />
+            ))}
+
+            {/* PAGES — REVIEW_PAGE_SIZE questions at a time, within the filter.
+                Not the shared Pagination: that is a rows-per-page table footer
+                with ~26px buttons; this is a fixed page size with 44px targets
+                for phones. */}
+            {pageCount > 1 && (
+              <nav aria-label="Question pages" className="flex items-center justify-between gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => goToReviewPage(currentPage - 1)}
+                  disabled={currentPage <= 1}
+                  style={{ borderRadius: 12 }}
+                  className="inline-flex min-h-[44px] cursor-pointer items-center gap-1 rounded-xl border border-border bg-card px-3.5 text-sm font-semibold text-foreground transition-colors hover:border-emerald-500/40 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <ChevronLeft size={16} aria-hidden />
+                  Previous
+                </button>
+                <p className="text-center text-xs text-muted-foreground" aria-live="polite">
+                  <span className="block text-sm font-semibold tabular-nums text-foreground">
+                    Page {currentPage} of {pageCount}
+                  </span>
+                  <span className="tabular-nums">
+                    Questions {pageStart + 1}–{pageStart + pageRows.length} of {visibleRows.length}
+                  </span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => goToReviewPage(currentPage + 1)}
+                  disabled={currentPage >= pageCount}
+                  style={{ borderRadius: 12 }}
+                  className="inline-flex min-h-[44px] cursor-pointer items-center gap-1 rounded-xl border border-border bg-card px-3.5 text-sm font-semibold text-foreground transition-colors hover:border-emerald-500/40 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Next
+                  <ChevronRight size={16} aria-hidden />
+                </button>
+              </nav>
+            )}
+          </div>
+        )}
+        </>
+        )}
       </section>
+
+      {/* Attempt history — shown only when the student has multiple
+          attempts to compare or switch between. */}
+      {attempts.length > 1 && (
+        <section aria-labelledby="attempt-history" className="space-y-4">
+          <div>
+            <h2 id="attempt-history" className="text-base font-semibold text-foreground sm:text-lg">
+              Attempt history
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
+              {allowanceText}
+              {bestPercentage !== null && (
+                <>
+                  {" "}· best <span className="font-semibold text-foreground">{bestPercentage}%</span>
+                </>
+              )}
+            </p>
+          </div>
+          <AttemptHistory attempts={attempts} currentAttemptId={submission.attemptId} hrefFor={attemptHref} />
+        </section>
+      )}
 
       {/* Concept Performance Analysis */}
       {conceptScores && Object.keys(conceptScores).length > 0 && (
@@ -424,150 +584,6 @@ function QuizResultPageContent() {
         </section>
       )}
 
-      {/* Detailed Question Review List / Mobile Slider */}
-      <section className="space-y-3 sm:space-y-6">
-        <div>
-          <h3 className="text-base sm:text-lg font-semibold text-foreground flex items-center gap-2">
-            <HelpCircle size={18} className="text-primary shrink-0 sm:w-5 sm:h-5" />
-            Detailed Question Review
-          </h3>
-          <p className="text-[11px] text-muted-foreground mt-0.5 sm:mt-1 sm:text-xs">
-            {!answerKeyRevealed
-              ? "Which questions you got right, while this quiz can still be retaken."
-              : submission.isLatestAttempt === false
-                ? `Your answers in attempt ${attemptNumber}, alongside the correct options.`
-                : "Review your selections alongside correct options."}
-          </p>
-        </div>
-
-        {/* ANSWER KEY WITHHELD — a graded quiz the student may still
-            retake. The full review below marks each option against
-            `correctAnswer`, which the server deliberately does not send in
-            that case; rendering it anyway would mark every answer wrong,
-            including the ones they got right. So this shows the server's own
-            per-question verdict instead: honest about what they got right,
-            without handing over the answers to the retake. */}
-        {!answerKeyRevealed ? (
-          <div className="space-y-2">
-            <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs text-foreground sm:px-4 sm:text-sm">
-              Answers are hidden until you pass this quiz or run out of attempts — otherwise the retake
-              would just be a memory test.
-            </p>
-            <ul className="space-y-1.5">
-              {(submission.questionAttempts || []).map((row, index) => (
-                <li
-                  key={row.questionId || index}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-3 py-2 sm:px-4"
-                >
-                  <span className="min-w-0 flex-1 truncate text-xs text-foreground sm:text-sm">
-                    Question {row.order ?? index + 1}
-                  </span>
-                  {row.hintViewed && (
-                    <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-400">
-                      Hint used
-                    </span>
-                  )}
-                  <span
-                    className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
-                      row.isCorrect === true
-                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
-                        : row.answered
-                          ? "bg-red-500/15 text-red-700 dark:text-red-400"
-                          : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {row.isCorrect === true ? "Correct" : row.answered ? "Incorrect" : "Not answered"}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : (
-        <>
-
-        {/* Mobile Question Review Slider (sm:hidden) */}
-        {quiz?.questions?.length > 0 && (
-          <div className="sm:hidden space-y-2">
-            {/* Single Question Review Card */}
-            {quiz.questions[mobileReviewIndex] && (
-              <QuestionReviewCard
-                key={quiz.questions[mobileReviewIndex].id}
-                question={quiz.questions[mobileReviewIndex]}
-                index={mobileReviewIndex}
-                userAnswer={parsedAnswers.find((ans) => ans.questionId === quiz.questions[mobileReviewIndex].id)}
-              />
-            )}
-
-            {/* Unified Mobile Question Navigation Container */}
-            <div className="space-y-1.5 pt-1">
-              <div className="flex items-center justify-between gap-1 rounded-xl border border-border bg-background/50 backdrop-blur-md p-1 min-w-0 shadow-sm">
-                {/* Previous Button */}
-                <button
-                  type="button"
-                  onClick={() => setMobileReviewIndex((prev) => Math.max(0, prev - 1))}
-                  disabled={mobileReviewIndex === 0}
-                  title="Previous Question"
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-25 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-
-                {/* Scrollable Question Number Strip */}
-                <div className="flex flex-1 min-w-0 items-center justify-center gap-1 overflow-x-auto scrollbar-none py-0.5 px-1">
-                  {quiz.questions.map((q, idx) => {
-                    const isCurrent = idx === mobileReviewIndex;
-                    return (
-                      <button
-                        key={q.id || idx}
-                        type="button"
-                        onClick={() => setMobileReviewIndex(idx)}
-                        title={`Go to question ${idx + 1}`}
-                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold transition cursor-pointer ${
-                          isCurrent
-                            ? "bg-emerald-500 text-white shadow-sm shadow-emerald-500/25"
-                            : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-                        }`}
-                      >
-                        {idx + 1}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Next Button */}
-                <button
-                  type="button"
-                  onClick={() => setMobileReviewIndex((prev) => Math.min(quiz.questions.length - 1, prev + 1))}
-                  disabled={mobileReviewIndex >= quiz.questions.length - 1}
-                  title="Next Question"
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-25 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-
-              {/* Secondary Subordinate Position Indicator */}
-              <p className="text-[10px] font-semibold text-muted-foreground text-center">
-                Question {mobileReviewIndex + 1} of {quiz.questions.length}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Desktop Vertical Stack (hidden sm:block) */}
-        <div className="hidden sm:block space-y-5">
-          {quiz?.questions?.map((question, index) => (
-            <QuestionReviewCard
-              key={question.id}
-              question={question}
-              index={index}
-              userAnswer={parsedAnswers.find((ans) => ans.questionId === question.id)}
-            />
-          ))}
-        </div>
-        </>
-        )}
-      </section>
     </div>
   );
 }

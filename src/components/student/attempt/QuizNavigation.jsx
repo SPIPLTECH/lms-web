@@ -123,6 +123,14 @@ export default function QuizNavigation({
                         <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                     </button>
 
+                    {/* Phones: the strip stretches between the arrows, so a
+                        short quiz left its numbers bunched at the start with
+                        the slack piled up before ›. Each number's auto left
+                        margin (and the last one's right) spreads them evenly
+                        instead; when there are too many to fit the margins
+                        resolve to 0 and the strip scrolls as before. From sm
+                        the strip is only as wide as its numbers, so nothing
+                        changes there. */}
                     <div
                         ref={numbersContainerRef}
                         className="flex flex-1 sm:flex-initial min-w-0 gap-1 sm:gap-2 overflow-x-auto scrollbar-none py-0.5"
@@ -140,7 +148,7 @@ export default function QuizNavigation({
                                     title={`Go to question ${index + 1} — ${labelFor(question.id)}`}
                                     aria-label={`Question ${index + 1}, ${labelFor(question.id)}`}
                                     aria-current={isCurrent ? "true" : undefined}
-                                    className={`flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl border text-xs sm:text-sm font-bold transition cursor-pointer ${styleFor(
+                                    className={`flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 max-sm:ml-auto max-sm:last:mr-auto items-center justify-center rounded-lg sm:rounded-xl border text-xs sm:text-sm font-bold transition cursor-pointer ${styleFor(
                                         index,
                                         question.id
                                     )}`}

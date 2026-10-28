@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { submitQuiz } from "@/services/quiz.service";
 
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { markQuizStepAttempted } from "@/lib/learningSequence";
 
 export default function useSubmitQuiz() {
     const queryClient = useQueryClient();
@@ -42,7 +43,14 @@ export default function useSubmitQuiz() {
             // follows it, so the gate the player is drawing is now stale.
             queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_PATH] });
             // The quiz's own step completes (or not) by the completion rule,
-            // which can open the steps after it.
+            // which can open the steps after it. That is refetched; what the
+            // 201 itself states — an attempt exists — goes into the cached
+            // sequence now, so the player stops treating the quiz as "being
+            // attempted" (bottom bar hidden) for the seconds that refetch
+            // takes. The learn page's Next waits for the refetch.
+            queryClient.setQueriesData({ queryKey: [QUERY_KEYS.LEARNING_SEQUENCE] }, (old) =>
+                markQuizStepAttempted(old, variables.quizId)
+            );
             queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_SEQUENCE] });
             // The next action is derived from the path and the evidence, so
             // it moves whenever either does.

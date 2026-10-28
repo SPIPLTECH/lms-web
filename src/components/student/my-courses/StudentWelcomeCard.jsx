@@ -17,6 +17,7 @@ export default function StudentWelcomeCard() {
     <WelcomeBanner
       name={firstName}
       subtitle="Keep up the great work. Pick a course to continue learning."
+      compactWhenShort
     />
   );
 }

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { FastForward, ListTree, Lock, MoreHorizontal, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, FastForward, ListTree, Lock, MoreHorizontal, X } from "lucide-react";
 
 import LessonContentBlock from "@/components/student/learning/LessonContentBlock";
 import ContentCompletionBar from "@/components/student/learning/ContentCompletionBar";
@@ -10,6 +10,7 @@ import AssignmentWorkspacePanel from "@/components/student/learning/AssignmentWo
 import QuizExperience from "@/components/student/attempt/QuizExperience";
 import LearnSidePanel from "@/components/student/learning/LearnSidePanel";
 import LessonNavigationControls from "@/components/student/learning/LessonNavigationControls";
+import StudentBottomBar, { BottomBarItem } from "@/components/layouts/StudentBottomBar";
 import LearnPageHeader from "@/components/student/learning/LearnPageHeader";
 import EvaluatorFeedbackButton from "@/components/evaluator/EvaluatorFeedbackButton";
 import SkipQualificationModal from "@/components/student/learning/SkipQualificationModal";
@@ -56,8 +57,6 @@ const LEVEL_LABELS = {
 // How long without input before the Course Map and the Learning Workspace
 // header hide (the idle layout effect in LearnPage).
 const IDLE_AFTER_MS = 2500;
-// Pointer travel, in px, that counts as "the student moved" while hidden.
-const MOVE_THRESHOLD_PX = 8;
 
 /** Every container node (Course, Module, … Concept) of the learning-sequence tree, by id. */
 function indexContainers(tree) {
@@ -79,8 +78,9 @@ export default function LearnPage() {
   const isEvaluator = Boolean(user?.evaluator);
 
   // Course metadata only (title, language): what the player walks comes from
-  // the learning sequence below.
-  const { data: course, isLoading, isError } = useCourse(courseId);
+  // the learning sequence below. Shallow — the full tree (~300 KB, seconds
+  // slower) is never read here, and the page waits for this query.
+  const { data: course, isLoading, isError } = useCourse(courseId, { shallow: true });
   // Sequential learning off: every step is open (backend `unlockAll`) and the
   // course keeps no progress — nothing is marked complete or visited, and the
   // player shows no completion strip.
@@ -103,12 +103,16 @@ export default function LearnPage() {
   // assignments — as one ordered list of steps, with the server's completed /
   // visited / locked flags. Prev/Next, the Course Map, resume and the
   // completion strip all read it; nothing here orders, merges or gates items.
+  // Fetched alongside the enrollment list rather than after it: the server
+  // refuses a student who is not enrolled (403), and the loader below keeps
+  // such a student on a spinner until the redirect above sends them away.
   const {
     data: sequence,
     isPending: isSequencePending,
     isError: isSequenceError,
+    isFetching: isSequenceFetching,
     refetch: refetchSequence,
-  } = useLearningSequence(courseId, { enabled: isEnrolled });
+  } = useLearningSequence(courseId);
   const steps = sequence?.steps || [];
   const containersById = useMemo(() => indexContainers(sequence?.tree), [sequence]);
 
@@ -116,8 +120,10 @@ export default function LearnPage() {
   const markVisitedMutation = useMarkVisited();
 
   // The server's lesson/topic path — read here only for qualifying-test
-  // (skip) offers.
-  const { data: learningPathData } = useLearningPath(courseId);
+  // (skip) offers. Asked for once the sequence is in, so its roll-up does not
+  // compete with the sequence's on the way to first paint; a skip offer
+  // appearing a moment later costs nothing.
+  const { data: learningPathData } = useLearningPath(courseId, { enabled: Boolean(sequence) });
   const pathIndex = useMemo(
     () => buildPathIndex(learningPathData?.path),
     [learningPathData]
@@ -196,7 +202,6 @@ export default function LearnPage() {
   // panel that shares rightPanelOpen. Desktop behaviour has to stay exactly
   // as it was.
   const isDesktop = useMediaQuery("(min-width: 1280px)");
-  const moreMenuRef = useRef(null);
 
   // The header collapse is desktop only: below xl the map is a drawer and the
   // header carries no controls of its own.
@@ -335,37 +340,24 @@ export default function LearnPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [courseMapOpen]);
 
-  // IDLE LAYOUT — the one inactivity mechanism on this page: one timer, one
-  // set of window listeners, mounted once. After IDLE_AFTER_MS without input
-  // the Course Map and the Learning Workspace header get out of the way
-  // (desktop: rail and header collapse; below xl: the drawer closes, as the
-  // old auto-close did), and the next real input brings them back. The
-  // drawer is not reopened by activity — it is a modal sheet, and popping it
-  // over the lesson on a tap would cover what was tapped.
+  // IDLE LAYOUT — inactivity auto-hide on desktop (xl+).
+  // After IDLE_AFTER_MS (2.5s) without input, the Course Map rail and Learning Workspace
+  // header hide to maximize content focus.
   //
-  // What counts as input, and what does not:
-  //  - Pointer movement only after it has really moved: browsers emit a
-  //    mousemove at the same coordinates when the layout shifts under a still
-  //    cursor (as it does when this very effect collapses things), and while
-  //    hidden a few pixels of jitter (< MOVE_THRESHOLD_PX) are not a reveal.
-  //  - A press while hidden reveals on RELEASE, not on press: re-laying out
-  //    between pointerdown and click would move the control being clicked
-  //    (Next, Listen, a settings button) out from under the pointer.
-  //  - Keys and wheel count. "scroll" does not — it also fires for
-  //    programmatic scrolling.
-  // The only hold: KEYBOARD focus (:focus-visible) inside the Course Map or
-  // header (data-learn-chrome), so a keyboard user's focus is never swallowed
-  // by a collapsing panel. Mouse focus does not hold — clicking a lesson row
-  // leaves focus on it, and holding on that (or on a resting pointer) is what
-  // stopped the auto-close from ever firing after a lesson was picked.
-  // While active, input only stamps lastActivity; the single timer re-checks
-  // when it fires, so continuous movement never thrashes timers or state.
+  // Idle behavior rules:
+  //  - When panels are visible, pointer moves, clicks, and keyboard inputs reset the
+  //    idle timer so the student can interact with the Course Map and chrome without
+  //    it collapsing beneath them.
+  //  - When panels are hidden, pointer movement, mouse wheel/scrolling, clicking lesson
+  //    content/video/documents, and arbitrary keypresses NEVER reopen them.
+  //  - Only explicit controls (the expand tab button on the left edge) reopen the panels.
+  //  - The only hold: KEYBOARD focus (:focus-visible) inside data-learn-chrome keeps
+  //    the panels open so a keyboard user's focus is never swallowed.
   useEffect(() => {
-    let idle = false;
+    if (!isDesktop) return undefined;
+    const idle = workspaceCollapse !== null;
     let lastActivity = Date.now();
     let lastPointer = null;
-    let idleAnchor = null;
-    let revealOnRelease = false;
     let timerId = null;
 
     const keyboardFocusOnChrome = () => {
@@ -382,20 +374,12 @@ export default function LearnPage() {
       const quietFor = Date.now() - lastActivity;
       if (quietFor < IDLE_AFTER_MS) return schedule(IDLE_AFTER_MS - quietFor);
       if (keyboardFocusOnChrome()) return schedule(IDLE_AFTER_MS);
-      idle = true;
-      idleAnchor = lastPointer;
       // Same transition the hide buttons make; a manual collapse is kept.
       setWorkspaceCollapse((current) => current ?? "idle");
-      setCourseMapOpen(false);
     }
 
-    const markActive = () => {
+    const resetIdleTimer = () => {
       lastActivity = Date.now();
-      if (!idle) return;
-      idle = false;
-      idleAnchor = null;
-      // Activity only undoes what the timer did — never the student's own close.
-      setWorkspaceCollapse((current) => (current === "idle" ? null : current));
       schedule(IDLE_AFTER_MS);
     };
 
@@ -403,45 +387,32 @@ export default function LearnPage() {
       const point = { x: event.clientX, y: event.clientY };
       if (lastPointer && point.x === lastPointer.x && point.y === lastPointer.y) return;
       lastPointer = point;
-      if (idle) {
-        if (!idleAnchor) {
-          idleAnchor = point;
-          return;
-        }
-        if (
-          Math.abs(point.x - idleAnchor.x) < MOVE_THRESHOLD_PX &&
-          Math.abs(point.y - idleAnchor.y) < MOVE_THRESHOLD_PX
-        ) {
-          return;
-        }
-      }
-      markActive();
+      if (idle) return;
+      resetIdleTimer();
     };
 
     const onPointerDown = () => {
-      if (idle) revealOnRelease = true;
-      else lastActivity = Date.now();
+      if (idle) return;
+      resetIdleTimer();
     };
 
-    const onPointerUp = () => {
-      if (!revealOnRelease) return;
-      revealOnRelease = false;
-      // After this click has been dispatched to what was under the pointer.
-      setTimeout(markActive, 0);
+    const onKeyDown = () => {
+      if (idle) return;
+      resetIdleTimer();
     };
 
     const listeners = [
       ["pointermove", onPointerMove],
       ["pointerdown", onPointerDown],
-      ["pointerup", onPointerUp],
-      ["pointercancel", onPointerUp],
-      ["keydown", markActive],
-      ["wheel", markActive],
+      ["keydown", onKeyDown],
     ];
     listeners.forEach(([name, handler]) => {
       window.addEventListener(name, handler, { capture: true, passive: true });
     });
-    schedule(IDLE_AFTER_MS);
+
+    if (!idle) {
+      schedule(IDLE_AFTER_MS);
+    }
 
     return () => {
       clearTimeout(timerId);
@@ -449,31 +420,38 @@ export default function LearnPage() {
         window.removeEventListener(name, handler, { capture: true });
       });
     };
-  }, []);
+  }, [isDesktop, workspaceCollapse]);
 
-  // The below-xl "More" popover dismisses on a tap outside it or Escape —
-  // the same idiom AskInstructorCard's own popover uses. moreMenuRef wraps
-  // the trigger as well as the menu, so pressing the button dismisses via
-  // its onClick toggle rather than closing here and reopening. Bound only
-  // while the popover is actually mounted (below xl, panel open), so the
-  // desktop side panel never listens.
+  // Narrowed below xl while idle: nothing would undo the timer's collapse on desktop.
+  useEffect(() => {
+    if (!isDesktop && workspaceCollapse === "idle") {
+      setWorkspaceCollapse(null);
+    }
+  }, [isDesktop, workspaceCollapse]);
+
+  // Escape closes the below-xl Learning tools sheet, the same as its X, its
+  // scrim and a swipe down. Bound only while the sheet is mounted (below xl,
+  // panel open), so the desktop side panel never listens.
   useEffect(() => {
     if (isDesktop || !rightPanelOpen) return;
-    const onPointerDown = (event) => {
-      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target)) {
-        setRightPanelOpen(false);
-      }
-    };
     const onKeyDown = (event) => {
       if (event.key === "Escape") setRightPanelOpen(false);
     };
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [isDesktop, rightPanelOpen]);
+
+  // Swipe down on the sheet's handle/title bar closes it.
+  const toolsSheetSwipeRef = useRef(null);
+  const onToolsSheetTouchStart = (event) => {
+    toolsSheetSwipeRef.current = event.touches[0]?.clientY ?? null;
+  };
+  const onToolsSheetTouchEnd = (event) => {
+    const startY = toolsSheetSwipeRef.current;
+    toolsSheetSwipeRef.current = null;
+    const endY = event.changedTouches[0]?.clientY;
+    if (startY != null && endY != null && endY - startY > 60) setRightPanelOpen(false);
+  };
 
   const [, setVideoDuration] = useState(0);
 
@@ -511,6 +489,39 @@ export default function LearnPage() {
   const goToPreviousStep = () => goToStep(stepIndex - 1);
   const goToNextStep = (list = steps) => goToStep(stepIndex + 1, list);
 
+  // Every Next the student presses. A completion, a quiz or assignment
+  // submission or a finished video invalidates the sequence, and the server
+  // decides what that opened — until its answer lands the cached steps still
+  // show the next one locked, so Next straight after "Practice complete" said
+  // "Finish this quiz first" for an attempt the server had already recorded.
+  // While that refetch is in flight Next joins it (cancelRefetch: false — the
+  // same request, not a second 1.4 MB one) and decides on the fresh steps.
+  // Likewise when no refetch is running but the cached next step still reads
+  // locked: that refetch may have failed, leaving a step marked complete here
+  // with the locks from before — so a lock is confirmed with the server
+  // before "Finish … first" is shown. An open next step moves at once, with
+  // no request. One at a time: repeat taps are ignored. No loading state on
+  // the buttons — by request, Next and Previous never show one.
+  const nextPendingRef = useRef(false);
+  const goToNextStepFresh = async () => {
+    if (nextPendingRef.current) return;
+    if (!isSequenceFetching && !steps[stepIndex + 1]?.locked) {
+      goToNextStep();
+      return;
+    }
+    nextPendingRef.current = true;
+    try {
+      const result = await refetchSequence({ cancelRefetch: false });
+      if (result.isError) {
+        showToast("Couldn't load your latest progress. Check your connection and try Next again.", "error");
+        return;
+      }
+      goToNextStep(result.data?.steps || steps);
+    } finally {
+      nextPendingRef.current = false;
+    }
+  };
+
   // A finished video completes its step and moves on — once the refreshed
   // sequence says the next step is open, so the gate never reads stale flags.
   const handleVideoEnded = async () => {
@@ -518,7 +529,9 @@ export default function LearnPage() {
     if (!isOpenCourse && finished?.kind === "CONTENT" && !finished.completed) {
       try {
         await completeContentMutation.mutateAsync({ contentIds: finished.contentIds, completed: true });
-        const { data: fresh } = await refetchSequence();
+        // Joins the refetch the completion already started rather than
+        // cancelling it and starting the same request again.
+        const { data: fresh } = await refetchSequence({ cancelRefetch: false });
         goToNextStep(fresh?.steps || steps);
         return;
       } catch {
@@ -593,10 +606,13 @@ export default function LearnPage() {
   // A quiz not attempted yet hides the floating Prev/Next — the quiz itself is
   // the way through it.
   const hideFloatingNavForActiveQuiz = isQuizStep && !step?.attempted;
+  // While a quiz is being attempted — the step's own, or a qualifying test not
+  // yet submitted — the AI Assistant is not offered at any width.
+  const quizInProgress = hideFloatingNavForActiveQuiz || (Boolean(qualifyingAttempt) && !qualifyingSubmitted);
 
   const resultReturnTo = `/student/learn/${courseId}${step ? `?item=${step.contentId}` : ""}`;
 
-  const renderSidePanel = ({ compact = false } = {}) => (
+  const renderSidePanel = ({ compact = false, tabs = false } = {}) => (
     <LearnSidePanel
       activeFeature={sidePanelFeature}
       onChangeFeature={setSidePanelFeature}
@@ -613,6 +629,7 @@ export default function LearnPage() {
       currentTimestamp={currentTimestamp}
       onSeek={handleTranscriptSeek}
       compact={compact}
+      tabs={tabs}
     />
   );
 
@@ -649,10 +666,15 @@ export default function LearnPage() {
       : "fill";
 
   // Literal class strings — Tailwind only emits what it can see verbatim.
+  // The below-xl floor lives here, not on the frame: given both, the
+  // stylesheet's order made max-xl:min-h-[280px] beat aspect's min-h-0, which
+  // left ~100px of empty frame under a phone's 16:9 video.
+  // aspect's max-xl:mt-5 sets the video a little below whatever is above it
+  // (the lesson header, or Mark as Complete when it shows).
   const FRAME_MODE_CLASSES = {
-    fill: "",
-    aspect: "max-xl:flex-none max-xl:min-h-0",
-    form: "",
+    fill: "max-xl:min-h-[280px]",
+    aspect: "max-xl:flex-none max-xl:min-h-0 max-xl:mt-5",
+    form: "max-xl:min-h-[280px]",
   };
   const BODY_MODE_CLASSES = {
     fill: "overflow-hidden",
@@ -665,7 +687,7 @@ export default function LearnPage() {
     previousItem: stepIndex > 0,
     nextItem: stepIndex < steps.length - 1,
     onSelectPrevious: goToPreviousStep,
-    onSelectNext: () => goToNextStep(),
+    onSelectNext: goToNextStepFresh,
   };
 
   // The learning ids the AI Assistant should be aware of. Quiz/assignment ids
@@ -763,6 +785,45 @@ export default function LearnPage() {
         </div>
       )}
 
+      {/* LEARNING TOOLS SHEET (below xl) — Ask instructor and Sticky notes
+          as two tabs in a sheet from the bottom edge, opened by the lesson
+          context row's More button. Same dialog idiom as the course map
+          drawer above (scrim, X, Escape), plus a swipe down on its title bar.
+          A fixed height, so switching tabs never makes the sheet jump; the
+          tab's content scrolls inside it. */}
+      {!isDesktop && rightPanelOpen && (
+        <div
+          id="learn-tools-sheet"
+          className="xl:hidden fixed inset-0 z-50"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Learning tools"
+        >
+          <div
+            aria-hidden="true"
+            onClick={() => setRightPanelOpen(false)}
+            className="absolute inset-0 bg-black/70 animate-scrim-in"
+          />
+          <section className="absolute inset-x-0 bottom-0 flex h-[min(78dvh,640px)] flex-col rounded-t-2xl border-t border-border bg-card px-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl shadow-black/60 animate-sheet-in-up">
+            <div className="shrink-0 pt-2" onTouchStart={onToolsSheetTouchStart} onTouchEnd={onToolsSheetTouchEnd}>
+              <div aria-hidden="true" className="mx-auto h-1 w-10 rounded-full bg-muted-foreground/40" />
+              <div className="flex items-center justify-between gap-3 py-2.5">
+                <h2 className="text-base font-bold text-foreground">Learning tools</h2>
+                <button
+                  type="button"
+                  onClick={() => setRightPanelOpen(false)}
+                  aria-label="Close learning tools"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground cursor-pointer"
+                >
+                  <X size={18} aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+            {renderSidePanel({ compact: true, tabs: true })}
+          </section>
+        </div>
+      )}
+
       {/* ========================================================================= */}
       {/* MAIN WORKSPACE CONTENT */}
       {/* ========================================================================= */}
@@ -789,7 +850,10 @@ export default function LearnPage() {
         {/* Phone: keep the 16px side gutter so lesson text never runs to the
             screen edge, but trim the top so the lesson starts higher. At xl the
             padding all but disappears, leaving the player the most room. */}
-        <div className="flex-1 min-h-0 flex flex-col px-4 pt-3 pb-4 sm:px-6 sm:pt-6 sm:pb-6 md:px-8 md:pt-8 md:pb-8 xl:px-[3.2px] xl:pt-[3.2px] xl:pb-[3.2px] min-w-0">
+        {/* Below xl the bottom padding clears the AI Assistant launcher
+            (fixed bottom-right: 20px + 56px), so a frame that fills the
+            height (documents) never leaves Previous/Next under it. */}
+        <div className="flex-1 min-h-0 flex flex-col px-4 pt-3 pb-[calc(5.25rem_+_env(safe-area-inset-bottom))] sm:px-6 sm:pt-6 md:px-8 md:pt-8 xl:px-[3.2px] xl:pt-[3.2px] xl:pb-[3.2px] min-w-0">
           {/*
             Priority-driven order: below xl the student only sees one column, so every
             block that comes before the video costs them a scroll. DOM order follows
@@ -847,15 +911,16 @@ export default function LearnPage() {
                   {/* MORE — the below-xl entry point to LearnSidePanel (Ask
                       instructor / Sticky notes), the same component and the
                       same rightPanelOpen/sidePanelFeature state the xl+
-                      column uses. The 44px cell keeps the row's geometry; the
-                      button inside it is the compact 36px circle. */}
-                  <div ref={moreMenuRef} className="relative flex h-11 w-11 shrink-0 items-center justify-center">
+                      column uses; it opens the Learning tools sheet. The 44px
+                      cell keeps the row's geometry; the button inside it is
+                      the compact 36px circle. */}
+                  <div className="relative flex h-11 w-11 shrink-0 items-center justify-center">
                     <button
                       type="button"
                       onClick={() => setRightPanelOpen((prev) => !prev)}
                       aria-expanded={rightPanelOpen}
                       aria-haspopup="dialog"
-                      aria-controls="learn-more-menu"
+                      aria-controls="learn-tools-sheet"
                       // globals.css stamps an UNLAYERED border-radius on every
                       // <button>, and unlayered rules beat Tailwind's layered
                       // utilities — `rounded-full` alone renders a 6px square.
@@ -871,30 +936,6 @@ export default function LearnPage() {
                     >
                       <MoreHorizontal size={18} aria-hidden="true" />
                     </button>
-
-                    {/* Anchored to the trigger and capped to the viewport's
-                        gutters, so it never widens the page or pushes the
-                        player down — same technique, and the same role, as
-                        AskInstructorCard's own popover. Tall content scrolls
-                        inside it rather than running off the bottom of the
-                        screen.
-
-                        LearnSidePanel lays its two triggers out side by side,
-                        which fits the 360px desktop column but truncates
-                        ("Ask instruc…") at every phone width. Stacking them
-                        is presentation only, scoped to this call site — same
-                        treatment the course map drawer gives the course tree
-                        — so the desktop panel keeps its two-up row. */}
-                    {!isDesktop && rightPanelOpen && (
-                      <div
-                        id="learn-more-menu"
-                        role="dialog"
-                        aria-label="Learning tools"
-                        className="absolute right-0 top-full z-40 mt-2 max-h-[70vh] w-[min(22rem,calc(100vw-2.5rem))] overflow-y-auto overscroll-contain rounded-2xl border border-border bg-card p-2.5 text-left shadow-2xl shadow-black/40 [&_[role=group]]:grid-cols-1"
-                      >
-                        {renderSidePanel({ compact: true })}
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -951,11 +992,38 @@ export default function LearnPage() {
                 </div>
               )}
 
+              {/* COMPLETION (below xl) — a real button above the frame, NOT
+                  the hover-reveal overlay used at xl: there is no hover on
+                  touch, so an overlay keyed to group-hover would leave "mark
+                  complete" permanently invisible and the block impossible to
+                  finish. Above the player, so the frame is followed directly
+                  by Previous/Next. Applies to whatever the frame is showing:
+                  Course-, Module-, Lesson- or Topic-direct Content alike.
+                  empty:hidden — the bar renders nothing once the item is
+                  complete, and an empty wrapper would still add the column's
+                  gap above the frame. Spaced by the column's own gap (the
+                  video frame adds its own space above it — FRAME_MODE_CLASSES);
+                  its smaller size is set here, the button's own styles (and
+                  the xl overlay) are untouched. Right-aligned, on the same
+                  side as the xl overlay. A video step has it below the
+                  player instead (after the frame). */}
+              {showCompletionBar && playerMode !== "aspect" && (
+                <div className="xl:hidden empty:hidden flex justify-end [&>button]:min-h-8 [&>button]:py-1 [&>button]:text-xs">
+                  <ContentCompletionBar {...completionBarProps} />
+                </div>
+              )}
+
+              {/* Phones, video: Previous/Next moved to the bottom bar, so the
+                  16:9 frame no longer has a row under it. These two spacers
+                  (1 : 2) set it a third of the way down the free space
+                  instead of leaving it at the top over an empty screen. */}
+              {playerMode === "aspect" && <div aria-hidden="true" className="hidden max-sm:block max-sm:flex-1" />}
+
               {/* flex-1: the frame takes all the height left in the column —
                   more when the header collapses, wider when the rail does —
                   with no viewport calc to drift out of date. */}
               <div
-                className={`group relative flex flex-col flex-1 min-h-[440px] max-xl:min-h-[280px] rounded-2xl border border-border bg-card overflow-hidden ${FRAME_MODE_CLASSES[playerMode]}`}
+                className={`group relative flex flex-col flex-1 min-h-[440px] rounded-2xl border border-border bg-card overflow-hidden ${FRAME_MODE_CLASSES[playerMode]}`}
               >
                 {/* No dedicated header bar — lesson/topic name, the Course
                     Index reopen and the side-panel toggle all live in the top
@@ -1018,7 +1086,7 @@ export default function LearnPage() {
                         key={step.assignmentId}
                         assignmentId={step.assignmentId}
                         completed={step.completed}
-                        onNextContent={() => goToNextStep()}
+                        onNextContent={goToNextStepFresh}
                       />
                     </div>
                   ) : isQuizStep ? (
@@ -1028,7 +1096,7 @@ export default function LearnPage() {
                         quizId={step.quizId}
                         onBack={goToPreviousStep}
                         resultReturnTo={resultReturnTo}
-                        onNextContent={() => goToNextStep()}
+                        onNextContent={goToNextStepFresh}
                         speechLanguage={course?.language}
                       />
                     </div>
@@ -1096,28 +1164,29 @@ export default function LearnPage() {
                 )}
               </div>
 
-              {/* LESSON CONTENT Previous/Next — below xl only, under the
-                  player rather than floating over it. Same control and the
-                  same handlers as the xl overlay above. Distinct from the
+              {/* COMPLETION (below xl), video steps: the same button, right
+                  under the player rather than above it. Everything else
+                  about it is as described above. */}
+              {showCompletionBar && playerMode === "aspect" && (
+                <div className="xl:hidden empty:hidden flex justify-end [&>button]:min-h-8 [&>button]:py-1 [&>button]:text-xs">
+                  <ContentCompletionBar {...completionBarProps} />
+                </div>
+              )}
+
+              {playerMode === "aspect" && <div aria-hidden="true" className="hidden max-sm:block max-sm:flex-[2]" />}
+
+              {/* LESSON CONTENT Previous/Next — sm to xl, under the player
+                  rather than floating over it. Same control and the same
+                  handlers as the xl overlay above. Distinct from the
                   document-page row: Next here keeps the primary fill, while
-                  the document buttons stay neutral-outlined. */}
+                  the document buttons stay neutral-outlined. Phones get the
+                  same two controls in the bottom bar instead (below). */}
               {!hideFloatingNavForActiveQuiz && (
-                <div className="xl:hidden">
+                <div className="hidden sm:block xl:hidden">
                   <LessonNavigationControls variant="below" {...lessonNavProps} />
                 </div>
               )}
 
-              {/* COMPLETION (below xl) — a real bar under the frame, NOT the
-                  hover-reveal overlay used at xl: there is no hover on touch,
-                  so an overlay keyed to group-hover would leave "mark complete"
-                  permanently invisible and the block impossible to finish.
-                  Applies to whatever the frame is showing: Course-, Module-,
-                  Lesson- or Topic-direct Content alike. */}
-              {showCompletionBar && (
-                <div className="xl:hidden">
-                  <ContentCompletionBar {...completionBarProps} />
-                </div>
-              )}
             </div>
 
             {/* SIDE PANEL — the xl+ surface. Collapsed state renders no grid
@@ -1152,15 +1221,49 @@ export default function LearnPage() {
             refetches the material itself and re-checks enrollment per turn,
             so `isEnrolled` here is a UI hint, never a grant. Quiz/assignment
             ids are deliberately NOT passed: the assistant never retrieves
-            assessment material. On a video step it sits bottom-left, clear
-            of the player's fullscreen control in the bottom-right. */}
+            assessment material. On a desktop video step it sits bottom-left,
+            clear of the player's fullscreen control in the bottom-right.
+            Below xl the player hugs its 16:9 box near the top of the page,
+            so the launcher keeps the usual bottom-right corner there. */}
         <AiAssistantWidget
           courseId={courseId}
           courseTitle={course?.title}
           isEnrolled={isEnrolled}
           getPosition={getAiLearningPosition}
-          side={playerMode === "aspect" ? "left" : "right"}
+          side={isDesktop && playerMode === "aspect" ? "left" : "right"}
+          hideLauncherBelowSm
+          hidden={quizInProgress}
         />
+        {/* Phones: Previous | Ask AI | Next — lessonNavProps' handlers and
+            enabled rules, so it is the same control as the row above in a
+            third placement. Hidden with it while a quiz awaits its attempt;
+            during a qualifying test it keeps Previous/Next but no AI. */}
+        {!hideFloatingNavForActiveQuiz && (
+          <StudentBottomBar
+            ariaLabel="Lesson navigation"
+            showAi={!quizInProgress}
+            left={
+              <BottomBarItem
+                icon={ChevronLeft}
+                label="Previous"
+                onClick={lessonNavProps.onSelectPrevious}
+                disabled={!lessonNavProps.previousItem}
+                title={`Previous ${lessonNavProps.unitLabel}`}
+                ariaLabel="Previous content"
+              />
+            }
+            right={
+              <BottomBarItem
+                icon={ChevronRight}
+                label="Next"
+                onClick={lessonNavProps.onSelectNext}
+                disabled={!lessonNavProps.nextItem}
+                title={`Next ${lessonNavProps.unitLabel}`}
+                ariaLabel="Next content"
+              />
+            }
+          />
+        )}
       </div>
     </div>
   );

@@ -46,6 +46,33 @@ const GENDER_OPTIONS = [
   "Prefer not to say",
 ];
 
+// Form state straight from the stored profile. Empty fields stay empty: a
+// sample value here would show as the student's own data, count towards
+// Profile Completion and be saved on the next "Save".
+const toFormData = (profile) => {
+  const student = profile.studentProfile || {};
+  let dobStr = "";
+  if (student.dateOfBirth) {
+    try {
+      dobStr = new Date(student.dateOfBirth).toISOString().split("T")[0];
+    } catch {
+      dobStr = "";
+    }
+  }
+
+  return {
+    name: profile.name || "",
+    phoneNumber: profile.phoneNumber || "",
+    address: profile.address || "",
+    education: student.education || "",
+    institution: student.institution || "",
+    graduationYear: student.graduationYear || "",
+    guardianName: student.guardianName || "",
+    gender: student.gender || "",
+    dateOfBirth: dobStr,
+  };
+};
+
 export default function DesktopEditProfileView({ profile, onRefresh }) {
   const updateProfileMutation = useUpdateProfile();
   const fileInputRef = useRef(null);
@@ -59,7 +86,7 @@ export default function DesktopEditProfileView({ profile, onRefresh }) {
     institution: "",
     graduationYear: "",
     guardianName: "",
-    gender: "Male",
+    gender: "",
     dateOfBirth: "",
   });
 
@@ -90,27 +117,7 @@ export default function DesktopEditProfileView({ profile, onRefresh }) {
 
   useEffect(() => {
     if (profile) {
-      const student = profile.studentProfile || {};
-      let dobStr = "";
-      if (student.dateOfBirth) {
-        try {
-          dobStr = new Date(student.dateOfBirth).toISOString().split("T")[0];
-        } catch {
-          dobStr = "";
-        }
-      }
-
-      setFormData({
-        name: profile.name || "",
-        phoneNumber: profile.phoneNumber || "",
-        address: profile.address || "",
-        education: student.education || "B.Tech in Artificial Intelligence & ML",
-        institution: student.institution || "Dr. Babasaheb Ambedkar Technological University",
-        graduationYear: student.graduationYear || "2026",
-        guardianName: student.guardianName || "Manohar Tiwari",
-        gender: student.gender || "Male",
-        dateOfBirth: dobStr || "2001-06-28",
-      });
+      setFormData(toFormData(profile));
 
       if (profile.avatar) {
         setAvatarPreview(getDisplayUrl(profile.avatar));
@@ -245,9 +252,9 @@ export default function DesktopEditProfileView({ profile, onRefresh }) {
         month: "short",
         year: "numeric",
       })
-    : "03 Aug 2026";
+    : "";
 
-  const initials = (profile?.name || "Pawan Tiwari")
+  const initials = (profile?.name || "")
     .split(" ")
     .map((n) => n[0])
     .join("")
@@ -310,7 +317,7 @@ export default function DesktopEditProfileView({ profile, onRefresh }) {
             <div className="space-y-2">
               <div className="flex items-center justify-center sm:justify-start gap-2">
                 <h1 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">
-                  {formData.name || profile?.name || "Pawan Manoharprasad Tiwari"}
+                  {formData.name || profile?.name}
                 </h1>
                 <div className="h-5 w-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/40" title="Verified Account">
                   <Check size={12} className="stroke-[3]" />
@@ -318,7 +325,7 @@ export default function DesktopEditProfileView({ profile, onRefresh }) {
               </div>
 
               <p className="text-sm font-medium text-muted-foreground">
-                {profile?.email || "pt349031@gmail.com"}
+                {profile?.email}
               </p>
 
               {/* Status Badges */}
@@ -438,7 +445,7 @@ export default function DesktopEditProfileView({ profile, onRefresh }) {
                   <Mail size={16} className="absolute left-3.5 top-3 text-slate-600" />
                   <input
                     type="email"
-                    value={profile?.email || "pt349031@gmail.com"}
+                    value={profile?.email || ""}
                     disabled
                     className="w-full bg-background/60 border border-border/80 rounded-xl !pl-10 !pr-3.5 py-2.5 text-sm text-muted-foreground outline-none cursor-not-allowed"
                   />
@@ -487,6 +494,9 @@ export default function DesktopEditProfileView({ profile, onRefresh }) {
                     onChange={handleChange}
                     className="w-full bg-background border border-border rounded-xl !pl-10 !pr-8 py-2.5 text-sm text-foreground outline-none focus:border-primary transition appearance-none cursor-pointer"
                   >
+                    <option value="" className="bg-background text-foreground">
+                      Select gender
+                    </option>
                     {GENDER_OPTIONS.map((g) => (
                       <option key={g} value={g} className="bg-background text-foreground">
                         {g}
@@ -511,7 +521,7 @@ export default function DesktopEditProfileView({ profile, onRefresh }) {
                     rows={2}
                     value={formData.address}
                     onChange={handleChange}
-                    placeholder="Near kalaram mandir, Samadhi ward, Chandrapur, Maharashtra, India"
+                    placeholder="Enter your address"
                     className="w-full bg-background border border-border rounded-xl !pl-10 !pr-3.5 py-2.5 text-sm text-foreground outline-none focus:border-primary transition resize-none"
                   />
                 </div>
@@ -553,6 +563,9 @@ export default function DesktopEditProfileView({ profile, onRefresh }) {
                     onChange={handleChange}
                     className="w-full bg-background border border-border rounded-xl !pl-10 !pr-8 py-2.5 text-sm text-foreground outline-none focus:border-primary transition appearance-none cursor-pointer"
                   >
+                    <option value="" className="bg-background text-foreground">
+                      Select education degree
+                    </option>
                     {EDUCATION_OPTIONS.map((edu) => (
                       <option key={edu} value={edu} className="bg-background text-foreground">
                         {edu}
@@ -654,18 +667,7 @@ export default function DesktopEditProfileView({ profile, onRefresh }) {
                 type="button"
                 onClick={() => {
                   if (profile) {
-                    const student = profile.studentProfile || {};
-                    setFormData({
-                      name: profile.name || "",
-                      phoneNumber: profile.phoneNumber || "",
-                      address: profile.address || "",
-                      education: student.education || "B.Tech in Artificial Intelligence & ML",
-                      institution: student.institution || "Dr. Babasaheb Ambedkar Technological University",
-                      graduationYear: student.graduationYear || "2026",
-                      guardianName: student.guardianName || "Manohar Tiwari",
-                      gender: student.gender || "Male",
-                      dateOfBirth: student.dateOfBirth ? new Date(student.dateOfBirth).toISOString().split("T")[0] : "2001-06-28",
-                    });
+                    setFormData(toFormData(profile));
                   }
                 }}
                 className="flex items-center gap-1.5 rounded-xl bg-background hover:bg-muted border border-transparent text-foreground font-bold text-xs px-5 py-3 transition active:scale-95 cursor-pointer"

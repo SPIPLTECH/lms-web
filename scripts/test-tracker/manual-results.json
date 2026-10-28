@@ -620,6 +620,126 @@
       "actual": "10 on page 1 + 9 on page 2, added from page 2 → 'Add Selected (19)' → '19 Questions • 19 Total Marks'. 2 + 3 across pages → 5 added. 1 ticked, search 'closest', 1 more → both added (5 → 7). Before the fix the user's recording showed 9 ticked → 5 added and 11 ticked → 4 added (only the open page's ticks).",
       "evidence": "Playwright runs with question-count probes; screenshot v-repo-fix.png; user's recording 'Screen Recording 2026-10-19 131121.mp4'",
       "failure_details": ""
+    },
+    {
+      "id": "TC-UI-STU-018",
+      "status": "PASS",
+      "executed_at": "2026-10-26T12:45:00",
+      "executed_by": "Claude via Playwright (node script)",
+      "environment": "http://localhost:3000 (npm run dev, local working tree). Every :5000 API call answered by Playwright route fixtures (STUDENT, one VIDEO step + one TEXT step; file source and YouTube source) — no backend or database involved. Viewports 360x780, 390x844, 430x932 (touch) and 1440x900.",
+      "actual": "360/390/430: no horizontal overflow; Mark as Complete 148x32 at y=148 (27px under the title row), 40px above the frame; frame exactly 16:9 (328x185 / 358x202 / 398x225); Previous/Next 12px under it. Launcher position fixed, z-index 9190, right 20px / bottom 20px, topmost at its centre, same rect after scrolling, no overlap with frame/Next/Previous; Tab reaches it with :focus-visible and a 3px solid violet outline; tap opens the AI Assistant window ('AI Assistant CCAT Prep New conversation'). 1440: launcher bottom-left on the video step and Mark as Complete top-right of the player (as before). Note: in next dev the Next.js dev indicator (bottom-left) covers the desktop left launcher — dev-only, removed before the desktop click.",
+      "evidence": "test-evidence/browser/TC-UI-STU-018/: file-learn-360/390/430/desktop(.png, -focus, -ai), youtube-learn-390*.png, result.json, yt.json",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-STU-018",
+      "status": "PASS",
+      "executed_at": "2026-10-26T13:05:00",
+      "executed_by": "Claude via Playwright (node script)",
+      "environment": "http://localhost:3000 (npm run dev, local working tree). Every :5000 API call answered by Playwright route fixtures (STUDENT, VIDEO step; file source and YouTube source) — no backend or database involved. Viewports 360x780, 390x844, 430x932 (touch) and 1440x900.",
+      "actual": "Compact spacing re-run. Before: header->Mark 26px, Mark->frame 40px (wrapper mt-3.5/mb-7). After, at 360/390/430 for both sources: order title row -> Mark as Complete -> frame -> Previous/Next, gaps 12/12/12px (column gap only); frame 328x185 / 358x202 / 398x225 (16:9 incl. border), rounded; no horizontal overflow. Launcher fixed bottom-right (20px), topmost, unmoved by scrolling, no overlap with frame/Next/Previous, 3px solid focus outline, tap opens the AI Assistant. Desktop 1440: Mark as Complete top-right of the player, launcher bottom-left on video steps (unchanged).",
+      "evidence": "test-evidence/browser/TC-UI-STU-018/compact-2026-10-26/: file-learn-*.png, youtube-learn-*.png, before.json, after.json, after-yt.json",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-STU-018",
+      "status": "PASS",
+      "executed_at": "2026-10-26T13:20:00",
+      "executed_by": "Claude via Playwright (node script)",
+      "environment": "http://localhost:3000 (npm run dev, local working tree). Every :5000 API call answered by Playwright route fixtures (STUDENT, VIDEO step, file source) — no backend or database involved. Viewports 360x780, 390x844, 430x932 (touch) and 1440x900.",
+      "actual": "Mark as Complete -> video gap 12px -> 24px (mb-3 on the below-xl completion wrapper). Before/after deltas at 360/390/430: title row, Mark as Complete and the AI launcher unchanged (dx=dy=0); video frame dy=+12 with identical size (328x185 / 358x202 / 398x225); Previous/Next dy=+12, still 12px under the video. No horizontal overflow; launcher clear of video/Next/Previous and opens the AI Assistant. Desktop 1440: every measured element unchanged.",
+      "evidence": "test-evidence/browser/TC-UI-STU-018/gap-12px-2026-10-26/: before/*.png, after/*.png, compare-390.png, gap-before.json, gap-after.json",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-STU-019",
+      "status": "PASS",
+      "executed_at": "2026-10-26T13:45:00",
+      "executed_by": "Claude via Playwright (node script + CDP touch events)",
+      "environment": "http://localhost:3000 (npm run dev, local working tree). Every :5000 API call and /api/blob-proxy answered by Playwright route fixtures (STUDENT, DOCUMENT step with a generated A4 PDF, 10pt text) — no backend, blob store or database involved. Viewports 360x780, 390x844, 430x932 (touch) and 1440x900.",
+      "actual": "360/390/430: zoom control present; fitted page 308/338/378px wide; 4x Zoom in -> 200% (616/676/756px), scrollLeft 157/171/191 (view centre kept), page left edge reachable (10px from viewport edge after scrolling left); Fit -> back to full width; CDP two-finger pinch -> live CSS scale(2.5), then re-rendered 770/844/945px at 250% with scrollLeft 231/253/284 (centre kept); visualViewport.scale stays 1 (browser did not zoom; viewport touch-action pan-x pan-y). Previous/Next above the AI launcher (no overlap). No horizontal page overflow, no page errors. 1440: no zoom control, page 960px fit (unchanged). Video-step regression run: every measured element identical to the previous run at all four widths.",
+      "evidence": "test-evidence/browser/TC-UI-STU-019/: doc-<width>-fit.png, doc-<width>-zoomed.png, doc-<width>-pinched.png, doc-compare-390.png, doc.json, video-regress.json",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-STU-019",
+      "status": "PASS",
+      "executed_at": "2026-10-26T14:05:00",
+      "executed_by": "Claude via Playwright (node script)",
+      "environment": "http://localhost:3000 (npm run dev, local working tree), API and blob proxy answered by fixtures. 360x640 and 390x740 (touch) for the placement comparison; 360/390/430/1440 for the regression run.",
+      "actual": "Launcher placement compared on a PDF step and a video step: left-above-Previous overlaps the PDF frame (360x640 and 390x740) and floats far from Previous on video steps; bottom-right below Next overlaps nothing on either. Kept bottom-right. Learn shell h-screen -> h-dvh (user's phone screenshot showed Next under the launcher with the address bar visible). Regression after the change: PDF and video steps identical at 360/390/430/1440; no overlap with Previous/Next; AI opens. The address-bar case itself cannot be produced in headless Chromium — to confirm on a phone.",
+      "evidence": "test-evidence/browser/TC-UI-STU-019/launcher-placement-2026-10-26/: fab-A/B-doc/video-*.png, fab-compare.png, doc-dvh.json, video-dvh.json",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-STU-018",
+      "status": "PASS",
+      "executed_at": "2026-10-26T14:25:00",
+      "executed_by": "Claude via Playwright (node script)",
+      "environment": "http://localhost:3000 (npm run dev, local working tree), API answered by fixtures. Video step completed and not completed; PDF step; 360x780, 390x844, 430x932 (touch) and 1440x900.",
+      "actual": "Spacing above the mobile video moved from the Mark as Complete wrapper (mb-3) to the video frame (aspect mode max-xl:mt-5). Completed video (user's case): frame, Previous and Next +20px; header, lesson menu and launcher unchanged; gap above video 12 -> 32px; frame size unchanged; Previous/Next 12px under it. Not-completed video: Mark as Complete unchanged, frame +8px (gap 24 -> 32px). Desktop and PDF step unchanged. Launcher clear of Previous/Next and opens the assistant.",
+      "evidence": "test-evidence/browser/TC-UI-STU-018/video-gap-20px-2026-10-26/: before/, after/, spacing-compare-390.png, sp-*.json",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-AUTH-015",
+      "status": "PASS",
+      "executed_at": "2026-10-26T14:45:00",
+      "executed_by": "Claude via Playwright (node script)",
+      "environment": "http://localhost:3000/login (npm run dev, local working tree); :5000 answered 401 by a route fixture. Headless Chromium (no browser toolbar).",
+      "actual": "After AuthLayout min-h-screen -> min-h-dvh: document scrollHeight equals the viewport height at 360x640, 360x780, 390x844, 430x932, 768x1024, 1280x720, 1440x900 and 1920x1080 (no vertical or horizontal scroll); form content 532px (mobile) / 562px (desktop) + padding fits every size. The phone address-bar case (the reported scroll) cannot be produced headless — step 2 to confirm on a device.",
+      "evidence": "test-evidence/browser/TC-UI-AUTH-015/: login-after-<size>.png, login-before.jsonl, login-after.jsonl",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-STU-020",
+      "status": "PASS",
+      "executed_at": "2026-10-26T15:05:00",
+      "executed_by": "Claude via Playwright (node script)",
+      "environment": "http://localhost:3000/student/my-courses (npm run dev, local working tree); /auth/profile and /enrollments answered by fixtures (1 and 3 courses). Headless Chromium (no browser toolbar).",
+      "actual": "Before -> after (page scroll): 390x844 50px -> none (1 course), 70px -> none (3); 430x932 none -> none (1), 2px -> none (3); 360x640 239 -> 143px and 259 -> 163px (content itself taller than the screen). At the end of the scroll the launcher overlaps neither View Course nor Continue Learning at any size. 768x1024 / 1280x720 / 1440x900 / 1920x1080: unchanged (the 768 3-course and 1280x720 scrolls are content height, not padding). No horizontal scroll. The phone address-bar case (min-h-dvh) cannot be produced headless — confirm on a device.",
+      "evidence": "test-evidence/browser/TC-UI-STU-020/: mycourses-after-<n>-<size>.png, mc-before.jsonl, mc-after.jsonl",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-STU-020",
+      "status": "PASS",
+      "executed_at": "2026-10-26T15:40:00",
+      "executed_by": "Claude via Playwright (node script)",
+      "environment": "http://localhost:3000/student/my-courses (npm run dev, local working tree); /auth/profile and /enrollments answered by fixtures (1, 3 and 12 courses, year filter shown). Headless Chromium (no browser toolbar); measured after document.fonts.ready.",
+      "actual": "1 and 3 courses at 360x640, 375x667, 390x740, 390x844, 412x780, 430x932, 768x1024, 1280x720, 1366x657, 1440x900, 1920x1080: no page scroll, no inner (main) scroll, no horizontal scroll, course card never clipped (buttons inside the card), launcher overlaps no control. Thumbnail height adapts (e.g. 53px at 360x640/3 courses, 117 at 390x740, 167 at 390x844, 148 desktop). 12 courses: phones still fit (slider); md+ shows 3+ grid rows and the content area scrolls (fallback). Address-bar case relies on h-dvh — confirm on a device.",
+      "evidence": "test-evidence/browser/TC-UI-STU-020/fit-screen-2026-10-26/: mycourses-fit-<n>-<size>.png, mc-fit-view.png, mc-fit.jsonl",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-STU-021",
+      "status": "PASS",
+      "executed_at": "2026-10-26T16:20:00",
+      "executed_by": "Claude via Playwright (node script)",
+      "environment": "http://localhost:3000/student/assignments?type=quiz (npm run dev, local working tree); /auth/profile, /assignments (empty) and /quizzes/my-submissions (7 quizzes: 6 failed self-test/final/qualifying, 1 passed final) answered by fixtures. 360x640, 390x844 (touch), 1440x900.",
+      "actual": "Phones: rows 70px with one-line titles; 4 fully visible at 360x640, 6 at 390x844 (was ~1.5 cards); tap at the Retake link hits /student/attempt/q0, tap on the row hits /student/result/q0; Filters sheet Failed + Final Quiz -> 'Show 1 quiz' and the list shows 1; badge 'Filters, 2 in use'; chips Failed / Final Quiz, removing Final Quiz -> 6 rows; Escape closes the sheet; Assignments tab (0): search and Filters hidden, empty state without border. No horizontal scroll, no page errors. 1440x900: no Filters button, dropdowns shown, 7 'View Result' cards (desktop layout unchanged).",
+      "evidence": "test-evidence/browser/TC-UI-STU-021/: sub-360x640-*.png, sub-390x844-*.png, sub-390-view.png, sub-1440x900.png",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-STU-022",
+      "status": "PASS",
+      "executed_at": "2026-10-26T15:55:00",
+      "executed_by": "Claude via Playwright (node script)",
+      "environment": "http://localhost:3000/student/result/quiz1 (npm run dev, local working tree); /auth/profile and /quizzes/quiz1/result answered by fixtures (30 single-choice questions: 12 correct, 2 wrong, 16 skipped; and a second run with answerKeyRevealed=false, canAttempt=true). 360x740, 390x844 dark and light, 1440x900.",
+      "actual": "All sizes: no page errors, no horizontal scroll; title in Bricolage Grotesque, question text in Source Serif 4; filters All 30 / Wrong 2 / Skipped 16 / Correct 12 fit at 360px; first card 'Question 1 of 30, 1 mark' + 'Correct'. Wrong -> 2 cards tagged Wrong; Skipped -> 16. Filters pinned at 72px (navbar bottom 65) after scrolling 1500 and 4000px on phones. Answers-hidden run: 'Review answers' + 'Which questions you got right, while this quiz can still be retaken.' + Retake Quiz shown, no errors (the per-question verdict list was empty only because the fixture had no questionAttempts).",
+      "evidence": "test-evidence/browser/TC-UI-STU-022/: result-<size>-<theme>-top.png, -wrong.png, -scrolled.png, -hidden.png",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-STU-022",
+      "status": "PASS",
+      "executed_at": "2026-10-26T16:05:00",
+      "executed_by": "Claude via Playwright (node script)",
+      "environment": "http://localhost:3000/student/result/quiz1 (npm run dev, local working tree); fixtures: 30 questions (12 correct, 2 wrong, 16 skipped). 390x844 (touch) and 1440x900, dark.",
+      "actual": "Pagination, 10 per page: page 1 shows questions 1-10 (Previous disabled), Next -> 11-20 and the review heading scrolls to 80px (under the sticky navbar), Next -> 21-30 (Next disabled); pager text 'Page n of 3 / Questions a-b of 30'. Skipped filter -> page 1 of 2, questions 15-24 of 16. Wrong (2) -> no pager. Pager buttons 44px tall. No page errors.",
+      "evidence": "test-evidence/browser/TC-UI-STU-022/paging-390-p3.png, paging-1440-p3.png",
+      "failure_details": ""
     }
   ]
 }

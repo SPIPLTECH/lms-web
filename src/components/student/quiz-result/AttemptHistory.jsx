@@ -18,7 +18,7 @@ const LATEST_TAG = <span className="ml-2 text-xs font-medium text-primary">Lates
  * marked rather than linked; every other attempt opens on its own.
  */
 export default function AttemptHistory({ attempts = [], currentAttemptId, hrefFor }) {
-  if (attempts.length === 0) return null;
+  if (attempts.length <= 1) return null;
 
   const latestId = attempts[attempts.length - 1].id;
 
