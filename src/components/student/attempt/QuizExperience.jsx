@@ -458,7 +458,7 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
                         ? `You can view your result or retake “${quiz.title}”.`
                         : `You've used all ${allowance.maxAttempts} attempt${allowance.maxAttempts === 1 ? "" : "s"} allowed for “${quiz.title}”.${onNextContent ? " You can carry on with the course." : ""}`}
                 </p>
-                <div className="mx-auto mt-6 flex max-w-sm flex-col gap-2 sm:flex-row sm:justify-center">
+                <div className="mx-auto mt-6 flex max-w-md flex-col gap-2 sm:flex-row sm:justify-center">
                     <Button asChild className="inline-flex flex-1 items-center justify-center">
                         <Link href={resultHref}>View result</Link>
                     </Button>
@@ -475,7 +475,7 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
                     {/* Out of attempts, the quiz is done whether passed or not
                         (the server's completion rule), so the next step is open. */}
                     {onNextContent && !allowance.canAttempt && (
-                        <Button type="button" variant="outline" onClick={onNextContent} className="flex-1">
+                        <Button type="button" variant="outline" onClick={onNextContent} className="flex-1 whitespace-nowrap">
                             Continue course
                         </Button>
                     )}
