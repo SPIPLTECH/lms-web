@@ -2,7 +2,9 @@
 
 import { Check, X } from "lucide-react";
 
+import QuizRichText from "@/components/quiz/QuizRichText";
 import { isCorrectOption } from "@/lib/quizAnswers";
+import { isRichQuizText } from "@/lib/quizText";
 
 const optionText = (opt) => {
   if (opt === null || opt === undefined) return "";
@@ -13,8 +15,8 @@ const optionText = (opt) => {
 const optionReason = (opt) =>
   opt && typeof opt === "object" && typeof opt.explanation === "string" ? opt.explanation.trim() : "";
 
-const isOptionCorrect = (opt, correctAnswer) =>
-  isCorrectOption(optionText(opt), correctAnswer) || (opt && typeof opt === "object" && opt.isCorrect === true);
+const isOptionCorrect = (opt, correctAnswer, options) =>
+  isCorrectOption(optionText(opt), correctAnswer, options) || (opt && typeof opt === "object" && opt.isCorrect === true);
 
 /**
  * Whether the question's own explanation is shown inside its correct
@@ -23,7 +25,7 @@ const isOptionCorrect = (opt, correctAnswer) =>
  * own, which the caller renders.
  */
 export function explanationInsideOption(options = [], correctAnswer) {
-  return options.filter((opt) => isOptionCorrect(opt, correctAnswer)).length === 1;
+  return options.filter((opt) => isOptionCorrect(opt, correctAnswer, options)).length === 1;
 }
 
 /**
@@ -45,7 +47,8 @@ export default function OptionReview({ options = [], selectedAnswer, correctAnsw
     <ul className="space-y-2 sm:space-y-2.5">
       {options.map((opt, index) => {
         const text = optionText(opt);
-        const isCorrect = isOptionCorrect(opt, correctAnswer);
+        const isCorrect = isOptionCorrect(opt, correctAnswer, options);
+        const rich = isRichQuizText(text);
         const isPicked = picked(text);
         const state = isCorrect ? "correct" : isPicked ? "wrong" : "other";
         const reason = isCorrect ? (showWhyCorrect ? whyCorrect : "") : optionReason(opt);
@@ -61,7 +64,11 @@ export default function OptionReview({ options = [], selectedAnswer, correctAnsw
                   : "border-border bg-background/60"
             }`}
           >
-            <div className="flex items-center gap-2.5 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
+            <div
+              className={`flex gap-2.5 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3 ${
+                rich ? "flex-wrap items-start" : "items-center"
+              }`}
+            >
               <span
                 className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-xs font-extrabold sm:h-7 sm:w-7 sm:text-sm ${
                   state === "correct"
@@ -74,13 +81,23 @@ export default function OptionReview({ options = [], selectedAnswer, correctAnsw
               >
                 {String.fromCharCode(65 + index)}
               </span>
-              <span
-                className={`min-w-0 flex-1 break-words text-sm leading-snug sm:text-base ${
-                  state === "other" ? "text-foreground" : "font-semibold text-foreground"
-                }`}
-              >
-                {text}
-              </span>
+              {rich ? (
+                <div
+                  className={`min-w-0 flex-1 basis-48 text-sm leading-snug sm:text-base ${
+                    state === "other" ? "text-foreground" : "font-semibold text-foreground"
+                  }`}
+                >
+                  <QuizRichText text={text} variant="option" />
+                </div>
+              ) : (
+                <span
+                  className={`min-w-0 flex-1 break-words text-sm leading-snug sm:text-base ${
+                    state === "other" ? "text-foreground" : "font-semibold text-foreground"
+                  }`}
+                >
+                  <QuizRichText text={text} preserveLines />
+                </span>
+              )}
               {state === "correct" && (
                 <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 sm:text-xs">
                   <Check size={13} aria-hidden />
@@ -117,7 +134,9 @@ export default function OptionReview({ options = [], selectedAnswer, correctAnsw
                   {state === "correct" ? <Check size={12} aria-hidden /> : <X size={12} aria-hidden />}
                   {state === "correct" ? "Why it's correct" : "Why it's wrong"}
                 </p>
-                <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/85">{reason}</p>
+                <div className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/85">
+                  <QuizRichText text={reason} />
+                </div>
               </div>
             )}
           </li>

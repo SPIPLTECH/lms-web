@@ -2,7 +2,9 @@
 
 import { CheckCircle2, Lock, XCircle } from "lucide-react";
 
+import QuizRichText from "@/components/quiz/QuizRichText";
 import { checkAnswerCorrectness, isCorrectOption } from "@/lib/quizAnswers";
+import { isRichQuizText } from "@/lib/quizText";
 import { explanationInsideOption } from "@/components/student/quiz-review/OptionReview";
 
 const getOptionText = (opt) => {
@@ -33,13 +35,13 @@ export default function AnswerFeedback({ question, type, options = [], selectedA
   // A written answer has no right or wrong to announce — it is compared
   // against the model answer by the student.
   const hasVerdict = type !== "SELF_ASSESSMENT";
-  const isRight = hasVerdict && checkAnswerCorrectness(type, selectedAnswer, correctAnswer);
+  const isRight = hasVerdict && checkAnswerCorrectness(type, selectedAnswer, correctAnswer, options);
 
   const correctLetters = isChoice
-    ? options.map((opt, i) => (isCorrectOption(getOptionText(opt), correctAnswer) ? letterFor(i) : null)).filter(Boolean)
+    ? options.map((opt, i) => (isCorrectOption(getOptionText(opt), correctAnswer, options) ? letterFor(i) : null)).filter(Boolean)
     : [];
   const correctTexts = isChoice
-    ? options.map(getOptionText).filter((text) => isCorrectOption(text, correctAnswer))
+    ? options.map(getOptionText).filter((text) => isCorrectOption(text, correctAnswer, options))
     : [];
 
   // The explanation is already in the correct option's card when there is
@@ -50,7 +52,10 @@ export default function AnswerFeedback({ question, type, options = [], selectedA
 
   let missedMessage = "Not quite. The correct answer is shown below.";
   if (type === "MCQ_SINGLE" && correctLetters.length === 1) {
-    missedMessage = `Not quite. The correct answer is ${correctLetters[0]}: ${correctTexts[0]}`;
+    // Code can't be quoted in a one-line verdict; its card is marked below.
+    missedMessage = isRichQuizText(correctTexts[0])
+      ? `Not quite. The correct answer is ${correctLetters[0]}.`
+      : `Not quite. The correct answer is ${correctLetters[0]}: ${correctTexts[0]}`;
   } else if (type === "MCQ_MULTI" && correctLetters.length > 0) {
     missedMessage = `Not quite. The correct answers are ${joinLetters(correctLetters)}.`;
   }
@@ -99,13 +104,15 @@ export default function AnswerFeedback({ question, type, options = [], selectedA
               ))}
             </ul>
           ) : (
-            <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
-              {typeof correctAnswer === "string"
-                ? correctAnswer
-                : Array.isArray(correctAnswer)
-                  ? correctAnswer.join(", ")
-                  : JSON.stringify(correctAnswer)}
-            </p>
+            <div className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
+              {typeof correctAnswer === "string" ? (
+                <QuizRichText text={correctAnswer} />
+              ) : Array.isArray(correctAnswer) ? (
+                correctAnswer.join(", ")
+              ) : (
+                JSON.stringify(correctAnswer)
+              )}
+            </div>
           )}
         </div>
       )}
@@ -113,7 +120,9 @@ export default function AnswerFeedback({ question, type, options = [], selectedA
       {showExplanation && (
         <div className="rounded-xl border border-border bg-muted/40 p-3 sm:p-3.5 space-y-1">
           <span className="text-[11px] font-bold uppercase tracking-wider text-primary">{explanationHeading}</span>
-          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">{explanation}</p>
+          <div className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
+            <QuizRichText text={explanation} />
+          </div>
         </div>
       )}
 

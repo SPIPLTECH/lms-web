@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle2, XCircle } from "lucide-react";
 
 import Card from "@/components/ui/Card";
 import ListenButton from "@/components/student/tts/ListenButton";
+import QuizRichText from "@/components/quiz/QuizRichText";
 import OptionReview, { explanationInsideOption } from "@/components/student/quiz-review/OptionReview";
 import { checkAnswerCorrectness } from "@/lib/quizAnswers";
 import { resolveQuestionType, TRUE_FALSE_OPTIONS } from "@/lib/questionType";
@@ -15,7 +16,7 @@ import { buildAnswerReviewSpeech } from "@/lib/quizSpeech";
 export default function QuestionReviewCard({ question, index, userAnswer }) {
   const qType = resolveQuestionType(question.questionType);
   const selectedOption = userAnswer?.answer ?? userAnswer?.selectedOption;
-  const isCorrect = checkAnswerCorrectness(qType, selectedOption, question.correctAnswer);
+  const isCorrect = checkAnswerCorrectness(qType, selectedOption, question.correctAnswer, question.options);
 
   const isChoice = qType === "MCQ_SINGLE" || qType === "MCQ_MULTI";
 
@@ -48,9 +49,10 @@ export default function QuestionReviewCard({ question, index, userAnswer }) {
         <div className="flex-1 space-y-2.5 sm:space-y-4 min-w-0">
           {/* Question Title & Marks */}
           <div className="flex justify-between items-start gap-2 sm:gap-4 min-w-0">
-            <h4 className="text-xs sm:text-sm font-medium text-foreground leading-snug sm:leading-relaxed break-words flex-1">
-              {question.question}
-            </h4>
+            {/* A <div>, not a heading: the text may hold code blocks. */}
+            <div className="text-xs sm:text-sm font-medium text-foreground leading-snug sm:leading-relaxed break-words flex-1 min-w-0">
+              <QuizRichText text={question.question} />
+            </div>
             <div className="flex flex-col items-end gap-0.5 shrink-0">
               <span className="text-[9px] sm:text-[10px] bg-slate-800/90 px-1.5 py-0.5 rounded border border-border text-muted-foreground font-bold uppercase shrink-0 whitespace-nowrap">
                 <span className="sm:hidden">{question.marks || 1}M</span>
@@ -180,9 +182,9 @@ export default function QuestionReviewCard({ question, index, userAnswer }) {
             !(isChoice && explanationInsideOption(optionsList, question.correctAnswer)) && (
             <div className="rounded-xl border border-border bg-muted/40 p-3 sm:p-4 space-y-1">
               <span className="text-[11px] text-primary font-bold uppercase tracking-wider">Explanation</span>
-              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap break-words">
-                {question.explanation}
-              </p>
+              <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap break-words">
+                <QuizRichText text={question.explanation} />
+              </div>
             </div>
           )}
 

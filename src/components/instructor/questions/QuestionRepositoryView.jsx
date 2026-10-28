@@ -31,6 +31,8 @@ import {
 import { useToast } from "@/components/ui/ToastProvider";
 import { useConfirm } from "@/context/ConfirmContext";
 import { QUESTION_TYPE_OPTIONS } from "@/lib/questionType";
+import { quizTextSummary } from "@/lib/quizText";
+import QuizRichText from "@/components/quiz/QuizRichText";
 
 /**
  * The Question Repository list/search/CRUD view — rendered by both the
@@ -426,7 +428,7 @@ export default function QuestionRepositoryView({ showImportShortcuts = false }) 
                       </div>
 
                       <h4 className="text-sm font-semibold text-foreground group-hover:text-amber-400 transition line-clamp-2">
-                        {q.question}
+                        {quizTextSummary(q.question)}
                       </h4>
 
                       {q.tags && (
@@ -554,9 +556,9 @@ export default function QuestionRepositoryView({ showImportShortcuts = false }) 
             </div>
 
             <div>
-              <p className="text-sm text-foreground mt-2 bg-background/80 p-4 rounded-2xl border border-border whitespace-pre-line">
-                {previewQuestion.question}
-              </p>
+              <div className="text-sm text-foreground mt-2 bg-background/80 p-4 rounded-2xl border border-border whitespace-pre-line">
+                <QuizRichText text={previewQuestion.question} />
+              </div>
             </div>
 
             {/* Options */}
@@ -573,7 +575,9 @@ export default function QuestionRepositoryView({ showImportShortcuts = false }) 
                           : "bg-background/40 border-border text-foreground"
                       }`}
                     >
-                      <span>{opt.optionText || String(opt)}</span>
+                      <div className="min-w-0 flex-1">
+                        <QuizRichText text={opt.optionText || String(opt)} variant="option" preserveLines />
+                      </div>
                       {opt.isCorrect && <Check className="w-4 h-4 text-success" />}
                     </div>
                   ))}
@@ -588,7 +592,7 @@ export default function QuestionRepositoryView({ showImportShortcuts = false }) 
                  all but invisible on the light one. */
               <div className="p-3 rounded-xl bg-warning/10 border border-warning/30 text-xs text-warning">
                 <span className="font-bold">Explanation: </span>
-                {previewQuestion.explanation}
+                <QuizRichText text={previewQuestion.explanation} />
               </div>
             )}
           </div>

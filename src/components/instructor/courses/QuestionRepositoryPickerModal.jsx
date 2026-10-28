@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Search, Loader2, CheckSquare, Square } from "lucide-react";
 
 import Modal from "@/components/ui/Modal";
+import { quizTextSummary } from "@/lib/quizText";
 import { getRepositoryQuestions } from "@/services/questionRepository.service";
 
 /**
@@ -144,7 +145,7 @@ export default function QuestionRepositoryPickerModal({ open, onClose, onAddQues
                     <Square size={16} className="text-muted-foreground shrink-0 mt-0.5" />
                   )}
                   <div className="min-w-0 flex-1 space-y-1">
-                    <p className="text-sm font-semibold text-foreground leading-relaxed">{q.question}</p>
+                    <p className="text-sm font-semibold text-foreground leading-relaxed">{quizTextSummary(q.question)}</p>
                     <div className="flex items-center gap-1.5 flex-wrap text-[12px] font-mono">
                       <span className="px-1.5 py-0.5 rounded bg-muted text-foreground">{q.questionType}</span>
                       {q.difficulty && (

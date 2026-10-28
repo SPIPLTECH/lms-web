@@ -5,6 +5,8 @@ import {
     FaCheckCircle,
     FaStar,
 } from "@/components/ui/reactIcons";
+import QuizRichText from "@/components/quiz/QuizRichText";
+import { isCorrectOption } from "@/lib/quizAnswers";
 
 export default function QuestionPreview({
                                             question,
@@ -31,9 +33,9 @@ export default function QuestionPreview({
                     </h2>
                 </div>
 
-                <p className="text-lg leading-8 text-foreground">
-                    {question.question}
-                </p>
+                <div className="text-lg leading-8 text-foreground">
+                    <QuizRichText text={question.question} />
+                </div>
             </div>
 
             {/* Options */}
@@ -56,8 +58,8 @@ export default function QuestionPreview({
                             (option, index) => {
                                 const optionText = typeof option === "string" ? option : (option?.optionText || option?.text || String(option));
                                 const isCorrect =
-                                    optionText ===
-                                    question.correctAnswer || (typeof option === "object" && option?.isCorrect);
+                                    isCorrectOption(optionText, question.correctAnswer, question.options) ||
+                                    (typeof option === "object" && option?.isCorrect);
 
                                 return (
                                     <div
@@ -77,7 +79,7 @@ export default function QuestionPreview({
                                         }
                                         `}
                                     >
-                                        <div className="flex items-center gap-4">
+                                        <div className="flex min-w-0 flex-1 items-center gap-4">
                                             <span
                                                 className={`
                                                     flex
@@ -99,9 +101,9 @@ export default function QuestionPreview({
                                                 )}
                                             </span>
 
-                                            <span className="text-foreground">
-                                                {optionText}
-                                            </span>
+                                            <div className="min-w-0 flex-1 text-foreground">
+                                                <QuizRichText text={optionText} variant="option" preserveLines />
+                                            </div>
                                         </div>
 
                                         {isCorrect && (

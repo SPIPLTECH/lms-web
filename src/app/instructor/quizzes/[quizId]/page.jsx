@@ -25,6 +25,7 @@ import {
 } from "@/hooks/queries/instructor/useQuestionRepository";
 import { useToast } from "@/components/ui/ToastProvider";
 import { useConfirm } from "@/context/ConfirmContext";
+import { quizTextSummary } from "@/lib/quizText";
 
 export default function InstructorQuizDetailPage({ params }) {
   const resolvedParams = use(params);
@@ -250,8 +251,8 @@ export default function InstructorQuizDetailPage({ params }) {
                             {q.difficulty || "MEDIUM"}
                           </span>
                         </div>
-                        <h4 className="text-sm font-bold text-foreground">{q.title || q.question}</h4>
-                        <p className="text-xs text-muted-foreground mt-1">{q.question}</p>
+                        <h4 className="text-sm font-bold text-foreground">{q.title || quizTextSummary(q.question)}</h4>
+                        <p className="text-xs text-muted-foreground mt-1">{quizTextSummary(q.question)}</p>
                       </div>
                     </div>
 

@@ -7,6 +7,7 @@ import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import { usePreviewQuestionImport } from "@/hooks/queries/instructor/usePreviewQuestionImport";
 import { RETIRED_QUESTION_TYPES } from "@/lib/questionType";
+import { quizTextSummary } from "@/lib/quizText";
 
 const ACCEPTED = ".csv,.xlsx,.xls,.docx,.pdf,.txt,.json";
 
@@ -328,7 +329,7 @@ export default function QuizImportModal({ open, onClose, existingQuestions = [],
                   />
                   <span className="min-w-0 flex-1 space-y-1">
                     <span className="block font-semibold text-foreground">
-                      {r.row}. {r.question || "(no question text)"}
+                      {r.row}. {quizTextSummary(r.question) || "(no question text)"}
                     </span>
                     <span className="block text-xs text-muted-foreground">
                       {TYPE_LABEL[r.questionType] || r.questionType}, {r.options.length} options, {r.marks} mark{r.marks === 1 ? "" : "s"}

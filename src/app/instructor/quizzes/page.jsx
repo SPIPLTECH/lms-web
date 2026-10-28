@@ -29,6 +29,7 @@ import { useInstructorCourses } from "@/hooks/queries/instructor/useInstructorCo
 import { useQuestions } from "@/hooks/queries/instructor/useQuestions";
 import { useDeleteQuestion } from "@/hooks/queries/instructor/useDeleteQuestion";
 import { QUESTION_TYPE_OPTIONS } from "@/lib/questionType";
+import { quizTextSummary } from "@/lib/quizText";
 
 export default function QuizzesPage() {
   const { showToast } = useToast();
@@ -676,7 +677,7 @@ export default function QuizzesPage() {
                           >
                             {/* Question Text */}
                             <td className="p-5 pl-6 max-w-sm">
-                              <p className="font-bold text-foreground leading-relaxed line-clamp-2">{q.question}</p>
+                              <p className="font-bold text-foreground leading-relaxed line-clamp-2">{quizTextSummary(q.question)}</p>
                               {q.concept && (
                                 <span className="inline-block text-[9px] text-purple-400 font-extrabold uppercase mt-1">
                                   {q.concept}

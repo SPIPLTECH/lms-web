@@ -745,3 +745,352 @@ button.bg-primary:hover, a.bg-primary:hover, .btn-rainbow:hover {
     forced-color-adjust: none;
   }
 }
+
+/* ==========================================================================
+   QUIZ RICH TEXT — question, option, explanation and hint text the author
+   wrote as Markdown (lib/quizText.js decides; plain text never gets these
+   classes). Code cells use the GitHub light/dark palettes so they sit
+   naturally in both themes; the dark cell is a step lighter than the dark
+   canvas so it still reads as a cell. Scoped under .quiz-rich so the lesson
+   renderer's vs2015 highlight theme never leaks in.
+   ========================================================================== */
+.quiz-rich {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.quiz-rich > * + * {
+  margin-top: 0.5em;
+}
+
+.quiz-rich p {
+  margin: 0;
+}
+
+.quiz-rich strong {
+  font-weight: 700;
+}
+
+.quiz-rich em {
+  font-style: italic;
+}
+
+.quiz-rich ul,
+.quiz-rich ol {
+  padding-left: 1.25em;
+}
+
+.quiz-rich ul { list-style-type: disc; }
+.quiz-rich ol { list-style-type: decimal; }
+
+.quiz-rich h1, .quiz-rich h2, .quiz-rich h3,
+.quiz-rich h4, .quiz-rich h5, .quiz-rich h6 {
+  font-size: 1em;
+  font-weight: 700;
+}
+
+.quiz-rich a {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+/* Some imported questions carry a Markdown table (e.g. a ticket count per
+   priority). It scrolls on its own rather than widening the card. */
+.quiz-rich table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.875em;
+  font-weight: 400;
+}
+
+.quiz-rich th,
+.quiz-rich td {
+  padding: 0.35em 0.75em;
+  border: 1px solid var(--qcode-border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.quiz-rich th {
+  background-color: var(--qcode-bg);
+  font-weight: 700;
+}
+
+.quiz-rich :not(pre) > code {
+  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.875em;
+  font-weight: 500;
+  padding: 0.1em 0.4em;
+  border-radius: 0.375rem;
+  border: 1px solid var(--qcode-border);
+  background-color: var(--qcode-bg);
+  color: var(--qcode-fg);
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+:root {
+  --qcode-bg: #F6F8FA;
+  --qcode-bar: #EEF1F4;
+  --qcode-fg: #1F2328;
+  --qcode-muted: #6E7781;
+  --qcode-border: #D8DEE4;
+  --qcode-keyword: #CF222E;
+  --qcode-title: #8250DF;
+  --qcode-number: #0550AE;
+  --qcode-string: #0A3069;
+  --qcode-builtin: #953800;
+  --qcode-comment: #6E7781;
+  --qcode-name: #116329;
+  --qcode-add-fg: #116329;
+  --qcode-add-bg: #DAFBE1;
+  --qcode-del-fg: #82071E;
+  --qcode-del-bg: #FFEBE9;
+}
+
+.dark {
+  --qcode-bg: #161B22;
+  --qcode-bar: #1C2129;
+  --qcode-fg: #E6EDF3;
+  --qcode-muted: #8B949E;
+  --qcode-border: #30363D;
+  --qcode-keyword: #FF7B72;
+  --qcode-title: #D2A8FF;
+  --qcode-number: #79C0FF;
+  --qcode-string: #A5D6FF;
+  --qcode-builtin: #FFA657;
+  --qcode-comment: #8B949E;
+  --qcode-name: #7EE787;
+  --qcode-add-fg: #AFF5B4;
+  --qcode-add-bg: #033A16;
+  --qcode-del-fg: #FFDCD7;
+  --qcode-del-bg: #67060C;
+}
+
+.quiz-rich .qcode {
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--qcode-border);
+  border-radius: 0.75rem;
+  background-color: var(--qcode-bg);
+  color: var(--qcode-fg);
+  font-weight: 400;
+  text-align: left;
+}
+
+.quiz-rich .qcode-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.3rem 0.5rem 0.3rem 0.75rem;
+  border-bottom: 1px solid var(--qcode-border);
+  background-color: var(--qcode-bar);
+  color: var(--qcode-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Each language's dot is its GitHub colour. */
+.quiz-rich .qcode-lang {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.quiz-rich .qcode-lang::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background-color: var(--qcode-dot, var(--qcode-muted));
+}
+
+.quiz-rich .qcode[data-lang="python"] { --qcode-dot: #3572A5; }
+.quiz-rich .qcode[data-lang="javascript"] { --qcode-dot: #F1E05A; }
+.quiz-rich .qcode[data-lang="typescript"] { --qcode-dot: #3178C6; }
+.quiz-rich .qcode[data-lang="java"] { --qcode-dot: #B07219; }
+.quiz-rich .qcode[data-lang="c"] { --qcode-dot: #555555; }
+.quiz-rich .qcode[data-lang="cpp"] { --qcode-dot: #F34B7D; }
+.quiz-rich .qcode[data-lang="csharp"] { --qcode-dot: #178600; }
+.quiz-rich .qcode[data-lang="sql"] { --qcode-dot: #E38C00; }
+.quiz-rich .qcode[data-lang="html"] { --qcode-dot: #E34C26; }
+.quiz-rich .qcode[data-lang="css"] { --qcode-dot: #663399; }
+.quiz-rich .qcode[data-lang="bash"] { --qcode-dot: #89E051; }
+.quiz-rich .qcode[data-lang="json"] { --qcode-dot: #8B949E; }
+.dark .quiz-rich .qcode[data-lang="c"] { --qcode-dot: #A8A8A8; }
+
+.quiz-rich .qcode-copy {
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--qcode-border);
+  border-radius: 0.375rem;
+  background: transparent;
+  color: var(--qcode-muted);
+  font: inherit;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.quiz-rich .qcode-copy:hover,
+.quiz-rich .qcode-copy:focus-visible {
+  color: var(--qcode-fg);
+  background-color: color-mix(in oklab, var(--qcode-fg) 8%, transparent);
+}
+
+.quiz-rich .qcode-body {
+  display: flex;
+  min-width: 0;
+}
+
+.quiz-rich .qcode-gutter,
+.quiz-rich .qcode-pre {
+  margin: 0;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  white-space: pre;
+  background: transparent;
+}
+
+.quiz-rich .qcode-gutter {
+  flex-shrink: 0;
+  padding-left: 0.75rem;
+  padding-right: 0.6rem;
+  border-right: 1px solid var(--qcode-border);
+  color: var(--qcode-muted);
+  text-align: right;
+  user-select: none;
+}
+
+.quiz-rich .qcode-pre {
+  flex: 1;
+  min-width: 0;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  tab-size: 4;
+}
+
+.quiz-rich .qcode-pre code.hljs {
+  display: block;
+  padding: 0;
+  overflow: visible;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.quiz-rich .qcode-compact {
+  border-radius: 0.5rem;
+}
+
+.quiz-rich .qcode-compact .qcode-bar {
+  padding: 0.15rem 0.6rem;
+  font-size: 0.625rem;
+}
+
+.quiz-rich .qcode-compact .qcode-pre {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .quiz-rich .qcode-gutter,
+  .quiz-rich .qcode-pre {
+    font-size: 0.875rem;
+  }
+
+  .quiz-rich .qcode-compact .qcode-pre {
+    font-size: 0.8125rem;
+  }
+}
+
+.quiz-rich .qcode .hljs-keyword,
+.quiz-rich .qcode .hljs-doctag,
+.quiz-rich .qcode .hljs-template-tag,
+.quiz-rich .qcode .hljs-template-variable,
+.quiz-rich .qcode .hljs-type,
+.quiz-rich .qcode .hljs-variable.language_ {
+  color: var(--qcode-keyword);
+}
+
+.quiz-rich .qcode .hljs-title,
+.quiz-rich .qcode .hljs-title.class_,
+.quiz-rich .qcode .hljs-title.function_ {
+  color: var(--qcode-title);
+}
+
+.quiz-rich .qcode .hljs-attr,
+.quiz-rich .qcode .hljs-attribute,
+.quiz-rich .qcode .hljs-literal,
+.quiz-rich .qcode .hljs-meta,
+.quiz-rich .qcode .hljs-number,
+.quiz-rich .qcode .hljs-operator,
+.quiz-rich .qcode .hljs-variable,
+.quiz-rich .qcode .hljs-selector-attr,
+.quiz-rich .qcode .hljs-selector-class,
+.quiz-rich .qcode .hljs-selector-id,
+.quiz-rich .qcode .hljs-section {
+  color: var(--qcode-number);
+}
+
+.quiz-rich .qcode .hljs-regexp,
+.quiz-rich .qcode .hljs-string,
+.quiz-rich .qcode .hljs-meta .hljs-string {
+  color: var(--qcode-string);
+}
+
+.quiz-rich .qcode .hljs-built_in,
+.quiz-rich .qcode .hljs-symbol,
+.quiz-rich .qcode .hljs-bullet {
+  color: var(--qcode-builtin);
+}
+
+.quiz-rich .qcode .hljs-comment,
+.quiz-rich .qcode .hljs-code,
+.quiz-rich .qcode .hljs-formula {
+  color: var(--qcode-comment);
+  font-style: italic;
+}
+
+.quiz-rich .qcode .hljs-name,
+.quiz-rich .qcode .hljs-quote,
+.quiz-rich .qcode .hljs-selector-tag,
+.quiz-rich .qcode .hljs-selector-pseudo {
+  color: var(--qcode-name);
+}
+
+.quiz-rich .qcode .hljs-subst,
+.quiz-rich .qcode .hljs-params,
+.quiz-rich .qcode .hljs-punctuation,
+.quiz-rich .qcode .hljs-property {
+  color: var(--qcode-fg);
+}
+
+.quiz-rich .qcode .hljs-section,
+.quiz-rich .qcode .hljs-strong {
+  font-weight: 700;
+}
+
+.quiz-rich .qcode .hljs-emphasis {
+  font-style: italic;
+}
+
+.quiz-rich .qcode .hljs-addition {
+  color: var(--qcode-add-fg);
+  background-color: var(--qcode-add-bg);
+}
+
+.quiz-rich .qcode .hljs-deletion {
+  color: var(--qcode-del-fg);
+  background-color: var(--qcode-del-bg);
+}

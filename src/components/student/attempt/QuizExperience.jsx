@@ -217,7 +217,7 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
             const record = questionStates[q.id];
             if (!record?.answerChecked) continue;
             const type = resolveQuestionType(q.questionType);
-            results[q.id] = type === "SELF_ASSESSMENT" ? null : checkAnswerCorrectness(type, record.answer, q.correctAnswer);
+            results[q.id] = type === "SELF_ASSESSMENT" ? null : checkAnswerCorrectness(type, record.answer, q.correctAnswer, q.options);
         }
         return results;
     }, [isPractice, questions, questionStates]);
@@ -373,7 +373,8 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
             return checkAnswerCorrectness(
                 resolveQuestionType(q.questionType),
                 userAnswer?.answer ?? userAnswer?.selectedOption,
-                q.correctAnswer
+                q.correctAnswer,
+                q.options
             );
         }).length;
     }, [submissionResult, parsedSubmissionAnswers]);

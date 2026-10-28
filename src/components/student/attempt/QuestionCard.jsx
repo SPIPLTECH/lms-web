@@ -10,6 +10,7 @@ import ArrangeTokensList from "./ArrangeTokensList";
 import MatchPairsGrid from "./MatchPairsGrid";
 import SelfAssessmentInput from "./SelfAssessmentInput";
 import ListenButton from "@/components/student/tts/ListenButton";
+import QuizRichText from "@/components/quiz/QuizRichText";
 import { resolveQuestionType, TRUE_FALSE_OPTIONS } from "@/lib/questionType";
 import { buildQuestionSpeech } from "@/lib/quizSpeech";
 import { resolveSpeechLang } from "@/lib/textToSpeech";
@@ -134,9 +135,14 @@ export default function QuestionCard({
     <div className="rounded-2xl border border-border bg-background p-2.5 sm:p-4 shadow-xl">
       {/* Question Text + Concept / Marks */}
       <div className="mb-2.5 sm:mb-4 flex items-start justify-between gap-2.5 min-w-0">
-        <h2 className="text-sm sm:text-xl font-semibold leading-snug text-foreground break-words flex-1 min-w-0">
-          {question.question}
+        {/* The heading is the question's number; the text itself is a <div>
+            because it may hold code blocks, which a heading cannot. */}
+        <h2 className="sr-only">
+          {questionNumber && totalQuestions ? `Question ${questionNumber} of ${totalQuestions}` : "Question"}
         </h2>
+        <div className="text-sm sm:text-xl font-semibold leading-snug text-foreground break-words flex-1 min-w-0">
+          <QuizRichText text={question.question} />
+        </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
           {/* Beside the question, not in a separate audio section, so it's
@@ -175,9 +181,9 @@ export default function QuestionCard({
                 <Lightbulb size={13} className="shrink-0" aria-hidden />
                 Hint
               </p>
-              <p className="mt-1.5 break-words text-xs leading-relaxed text-foreground sm:text-sm">
-                {hintText}
-              </p>
+              <div className="mt-1.5 break-words text-xs leading-relaxed text-foreground sm:text-sm">
+                <QuizRichText text={hintText} />
+              </div>
             </div>
           ) : (
             <button

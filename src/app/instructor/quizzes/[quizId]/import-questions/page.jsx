@@ -20,6 +20,7 @@ import {
   useImportQuestionsToQuiz,
 } from "@/hooks/queries/instructor/useQuestionRepository";
 import { useToast } from "@/components/ui/ToastProvider";
+import { quizTextSummary } from "@/lib/quizText";
 
 export default function ImportQuestionsToQuizPage({ params }) {
   const resolvedParams = use(params);
@@ -313,7 +314,7 @@ export default function ImportQuestionsToQuizPage({ params }) {
                         </div>
 
                         <h4 className="text-sm font-semibold text-foreground">{q.title || q.question.slice(0, 70)}</h4>
-                        <p className="text-xs text-muted-foreground line-clamp-2">{q.question}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-2">{quizTextSummary(q.question)}</p>
                       </div>
 
                       <div className="text-right shrink-0">
@@ -368,7 +369,7 @@ export default function ImportQuestionsToQuizPage({ params }) {
                     >
                       <div className="flex items-center space-x-2 truncate max-w-[200px]">
                         <span className="font-mono text-muted-foreground font-bold">#{idx + 1}</span>
-                        <span className="text-foreground font-medium truncate">{q.title || q.question}</span>
+                        <span className="text-foreground font-medium truncate">{q.title || quizTextSummary(q.question)}</span>
                       </div>
                       <button
                         onClick={() => toggleSelectQuestion(q)}

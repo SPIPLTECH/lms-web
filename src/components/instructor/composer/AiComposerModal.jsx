@@ -17,6 +17,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useGenerateAiContent } from "@/hooks/queries/instructor/useGenerateAiContent";
+import { quizTextSummary } from "@/lib/quizText";
 
 /**
  * Assigns client-side temporary IDs to canonical JSON entities for Course Composer draft state.
@@ -964,12 +965,12 @@ ${selectedScope === "QUIZ" ? `Quiz Level: ${quizLevel}` : ""}`;
                       <div className="space-y-2">
                         {generatedDraft.questions.map((q, i) => (
                           <div key={i} className="bg-background p-3 rounded-lg border border-border space-y-1">
-                            <strong className="text-purple-300 block">Q{i + 1}: {q.question}</strong>
+                            <strong className="text-purple-300 block">Q{i + 1}: {quizTextSummary(q.question)}</strong>
                             {Array.isArray(q.options) && (
                               <ul className="list-disc list-inside text-[11px] text-muted-foreground space-y-0.5">
                                 {q.options.map((opt, oIdx) => (
                                   <li key={oIdx} className={opt === q.correctAnswer ? "text-emerald-400 font-bold" : ""}>
-                                    {opt} {opt === q.correctAnswer && "✓"}
+                                    {quizTextSummary(opt)} {opt === q.correctAnswer && "✓"}
                                   </li>
                                 ))}
                               </ul>
