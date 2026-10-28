@@ -14,6 +14,7 @@ import {
   Lightbulb,
   Lock,
   PanelLeftClose,
+  XCircle,
 } from "lucide-react";
 
 import { NodeBadge } from "@/components/student/learning/CourseContentAccordion";
@@ -123,6 +124,9 @@ function StepRow({ step, isActive, onSelect, rowRef, tracksProgress }) {
       <span className="shrink-0 flex items-center">
         {step.locked ? (
           <Lock size={12} className="text-muted-foreground/70" aria-label="Locked" />
+        ) : tracksProgress && step.completed && step.passed === false ? (
+          // A Final failed on its last attempt: done, so the course goes on, but not passed.
+          <XCircle size={13} className="text-amber-500" aria-label="Not passed" />
         ) : tracksProgress && step.completed ? (
           <CheckCircle2 size={13} className="text-emerald-500" aria-label="Completed" />
         ) : null}
