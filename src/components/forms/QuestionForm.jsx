@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Plus,
@@ -38,6 +38,11 @@ const INITIAL_FORM = {
   shuffleOptions: false
 };
 
+// An imported question stores each option as { id, optionText, isCorrect, … }.
+// The form edits the text; the rest is kept aside and put back on save.
+const optionTextOf = (opt) =>
+  opt && typeof opt === "object" ? String(opt.optionText ?? opt.text ?? "") : String(opt ?? "");
+
 // UI-only field names/casing this form works with vs. the backend/Prisma
 // contract (questionType, subject, uppercase DifficultyLevel enum) — kept
 // as a translation layer at the submit/load boundary rather than renaming
@@ -71,6 +76,10 @@ export default function QuestionForm({
   
   // Submit tracking to clear form in "Save & Add Another"
   const [submitAction, setSubmitAction] = useState("save");
+  // Per option (same index as formData.options): the stored option object
+  // when it was one, so saving keeps its id, per-option explanation and the
+  // like instead of flattening it to text. null for a plain-text option.
+  const optionObjectsRef = useRef([]);
 
   useEffect(() => {
     if (initialValues) {
@@ -83,11 +92,26 @@ export default function QuestionForm({
       const rawDifficulty = initialValues.difficulty ?? "MEDIUM";
       const difficulty = rawDifficulty.charAt(0).toUpperCase() + rawDifficulty.slice(1).toLowerCase();
 
+      const storedOptions = initialValues.options;
+      const isChoice = type === "MCQ_SINGLE" || type === "MCQ_MULTI";
+      optionObjectsRef.current =
+        isChoice && Array.isArray(storedOptions)
+          ? storedOptions.map((opt) => (opt && typeof opt === "object" ? opt : null))
+          : [];
+      // A single answer saved as a one-item list (["an"]) is still one answer.
+      const storedCorrect = initialValues.correctAnswer ?? "";
+      const correctAnswer =
+        type === "MCQ_SINGLE" && Array.isArray(storedCorrect) && storedCorrect.length === 1
+          ? storedCorrect[0]
+          : storedCorrect;
+
       setFormData({
         type,
         question: initialValues.question ?? "",
-        options: initialValues.options ?? ["", "", "", ""],
-        correctAnswer: initialValues.correctAnswer ?? "",
+        options: isChoice && Array.isArray(storedOptions)
+          ? storedOptions.map(optionTextOf)
+          : storedOptions ?? ["", "", "", ""],
+        correctAnswer,
         marks: initialValues.marks ?? 5,
         concept: initialValues.concept ?? initialValues.tags ?? "",
         difficulty,
@@ -135,6 +159,7 @@ export default function QuestionForm({
       defaultCorrect = "";
     }
 
+    optionObjectsRef.current = [];
     setFormData((prev) => ({
       ...prev,
       type: newType,
@@ -172,7 +197,8 @@ export default function QuestionForm({
   const removeOption = (index) => {
     if (formData.options.length <= 2) return;
     const updatedOptions = formData.options.filter((_, i) => i !== index);
-    
+    optionObjectsRef.current = optionObjectsRef.current.filter((_, i) => i !== index);
+
     // Clean correct answer if removed
     let newCorrect = formData.correctAnswer;
     if (formData.type === "MCQ_SINGLE" && formData.correctAnswer === formData.options[index]) {
@@ -253,6 +279,19 @@ export default function QuestionForm({
       submissionData.correctAnswer = validTokens;
     } else if (formData.type === "SELF_ASSESSMENT") {
       submissionData.options = [];
+    } else if (optionObjectsRef.current.some(Boolean)) {
+      // Put each stored option object back around its edited text, with
+      // isCorrect (when it had one) following the answer chosen here.
+      const correct = Array.isArray(formData.correctAnswer) ? formData.correctAnswer : [formData.correctAnswer];
+      submissionData.options = formData.options.map((text, i) => {
+        const stored = optionObjectsRef.current[i];
+        if (!stored) return text;
+        return {
+          ...stored,
+          optionText: text,
+          ...("isCorrect" in stored ? { isCorrect: text !== "" && correct.includes(text) } : {}),
+        };
+      });
     }
 
     // Translate this form's UI-only field names to the backend contract
@@ -268,6 +307,7 @@ export default function QuestionForm({
     
     if (success && submitAction === "another") {
       // Clear form on Add Another click
+      optionObjectsRef.current = [];
       setFormData({
         ...INITIAL_FORM,
         type: formData.type, // keep type
