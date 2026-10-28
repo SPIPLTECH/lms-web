@@ -2,8 +2,12 @@
  * After a visit is recorded, the player marks the visited steps in its cached
  * learning sequence instead of refetching it (useMarkVisited). These pin what
  * that local edit may and may not change.
+ *
+ * Same for a completion (useCompleteContent): the step is marked completed in
+ * the cache as soon as the server confirms, so "Mark as Complete" does not
+ * come back while the sequence is refetched for its locks.
  */
-import { markStepsVisited } from "../learningSequence.js";
+import { markQuizStepAttempted, markStepsCompleted, markStepsVisited } from "../learningSequence.js";
 
 const AT = "2026-10-24T10:00:00.000Z";
 const step = (contentId, extra = {}) => ({ contentId, contentIds: [contentId], visited: false, visitedAt: null, locked: false, completed: false, ...extra });
@@ -52,6 +56,63 @@ function runTests() {
     {
       name: "missing data is passed through (no cache yet, no ids)",
       run: () => markStepsVisited(undefined, ["a"], AT) === undefined && markStepsVisited({ steps: [step("a")] }, [], AT).steps[0].visited === false,
+    },
+    {
+      name: "completion: the completed step reads completed at once, others untouched",
+      run: () => {
+        const seq = { steps: [step("a"), step("b")] };
+        const out = markStepsCompleted(seq, ["a"], true);
+        return out.steps[0].completed === true && out.steps[1].completed === false;
+      },
+    },
+    {
+      name: "completion: locks are left to the server's refetch",
+      run: () => {
+        const seq = { steps: [step("a"), step("b", { locked: true, blockedByIndex: 0 })] };
+        const out = markStepsCompleted(seq, ["a"], true);
+        return out.steps[1].locked === true && out.steps[1].blockedByIndex === 0 && out.steps[0].visited === false;
+      },
+    },
+    {
+      name: "completion: a merged step is completed only once every one of its parts is",
+      run: () => {
+        const merged = { steps: [{ ...step("a"), contentIds: ["a", "a2"] }] };
+        return markStepsCompleted(merged, ["a"], true) === merged && markStepsCompleted(merged, ["a", "a2"], true).steps[0].completed === true;
+      },
+    },
+    {
+      name: "completion: marking incomplete clears the flag",
+      run: () => {
+        const seq = { steps: [step("a", { completed: true })] };
+        return markStepsCompleted(seq, ["a"], false).steps[0].completed === false;
+      },
+    },
+    {
+      name: "completion: no change keeps the reference, input never mutated",
+      run: () => {
+        const seq = { steps: [step("a", { completed: true }), step("b")] };
+        const snapshot = JSON.stringify(seq);
+        const same = markStepsCompleted(seq, ["a"], true);
+        markStepsCompleted(seq, ["b"], true);
+        return same === seq && JSON.stringify(seq) === snapshot && markStepsCompleted(undefined, ["a"], true) === undefined;
+      },
+    },
+    {
+      name: "quiz submitted: its step reads attempted at once; completion and locks wait for the server",
+      run: () => {
+        const seq = { steps: [step("a"), step("q", { kind: "QUIZ", quizId: "quiz-1" }), step("b", { locked: true, blockedByIndex: 1 })] };
+        const out = markQuizStepAttempted(seq, "quiz-1");
+        return out.steps[1].attempted === true && out.steps[1].completed === false && out.steps[2].locked === true && out.steps[0] === seq.steps[0];
+      },
+    },
+    {
+      name: "quiz submitted: unknown quiz, already attempted or no cache keeps the reference",
+      run: () => {
+        const seq = { steps: [step("q", { kind: "QUIZ", quizId: "quiz-1", attempted: true })] };
+        const snapshot = JSON.stringify(seq);
+        return markQuizStepAttempted(seq, "quiz-1") === seq && markQuizStepAttempted(seq, "other") === seq &&
+          markQuizStepAttempted(undefined, "quiz-1") === undefined && markQuizStepAttempted(seq, null) === seq && JSON.stringify(seq) === snapshot;
+      },
     },
   ];
 

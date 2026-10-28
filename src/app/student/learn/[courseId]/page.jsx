@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { FastForward, ListTree, Lock, MoreHorizontal, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, FastForward, ListTree, Lock, MoreHorizontal, X } from "lucide-react";
 
 import LessonContentBlock from "@/components/student/learning/LessonContentBlock";
 import ContentCompletionBar from "@/components/student/learning/ContentCompletionBar";
@@ -10,6 +10,7 @@ import AssignmentWorkspacePanel from "@/components/student/learning/AssignmentWo
 import QuizExperience from "@/components/student/attempt/QuizExperience";
 import LearnSidePanel from "@/components/student/learning/LearnSidePanel";
 import LessonNavigationControls from "@/components/student/learning/LessonNavigationControls";
+import StudentBottomBar, { BottomBarItem } from "@/components/layouts/StudentBottomBar";
 import LearnPageHeader from "@/components/student/learning/LearnPageHeader";
 import EvaluatorFeedbackButton from "@/components/evaluator/EvaluatorFeedbackButton";
 import SkipQualificationModal from "@/components/student/learning/SkipQualificationModal";
@@ -109,6 +110,7 @@ export default function LearnPage() {
     data: sequence,
     isPending: isSequencePending,
     isError: isSequenceError,
+    isFetching: isSequenceFetching,
     refetch: refetchSequence,
   } = useLearningSequence(courseId);
   const steps = sequence?.steps || [];
@@ -487,6 +489,39 @@ export default function LearnPage() {
   const goToPreviousStep = () => goToStep(stepIndex - 1);
   const goToNextStep = (list = steps) => goToStep(stepIndex + 1, list);
 
+  // Every Next the student presses. A completion, a quiz or assignment
+  // submission or a finished video invalidates the sequence, and the server
+  // decides what that opened — until its answer lands the cached steps still
+  // show the next one locked, so Next straight after "Practice complete" said
+  // "Finish this quiz first" for an attempt the server had already recorded.
+  // While that refetch is in flight Next joins it (cancelRefetch: false — the
+  // same request, not a second 1.4 MB one) and decides on the fresh steps.
+  // Likewise when no refetch is running but the cached next step still reads
+  // locked: that refetch may have failed, leaving a step marked complete here
+  // with the locks from before — so a lock is confirmed with the server
+  // before "Finish … first" is shown. An open next step moves at once, with
+  // no request. One at a time: repeat taps are ignored. No loading state on
+  // the buttons — by request, Next and Previous never show one.
+  const nextPendingRef = useRef(false);
+  const goToNextStepFresh = async () => {
+    if (nextPendingRef.current) return;
+    if (!isSequenceFetching && !steps[stepIndex + 1]?.locked) {
+      goToNextStep();
+      return;
+    }
+    nextPendingRef.current = true;
+    try {
+      const result = await refetchSequence({ cancelRefetch: false });
+      if (result.isError) {
+        showToast("Couldn't load your latest progress. Check your connection and try Next again.", "error");
+        return;
+      }
+      goToNextStep(result.data?.steps || steps);
+    } finally {
+      nextPendingRef.current = false;
+    }
+  };
+
   // A finished video completes its step and moves on — once the refreshed
   // sequence says the next step is open, so the gate never reads stale flags.
   const handleVideoEnded = async () => {
@@ -494,7 +529,9 @@ export default function LearnPage() {
     if (!isOpenCourse && finished?.kind === "CONTENT" && !finished.completed) {
       try {
         await completeContentMutation.mutateAsync({ contentIds: finished.contentIds, completed: true });
-        const { data: fresh } = await refetchSequence();
+        // Joins the refetch the completion already started rather than
+        // cancelling it and starting the same request again.
+        const { data: fresh } = await refetchSequence({ cancelRefetch: false });
         goToNextStep(fresh?.steps || steps);
         return;
       } catch {
@@ -569,6 +606,9 @@ export default function LearnPage() {
   // A quiz not attempted yet hides the floating Prev/Next — the quiz itself is
   // the way through it.
   const hideFloatingNavForActiveQuiz = isQuizStep && !step?.attempted;
+  // While a quiz is being attempted — the step's own, or a qualifying test not
+  // yet submitted — the AI Assistant is not offered at any width.
+  const quizInProgress = hideFloatingNavForActiveQuiz || (Boolean(qualifyingAttempt) && !qualifyingSubmitted);
 
   const resultReturnTo = `/student/learn/${courseId}${step ? `?item=${step.contentId}` : ""}`;
 
@@ -647,7 +687,7 @@ export default function LearnPage() {
     previousItem: stepIndex > 0,
     nextItem: stepIndex < steps.length - 1,
     onSelectPrevious: goToPreviousStep,
-    onSelectNext: () => goToNextStep(),
+    onSelectNext: goToNextStepFresh,
   };
 
   // The learning ids the AI Assistant should be aware of. Quiz/assignment ids
@@ -964,12 +1004,20 @@ export default function LearnPage() {
                   gap above the frame. Spaced by the column's own gap (the
                   video frame adds its own space above it — FRAME_MODE_CLASSES);
                   its smaller size is set here, the button's own styles (and
-                  the xl overlay) are untouched. */}
-              {showCompletionBar && (
-                <div className="xl:hidden empty:hidden [&>button]:min-h-8 [&>button]:py-1 [&>button]:text-xs">
+                  the xl overlay) are untouched. Right-aligned, on the same
+                  side as the xl overlay. A video step has it below the
+                  player instead (after the frame). */}
+              {showCompletionBar && playerMode !== "aspect" && (
+                <div className="xl:hidden empty:hidden flex justify-end [&>button]:min-h-8 [&>button]:py-1 [&>button]:text-xs">
                   <ContentCompletionBar {...completionBarProps} />
                 </div>
               )}
+
+              {/* Phones, video: Previous/Next moved to the bottom bar, so the
+                  16:9 frame no longer has a row under it. These two spacers
+                  (1 : 2) set it a third of the way down the free space
+                  instead of leaving it at the top over an empty screen. */}
+              {playerMode === "aspect" && <div aria-hidden="true" className="hidden max-sm:block max-sm:flex-1" />}
 
               {/* flex-1: the frame takes all the height left in the column —
                   more when the header collapses, wider when the rail does —
@@ -1038,7 +1086,7 @@ export default function LearnPage() {
                         key={step.assignmentId}
                         assignmentId={step.assignmentId}
                         completed={step.completed}
-                        onNextContent={() => goToNextStep()}
+                        onNextContent={goToNextStepFresh}
                       />
                     </div>
                   ) : isQuizStep ? (
@@ -1048,7 +1096,7 @@ export default function LearnPage() {
                         quizId={step.quizId}
                         onBack={goToPreviousStep}
                         resultReturnTo={resultReturnTo}
-                        onNextContent={() => goToNextStep()}
+                        onNextContent={goToNextStepFresh}
                         speechLanguage={course?.language}
                       />
                     </div>
@@ -1116,13 +1164,25 @@ export default function LearnPage() {
                 )}
               </div>
 
-              {/* LESSON CONTENT Previous/Next — below xl only, under the
-                  player rather than floating over it. Same control and the
-                  same handlers as the xl overlay above. Distinct from the
+              {/* COMPLETION (below xl), video steps: the same button, right
+                  under the player rather than above it. Everything else
+                  about it is as described above. */}
+              {showCompletionBar && playerMode === "aspect" && (
+                <div className="xl:hidden empty:hidden flex justify-end [&>button]:min-h-8 [&>button]:py-1 [&>button]:text-xs">
+                  <ContentCompletionBar {...completionBarProps} />
+                </div>
+              )}
+
+              {playerMode === "aspect" && <div aria-hidden="true" className="hidden max-sm:block max-sm:flex-[2]" />}
+
+              {/* LESSON CONTENT Previous/Next — sm to xl, under the player
+                  rather than floating over it. Same control and the same
+                  handlers as the xl overlay above. Distinct from the
                   document-page row: Next here keeps the primary fill, while
-                  the document buttons stay neutral-outlined. */}
+                  the document buttons stay neutral-outlined. Phones get the
+                  same two controls in the bottom bar instead (below). */}
               {!hideFloatingNavForActiveQuiz && (
-                <div className="xl:hidden">
+                <div className="hidden sm:block xl:hidden">
                   <LessonNavigationControls variant="below" {...lessonNavProps} />
                 </div>
               )}
@@ -1171,7 +1231,39 @@ export default function LearnPage() {
           isEnrolled={isEnrolled}
           getPosition={getAiLearningPosition}
           side={isDesktop && playerMode === "aspect" ? "left" : "right"}
+          hideLauncherBelowSm
+          hidden={quizInProgress}
         />
+        {/* Phones: Previous | Ask AI | Next — lessonNavProps' handlers and
+            enabled rules, so it is the same control as the row above in a
+            third placement. Hidden with it while a quiz awaits its attempt;
+            during a qualifying test it keeps Previous/Next but no AI. */}
+        {!hideFloatingNavForActiveQuiz && (
+          <StudentBottomBar
+            ariaLabel="Lesson navigation"
+            showAi={!quizInProgress}
+            left={
+              <BottomBarItem
+                icon={ChevronLeft}
+                label="Previous"
+                onClick={lessonNavProps.onSelectPrevious}
+                disabled={!lessonNavProps.previousItem}
+                title={`Previous ${lessonNavProps.unitLabel}`}
+                ariaLabel="Previous content"
+              />
+            }
+            right={
+              <BottomBarItem
+                icon={ChevronRight}
+                label="Next"
+                onClick={lessonNavProps.onSelectNext}
+                disabled={!lessonNavProps.nextItem}
+                title={`Next ${lessonNavProps.unitLabel}`}
+                ariaLabel="Next content"
+              />
+            }
+          />
+        )}
       </div>
     </div>
   );

@@ -3,14 +3,13 @@
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { FaBars } from "@/components/ui/reactIcons";
-import { ChevronRight, Menu } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 
 import useAuth from "@/hooks/useAuth";
 import { useToast } from "@/components/ui/ToastProvider";
 import { useNotification } from "@/context/NotificationContext";
-import { useStudentNavDrawer } from "@/context/StudentNavDrawerContext";
 import { useInstructorNavDrawer } from "@/context/InstructorNavDrawerContext";
 import { useAdminNavDrawer } from "@/context/AdminNavDrawerContext";
 import Modal from "@/components/ui/Modal";
@@ -94,7 +93,6 @@ export default function Navbar({ title = "Dashboard", role }) {
   const { logout, user: currentUser } = useAuth();
   const { showToast } = useToast();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const { open: openStudentNavDrawer } = useStudentNavDrawer();
   const { open: openInstructorNavDrawer } = useInstructorNavDrawer();
   const { open: openAdminNavDrawer } = useAdminNavDrawer();
 
@@ -414,14 +412,8 @@ export default function Navbar({ title = "Dashboard", role }) {
           <div className="flex items-center gap-3 sm:gap-4 shrink-0">
             {isStudentRole && (
               <>
-                <button
-                  type="button"
-                  onClick={openStudentNavDrawer}
-                  aria-label="Open navigation menu"
-                  className="sm:hidden shrink-0 flex h-9 w-9 items-center justify-center rounded-lg text-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
-                >
-                  <Menu size={20} aria-hidden="true" />
-                </button>
+                {/* No hamburger: on phones the Student pages navigate with
+                    the bottom bar (StudentBottomBar). */}
                 <Link href="/student/my-courses" className="flex items-center gap-2 shrink-0 hover:opacity-90">
                   <Image
                     src="/images/logo.jpeg"
@@ -441,9 +433,9 @@ export default function Navbar({ title = "Dashboard", role }) {
           </div>
 
           {/* Primary nav — same in-header placement as Instructor's, desktop
-              only. On mobile, StudentNavDrawer (hamburger) already lists
-              these same sections, so showing them here too would duplicate
-              that menu. */}
+              only. On mobile, the bottom bar (StudentBottomTabs) already
+              lists these same sections, so showing them here too would
+              duplicate it. */}
           {isStudentRole && (
             <div className="hidden sm:flex flex-1 min-w-0 overflow-x-auto scrollbar-hide">
               <StudentNavigationStrip bare />

@@ -173,6 +173,7 @@ export default function MyCoursesPage() {
         courseTitle={primaryCourseTitle}
         isEnrolled={Boolean(primaryCourseId)}
         scopeHint="ENROLLED"
+        hideLauncherBelowSm
       />
     </div>
   );

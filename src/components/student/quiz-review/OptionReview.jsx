@@ -95,33 +95,35 @@ export default function OptionReview({ options = [], selectedAnswer, correctAnsw
               )}
             </div>
 
+            {/* The reason sits under the option's text — indented past the
+                letter badge (padding + badge + gap: 10+20+8px, 12+22+10px
+                from sm) — with its label on a line of its own. A label column
+                beside the text left the reason ~half the card's width on a
+                phone, so every option wrapped into a tall narrow block. No
+                band or divider of its own: the card already frames it. An
+                option the student neither picked nor should have is muted,
+                so the correct one and their own pick lead. */}
             {reason && (
-              <div
-                className={`border-t px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-[13px] leading-snug ${
-                  state === "correct"
-                    ? "border-emerald-500/20 bg-emerald-500/[0.03]"
-                    : state === "wrong"
-                      ? "border-rose-500/20 bg-rose-500/[0.03]"
-                      : "border-border/60 bg-muted/20"
-                }`}
-              >
-                <div className="flex items-start gap-2 sm:gap-2.5">
-                  <span
-                    className={`inline-flex shrink-0 items-center gap-1 pt-0.5 text-[10px] font-bold uppercase tracking-wider sm:text-[10.5px] ${
-                      state === "correct"
-                        ? "text-emerald-700 dark:text-emerald-300"
-                        : state === "wrong"
-                          ? "text-rose-700 dark:text-rose-300"
-                          : "text-muted-foreground"
-                    }`}
-                  >
-                    {state === "correct" ? <Check size={11} aria-hidden /> : <X size={11} aria-hidden />}
-                    {state === "correct" ? "Why it's correct:" : "Why it's wrong:"}
-                  </span>
-                  <p className="min-w-0 flex-1 break-words text-xs leading-snug text-foreground/85 sm:text-[13px]">
-                    {reason}
-                  </p>
-                </div>
+              <div className="pb-2 pl-[38px] pr-2.5 sm:pb-2.5 sm:pl-[44px] sm:pr-3">
+                <p
+                  className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider sm:text-[10.5px] ${
+                    state === "correct"
+                      ? "text-emerald-700 dark:text-emerald-300"
+                      : state === "wrong"
+                        ? "text-rose-700 dark:text-rose-300"
+                        : "text-muted-foreground"
+                  }`}
+                >
+                  {state === "correct" ? <Check size={11} aria-hidden /> : <X size={11} aria-hidden />}
+                  {state === "correct" ? "Why it's correct" : "Why it's wrong"}
+                </p>
+                <p
+                  className={`mt-0.5 break-words text-xs leading-relaxed sm:text-[13px] ${
+                    state === "other" ? "text-muted-foreground" : "text-foreground/85"
+                  }`}
+                >
+                  {reason}
+                </p>
               </div>
             )}
           </li>

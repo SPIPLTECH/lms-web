@@ -281,6 +281,25 @@ def check_query_keys_constants():
     return ("PASS", "Every queryKey starts from a constant (no inline string literal as first element).", "grep: 0 matches")
 
 
+def check_student_mobile_bottom_bar():
+    layout = _read("src/app/student/layout.jsx")
+    learn = _read("src/app/student/learn/[courseId]/page.jsx")
+    problems = []
+    if not _exists("src/components/layouts/StudentBottomBar.jsx"):
+        problems.append("src/components/layouts/StudentBottomBar.jsx is missing")
+    if "<StudentBottomTabs" not in layout:
+        problems.append("student layout does not render StudentBottomTabs")
+    if "<StudentBottomBar" not in learn or "lessonNavProps.onSelectNext" not in learn:
+        problems.append("learn page has no Previous/Next bottom bar wired to lessonNavProps")
+    drawer = _grep(["src"], r"StudentNavDrawer")
+    if drawer:
+        problems.append(f"{len(drawer)} reference(s) to the removed StudentNavDrawer: " + _fmt_hits(drawer))
+    if problems:
+        return ("FAIL", "Student phone navigation is not the bottom bar.", "; ".join(problems))
+    return ("PASS", "Phones use the bottom bar: Learning | Ask AI | Submissions, and Previous | Ask AI | Next on the learn page; no hamburger drawer.",
+            "StudentBottomBar.jsx exists; layout renders StudentBottomTabs; learn page renders StudentBottomBar; grep StudentNavDrawer: 0 matches")
+
+
 # --------------------------------------------------------------------------
 # CODE_CHECKS: executed on every sync (static analysis of the working tree)
 # --------------------------------------------------------------------------
@@ -362,6 +381,10 @@ CODE_CHECKS = [
          scenario="Student video plays only after the playback lease is held",
          expected="mediaProtected videos use usePlaybackLease; the player mounts only once lease.media exists",
          ref="Technical spec §8, §11 ('obtain the lease before requesting the media URL')"),
+    dict(id="TC-CL-020", component="src/components/layouts/StudentBottomBar.jsx", fn=check_student_mobile_bottom_bar,
+         scenario="Student phone navigation is the bottom bar; the hamburger drawer is gone",
+         expected="StudentBottomBar exists; student layout renders StudentBottomTabs; learn page renders StudentBottomBar with lessonNavProps; no StudentNavDrawer references",
+         ref="Bottom tab bar, option B (2026-10-28)"),
 ]
 
 
@@ -686,13 +709,13 @@ MANUAL_CASES = [
          steps="1. Open a lesson, tap ··· next to the title\n2. Switch between the two tabs\n3. Close with ✕, then reopen and close by tapping the dark area, then by swiping the title bar down\n4. Desktop (1280px+): open the side panel",
          expected="1. A sheet slides up from the bottom (title bar and video header stay above it); tabs 'Ask instructor' | 'Sticky notes', one always selected, no ⌄ chevrons\n2. Content switches without the sheet changing height; long content scrolls inside the sheet\n3. Each closes it\n4. Desktop right column unchanged (two buttons with chevrons, collapsible)",
          ref="learn page LEARNING TOOLS SHEET; LearnSidePanel tabs"),
-    dict(id="TC-UI-STU-017", component="src/app/student/learn/[courseId]/page.jsx", type="UI – Browser",
+    dict(id="TC-UI-STU-017", retired=True, component="src/app/student/learn/[courseId]/page.jsx", type="UI – Browser",
          scenario="Mobile video step: Mark as Complete above the player, frame fits the 16:9 video, Previous/Next right under it",
          pre=f"{_ENV}; enrolled STUDENT; viewport below 1280px (phone); a video step not yet completed. Read-only: do not press Mark as Complete.",
          steps="1. Open a video step\n2. Look at the space between the video's bottom edge and Previous/Next\n3. Open a document/text step and a completed step",
          expected="1. 'Mark as Complete' sits above the player (left), then the video\n2. No empty band inside the frame under the video; Previous/Next follow directly\n3. Document/text frames keep their height; a completed step shows no button and no extra gap. Desktop unchanged",
          ref="learn page FRAME_MODE_CLASSES (aspect) and COMPLETION (below xl)"),
-    dict(id="TC-UI-STU-018", component="src/features/ai-assistant/components/AiAssistantButton.jsx", type="UI – Browser",
+    dict(id="TC-UI-STU-018", retired=True, component="src/features/ai-assistant/components/AiAssistantButton.jsx", type="UI – Browser",
          scenario="Mobile learn page (360/390/430px): reference layout and the AI launcher fixed bottom-right, opening the existing assistant",
          pre=f"{_ENV}; STUDENT on a VIDEO step. May be run against API fixtures (Playwright route interception) — no backend writes.",
          steps="1. Open the video step at 360, 390 and 430px wide\n2. Measure layout; scroll; Tab to the launcher; tap it\n3. Repeat at 1440px",
@@ -722,6 +745,60 @@ MANUAL_CASES = [
          steps="1. Open /student/result/<quizId> at 360, 390 (dark and light) and 1440\n2. Tap Wrong, then Skipped; scroll the list\n3. A quiz that can still be retaken (answers hidden)",
          expected="1. Title (display font) with status and Listen; summary card with Score, Pass mark, Attempt, bar with pass mark, 'N more needed to pass', submitted date; cards with 'Question n of N, m mark', status tag, serif question text, Your answer / Correct answer, explanation with Listen\n2. Counts match the tags; the list shows only that status; filters stay pinned under the navbar; 10 questions per page with Previous / Page n of N / Next (44px buttons), a filter change returns to page 1, the pager hides when 10 or fewer\n3. 'Review answers' with the hidden-answers note and Retake Quiz",
          ref="result page REVIEW_FILTERS / SummaryFact; QuestionReviewCard getQuestionReviewStatus"),
+    dict(id="TC-UI-STU-024", component="src/components/layouts/StudentBottomBar.jsx", type="UI – Browser",
+         scenario="Phone bottom tabs: Learning | Ask AI | Submissions on every Student page, no hamburger; desktop unchanged",
+         pre=f"{_ENV}; STUDENT. {_RO}",
+         steps="1. At 360 and 390 wide open /student/my-courses, /student/assignments, a /student/result/<quizId>, /student/courses/<id>, /student/profile\n2. Tap Learning, then Submissions\n3. Scroll each page to the bottom\n4. Open /student/attempt/<quizId>\n5. Repeat 1 at 640 and 1440 wide",
+         expected="1. No hamburger in the top bar; fixed bar at the bottom above the gesture bar: Learning, purple Ask AI (raised, centred), Submissions, equal gaps. Learning lit on my-courses and courses/<id>; Submissions lit on assignments and result; nothing lit on profile\n2. Each opens its page\n3. Last content clears the bar (nothing hidden under it)\n4. No bar during an attempt\n5. From 640px up: no bar, top-bar strip as before",
+         ref="StudentBottomBar.jsx StudentBottomTabs; navigationItems.js matches; student layout bottomTabs"),
+    dict(id="TC-UI-STU-025", component="src/app/student/learn/[courseId]/page.jsx", type="UI – Browser",
+         scenario="Phone learn page: Previous | Ask AI | Next in the bottom bar; header, More and Mark as Complete unchanged; video a third of the way down",
+         pre=f"{_ENV}; enrolled STUDENT; a VIDEO step not yet completed; viewport 360/390/430 wide. {_RO} Do not press Mark as Complete.",
+         steps="1. Open the video step\n2. Check the header row and where the player sits\n3. Tap Next, then Previous; go to the first step\n4. Open a quiz step not yet attempted\n5. Repeat at 768 and 1440 wide",
+         expected="1. Bottom bar: Previous, purple Ask AI (centred), Next, equal gaps; no Previous/Next row under the player; no floating launcher\n2. Course Map, title, ··· More unchanged; the 16:9 player sits about a third of the way down the space below them, with Mark as Complete directly under it, right-aligned (document/text steps keep it above the frame, also right-aligned)\n3. Same steps and gates as the old buttons; Previous greyed on the first step\n4. Bar hidden while the quiz awaits its attempt, and no AI launcher at all (see TC-UI-STU-028)\n5. 768: Previous/Next row under the player as before, no bar; 1440: unchanged",
+         ref="learn page StudentBottomBar + aspect spacers; LessonNavigationControls below row now sm–xl"),
+    dict(id="TC-UI-STU-026", component="src/features/ai-assistant/components/AiAssistantWidget.jsx", type="UI – Browser",
+         scenario="Ask AI in the phone bottom bar opens the assistant with the page's own context",
+         pre=f"{_ENV}; STUDENT. {_RO} Open the window only; do not send a message.",
+         steps="1. At 390 wide tap Ask AI on /student/my-courses\n2. Close; tap Ask AI on /student/assignments\n3. Tap Ask AI on a learn page video step\n4. 1440 wide: /student/my-courses and /student/assignments",
+         expected="1. Assistant opens with 'Ask about <primary course>' and the enrolled suggestions\n2. Assistant opens with the general (course recommendations) suggestions\n3. Assistant opens for that course\n4. my-courses: floating purple launcher bottom-right as before; assignments: no launcher (unchanged)",
+         ref="AiLauncherContext (page widget priority 1, layout fallback 0); AiAssistantWidget hideLauncherBelowSm / fallback"),
+    dict(id="TC-UI-STU-027", component="src/hooks/queries/student/useCompleteContent.js", type="UI – Browser",
+         scenario="One tap on Mark as Complete is enough: the button does not come back while the sequence refreshes",
+         pre=f"{_ENV}; enrolled STUDENT; a non-video content step not yet completed. Marks progress (student-owned data only).",
+         steps="1. Open the step (phone 390 wide and 1440 wide)\n2. Tap Mark as Complete once and watch the button for 5 s\n3. Throttle the network to Slow 4G and repeat on another step",
+         expected="1-2. Saving, then the button is gone and stays gone; the Course Map shows the item done; Next opens the next step once the refresh lands\n3. Same, even while GET /progress/learning-sequence is still loading",
+         ref="useCompleteContent onSuccess markStepsCompleted (DEF-013)"),
+    dict(id="TC-UI-STU-028", component="src/features/ai-assistant/components/AiAssistantWidget.jsx", type="UI – Browser",
+         scenario="No AI Assistant while a quiz is being attempted on the learn page",
+         pre=f"{_ENV}; enrolled STUDENT; a quiz step not yet attempted, and a lesson with a skip offer. {_RO} Do not submit.",
+         steps="1. Open the AI window on a content step, then move to the quiz step (390 and 1440 wide)\n2. Look for the purple launcher and the bottom bar\n3. Open Skip this lesson → Take Qualifying Test\n4. Go back to a content step",
+         expected="1. The AI window closes\n2. No purple launcher at any width; no bottom bar on the phone\n3. Phone bar shows Previous and Next with an empty centre; no launcher on desktop\n4. Launcher (desktop) / Ask AI (phone bar) is back and the earlier conversation is kept",
+         ref="learn page quizInProgress; AiAssistantWidget hidden; StudentBottomBar showAi"),
+    dict(id="TC-UI-STU-029", component="src/components/student/attempt/QuizNavigation.jsx", type="UI – Browser",
+         scenario="Quiz pager on a phone: question numbers evenly spaced between ‹ and › when they fit; scroll when they do not",
+         pre=f"{_ENV}; STUDENT; quizzes with 2, 5 and 30 questions. {_RO} Do not submit.",
+         steps="1. Open each quiz at 360 and 390 wide\n2. Look at the gaps from ‹ through the numbers to ›\n3. On the 30-question quiz, swipe the strip to both ends and use ›\n4. Repeat at 1440 wide",
+         expected="1-2. Equal gaps everywhere, no slack bunched before › (measured 2026-10-28 with the app's classes at 390 wide: 5 questions → six 11.3px gaps, was 4/4/4/4/4/48)\n3. First and last numbers reachable, the current one scrolls into view\n4. Unchanged: numbers centred with 8px gaps",
+         ref="QuizNavigation number buttons max-sm:ml-auto max-sm:last:mr-auto"),
+    dict(id="TC-UI-STU-030", component="src/components/student/quiz-review/OptionReview.jsx", type="UI – Browser",
+         scenario="Checked Self-Test answer and quiz result: each option's reason sits under its text, full width, label on its own line",
+         pre=f"{_ENV}; STUDENT; a Self-Test whose options carry 'why it's wrong' reasons, and a graded quiz result. {_RO}",
+         steps="1. At 360 and 390 wide pick a wrong option and tap Check Answer\n2. Read each option card\n3. Open the quiz's result page\n4. Repeat at 1440 wide (dark and light)",
+         expected="1-2. Each card: letter + option + badge on one row; under the option text a small 'WHY IT'S CORRECT' / 'WHY IT'S WRONG' line, then the reason across the card (no narrow column beside a label, no inner band). Correct option green, your wrong pick red, other options' reasons muted (measured 2026-10-28 at 390 wide: reason 199px → 288px, 3 → 2 lines)\n3. Same layout on the result page\n4. Same layout, wider",
+         ref="OptionReview reason block (stacked label, indented to the option text)"),
+    dict(id="TC-UI-STU-031", component="src/app/student/learn/[courseId]/page.jsx", type="E2E",
+         scenario="Quiz finished on the learn page: Next goes straight on (no 'Finish this quiz first'), bottom bar appears at once",
+         pre=f"{_ENV}; enrolled STUDENT; a Self-Test step not yet attempted, a Final quiz, an already-completed quiz. Writes a quiz attempt and progress (student-owned data, approval needed).",
+         steps="1. Phone 390 wide: check every Self-Test answer\n2. The moment 'Practice complete' shows, tap Next once, then tap it again quickly\n3. Repeat with the bottom bar's Next\n4. Offline (DevTools) right after completing, tap Next\n5. A Final quiz failed / passed\n6. Open an already-completed quiz step and tap Next",
+         expected="1. Bottom bar (Previous · Ask AI · Next) appears as soon as 'Practice complete' does\n2. Next shows no loading state; it opens the next step once GET /progress/learning-sequence (already in flight) lands; one sequence request, no toast; the second tap does nothing\n3. Same\n4. 'Couldn't load your latest progress…' toast, the attempt is kept, Next works once back online\n5. Failed: the server-confirmed 'Finish … first' toast; passed: moves on\n6. Moves at once, no extra request",
+         ref="learn page goToNextStepFresh; useSubmitQuiz markQuizStepAttempted (DEF-014)"),
+    dict(id="TC-UI-STU-032", component="src/app/student/learn/[courseId]/page.jsx", type="E2E",
+         scenario="Mark as Complete, then Next at once: moves on, never 'Finish <this item> first'",
+         pre=f"{_ENV}; enrolled STUDENT; a document step not yet completed whose next step is locked behind it. Writes progress (student-owned data, approval needed). Reload the page after a code change before testing.",
+         steps="1. Phone 390 wide: tap Mark as Complete\n2. Tap Next immediately (while GET /progress/learning-sequence is in flight)\n3. Repeat with the network set to Offline right after Mark as Complete succeeds, tap Next, then go back online and tap Next",
+         expected="1. Button disappears after one tap\n2. No loading state on Next; it opens the next step once the sequence lands; one sequence request, no toast\n3. Offline: 'Couldn't load your latest progress…' (no 'Finish … first'); online: one fresh sequence request, then the next step opens",
+         ref="learn page goToNextStepFresh (in-flight join + locked-step re-check)"),
     dict(id="TC-UI-STU-010", component="src/app/student/attempt/[quizId]/page.jsx", type="E2E",
          scenario="Quiz attempt submit and result page",
          pre=f"{_ENV}; STUDENT enrolled; quiz available. Creates an attempt.", steps="1. Start quiz\n2. Answer\n3. Submit",
@@ -925,4 +1002,18 @@ SEED_DEFECTS = [
          expected="Course details, stats and curriculum render.",
          actual="Spinner for 30 s+; API calls only GET /auth/profile, /notifications, /calendar (no GET /courses/:id); no console error. Cause: commit bf1787c (2026-07-03) removed the useEffect that called loadCourse() on mount; loadCourse() now runs only after save/delete, and `loading` starts true.",
          severity="High", file="src/app/admin/courses/[courseId]/page.jsx"),
+    dict(id="DEF-013", tc="TC-UT-LEARNINGSEQUENCE-007; TC-UT-LEARNINGSEQUENCE-008; TC-UT-LEARNINGSEQUENCE-009; TC-UT-LEARNINGSEQUENCE-010; TC-UT-LEARNINGSEQUENCE-011; TC-UI-STU-027",
+         component="src/hooks/queries/student/useCompleteContent.js",
+         desc="Learn page: Mark as Complete needs two taps — after the first, the button comes back and stays until the learning sequence refetch lands.",
+         steps="1. Open a content step not yet completed\n2. Tap Mark as Complete once",
+         expected="Saving, then the button disappears.",
+         actual="Saving, then 'Mark as Complete' shows again until GET /progress/learning-sequence returns, so the student taps again (the second request changes nothing). Cause: the button reads step.completed from the LEARNING_SEQUENCE cache, but onSuccess wrote the fresh rollup only into COURSE_PROGRESS and left the sequence to a full refetch.",
+         severity="Medium", file="src/hooks/queries/student/useCompleteContent.js"),
+    dict(id="DEF-014", tc="TC-UI-STU-031; TC-UI-STU-032",
+         component="src/app/student/learn/[courseId]/page.jsx",
+         desc="After finishing a quiz on the learn page, Next shows 'Finish \u201cQuiz \u2026\u201d first. Attempt this quiz to complete it.' and the bottom bar appears ~5 s late.",
+         steps="1. Phone: check every Self-Test answer\n2. Tap Next on 'Practice complete'",
+         expected="Moves to the next step; bottom bar visible as soon as the attempt is saved.",
+         actual="Toast 'Finish \u2026 first' for ~4 s; bottom bar appears ~5 s later; the next tap works. Backend saved the attempt correctly (read-only check 2026-10-28: quiz step attempted+completed, next step unlocked; sequence computes in 1.4-3.7 s, 1.4 MB). Cause (frontend): Next and the bar's visibility read the pre-submit cached sequence while its refetch was in flight.",
+         severity="High", file="src/app/student/learn/[courseId]/page.jsx"),
 ]

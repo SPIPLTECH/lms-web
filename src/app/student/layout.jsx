@@ -7,8 +7,9 @@ import DashboardNavbar from "@/components/layouts/DashboardNavbar";
 import { useAuth } from "@/context/AuthContext";
 import { QaProvider } from "@/context/QaContext";
 import Loader from "@/components/common/Loader";
-import StudentNavDrawer from "@/components/layouts/StudentNavDrawer";
-import { StudentNavDrawerProvider } from "@/context/StudentNavDrawerContext";
+import { StudentBottomTabs } from "@/components/layouts/StudentBottomBar";
+import { AiLauncherProvider } from "@/features/ai-assistant/context/AiLauncherContext";
+import { AiAssistantWidget } from "@/features/ai-assistant/components";
 import ContentAccessGuard from "@/components/student/learning/ContentAccessGuard";
 import { isCourseContentPath } from "@/lib/sessionErrors";
 import EvaluatorNotice from "@/components/evaluator/EvaluatorNotice";
@@ -66,15 +67,16 @@ export default function Layout({ children }) {
     // address bar hidden, so while the bar shows, the bottom of this shell
     // (Previous/Next) sat behind it and under the fixed AI launcher. The
     // dynamic viewport follows the bar; on desktop the two are the same.
+    // On phones the learn page renders its own bottom bar (Previous | Ask AI
+    // | Next) instead of the tabs.
     return (
       <QaProvider>
-        <StudentNavDrawerProvider>
+        <AiLauncherProvider>
           <div className="h-dvh flex flex-col overflow-hidden">
             <DashboardNavbar role="STUDENT" title="Learning Workspace" />
             <div className="flex-1 min-h-0">{content}</div>
           </div>
-          <StudentNavDrawer />
-        </StudentNavDrawerProvider>
+        </AiLauncherProvider>
       </QaProvider>
     );
   }
@@ -91,30 +93,41 @@ export default function Layout({ children }) {
   // height. The page fits its two containers into it — the course card's
   // thumbnail gives way — so neither the page nor the course grid scrolls.
   // <main> scrolls only if a very long course list cannot fit at all.
+  // Phones navigate with the bottom bar (Learning | Ask AI | Submissions).
+  // Not during a quiz attempt, where one stray tap shouldn't leave it. The
+  // fallback widget is what Ask AI opens on pages without their own widget;
+  // it has no launcher of its own, so wider screens are unchanged.
+  const bottomTabs = pathname?.startsWith("/student/attempt") ? null : (
+    <>
+      <StudentBottomTabs />
+      <AiAssistantWidget fallback />
+    </>
+  );
+
   if (pathname === "/student/my-courses") {
     return (
       <QaProvider>
-        <StudentNavDrawerProvider>
+        <AiLauncherProvider>
           <div className="h-dvh flex flex-col bg-background">
             <DashboardNavbar role="STUDENT" title="Student Dashboard" />
             {evaluatorBanner && (
               <div className="shrink-0 w-full max-w-[1800px] mx-auto px-2 pt-3 sm:px-6 sm:pt-4 md:px-16">{evaluatorBanner}</div>
             )}
-            {/* max-sm bottom: room for the AI launcher (fixed bottom-right),
-                so it never sits on a course card's Continue button. */}
-            <main className="flex-1 min-h-0 overflow-y-auto w-full max-w-[1800px] mx-auto flex flex-col p-3 sm:p-6 max-sm:pb-[calc(3.5rem_+_env(safe-area-inset-bottom))]">
+            {/* max-sm bottom: room for the bottom bar and its raised AI
+                button, so neither sits on a course card's Continue button. */}
+            <main className="flex-1 min-h-0 overflow-y-auto w-full max-w-[1800px] mx-auto flex flex-col p-3 sm:p-6 max-sm:pb-[calc(5.25rem_+_env(safe-area-inset-bottom))]">
               <div className="max-w-[1600px] mx-auto w-full flex flex-col flex-1 min-h-0">{content}</div>
             </main>
           </div>
-          <StudentNavDrawer />
-        </StudentNavDrawerProvider>
+          {bottomTabs}
+        </AiLauncherProvider>
       </QaProvider>
     );
   }
 
   return (
     <QaProvider>
-      <StudentNavDrawerProvider>
+      <AiLauncherProvider>
         <DashboardLayout
           role="STUDENT"
           title="Student Dashboard"
@@ -124,8 +137,8 @@ export default function Layout({ children }) {
             {content}
           </div>
         </DashboardLayout>
-        <StudentNavDrawer />
-      </StudentNavDrawerProvider>
+        {bottomTabs}
+      </AiLauncherProvider>
     </QaProvider>
   );
 }

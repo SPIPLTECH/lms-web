@@ -31,3 +31,57 @@ export function markStepsVisited(sequence, contentIds, visitedAt) {
   });
   return touched ? { ...sequence, steps } : sequence;
 }
+
+/**
+ * Marks the steps whose Content rows were all just completed (or marked
+ * incomplete). Same contract as markStepsVisited: same object back when
+ * nothing changes, otherwise a copy.
+ *
+ * Only `completed` moves. Completing a step can unlock the next one, but
+ * that is the server's call — useCompleteContent still refetches the
+ * sequence for the locks; this only keeps the step on screen from offering
+ * "Mark as Complete" again while that refetch is in flight.
+ *
+ * @param {{ steps?: Array }} sequence  cached learning sequence
+ * @param {Iterable<string>} contentIds Content ids the server just recorded
+ * @param {boolean} completed           the value it recorded
+ */
+export function markStepsCompleted(sequence, contentIds, completed) {
+  if (!Array.isArray(sequence?.steps)) return sequence;
+  const ids = new Set(contentIds);
+  if (ids.size === 0) return sequence;
+
+  let touched = false;
+  const steps = sequence.steps.map((step) => {
+    const parts = step.contentIds?.length ? step.contentIds : [step.contentId];
+    if (Boolean(step.completed) === completed || !parts.every((id) => ids.has(id))) return step;
+    touched = true;
+    return { ...step, completed };
+  });
+  return touched ? { ...sequence, steps } : sequence;
+}
+
+/**
+ * Marks the step of a quiz the server just accepted an attempt for as
+ * attempted. Same contract as the two above.
+ *
+ * Only `attempted` moves — the one fact a successful submission states.
+ * Whether that attempt COMPLETES the step (a Final needs a pass) and what it
+ * unlocks are the server's rules, read from the refetched sequence. The
+ * player keys "a quiz is being attempted" (no Previous/Next, no AI) on this
+ * flag, so without it the bottom bar stayed hidden until that refetch landed.
+ *
+ * @param {{ steps?: Array }} sequence cached learning sequence
+ * @param {string} quizId              the quiz just submitted
+ */
+export function markQuizStepAttempted(sequence, quizId) {
+  if (!Array.isArray(sequence?.steps) || !quizId) return sequence;
+
+  let touched = false;
+  const steps = sequence.steps.map((step) => {
+    if (step.quizId !== quizId || step.attempted) return step;
+    touched = true;
+    return { ...step, attempted: true };
+  });
+  return touched ? { ...sequence, steps } : sequence;
+}

@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/constants/queryKeys";
-import { markStepsVisited } from "@/lib/learningSequence";
+import { markStepsCompleted, markStepsVisited } from "@/lib/learningSequence";
 import {
   markContentComplete,
   markContentCompleteBatch,
@@ -43,7 +43,7 @@ export function useCompleteContent() {
         ? markContentCompleteBatch(ids, completed)
         : markContentComplete(ids[0], completed);
     },
-    onSuccess: (data) => {
+    onSuccess: (data, { contentId, contentIds, completed = true } = {}) => {
       // The response's `courseProgress` (when present) IS the exact payload
       // GET /progress/courses/:courseId would return — the backend already
       // recomputed it, in the SAME request that just confirmed the write, to
@@ -81,6 +81,17 @@ export function useCompleteContent() {
       // the next one, so the gate has to be refetched alongside the numbers.
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_PATH] });
       // …and the learning sequence the player walks, which carries the locks.
+      // The learn page's "Mark as Complete" reads `completed` from this
+      // sequence, not from COURSE_PROGRESS above — so mark the step in the
+      // cached copy first. Otherwise the button came back the moment this
+      // request settled and stayed until the (slow, full) sequence refetch
+      // landed, which read as "the first click did nothing" and drew a second.
+      if (data?.progressTracked !== false) {
+        const ids = (Array.isArray(contentIds) && contentIds.length > 0 ? contentIds : [contentId]).filter(Boolean);
+        queryClient.setQueriesData({ queryKey: [QUERY_KEYS.LEARNING_SEQUENCE] }, (old) =>
+          markStepsCompleted(old, ids, completed)
+        );
+      }
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_SEQUENCE] });
       // The next action is derived from the path and the evidence, so it
       // moves whenever either does.
