@@ -1368,16 +1368,17 @@ export default function LearnPage() {
           hideLauncherBelowSm
           hidden={quizInProgress}
         />
-        {/* Phones: Previous | Ask AI | Next — lessonNavProps' handlers and
-            enabled rules, so it is the same control as the row above in a
-            third placement. Hidden with it while a quiz awaits its attempt;
-            during a qualifying test it keeps Previous/Next but no AI. */}
+        {/* Phones: Previous | Learning | Ask AI | Submissions | Next —
+            lessonNavProps' handlers and enabled rules alongside primary tabs.
+            Hidden with it while a quiz awaits its attempt; during a qualifying
+            test it keeps navigation controls without AI. */}
         {!hideFloatingNavForActiveQuiz && (
           <StudentBottomBar
             ariaLabel="Lesson navigation"
             tourId="lesson-nav"
             tourTap="Tap Next"
             showAi={!quizInProgress}
+            includePrimaryTabs
             left={
               <BottomBarItem
                 icon={ChevronLeft}
@@ -1386,6 +1387,7 @@ export default function LearnPage() {
                 disabled={!lessonNavProps.previousItem}
                 title={`Previous ${lessonNavProps.unitLabel}`}
                 ariaLabel="Previous content"
+                compact
               />
             }
             right={
@@ -1396,6 +1398,7 @@ export default function LearnPage() {
                 disabled={!lessonNavProps.nextItem}
                 title={`Next ${lessonNavProps.unitLabel}`}
                 ariaLabel="Next content"
+                compact
               />
             }
           />
