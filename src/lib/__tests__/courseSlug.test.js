@@ -81,6 +81,10 @@ function runTests() {
       name: "the tour resolves the course of a readable learn URL to its id",
       run: () => resolveTourCourseId("/student/learn/cdac-c-cat-course-section-b", ENROLLMENTS) === B,
     },
+    {
+      name: "before the enrollments load, a readable key is never taken for a course id",
+      run: () => resolveTourCourseId("/student/learn/cdac-c-cat-course-section-b", []) === null,
+    },
   ];
 
   let passed = 0;
