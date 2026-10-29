@@ -43,6 +43,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Orange LMS",
   description: "Learning Management System",
+  icons: {
+    icon: [
+      { url: "/otreelms.svg", type: "image/svg+xml", sizes: "any" },
+    ],
+    shortcut: "/otreelms.svg",
+    apple: "/otreelms.svg",
+  },
 };
 
 export default function RootLayout({

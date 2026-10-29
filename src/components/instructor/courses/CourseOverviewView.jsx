@@ -40,6 +40,7 @@ export function CourseOverviewView({
   const isPublished = status === "PUBLISHED";
   const isArchived = status === "ARCHIVED";
   const isDraft = status === "DRAFT";
+  const isAuthor = role === "INSTRUCTOR" || role === "ADMIN";
   const hideOnMobile = mobileCompact ? "max-lg:hidden" : "";
   const [localContentAutoOpenSignal, setContentAutoOpenSignal] = useState(0);
   const contentAutoOpenSignal = externalContentAutoOpenSignal + localContentAutoOpenSignal;
@@ -95,7 +96,7 @@ export function CourseOverviewView({
             {/* Save — hidden until the course actually has unsaved changes
                 (imported-draft flow), so a course sitting untouched shows no
                 dead action. */}
-            {role === "INSTRUCTOR" && !isArchived && hasUnsavedChanges && (
+            {isAuthor && !isArchived && hasUnsavedChanges && (
               <button
                 type="button"
                 className="btn shrink-0 rounded-xl border border-border bg-background hover:bg-muted text-foreground text-sm font-bold px-3 py-1.5 transition cursor-pointer disabled:opacity-50"
@@ -107,7 +108,7 @@ export function CourseOverviewView({
               </button>
             )}
 
-            {role === "INSTRUCTOR" && isDraft && onPublishClick && (
+            {role === "ADMIN" && isDraft && onPublishClick && (
               <button
                 type="button"
                 className="btn shrink-0 rounded-xl bg-primary hover:bg-orange-600 active:scale-95 text-slate-950 font-black text-sm px-3.5 py-1.5 transition shadow-md cursor-pointer"
@@ -117,7 +118,7 @@ export function CourseOverviewView({
               </button>
             )}
 
-            {role === "INSTRUCTOR" && isPublished && onUnpublishClick && (
+            {role === "ADMIN" && isPublished && onUnpublishClick && (
               <button
                 type="button"
                 className="btn shrink-0 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 font-bold text-sm px-3.5 py-1.5 transition cursor-pointer"
@@ -127,7 +128,7 @@ export function CourseOverviewView({
               </button>
             )}
 
-            {role === "INSTRUCTOR" && isArchived && onRestoreClick && (
+            {role === "ADMIN" && isArchived && onRestoreClick && (
               <button
                 type="button"
                 className="btn shrink-0 rounded-xl border border-purple-500/40 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 font-bold text-sm px-3.5 py-1.5 transition cursor-pointer flex items-center gap-1.5"
@@ -138,7 +139,7 @@ export function CourseOverviewView({
               </button>
             )}
 
-            {role === "INSTRUCTOR" && (
+            {isAuthor && (
               <button
                 className={`btn ${isEditing ? "btn-primary bg-primary text-slate-950" : "btn-outline-primary border border-border text-foreground hover:text-foreground"} rounded-xl px-3 py-1.5 text-sm font-bold transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed`}
                 onClick={() => (isEditing ? onSaveCourseMeta?.() : setIsEditing(true))}
@@ -330,7 +331,7 @@ export function CourseOverviewView({
               </div>
 
               {/* Course-Level Content Cells */}
-              {role === "INSTRUCTOR" && !isDraftMode && (
+              {isAuthor && !isDraftMode && (
                 <div className="pt-4 border-t border-border/80 space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-base font-bold text-foreground">Course Content</h3>

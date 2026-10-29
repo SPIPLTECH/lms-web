@@ -29,6 +29,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { useToast } from "@/components/ui/ToastProvider";
 import { useConfirm } from "@/context/ConfirmContext";
+import { useAuth } from "@/context/AuthContext";
 import { LessonComposerPanel } from "@/components/instructor/LessonComposer/LessonComposerPanel";
 import { createQuiz as createQuizService, updateQuiz as updateQuizService, deleteQuiz as deleteQuizService, getQuizById as getQuizByIdService } from "@/services/quiz.service";
 import {
@@ -130,6 +131,7 @@ export default function CourseDetailsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const courseId = params.courseId;
+  const { user } = useAuth();
   const { showToast } = useToast();
   const confirm = useConfirm();
   const confirmDelete = (title, message) => confirm({ title, message, confirmText: "Delete" });
@@ -2865,6 +2867,7 @@ export default function CourseDetailsPage() {
           <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl border border-transparent bg-background/60 p-2 pt-0 sm:p-6 sm:pt-0 shadow-xl">
             {composerMode === "course" && (
               <CourseOverviewView
+                role={user?.role || "INSTRUCTOR"}
                 course={effectiveCourse}
                 courseForm={courseForm}
                 setCourseForm={setCourseForm}

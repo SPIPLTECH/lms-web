@@ -69,17 +69,105 @@ async function verifyAuth(request, { purpose } = {}) {
   throw new Error("Unauthorized: Role not permitted to upload files");
 }
 
-/** A student submission must genuinely be a PDF, by both declared type and extension. */
-function assertStudentPdf(file) {
+const ALLOWED_INSTRUCTOR_EXTENSIONS = new Set([
+  ".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xlsx", ".zip",
+  ".csv", ".tsv", ".txt", ".md", ".json",
+  ".jpg", ".jpeg", ".png", ".webp", ".gif",
+  ".mp4", ".webm", ".mov", ".mp3", ".wav", ".ogg", ".m4a",
+]);
+
+const FORBIDDEN_UPLOAD_MIMES = new Set([
+  "image/svg+xml",
+  "text/html",
+  "application/xhtml+xml",
+  "text/xml",
+  "application/xml",
+  "application/javascript",
+  "text/javascript",
+  "application/x-shockwave-flash",
+  "application/x-msdownload",
+]);
+
+function getLowerExtension(name) {
+  const idx = name.lastIndexOf(".");
+  return idx >= 0 ? name.slice(idx).toLowerCase() : "";
+}
+
+function badUpload(message) {
+  const err = new Error(message);
+  err.status = 400;
+  return err;
+}
+
+async function assertValidUploadSignature(file, ext) {
+  const slice = file.slice(0, Math.min(file.size || 0, 4096));
+  const bytes = new Uint8Array(await slice.arrayBuffer());
+  if (bytes.length === 0) {
+    throw badUpload("Uploaded file is empty");
+  }
+  const startsWith = (...seq) => bytes.length >= seq.length && seq.every((b, i) => bytes[i] === b);
+
+  if (ext === ".pdf" && !startsWith(0x25, 0x50, 0x44, 0x46, 0x2d)) {
+    throw badUpload("File content does not match PDF signature");
+  }
+  if (ext === ".png" && !startsWith(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) {
+    throw badUpload("File content does not match PNG signature");
+  }
+  if ((ext === ".jpg" || ext === ".jpeg") && !startsWith(0xff, 0xd8, 0xff)) {
+    throw badUpload("File content does not match JPEG signature");
+  }
+  if (ext === ".gif" && !startsWith(0x47, 0x49, 0x46, 0x38)) {
+    throw badUpload("File content does not match GIF signature");
+  }
+  if (
+    ext === ".webp" &&
+    !(bytes.length >= 12 && startsWith(0x52, 0x49, 0x46, 0x46) && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50)
+  ) {
+    throw badUpload("File content does not match WebP signature");
+  }
+  if (
+    (ext === ".zip" || ext === ".docx" || ext === ".pptx" || ext === ".xlsx") &&
+    !startsWith(0x50, 0x4b, 0x03, 0x04) &&
+    !startsWith(0x50, 0x4b, 0x05, 0x06)
+  ) {
+    throw badUpload(`File content does not match ${ext.toUpperCase()} archive signature`);
+  }
+  if ((ext === ".doc" || ext === ".ppt") && !startsWith(0xd0, 0xcf, 0x11, 0xe0)) {
+    throw badUpload(`File content does not match ${ext.toUpperCase()} document signature`);
+  }
+  if ([".txt", ".csv", ".tsv", ".md", ".json"].includes(ext)) {
+    if (startsWith(0x4d, 0x5a) || startsWith(0x7f, 0x45, 0x4c, 0x46) || bytes.includes(0x00)) {
+      throw badUpload("Binary content is not permitted inside a text upload");
+    }
+    const head = new TextDecoder("utf-8").decode(bytes).replace(/^\uFEFF/, "").trimStart().slice(0, 256).toLowerCase();
+    if (head.startsWith("<!doctype html") || head.startsWith("<html") || head.startsWith("<svg") || head.startsWith("<script") || head.includes("<svg")) {
+      throw badUpload("Active HTML/SVG markup is not permitted in uploads");
+    }
+  }
+}
+
+/** A student submission must genuinely be a PDF, by declared type, extension, and %PDF- signature. */
+async function assertStudentPdf(file) {
   const name = typeof file.name === "string" ? file.name : "";
   const type = typeof file.type === "string" ? file.type : "";
 
   if (type !== "application/pdf" || !/\.pdf$/i.test(name)) {
-    throw new Error("Only PDF files can be submitted for an assignment");
+    throw badUpload("Only PDF files can be submitted for an assignment");
   }
   if (typeof file.size === "number" && file.size > STUDENT_MAX_BYTES) {
-    throw new Error("The submitted PDF must be 20MB or smaller");
+    throw badUpload("The submitted PDF must be 20MB or smaller");
   }
+  await assertValidUploadSignature(file, ".pdf");
+}
+
+async function assertInstructorUploadAllowed(file) {
+  const name = typeof file.name === "string" ? file.name : "";
+  const mime = (typeof file.type === "string" ? file.type : "").split(";")[0].trim().toLowerCase();
+  const ext = getLowerExtension(name);
+  if (!ALLOWED_INSTRUCTOR_EXTENSIONS.has(ext) || FORBIDDEN_UPLOAD_MIMES.has(mime)) {
+    throw badUpload(`File type ${ext || mime || "unknown"} is not permitted for upload`);
+  }
+  await assertValidUploadSignature(file, ext);
 }
 
 export async function POST(request) {
@@ -102,7 +190,9 @@ export async function POST(request) {
 
     const isStudentSubmission = role === "STUDENT";
     if (isStudentSubmission) {
-      assertStudentPdf(file);
+      await assertStudentPdf(file);
+    } else {
+      await assertInstructorUploadAllowed(file);
     }
 
     // 3. Verify Server Secret Token for Vercel Blob

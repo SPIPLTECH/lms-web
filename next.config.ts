@@ -14,8 +14,59 @@ const PRIVATE_LAN_DEV_ORIGINS = [
     ...Array.from({ length: 16 }, (_, i) => `172.${16 + i}.*.*`),
 ];
 
+const isProd = process.env.NODE_ENV === "production";
+
+// Explicit script-src Content-Security-Policy to constrain executable script
+// origins and block eval/object gadgets if an XSS sink occurs.
+const CONTENT_SECURITY_POLICY = [
+    "default-src 'self'",
+    `script-src 'self' 'unsafe-inline'${isProd ? "" : " 'unsafe-eval'"} https://accounts.google.com https://apis.google.com https://checkout.razorpay.com https://www.youtube.com https://s.ytimg.com blob:`,
+    "worker-src 'self' blob:",
+    "style-src 'self' 'unsafe-inline' https://accounts.google.com https://fonts.googleapis.com",
+    "img-src 'self' data: blob: https: http:",
+    "media-src 'self' data: blob: https: http:",
+    "font-src 'self' data: https://fonts.gstatic.com",
+    "connect-src 'self' https: http: ws: wss:",
+    "frame-src 'self' https://accounts.google.com https://api.razorpay.com https://checkout.razorpay.com https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com blob:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'self'",
+].join("; ");
+
 const nextConfig: NextConfig = {
     allowedDevOrigins: PRIVATE_LAN_DEV_ORIGINS,
+    async headers() {
+        const securityHeaders = [
+            {
+                key: "Content-Security-Policy",
+                value: CONTENT_SECURITY_POLICY,
+            },
+            {
+                key: "X-Content-Type-Options",
+                value: "nosniff",
+            },
+            {
+                key: "Referrer-Policy",
+                value: "strict-origin-when-cross-origin",
+            },
+            ...(isProd
+                ? [
+                      {
+                          key: "Strict-Transport-Security",
+                          value: "max-age=63072000; includeSubDomains; preload",
+                      },
+                  ]
+                : []),
+        ];
+
+        return [
+            {
+                source: "/:path*",
+                headers: securityHeaders,
+            },
+        ];
+    },
     images: {
         remotePatterns: [
             {

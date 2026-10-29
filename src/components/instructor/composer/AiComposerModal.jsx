@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useGenerateAiContent } from "@/hooks/queries/instructor/useGenerateAiContent";
 import { quizTextSummary } from "@/lib/quizText";
+import { sanitizeAiPreviewHtml } from "@/lib/sanitizeAiPreviewHtml";
 
 /**
  * Assigns client-side temporary IDs to canonical JSON entities for Course Composer draft state.
@@ -929,7 +930,7 @@ ${selectedScope === "QUIZ" ? `Quiz Level: ${quizLevel}` : ""}`;
                           <div key={i} className="bg-background p-2.5 rounded-lg border border-border">
                             <span className="text-[10px] uppercase font-bold text-emerald-400 block">{c.type || "HTML"} Content</span>
                             <strong className="text-foreground block">{c.title}</strong>
-                            {c.htmlContent && <div className="text-[11px] text-muted-foreground mt-1 line-clamp-3" dangerouslySetInnerHTML={{ __html: c.htmlContent }} />}
+                            {c.htmlContent && <div className="text-[11px] text-muted-foreground mt-1 line-clamp-3" dangerouslySetInnerHTML={{ __html: sanitizeAiPreviewHtml(c.htmlContent) }} />}
                           </div>
                         ))}
                       </div>
@@ -944,7 +945,7 @@ ${selectedScope === "QUIZ" ? `Quiz Level: ${quizLevel}` : ""}`;
                         <div key={i} className="bg-background p-3 rounded-lg border border-border space-y-1">
                           <span className="text-[10px] uppercase font-bold text-teal-400">{c.type || "HTML"} Block</span>
                           <h5 className="font-bold text-foreground">{c.title}</h5>
-                          {c.htmlContent && <div className="text-foreground font-mono text-[11px] whitespace-pre-wrap bg-background p-2 rounded border border-border" dangerouslySetInnerHTML={{ __html: c.htmlContent }} />}
+                          {c.htmlContent && <div className="text-foreground font-mono text-[11px] whitespace-pre-wrap bg-background p-2 rounded border border-border" dangerouslySetInnerHTML={{ __html: sanitizeAiPreviewHtml(c.htmlContent) }} />}
                         </div>
                       ))
                     ) : (
