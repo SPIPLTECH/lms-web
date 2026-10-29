@@ -20,13 +20,11 @@ import StudentCourseMap from "@/components/student/learning/StudentCourseMap";
 import { buildPathIndex, getSkipOfferForScope } from "@/lib/learningPath";
 
 import {
-  useCourse,
   useStudentState,
   useUpdateStudentState,
   useCompleteContent,
   useMarkVisited,
 } from "@/hooks/queries/student";
-import useLearningPath from "@/hooks/queries/student/useLearningPath";
 import useLearningSequence from "@/hooks/queries/student/useLearningSequence";
 import usePlaybackLease from "@/hooks/queries/student/usePlaybackLease";
 import useQuizResult from "@/hooks/queries/student/useQuizResult";
@@ -77,15 +75,6 @@ export default function LearnPage() {
   const { user } = useAuth();
   const isEvaluator = Boolean(user?.evaluator);
 
-  // Course metadata only (title, language): what the player walks comes from
-  // the learning sequence below. Shallow — the full tree (~300 KB, seconds
-  // slower) is never read here, and the page waits for this query.
-  const { data: course, isLoading, isError } = useCourse(courseId, { shallow: true });
-  // Sequential learning off: every step is open (backend `unlockAll`) and the
-  // course keeps no progress — nothing is marked complete or visited, and the
-  // player shows no completion strip.
-  const isOpenCourse = course?.sequentialLearning === false;
-
   // Same enrollment gate as /student/courses/[courseId] — this is the actual
   // lesson content, not just an overview. A non-enrolled student who reaches
   // this URL directly is sent back to My Courses (enrollment happens on the
@@ -103,27 +92,35 @@ export default function LearnPage() {
   // assignments — as one ordered list of steps, with the server's completed /
   // visited / locked flags. Prev/Next, the Course Map, resume and the
   // completion strip all read it; nothing here orders, merges or gates items.
-  // Fetched alongside the enrollment list rather than after it: the server
-  // refuses a student who is not enrolled (403), and the loader below keeps
-  // such a student on a spinner until the redirect above sends them away.
+  // Not gated on the enrollment list: the server refuses a non-enrolled student itself (403), and the render guard below waits on isEnrolled, so starting in parallel only saves the wait.
   const {
     data: sequence,
     isPending: isSequencePending,
     isError: isSequenceError,
     isFetching: isSequenceFetching,
     refetch: refetchSequence,
-  } = useLearningSequence(courseId);
+  } = useLearningSequence(courseId, { withPath: true });
   const steps = sequence?.steps || [];
   const containersById = useMemo(() => indexContainers(sequence?.tree), [sequence]);
+
+  // The course record fields the player shows (title, language) ride on the
+  // sequence, so the page needs no GET /courses/:id of its own.
+  const course = useMemo(
+    () => (sequence ? { id: courseId, title: sequence.title, language: sequence.language } : null),
+    [sequence, courseId]
+  );
+  // Sequential learning off: every step is open (backend `unlockAll`) and the
+  // course keeps no progress — nothing is marked complete or visited, and the
+  // player shows no completion strip. The server reports it as
+  // progressTracked: false.
+  const isOpenCourse = sequence?.progressTracked === false;
 
   const completeContentMutation = useCompleteContent();
   const markVisitedMutation = useMarkVisited();
 
   // The server's lesson/topic path — read here only for qualifying-test
-  // (skip) offers. Asked for once the sequence is in, so its roll-up does not
-  // compete with the sequence's on the way to first paint; a skip offer
-  // appearing a moment later costs nothing.
-  const { data: learningPathData } = useLearningPath(courseId, { enabled: Boolean(sequence) });
+  // (skip) offers. Comes with the sequence (same roll-up, same request).
+  const learningPathData = sequence?.learningPath;
   const pathIndex = useMemo(
     () => buildPathIndex(learningPathData?.path),
     [learningPathData]
@@ -569,11 +566,11 @@ export default function LearnPage() {
     videoPlayerRef.current?.seekTo(seconds);
   };
 
-  if (isLoading || isEnrollmentsLoading || !isEnrolled || isSequencePending || !stateRestored) {
+  if (isEnrollmentsLoading || !isEnrolled || isSequencePending || !stateRestored) {
     return <Loader />;
   }
 
-  if (isError || !course || isSequenceError || !sequence) {
+  if (isSequenceError || !sequence) {
     return <Card className="text-foreground">Course not found.</Card>;
   }
 

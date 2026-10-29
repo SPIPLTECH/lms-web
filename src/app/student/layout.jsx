@@ -88,11 +88,6 @@ export default function Layout({ children }) {
       </div>
     ) : null;
 
-  // My Courses fits the screen: a viewport-height shell (h-dvh, so a phone's
-  // address bar is allowed for) whose <main> hands the page a definite
-  // height. The page fits its two containers into it — the course card's
-  // thumbnail gives way — so neither the page nor the course grid scrolls.
-  // <main> scrolls only if a very long course list cannot fit at all.
   // Phones navigate with the bottom bar (Learning | Ask AI | Submissions).
   // Not during a quiz attempt, where one stray tap shouldn't leave it. The
   // fallback widget is what Ask AI opens on pages without their own widget;
@@ -103,27 +98,6 @@ export default function Layout({ children }) {
       <AiAssistantWidget fallback />
     </>
   );
-
-  if (pathname === "/student/my-courses") {
-    return (
-      <QaProvider>
-        <AiLauncherProvider>
-          <div className="h-dvh flex flex-col bg-background">
-            <DashboardNavbar role="STUDENT" title="Student Dashboard" />
-            {evaluatorBanner && (
-              <div className="shrink-0 w-full max-w-[1800px] mx-auto px-2 pt-3 sm:px-6 sm:pt-4 md:px-16">{evaluatorBanner}</div>
-            )}
-            {/* max-sm bottom: room for the bottom bar and its raised AI
-                button, so neither sits on a course card's Continue button. */}
-            <main className="flex-1 min-h-0 overflow-y-auto w-full max-w-[1800px] mx-auto flex flex-col p-3 sm:p-6 max-sm:pb-[calc(5.25rem_+_env(safe-area-inset-bottom))]">
-              <div className="max-w-[1600px] mx-auto w-full flex flex-col flex-1 min-h-0">{content}</div>
-            </main>
-          </div>
-          {bottomTabs}
-        </AiLauncherProvider>
-      </QaProvider>
-    );
-  }
 
   return (
     <QaProvider>
