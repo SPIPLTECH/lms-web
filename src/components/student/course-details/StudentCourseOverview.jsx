@@ -69,8 +69,8 @@ export default function StudentCourseOverview({ course, progress, sequence, hasP
       : isComplete
         ? "Review course"
         : hasProgress
-          ? "Continue learning"
-          : "Start learning";
+          ? "Continue Learning"
+          : "Start Learning";
 
   // Where Continue lands: the resume step and the lesson that holds it.
   const nextStep = sequence?.steps?.[sequence?.resumeIndex] || null;

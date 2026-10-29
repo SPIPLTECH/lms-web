@@ -512,7 +512,11 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                        height: a flex column taking the content area's
                        remaining space, which each viewer fits its page,
                        slide or reflowed document into. */
-                    <div className="w-full flex-1 min-h-0 flex flex-col">
+                    <div
+                        onContextMenu={(e) => e.preventDefault()}
+                        onDragStart={(e) => e.preventDefault()}
+                        onCopy={(e) => e.preventDefault()}
+                        className="w-full flex-1 min-h-0 flex flex-col select-none">
                         {isPdfUrl(displayFileUrl) ? (
                             <PdfViewer fileUrl={displayFileUrl} title={content?.title} hideToolbar fillHeight onPageStateChange={reportPdfPage} readAloud={documentReadAloud} touchZoom={isBelowXl} />
                         ) : isPptUrl(displayFileUrl) ? (
@@ -549,7 +553,12 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                             <ExternalDocumentViewer fileUrl={displayFileUrl} title={content?.title} fillHeight className="h-full flex flex-col" readAloud={documentReadAloud} />
                         ) : htmlContent ? (
                             <PagedContent key={content.id} onPageStateChange={reportPdfPage}>
-                                <div className="select-text min-w-0">
+                                <div
+                                    onContextMenu={(e) => e.preventDefault()}
+                                    onDragStart={(e) => e.preventDefault()}
+                                    onCopy={(e) => e.preventDefault()}
+                                    className="select-none min-w-0"
+                                >
                                     <MarkdownRenderer
                                         source={unescapeFromContentApi(htmlContent || "")}
                                         emptyText="No document content provided."
@@ -656,7 +665,10 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                                 <img
                                     src={effectiveImageSrc}
                                     alt={effectiveImageAlt}
-                                    className="w-full h-full object-contain object-center rounded-xl shadow-sm"
+                                    draggable={false}
+                                    onContextMenu={(e) => e.preventDefault()}
+                                    onDragStart={(e) => e.preventDefault()}
+                                    className="w-full h-full object-contain object-center rounded-xl shadow-sm select-none pointer-events-auto"
                                 />
                             </div>
                         ) : null}

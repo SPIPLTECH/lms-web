@@ -23,6 +23,8 @@ export default function AiAssistantWindow({
   scope,
   courseId,
   courseTitle,
+  contentTitle,
+  contentType,
   getPosition,
   conversationId,
   setConversationId,
@@ -183,6 +185,8 @@ export default function AiAssistantWindow({
               <AiSuggestions
                 scope={scope}
                 courseTitle={courseTitle}
+                contentTitle={contentTitle}
+                contentType={contentType}
                 onPick={stream.send}
                 disabled={stream.isStreaming}
               />
@@ -195,7 +199,7 @@ export default function AiAssistantWindow({
                 {stream.isStreaming && (
                   <AiMessage
                     role="ASSISTANT"
-                    content={stream.streamingText || "…"}
+                    content={stream.streamingText || ""}
                     isStreaming
                   />
                 )}

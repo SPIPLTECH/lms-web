@@ -25,7 +25,18 @@ export default function StickyNotesPanel({
   } = useStickyNotes(lessonId);
 
   if (!lessonId) {
-    return null;
+    return (
+      <div
+        className={`border border-[#1e2030] bg-[#0d0e16]/60 backdrop-blur-md shadow-xl text-center ${
+          compact ? "rounded-2xl p-4" : "rounded-3xl p-6"
+        }`}
+      >
+        <p className="text-sm font-semibold text-foreground">📌 Sticky Notes</p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Select or open a lesson to view and add sticky notes.
+        </p>
+      </div>
+    );
   }
 
   return (

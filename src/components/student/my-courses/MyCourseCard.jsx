@@ -55,7 +55,9 @@ export default function MyCourseCard({ enrollment, course: rawCourse }) {
 
   const instructorName = course.creator?.name;
 
-  const continueLabel = isComplete ? "Review" : tracksProgress ? "Continue Learning" : "Open Course";
+  const hasStarted = progress > 0;
+  const continueLabel = isComplete ? "Review" : tracksProgress ? (hasStarted ? "Continue Learning" : "Start Learning") : "Open Course";
+  const continueShortLabel = isComplete ? "Review" : tracksProgress ? (hasStarted ? "Continue" : "Start") : "Open";
 
   const learnDestination = `/student/learn/${course.id}`;
   const detailsDestination = `/student/courses/${course.id}`;
@@ -171,7 +173,7 @@ export default function MyCourseCard({ enrollment, course: rawCourse }) {
               className="inline-flex flex-auto items-center justify-center gap-1 whitespace-nowrap rounded-md border border-primary/40 bg-transparent px-2 py-2 min-h-[40px] md:py-1 md:min-h-0 text-[11px] font-bold text-primary hover:bg-primary/10 hover:border-primary/60 transition"
             >
               <span className="max-[359px]:hidden">{continueLabel}</span>
-              <span className="hidden max-[359px]:inline">{isComplete ? "Review" : tracksProgress ? "Continue" : "Open"}</span>
+              <span className="hidden max-[359px]:inline">{continueShortLabel}</span>
               <ArrowRight size={13} aria-hidden="true" />
             </button>
           )}

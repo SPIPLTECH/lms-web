@@ -124,6 +124,14 @@ export async function GET(request) {
       }
     }
 
+    // Normalize legacy R2 bucket URLs to active Vercel Blob storage
+    if (targetUrl && targetUrl.includes("r2.cloudflarestorage.com/orangetreeprivate/")) {
+      targetUrl = targetUrl.replace(
+        /https:\/\/[^/]+\.r2\.cloudflarestorage\.com\/orangetreeprivate\//,
+        "https://qcgudnz7gjfguvas.private.blob.vercel-storage.com/"
+      );
+    }
+
     // SSRF & Domain Validation: Target must be a Vercel Blob store URL. This
     // route sends the Blob token to the target, so the host check is strict
     // (see lib/server/sessionCaller.js).

@@ -4,11 +4,18 @@ import { Sparkles } from "lucide-react";
 import { suggestionsFor } from "../utils/conversation";
 
 /**
- * Empty-state starters. Shown only before the first message, and tailored to
- * the scope so a guest is never offered a prompt the backend would refuse.
+ * Empty-state starters. Shown before the first message, tailored to the
+ * course, active content item, and learning context.
  */
-export default function AiSuggestions({ scope, courseTitle, onPick, disabled }) {
-  const suggestions = suggestionsFor(scope);
+export default function AiSuggestions({
+  scope,
+  courseTitle,
+  contentTitle,
+  contentType,
+  onPick,
+  disabled,
+}) {
+  const suggestions = suggestionsFor(scope, courseTitle, contentTitle, contentType);
 
   return (
     <div className="flex flex-col items-center px-5 py-8 text-center">
@@ -17,14 +24,12 @@ export default function AiSuggestions({ scope, courseTitle, onPick, disabled }) 
       </div>
 
       <h3 className="text-sm font-semibold text-foreground">
-        {courseTitle ? `Ask about ${courseTitle}` : "Ask the AI Assistant"}
+        {courseTitle ? `Ask about ${courseTitle}` : "Ask OTree AI"}
       </h3>
       <p className="mt-1 max-w-[34ch] text-xs text-muted-foreground">
-        {scope === "ENROLLED"
-          ? "I can explain the material you're working through, give examples, and simplify tricky concepts."
-          : scope === "BROWSING"
-          ? "I can help with course discovery, structure, prerequisites, and learning recommendations."
-          : "I can answer general questions about available courses and learning guidance."}
+        {courseTitle
+          ? "I can explain the current lesson, summarize videos and PDFs, and help you master key concepts."
+          : "I can help review your enrolled courses, summarize lessons, and guide your studies."}
       </p>
 
       <div className="mt-5 flex w-full flex-col gap-2">

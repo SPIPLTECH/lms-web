@@ -27,34 +27,33 @@ export function displayTitle(conversation) {
 }
 
 /**
- * Starter prompts per scope.
+ * Starter prompts tailored to the student's active context.
  *
- * The guest and browsing sets stay at course level on purpose — offering
- * "explain lesson 3" to someone who cannot receive lesson content would
- * advertise a refusal. The enrolled set is deliberately free of anything that
- * reads as "help me answer the quiz".
+ * If inside a course and viewing an item (video, PDF, reading), starters prompt
+ * directly about that item or course. Outside a course, starters focus on enrolled
+ * courses and study planning.
  */
-const SUGGESTIONS = {
-  GUEST: [
-    "What courses are available on Orange Tree?",
-    "What can I learn on this platform?",
-    "How does learning on Orange Tree work?",
-    "Can you recommend a course for beginners?",
-  ],
-  BROWSING: [
-    "What courses are recommended for me?",
-    "What topics are covered in the catalog?",
-    "What should I learn next?",
-    "How do I choose the right course?",
-  ],
-  ENROLLED: [
-    "Explain concepts from my enrolled courses",
-    "Give me a real-world example",
-    "Summarise key concepts in my course material",
-    "How does this relate to what I learned earlier?",
-  ],
-};
+export function suggestionsFor(scope, courseTitle, contentTitle, contentType) {
+  if (courseTitle) {
+    const itemLabel = contentTitle
+      ? `"${contentTitle}"`
+      : contentType === "VIDEO"
+      ? "this video"
+      : contentType === "DOCUMENT" || contentType === "PDF"
+      ? "this document"
+      : "the current topic";
 
-export function suggestionsFor(scope) {
-  return SUGGESTIONS[scope] || SUGGESTIONS.GUEST;
+    return [
+      `Give me a summary of ${itemLabel}`,
+      `Explain the key concepts in ${courseTitle}`,
+      `What are the most important takeaways from this lesson?`,
+    ];
+  }
+
+  return [
+    "What concepts should I review today in my courses?",
+    "Summarise my enrolled courses and progress",
+    "Explain key concepts from my recent lessons",
+    "Give me study tips for my current courses",
+  ];
 }

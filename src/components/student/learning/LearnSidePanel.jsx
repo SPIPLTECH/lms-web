@@ -29,6 +29,8 @@ const FEATURES = [
 export default function LearnSidePanel({
   activeFeature,
   onChangeFeature,
+  courseId = null,
+  moduleId = null,
   lessonId,
   askTarget,
   currentTimestamp,
@@ -40,7 +42,7 @@ export default function LearnSidePanel({
 
   const renderFeature = (id) =>
     id === "ask" ? (
-      <AskInstructorCard inline lessonId={lessonId} target={askTarget} />
+      <AskInstructorCard inline courseId={courseId} moduleId={moduleId} lessonId={lessonId} target={askTarget} />
     ) : (
       <StickyNotesPanel lessonId={lessonId} currentTimestamp={currentTimestamp} onSeek={onSeek} compact={compact} />
     );

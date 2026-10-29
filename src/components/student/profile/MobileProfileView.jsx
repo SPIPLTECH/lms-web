@@ -152,11 +152,6 @@ export default function MobileProfileView({ profile, onEdit }) {
                 {profile?.status === "ACTIVE" ? "Active" : profile?.status}
               </span>
             </div>
-            {profile?.isVerified && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 mt-1">
-                <ShieldCheck size={11} /> Verified Account
-              </span>
-            )}
           </div>
         </div>
 

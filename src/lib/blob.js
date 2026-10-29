@@ -32,6 +32,14 @@ export function getDisplayUrl(url, { width } = {}) {
     return `https://lh3.googleusercontent.com/d/${driveIdMatch[1]}`;
   }
 
+  // Convert legacy Cloudflare R2 bucket URLs to the active Vercel Blob store
+  if (url.includes("r2.cloudflarestorage.com/orangetreeprivate/")) {
+    url = url.replace(
+      /https:\/\/[^/]+\.r2\.cloudflarestorage\.com\/orangetreeprivate\//,
+      "https://qcgudnz7gjfguvas.private.blob.vercel-storage.com/"
+    );
+  }
+
   if (url.includes("/api/blob-proxy")) {
     return url;
   }
