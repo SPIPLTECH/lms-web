@@ -79,6 +79,8 @@ export default function LearnPageHeader({
               type="button"
               onClick={onToggleStickyNotes}
               aria-pressed={isStickyNotesOpen}
+              data-tour="more"
+              data-tour-tap="Tap More"
               style={{ borderRadius: 9999, transition: "transform 150ms ease" }}
               className="group relative shrink-0 p-px cursor-pointer bg-gradient-to-br from-primary/80 via-border to-accent/60 motion-safe:active:scale-95 max-xl:hidden"
               title={isStickyNotesOpen ? "Hide side panel" : "Show side panel"}

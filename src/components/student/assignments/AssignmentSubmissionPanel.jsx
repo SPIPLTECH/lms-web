@@ -7,6 +7,7 @@ import { ArrowRight, CheckCircle2, FileText, Loader2, Paperclip, Upload, X } fro
 import { uploadAssignmentSubmissionFile } from "@/services/assignment.service";
 import useSubmitAssignment from "@/hooks/queries/student/useSubmitAssignment";
 import { useToast } from "@/components/ui/ToastProvider";
+import { useStudentTour } from "@/context/StudentTourContext";
 import Button from "@/components/ui/Button";
 import { getDisplayUrl } from "@/lib/blob";
 
@@ -54,6 +55,7 @@ export default function AssignmentSubmissionPanel({
   // guessing from a fixed delay.
   onSubmitted,
 }) {
+  const tour = useStudentTour();
   const fileInputRef = useRef(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -97,6 +99,10 @@ export default function AssignmentSubmissionPanel({
   };
 
   const handleSubmit = async () => {
+    if (tour.active) {
+      showToast?.("Paused during the tour. Assignments cannot be submitted while the tour is running.", "info");
+      return;
+    }
     // Guard rather than trust the disabled attribute — nothing may be recorded
     // without a PDF or a written answer, and no second request may start
     // while one is running.

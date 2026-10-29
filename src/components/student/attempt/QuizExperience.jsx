@@ -17,6 +17,8 @@ import useSubmitQuiz from "@/hooks/queries/student/useSubmitQuiz";
 import useQuizResult from "@/hooks/queries/student/useQuizResult";
 import useTrackCourseAccess from "@/hooks/queries/student/useTrackCourseAccess";
 import useQuizAttemptTracker from "@/hooks/useQuizAttemptTracker";
+import { useToast } from "@/components/ui/ToastProvider";
+import { useStudentTour } from "@/context/StudentTourContext";
 import { checkAnswerCorrectness } from "@/lib/quizAnswers";
 import { allQuestionsChecked } from "@/lib/quizAttemptState";
 import { resolveQuestionType } from "@/lib/questionType";
@@ -114,6 +116,8 @@ function PracticeStatus({
 //
 // It skips the CONFIRMATION only, never the allowance — see showCompletedCard.
 export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextContent, speechLanguage, onSubmitted, autoReattempt = false }) {
+    const { showToast } = useToast();
+    const tour = useStudentTour();
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [submitError, setSubmitError] = useState("");
     // Dismisses the "already completed" landing card below in favor of the
@@ -252,6 +256,12 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
     // the timeout path skips the completeness gate below since the attempt
     // has to close regardless of how many questions got answered.
     const performSubmit = () => {
+        if (tour.active) {
+            showToast?.("Paused during the tour. Quizzes cannot be submitted while the tour is running.", "info");
+            setShowSubmitModal(false);
+            submitInFlightRef.current = false;
+            return;
+        }
         if (submitInFlightRef.current) return;
         submitInFlightRef.current = true;
 

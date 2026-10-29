@@ -19,6 +19,8 @@ export default function LessonNavigationControls({
   currentTitle,
   onSelectPrevious,
   onSelectNext,
+  // Onboarding tour target on the corners' Next chip (see StudentTour).
+  nextTourId,
 }) {
   if (variant === "corners") {
     // Floats over the content it navigates rather than sitting in its own
@@ -47,6 +49,8 @@ export default function LessonNavigationControls({
           onClick={onSelectNext}
           title={`Next ${unitLabel}`}
           aria-label={`Next ${unitLabel}`}
+          data-tour={nextTourId}
+          data-tour-tap={nextTourId ? "Tap Next" : undefined}
           className={`pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-primary hover:bg-orange-600 shadow-md text-slate-950 transition cursor-pointer ${
             !nextItem ? "opacity-40 cursor-not-allowed bg-primary/40 text-muted-foreground" : ""
           }`}

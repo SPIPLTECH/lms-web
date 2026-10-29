@@ -170,7 +170,9 @@ export function NotificationsMenu({ notifications = [], unreadCount = 0, onMarkA
 }
 
 // Compact avatar-initial profile pill + dropdown (name, email, quick links, sign out).
-export function ProfileMenu({ user, onLogout, profileHref = "/student/profile" }) {
+// `onTakeTour` (students with a course) adds "Take the tour", which replays
+// the onboarding tour of the learning page.
+export function ProfileMenu({ user, onLogout, profileHref = "/student/profile", onTakeTour = null }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -230,6 +232,19 @@ export function ProfileMenu({ user, onLogout, profileHref = "/student/profile" }
             >
               My Profile
             </Link>
+          )}
+          {onTakeTour && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onTakeTour();
+              }}
+              className="flex w-full items-center rounded-xl px-3 py-2 text-left text-[13px] font-medium text-foreground transition-colors hover:bg-white/[0.06] hover:text-foreground"
+            >
+              Take the tour
+            </button>
           )}
           <button
             type="button"

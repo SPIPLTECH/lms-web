@@ -9,6 +9,8 @@ import Pagination from "@/components/ui/Pagination";
 import SnapCardSlider from "@/components/ui/SnapCardSlider";
 import MyCourseCard from "@/components/student/my-courses/MyCourseCard";
 import StudentWelcomeCard from "@/components/student/my-courses/StudentWelcomeCard";
+import GettingStartedChecklist from "@/components/student/onboarding/GettingStartedChecklist";
+import { courseIdOf, sortByRecentAccess } from "@/lib/studentOnboarding";
 import useMyCourses from "@/hooks/queries/student/useMyCourses";
 import { AiAssistantWidget } from "@/features/ai-assistant/components";
 
@@ -19,24 +21,12 @@ export default function MyCoursesPage() {
 
   // Sort enrollments strictly by student's actual course access (lastAccessedAt desc).
   // Accessed courses (lastAccessedAt exists) come first in order of recency.
-  // Never-accessed courses fall back to enrolledAt desc.
-  const sortedEnrollments = useMemo(() => {
-    return [...myEnrollments].sort((a, b) => {
-      const timeA = a.lastAccessedAt ? new Date(a.lastAccessedAt).getTime() : 0;
-      const timeB = b.lastAccessedAt ? new Date(b.lastAccessedAt).getTime() : 0;
-
-      if (timeA !== timeB) {
-        return timeB - timeA;
-      }
-
-      const enrollA = a.enrolledAt ? new Date(a.enrolledAt).getTime() : 0;
-      const enrollB = b.enrolledAt ? new Date(b.enrolledAt).getTime() : 0;
-      return enrollB - enrollA;
-    });
-  }, [myEnrollments]);
+  // Never-accessed courses fall back to enrolledAt desc. Shared with the
+  // onboarding tour, which opens this same first course.
+  const sortedEnrollments = useMemo(() => sortByRecentAccess(myEnrollments), [myEnrollments]);
 
   const primaryCourse = sortedEnrollments[0];
-  const primaryCourseId = primaryCourse?.courseId || primaryCourse?.course?.id || null;
+  const primaryCourseId = courseIdOf(primaryCourse);
   const primaryCourseTitle = primaryCourse?.course?.title || null;
 
   // Years the student has an enrollment in, newest first — drives the Year filter.
@@ -76,9 +66,14 @@ export default function MyCoursesPage() {
     // page fills a definite height: the welcome card keeps its size, the
     // Enrolled Courses card takes the rest, and the course card's thumbnail
     // shrinks to fit (MyCourseCard) — no page scroll, no grid scroll.
-    <div className="flex flex-col flex-1 min-h-0 gap-4">
+    <div className="flex flex-col flex-1 min-h-fit gap-4">
       <div className="shrink-0">
-        <StudentWelcomeCard />
+        <StudentWelcomeCard courseTitle={primaryCourseTitle} />
+      </div>
+
+      {/* New students only (renders nothing otherwise). */}
+      <div className="shrink-0 empty:hidden">
+        <GettingStartedChecklist />
       </div>
 
       {isError ? (
@@ -95,7 +90,7 @@ export default function MyCoursesPage() {
           description="Courses you purchase will appear here once your enrollment is active."
         />
       ) : (
-        <div className="flex flex-col flex-1 min-h-0 rounded-2xl border border-border bg-card px-3 py-4 md:px-12 md:py-6">
+        <div className="flex flex-col flex-1 min-h-fit rounded-2xl border border-border bg-card px-3 py-4 md:px-12 md:py-6">
           {/* One row at every width (title left, year filter right): stacked
               on a phone it cost ~44px the course card needs to fit. */}
           <div className="flex flex-row items-center justify-between gap-2 md:gap-4 mb-4 shrink-0">
@@ -131,12 +126,12 @@ export default function MyCoursesPage() {
               shrink to its content, and the empty loading skeletons have
               none — every 1fr column collapsed to 0px, leaving only each
               skeleton's borders on screen as thin vertical lines. */}
-          <div className="flex flex-1 min-h-0 flex-col">
+          <div className="flex flex-1 flex-col">
             <SnapCardSlider
               items={pagedEnrollments}
               getKey={(enrollment) => enrollment.id || enrollment.courseId}
               renderItem={(enrollment) => <MyCourseCard enrollment={enrollment} />}
-              gridClassName="flex-1 min-h-0 md:auto-rows-[minmax(16rem,1fr)] md:justify-items-center md:mx-auto md:w-full md:max-w-[1328px] md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              gridClassName="md:justify-items-center md:mx-auto md:w-full md:max-w-[1328px] md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
               itemClassName="flex flex-col md:max-w-[320px]"
               isLoading={isLoading}
               skeletonCount={6}

@@ -35,6 +35,9 @@ export default function AiAssistantButton({ isOpen, onOpen, side = "right", plac
       onClick={onOpen}
       title="Ask OTree AI Assistant"
       aria-label="Ask OTree AI Assistant"
+      // The Student onboarding tour's "Ask AI" stop (the bar's copy marks its
+      // own wrapper, label included).
+      data-tour={placement === "bar" ? undefined : "ask-ai"}
       className={`btn ${placementClasses} flex shrink-0 items-center justify-center bg-primary text-primary-foreground shadow-xl transition cursor-pointer outline-none focus-visible:outline-solid focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-violet-400`}
       style={{ "--btn-rainbow-fill": "#7C3AED", borderRadius: "9999px" }}
     >
