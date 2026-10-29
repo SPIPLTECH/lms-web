@@ -8,6 +8,7 @@ import {
   isAllowedBlobUrl,
   resolveCaller,
 } from "@/lib/server/sessionCaller";
+import { parseR2Url, signedR2Url } from "@/lib/server/r2";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,8 @@ export const dynamic = "force-dynamic";
  * Security:
  * - Signed-in users only (any role: the document viewer is shared by
  *   instructors and students). It used to answer anyone.
- * - Target must be an https URL on Vercel's own hosts and a JSON reference.
+ * - Target must be a JSON reference in our R2 bucket (read through a signed
+ *   URL), or an https URL on Vercel's own hosts from before the move to R2.
  *   The fallback fetch sends the Blob read/write token to that host, so the
  *   old `endsWith("vercel.com")` check — which `evilvercel.com` passed — let a
  *   caller exfiltrate the token.
@@ -79,13 +81,15 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: "Invalid reference URL format." }, { status: 400 });
     }
 
+    // A reference in our R2 bucket, or a Vercel Blob one from before the move.
+    const r2Key = parseR2Url(referenceUrl);
     const isVercelBlobDomain = isAllowedBlobUrl(referenceUrl);
 
-    const isJsonReference =
-      parsedUrl.pathname.includes("external-references/") ||
-      parsedUrl.pathname.endsWith(".json");
+    const isJsonReference = r2Key
+      ? r2Key.startsWith("external-references/") && r2Key.endsWith(".json")
+      : parsedUrl.pathname.includes("external-references/") || parsedUrl.pathname.endsWith(".json");
 
-    if (!isVercelBlobDomain || !isJsonReference) {
+    if (!(r2Key || isVercelBlobDomain) || !isJsonReference) {
       return NextResponse.json(
         { error: "Forbidden: Target URL is not a valid external reference JSON object." },
         { status: 400 }
@@ -95,9 +99,18 @@ export async function GET(request, { params }) {
     const blobToken =
       process.env.VERCEL_BLOB_READ_WRITE_TOKEN || process.env.BLOB_READ_WRITE_TOKEN;
 
-    // 1. Try SDK get() for private access
     let metadataJson = null;
-    if (blobToken) {
+
+    // R2: read through a signed URL.
+    if (r2Key) {
+      const res = await fetch(await signedR2Url(r2Key), { cache: "no-store" });
+      if (res.ok) {
+        metadataJson = await res.json().catch(() => null);
+      }
+    }
+
+    // 1. Vercel Blob: try SDK get() for private access
+    if (!r2Key && blobToken) {
       try {
         const blobResult = await get(referenceUrl, {
           access: "private",
@@ -113,8 +126,8 @@ export async function GET(request, { params }) {
       }
     }
 
-    // 2. Direct authenticated fetch fallback
-    if (!metadataJson) {
+    // 2. Vercel Blob: direct authenticated fetch fallback
+    if (!r2Key && !metadataJson) {
       const headers = blobToken ? { Authorization: `Bearer ${blobToken}` } : {};
       const res = await fetch(referenceUrl, { headers, cache: "no-store" });
       if (res.ok) {

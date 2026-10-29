@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { put } from "@vercel/blob";
 import { resolveExternalFile } from "@/lib/external/resolveExternalFile";
 import { resolveCaller } from "@/lib/server/sessionCaller";
+import { putR2Object } from "@/lib/server/r2";
 
 export const dynamic = "force-dynamic";
 
-// Writing to the Blob store is an authoring action. It used to accept anyone.
+// Writing to file storage is an authoring action. It used to accept anyone.
 const WRITER_ROLES = new Set(["INSTRUCTOR", "ADMIN"]);
 
 /**
- * API route to store external document URL reference metadata in Vercel Blob.
+ * API route to store external document URL reference metadata in R2.
  *
  * NOTE:
  * - NO external file downloading occurs.
@@ -71,29 +71,14 @@ export async function POST(request) {
 
     const metadataJson = JSON.stringify(metadata, null, 2);
 
-    // 3. Server-side Secret Token Resolution (Never use NEXT_PUBLIC_* tokens)
-    const blobToken =
-      process.env.VERCEL_BLOB_READ_WRITE_TOKEN || process.env.BLOB_READ_WRITE_TOKEN;
-
+    // 3. Store metadata JSON in R2's private bucket
     const uniqueId = `ext_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     const pathname = `external-references/${uniqueId}.json`;
-
-    const blobOptions = {
-      contentType: "application/json",
-      access: "public",
-      addRandomSuffix: false,
-    };
-
-    if (blobToken) {
-      blobOptions.token = blobToken;
-    }
-
-    // Store metadata JSON in Vercel Blob
-    const blob = await put(pathname, metadataJson, blobOptions);
+    const referenceUrl = await putR2Object(pathname, metadataJson, "application/json");
 
     return NextResponse.json({
       success: true,
-      referenceUrl: blob.url,
+      referenceUrl,
       provider: resolved.provider,
       fileType: resolved.fileType,
       metadata: metadata,

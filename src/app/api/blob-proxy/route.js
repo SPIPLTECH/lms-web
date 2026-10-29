@@ -8,9 +8,11 @@ import {
   isAllowedBlobUrl,
   resolveCallerWithAccess,
 } from "@/lib/server/sessionCaller";
+import { parseR2Url, signedR2Url } from "@/lib/server/r2";
 
 /**
- * Serves private Vercel Blob files to signed-in users.
+ * Serves stored files to signed-in users: files in R2's private bucket, and
+ * private Vercel Blob files from before the move to R2.
  *
  * Authorization: the caller must hold a valid LMS session. The browser sends
  * this route its `accessToken` and `deviceKey` cookies (same origin), and the
@@ -87,11 +89,11 @@ const rememberResized = (key, entry) => {
   }
 };
 
-/** The image scaled to `width` as WebP, or null when it can't be (no sharp, bad image). */
-async function resizeImage(stream, width) {
+/** The image (a stream or Buffer) scaled to `width` as WebP, or null when it can't be (no sharp, bad image). */
+async function resizeImage(source, width) {
   try {
     const { default: sharp } = await import("sharp");
-    const input = Buffer.from(await new Response(stream).arrayBuffer());
+    const input = Buffer.isBuffer(source) ? source : Buffer.from(await new Response(source).arrayBuffer());
     const body = await sharp(input).rotate().resize({ width, withoutEnlargement: true }).webp({ quality: 78 }).toBuffer();
     return { body, contentType: "image/webp" };
   } catch (error) {
@@ -124,11 +126,12 @@ export async function GET(request) {
       }
     }
 
-    // SSRF & Domain Validation: Target must be a Vercel Blob store URL. This
-    // route sends the Blob token to the target, so the host check is strict
-    // (see lib/server/sessionCaller.js).
-    if (!isAllowedBlobUrl(targetUrl)) {
-      return jsonError(400, "Forbidden: Target URL does not belong to Vercel Blob storage.");
+    // SSRF & Domain Validation: Target must be a file in our R2 bucket, or a
+    // Vercel Blob store URL. Both checks are strict: R2 URLs get signed, and
+    // Blob URLs get the Blob token (see lib/server/r2.js, sessionCaller.js).
+    const r2Key = parseR2Url(targetUrl);
+    if (!r2Key && !isAllowedBlobUrl(targetUrl)) {
+      return jsonError(400, "Forbidden: Target URL does not belong to this LMS's file storage.");
     }
 
     const caller = await callerFromCookies();
@@ -146,9 +149,10 @@ export async function GET(request) {
       return jsonError(503, "Could not confirm access to this file. Please try again.");
     }
 
-    // Server-side secret token ONLY (Never use or expose NEXT_PUBLIC_* tokens)
+    // Server-side secret token ONLY (Never use or expose NEXT_PUBLIC_* tokens).
+    // R2 files need none: they are read through a signed URL.
     const blobToken = process.env.VERCEL_BLOB_READ_WRITE_TOKEN || process.env.BLOB_READ_WRITE_TOKEN;
-    if (!blobToken) {
+    if (!r2Key && !blobToken) {
       console.error("[BLOB PROXY ERROR] Neither VERCEL_BLOB_READ_WRITE_TOKEN nor BLOB_READ_WRITE_TOKEN is configured in server environment.");
       return jsonError(500, "Server error: Vercel Blob token is missing in server environment variables.");
     }
@@ -175,8 +179,8 @@ export async function GET(request) {
       });
     }
 
-    // 1. No range requested: the SDK's private read, streamed through.
-    if (!rangeHeader) {
+    // 1. Vercel Blob, no range requested: the SDK's private read, streamed through.
+    if (!rangeHeader && !r2Key) {
       try {
         const blobResult = await get(targetUrl, { access: "private", token: blobToken });
         if (blobResult && blobResult.stream) {
@@ -215,10 +219,11 @@ export async function GET(request) {
       }
     }
 
-    // 2. Authenticated fetch, forwarding Range.
-    const upstream = await fetch(targetUrl, {
+    // 2. Authenticated fetch, forwarding Range: R2 through a signed URL,
+    //    Vercel Blob with its token.
+    const upstream = await fetch(r2Key ? await signedR2Url(r2Key) : targetUrl, {
       headers: {
-        Authorization: `Bearer ${blobToken}`,
+        ...(r2Key ? {} : { Authorization: `Bearer ${blobToken}` }),
         ...(rangeHeader ? { Range: rangeHeader } : {}),
       },
       cache: "no-store",
@@ -235,6 +240,24 @@ export async function GET(request) {
     if (isMediaType(contentType) && !mayStreamMedia) {
       upstream.body?.cancel?.().catch?.(() => {});
       return mediaRefused();
+    }
+
+    // A scaled-down image (R2 files reach here without a range; Vercel Blob
+    // files only when step 1's resize failed). If it can't be resized, the
+    // original bytes are served instead.
+    if (width && upstream.status === 200 && RESIZABLE.test(contentType)) {
+      const original = Buffer.from(await upstream.arrayBuffer());
+      const resized = await resizeImage(original, width);
+      if (resized) rememberResized(resizedKey, resized);
+      const body = resized ? resized.body : original;
+      return new NextResponse(body, {
+        status: 200,
+        headers: {
+          "Content-Type": resized ? resized.contentType : contentType,
+          "Content-Length": String(body.length),
+          "Cache-Control": PRIVATE_IMAGE_CACHE,
+        },
+      });
     }
 
     const headers = {

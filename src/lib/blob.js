@@ -1,8 +1,17 @@
 import { getApiOrigin } from "@/lib/apiOrigin";
 
+// Uploaded files live in R2's private bucket (lib/server/r2.js); older ones
+// may still point at a private Vercel Blob store. Neither opens directly.
+const R2_HOST_PART = ".r2.cloudflarestorage.com/";
+
+/** True when `url` is a file in the LMS's own storage (R2, or Vercel Blob from before). */
+export function isStoredFileUrl(url) {
+  return typeof url === "string" && (url.includes(R2_HOST_PART) || url.includes("blob.vercel-storage.com"));
+}
+
 /**
  * Resolves media URLs for browser display.
- * - If the URL points to a private Vercel Blob store (.private.blob.vercel-storage.com),
+ * - If the URL points to the LMS's private file storage (R2, or a private Vercel Blob store),
  *   it routes through the secure server proxy (/api/blob-proxy) using server credentials,
  *   allowing standard HTML elements (<img>, <video>, <iframe>) to render private files securely.
  * - If the URL is root-relative (e.g. "/uploads/thumbnails/x.png", returned by legacy/imported
@@ -36,6 +45,7 @@ export function getDisplayUrl(url, { width } = {}) {
     return url;
   }
   if (
+    url.includes(R2_HOST_PART) ||
     url.includes(".private.blob.vercel-storage.com") ||
     url.includes("vercel.com/api/blob") ||
     url.includes("pathname=")
@@ -90,11 +100,12 @@ function apiUploadsPath(url, apiOrigin) {
   return apiOrigins.includes(parsed.origin) ? parsed.pathname : null;
 }
 
-const PRIVATE_BLOB_ATTR_RE = /(src|href)(\s*=\s*)(["'])(https:\/\/[^"']*\.private\.blob\.vercel-storage\.com[^"']*)\3/gi;
+const PRIVATE_BLOB_ATTR_RE =
+  /(src|href)(\s*=\s*)(["'])(https:\/\/[^"']*(?:\.private\.blob\.vercel-storage\.com|\.r2\.cloudflarestorage\.com)[^"']*)\3/gi;
 
 /**
  * Imported lesson HTML (Content.htmlContent) can carry raw <img>/<a> tags
- * that point straight at a private Vercel Blob URL — the markdown/HTML
+ * that point straight at a private storage URL (R2 or Vercel Blob) — the markdown/HTML
  * importer never rewrote them, so the browser requests them directly and
  * gets a 403 instead of going through getDisplayUrl()'s /api/blob-proxy.
  * Rewrites just those attribute values in place; everything else in the

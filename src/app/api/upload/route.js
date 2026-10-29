@@ -1,7 +1,7 @@
-import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { CONTENT_ACTIVE_ON_ANOTHER_DEVICE, contentAccessFor } from "@/lib/server/sessionCaller";
+import { putR2Object, r2Configured, uniqueR2Key } from "@/lib/server/r2";
 
 const ALLOWED_ROLES = ["INSTRUCTOR", "ADMIN"];
 
@@ -105,65 +105,36 @@ export async function POST(request) {
       assertStudentPdf(file);
     }
 
-    // 3. Verify Server Secret Token for Vercel Blob
-    const blobToken = process.env.VERCEL_BLOB_READ_WRITE_TOKEN || process.env.BLOB_READ_WRITE_TOKEN;
-
-    if (!blobToken) {
-      console.error("BLOB_READ_WRITE_TOKEN is missing in server environment");
+    // 3. Verify the server's R2 settings
+    if (!r2Configured()) {
+      console.error("R2_* settings are missing in server environment");
       return NextResponse.json(
-        { error: "Vercel Blob store token (BLOB_READ_WRITE_TOKEN) is not configured on the server." },
+        { error: "File storage (R2) is not configured on the server." },
         { status: 500 }
       );
     }
 
-    // 4. Put file into Vercel Blob Store (supports both public and private stores)
-    //
-    // Video and audio are written private when the store allows it: a private
-    // blob is only readable through the API's lease-gated playback route (or
-    // the authenticated proxy, for instructors), whereas a public blob's URL
-    // plays for anyone who has it. Everything else stays public first, as
-    // before — course thumbnails, for one, are shown to signed-out visitors.
-    // A store fixed to the other access mode falls back to it.
+    // 4. Put the file into R2's private bucket. Every upload is private: it
+    // reaches the browser only through /api/blob-proxy (which checks the
+    // caller) or, for video and audio, the API's lease-gated playback route.
     const prefix = isStudentSubmission ? STUDENT_UPLOAD_PREFIX : "content-uploads";
-    const pathname = `${prefix}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
-    const isMedia = /^(video|audio)\//i.test(typeof file.type === "string" ? file.type : "");
-    const accessOrder = isMedia ? ["private", "public"] : ["public", "private"];
-
-    let blob;
-    let lastError;
-    for (const access of accessOrder) {
-      try {
-        blob = await put(pathname, file, {
-          access,
-          token: blobToken,
-          addRandomSuffix: true,
-        });
-        if (isMedia && access === "public") {
-          console.warn("Vercel Blob store does not accept private blobs; this media upload is public.");
-        }
-        break;
-      } catch (putErr) {
-        lastError = putErr;
-        const msg = putErr instanceof Error ? putErr.message : String(putErr);
-        // Only a store/access-mode mismatch is worth trying the other mode.
-        if (!/private|public|access/i.test(msg)) throw putErr;
-      }
-    }
-    if (!blob) throw lastError;
+    const pathname = uniqueR2Key(prefix, file.name);
+    const contentType = typeof file.type === "string" && file.type ? file.type : "application/octet-stream";
+    const url = await putR2Object(pathname, Buffer.from(await file.arrayBuffer()), contentType);
 
     return NextResponse.json({
-      url: blob.url,
-      fileUrl: blob.url,
-      pathname: blob.pathname,
-      contentType: blob.contentType,
+      url,
+      fileUrl: url,
+      pathname,
+      contentType,
       originalName: file.name,
       size: file.size,
     });
   } catch (error) {
-    console.error("Vercel Blob upload error:", error);
+    console.error("File upload error:", error);
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Failed to upload file to Vercel Blob",
+        error: error instanceof Error ? error.message : "Failed to upload file",
         ...(error?.code ? { code: error.code } : {}),
       },
       { status: error?.status || 400 }
