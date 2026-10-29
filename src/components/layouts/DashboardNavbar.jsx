@@ -16,6 +16,7 @@ import { useStudentTour } from "@/context/StudentTourContext";
 import Modal from "@/components/ui/Modal";
 import { ThemeSwitcher } from "@/components/ui/shadcn/theme-switcher";
 import { useInstructorCourse } from "@/hooks/queries/instructor/useInstructorCourse";
+import useInstructorCourseKey from "@/hooks/queries/instructor/useInstructorCourseKey";
 import { useQuiz } from "@/hooks/queries/instructor/useQuiz";
 import { useQuestion } from "@/hooks/queries/instructor/useQuestion";
 
@@ -155,7 +156,10 @@ export default function Navbar({ title = "Dashboard", role }) {
   const quizId = parsedIds.quizId || questionData?.quizId;
   const { data: quizData } = useQuiz(quizId, { enabled: !!quizId && isInstructorRole });
   
-  const courseId = parsedIds.courseId || quizData?.courseId;
+  // /instructor/courses/<key>: the segment is the course's readable key (or,
+  // in an older link, its id) — resolved to the id for the breadcrumb.
+  const { courseId: courseIdFromPath } = useInstructorCourseKey(isInstructorRole ? parsedIds.courseId : null);
+  const courseId = courseIdFromPath || quizData?.courseId;
   // Breadcrumbs read only course.title / course.id, so this skips the whole
   // modules -> lessons -> topics -> contents tree. The navbar renders on every
   // instructor content page, so this was the widest-reaching over-fetch.
@@ -187,7 +191,7 @@ export default function Navbar({ title = "Dashboard", role }) {
       breadcrumbs.push({ label: "COURSES", href: `/${role}/courses` });
 
       if (course) {
-        breadcrumbs.push({ label: course.title, href: `/${role}/courses/${course.id}` });
+        breadcrumbs.push({ label: course.title, href: `/${role}/courses/${encodeURIComponent(course.urlKey || course.id)}` });
       }
     }
 

@@ -10,6 +10,7 @@ import {
 
 import Loader from "@/components/common/Loader";
 import { useInstructorCourse } from "@/hooks/queries/instructor/useInstructorCourse";
+import useInstructorCourseKey from "@/hooks/queries/instructor/useInstructorCourseKey";
 import { useModules } from "@/hooks/queries/instructor/useModules";
 import { useUpdateCourse } from "@/hooks/queries/instructor/useUpdateCourse";
 import { useUpdateLesson } from "@/hooks/queries/instructor/useUpdateLesson";
@@ -114,6 +115,8 @@ function withDraftItemIds(items, prefix) {
 // `?view=` is ignored and the page opens on the course overview, so a
 // hand-edited or stale link can't drop the composer into an unknown mode.
 const COMPOSER_MODES = new Set(["course", "module", "lesson", "topic", "subTopic", "concept", "quiz"]);
+// The workspace-selection query parameters a link may open the Composer at.
+const SELECTION_PARAMS = ["view", "module", "lesson", "compose", "topic", "subTopic", "concept", "quiz", "content"];
 
 /** The workspace view for a selection's deepest selected level (used when leaving a quiz/assignment view). */
 function composerModeForSelection({ conceptId, subTopicId, topicId, lessonId, moduleId }) {
@@ -129,7 +132,40 @@ export default function CourseDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const courseId = params.courseId;
+  // The URL names the course by its readable key (`urlKey`) or, in an older
+  // link, by its id; "draft" / "new" pass through.
+  const {
+    courseId,
+    isResolving: courseKeyResolving,
+    notFound: courseKeyNotFound,
+  } = useInstructorCourseKey(params.courseId);
+  // The workspace selection this page was OPENED at, read once: from a link's
+  // query (?lesson=… from Q&A, a pasted link) or, on a refresh of this tab,
+  // from the history entry the mirror below keeps it in — the address bar
+  // carries no node ids.
+  const [openedSelection] = useState(() => {
+    let remembered = null;
+    try {
+      remembered = typeof window !== "undefined" ? window.history.state?.composerSelection ?? null : null;
+    } catch {
+      remembered = null;
+    }
+    // A link that names any part of the selection names all of it; only a
+    // link without one falls back to what this tab remembered.
+    const fromLink = SELECTION_PARAMS.some((key) => searchParams.has(key));
+    const pick = (key) => (fromLink ? searchParams.get(key) : remembered?.[key]) || null;
+    return {
+      view: pick("view"),
+      module: pick("module"),
+      // `?compose=` is the older lesson-only form of `?lesson=`.
+      lesson: fromLink ? searchParams.get("lesson") || searchParams.get("compose") || null : remembered?.lesson || null,
+      topic: pick("topic"),
+      subTopic: pick("subTopic"),
+      concept: pick("concept"),
+      quiz: pick("quiz"),
+      content: pick("content"),
+    };
+  });
   const { showToast } = useToast();
   const confirm = useConfirm();
   const confirmDelete = (title, message) => confirm({ title, message, confirmText: "Delete" });
@@ -173,7 +209,7 @@ export default function CourseDetailsPage() {
   // The effect further down writes these back to the URL as the selection
   // changes; `?compose=` is the older lesson-only form of `?lesson=`, still
   // honoured so existing links keep working.
-  const initialView = searchParams.get("view");
+  const initialView = openedSelection.view;
   const [composerMode, setComposerMode] = useState(
     COMPOSER_MODES.has(initialView) ? initialView : "course"
   );
@@ -182,14 +218,14 @@ export default function CourseDetailsPage() {
   // that form empty would be a lie. The saved quiz is shown instead.
   const [quizMode, setQuizMode] = useState("view"); // "view" | "edit" | "create"
   const [composeLessonId, setComposeLessonId] = useState(
-    searchParams.get("lesson") || searchParams.get("compose") || null
+    openedSelection.lesson
   );
-  const [composeModuleId, setComposeModuleId] = useState(searchParams.get("module") || null);
-  const [composeTopicId, setComposeTopicId] = useState(searchParams.get("topic") || null);
+  const [composeModuleId, setComposeModuleId] = useState(openedSelection.module);
+  const [composeTopicId, setComposeTopicId] = useState(openedSelection.topic);
   // SubTopic/Concept aren't in the modules tree (GET /modules stops at Topic),
   // so the selected ones are loaded by id further down (useSubTopic/useConcept).
-  const [composeSubTopicId, setComposeSubTopicId] = useState(searchParams.get("subTopic") || null);
-  const [composeConceptId, setComposeConceptId] = useState(searchParams.get("concept") || null);
+  const [composeSubTopicId, setComposeSubTopicId] = useState(openedSelection.subTopic);
+  const [composeConceptId, setComposeConceptId] = useState(openedSelection.concept);
   // Titles of SubTopics/Concepts picked in the Course Map, known the moment
   // they're clicked — the by-id fetch can still be in flight, and a title
   // that only appears later would re-run QuizOverviewView's create-mode reset.
@@ -197,7 +233,7 @@ export default function CourseDetailsPage() {
   const rememberNodeTitle = (node) => {
     if (node?.id && node.title) setKnownNodeTitles((prev) => (prev[node.id] === node.title ? prev : { ...prev, [node.id]: node.title }));
   };
-  const [composeQuizId, setComposeQuizId] = useState(searchParams.get("quiz") || null);
+  const [composeQuizId, setComposeQuizId] = useState(openedSelection.quiz);
   // The course response carries each quiz's question count only, so the open
   // quiz's questions (answer key and junction rows included) come from
   // GET /quizzes/:id. Draft-course quizzes are local and never fetched.
@@ -216,7 +252,7 @@ export default function CourseDetailsPage() {
   const [pendingQuizOrder, setPendingQuizOrder] = useState(null);
   const updateAssignmentMutation = useUpdateAssignment();
   const deleteAssignmentMutation = useDeleteAssignment();
-  const [selectedCellId, setSelectedCellId] = useState(searchParams.get("content") || null);
+  const [selectedCellId, setSelectedCellId] = useState(openedSelection.content);
 
   // Edit Mode for Metadata Headers
   const [isEditingCourse, setIsEditingCourse] = useState(false);
@@ -765,11 +801,15 @@ export default function CourseDetailsPage() {
     return () => { document.body.style.overflow = previous; };
   }, [mobileSidebarOpen]);
 
-  // Mirrors the current workspace selection into the query string, so the page
-  // can be reopened exactly where it was left. history.replaceState rather than
-  // router.replace on purpose: this is not a navigation — it must not push a
-  // history entry per sidebar click, remount the tree, or trigger a server
-  // round trip. The URL is only read back on mount (see the state above).
+  // Keeps the current workspace selection in this tab's history entry (not the
+  // query string), so a refresh reopens the page exactly where it was left,
+  // and shows a saved course by its readable key (`urlKey`) whatever link
+  // opened it. Selection parameters a link arrived with are dropped once read;
+  // any other query is kept. history.replaceState rather than router.replace
+  // on purpose: this is not a navigation — it must not push a history entry
+  // per sidebar click, remount the tree, or trigger a server round trip. Only
+  // our own key is passed: Next.js adds its router state to it. The selection
+  // is only read back on mount (see openedSelection above).
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -788,28 +828,30 @@ export default function CourseDetailsPage() {
           })
         : composerMode;
 
-    const next = new URLSearchParams(window.location.search);
-    const put = (key, value) => {
-      if (value) next.set(key, String(value));
-      else next.delete(key);
+    const selection = {
+      view: restorableView === "course" ? null : restorableView,
+      module: composeModuleId || null,
+      lesson: composeLessonId || null,
+      topic: composeTopicId || null,
+      subTopic: composeSubTopicId || null,
+      concept: composeConceptId || null,
+      quiz: restorableView === "quiz" ? composeQuizId || null : null,
+      content: selectedCellId || null,
     };
 
-    put("view", restorableView === "course" ? null : restorableView);
-    put("module", composeModuleId);
-    put("lesson", composeLessonId);
-    put("topic", composeTopicId);
-    put("subTopic", composeSubTopicId);
-    put("concept", composeConceptId);
-    put("quiz", restorableView === "quiz" ? composeQuizId : null);
-    put("content", selectedCellId);
-    next.delete("compose"); // superseded by `lesson`
-
+    const next = new URLSearchParams(window.location.search);
+    for (const key of SELECTION_PARAMS) next.delete(key);
     const query = next.toString();
-    const url = query ? `${window.location.pathname}?${query}` : window.location.pathname;
-    if (url !== `${window.location.pathname}${window.location.search}`) {
-      window.history.replaceState(null, "", url);
+    const path = course?.urlKey ? `/instructor/courses/${encodeURIComponent(course.urlKey)}` : window.location.pathname;
+    const url = query ? `${path}?${query}` : path;
+
+    const remembered = window.history.state?.composerSelection;
+    const sameSelection =
+      remembered && Object.keys(selection).every((key) => (remembered[key] ?? null) === selection[key]);
+    if (url !== `${window.location.pathname}${window.location.search}` || !sameSelection) {
+      window.history.replaceState({ composerSelection: selection }, "", url);
     }
-  }, [composerMode, composeModuleId, composeLessonId, composeTopicId, composeSubTopicId, composeConceptId, composeQuizId, selectedCellId]);
+  }, [composerMode, composeModuleId, composeLessonId, composeTopicId, composeSubTopicId, composeConceptId, composeQuizId, selectedCellId, course?.urlKey]);
 
   // Desktop Course Map collapse state
   const [isCourseMapOpen, setIsCourseMapOpen] = useState(true);
@@ -1081,8 +1123,8 @@ export default function CourseDetailsPage() {
       }),
     };
   });
-  const effectiveLoading = isDraftMode ? (!draftLoaded || !draftData) : (courseLoading || modulesLoading);
-  const effectiveError = isDraftMode ? (draftLoaded && !draftData) : (courseError || !course);
+  const effectiveLoading = isDraftMode ? (!draftLoaded || !draftData) : (courseKeyResolving || courseLoading || modulesLoading);
+  const effectiveError = isDraftMode ? (draftLoaded && !draftData) : (courseKeyNotFound || courseError || !course);
 
   // Selection Handlers
   const handleSelectCourseOverview = () => {
