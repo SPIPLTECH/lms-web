@@ -25,6 +25,7 @@ import UserAvatar from "@/components/admin/users/UserAvatar";
 import { changePassword } from "@/services/auth.service";
 import { getNewPasswordError } from "@/lib/passwordPolicy";
 import PasswordRequirements from "@/components/auth/PasswordRequirements";
+import { CERTIFICATES_LOCKED } from "@/constants/features";
 
 function InfoRow({ icon: Icon, label, value, onClick }) {
   const content = (
@@ -161,10 +162,12 @@ export default function MobileProfileView({ profile, onEdit }) {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-3 gap-2 mt-3.5">
+        <div className={`grid gap-2 mt-3.5 ${CERTIFICATES_LOCKED ? "grid-cols-2" : "grid-cols-3"}`}>
           <QuickActionButton onClick={onEdit} icon={Edit} label="Edit Profile" />
           <QuickActionButton onClick={() => setShowPasswordModal(true)} icon={KeyRound} label="Change Password" />
-          <QuickActionButton href="/student/certificates" icon={Award} label="Certificates" />
+          {!CERTIFICATES_LOCKED && (
+            <QuickActionButton href="/student/certificates" icon={Award} label="Certificates" />
+          )}
         </div>
       </div>
 
