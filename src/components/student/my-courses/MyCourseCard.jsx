@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { BookOpen, User, Eye, ArrowRight } from "lucide-react";
 
 import { getDisplayUrl } from "@/lib/blob";
+import { learnHref } from "@/lib/courseSlug";
+import useMyCourses from "@/hooks/queries/student/useMyCourses";
 
 // Same status-pill colors as the Instructor course card
 // (@/components/courses/CourseGridCard) — Not Started stays neutral, every
@@ -23,6 +25,8 @@ const STATUS_STYLE = {
  *  (details) and "Continue Learning" (resume) as the two footer actions. */
 export default function MyCourseCard({ enrollment, course: rawCourse }) {
   const router = useRouter();
+  // Cached already on every page that shows course cards.
+  const { data: myEnrollments = [] } = useMyCourses();
   const course = enrollment?.course || rawCourse;
 
   if (!course) return null;
@@ -57,7 +61,8 @@ export default function MyCourseCard({ enrollment, course: rawCourse }) {
 
   const continueLabel = isComplete ? "Review" : tracksProgress ? "Continue Learning" : "Open Course";
 
-  const learnDestination = `/student/learn/${course.id}`;
+  // The learn page is addressed by the course's readable key, not its id.
+  const learnDestination = learnHref(course, myEnrollments);
   const detailsDestination = `/student/courses/${course.id}`;
   const feedbackDestination = `/student/feedback?courseId=${course.id}`;
   const primaryDestination = isEnrolled ? learnDestination : detailsDestination;

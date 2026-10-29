@@ -9,6 +9,8 @@
  * profile without the field at all (the API not updated yet) gets nothing —
  * so an old account is never greeted as new.
  */
+import { learnKeyFromPath, resolveCourseKey } from "./courseSlug.js";
+
 export function needsOnboarding(user) {
   if (!user || user.role !== "STUDENT") return false;
   if (typeof window !== "undefined") {
@@ -50,10 +52,10 @@ export const courseIdOf = (enrollment) => enrollment?.courseId || enrollment?.co
  * Otherwise, picks their most recent enrollment (same as Continue Learning).
  */
 export function resolveTourCourseId(pathname, enrollments = []) {
-  if (pathname && typeof pathname === "string" && pathname.startsWith("/student/learn/")) {
-    const segment = pathname.split("/student/learn/")[1]?.split("/")[0]?.split("?")[0];
-    if (segment) return segment;
-  }
+  // The learn page's segment is the course's readable key or, in an older
+  // link, its id (lib/courseSlug.js).
+  const key = learnKeyFromPath(pathname);
+  if (key) return resolveCourseKey(key, enrollments) || key;
   return courseIdOf(sortByRecentAccess(enrollments)[0]);
 }
 
