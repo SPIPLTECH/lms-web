@@ -17,7 +17,7 @@ const PATH_STATUS = {
 };
 
 /**
- * @param {Array} path  the `path` array from useLearningPath.
+ * @param {Array} path  the `path` array from the learning sequence's `learningPath` (useLearningSequence with `withPath`).
  * @returns {{ byId: Map<string, object>, entries: Array, nextItem: object|null }|null}
  *   null when the path is unavailable, so callers can render the learning
  *   experience unchanged rather than locking everything on a failed request.

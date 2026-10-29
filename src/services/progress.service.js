@@ -37,24 +37,6 @@ export const markVisited = async (params) => {
 };
 
 /**
- * Fetch detailed progress for a course (Student or Instructor viewing a student)
- */
-export const getCourseProgress = async (courseId, studentId = null) => {
-  const url = studentId ? `/progress/courses/${courseId}?studentId=${studentId}` : `/progress/courses/${courseId}`;
-  const { data } = await api.get(url);
-  return data.data ?? data;
-};
-
-/**
- * The student's ordered path through a course: every module/lesson/topic in
- * course order, each with its status (COMPLETED / QUALIFIED / CURRENT /
- * AVAILABLE / LOCKED) and the qualifying test on offer where one exists.
- *
- * The server decides all of it — this is the same computation the API
- * enforces on access, so the player never has to derive locking itself.
- * Returns { path, nextItem, lockedCount, skippableCount }.
- */
-/**
  * THE learning sequence of a course for the signed-in student: every Content
  * item — ordinary content, quizzes and assignments — as one ordered list of
  * steps, with the course tree the Course Map draws from those same steps.
@@ -62,24 +44,16 @@ export const getCourseProgress = async (courseId, studentId = null) => {
  * carries no material. The player's Prev/Next, the Course Map and resume all
  * read this, so they cannot disagree. Returns
  * { courseId, title, progress, steps, tree, currentIndex, resumeIndex }.
- * With `includePath`, also `learningPath` in getLearningPath's shape, built from the same server roll-up (one request instead of two).
+ * With `includePath`, also `learningPath` — { path, nextItem, lockedCount,
+ * skippableCount }, GET /progress/learning-path's shape — built from the same
+ * server roll-up (one request instead of two). `path` is every
+ * module/lesson/topic in course order with its status (COMPLETED / QUALIFIED
+ * / CURRENT / AVAILABLE / LOCKED) and the qualifying test on offer, if any.
  */
 export const getLearningSequence = async (courseId, studentId = null, { includePath = false } = {}) => {
   const { data } = await api.get("/progress/learning-sequence", {
     params: { courseId, ...(studentId && { studentId }), ...(includePath && { include: "path" }) },
   });
   return data.data ?? data;
-};
-
-export const getLearningPath = async (courseId, studentId = null) => {
-  const { data } = await api.get("/progress/learning-path", {
-    params: { courseId, ...(studentId && { studentId }) },
-  });
-  return {
-    path: data.data ?? [],
-    nextItem: data.nextItem ?? null,
-    lockedCount: data.lockedCount ?? 0,
-    skippableCount: data.skippableCount ?? 0,
-  };
 };
 
