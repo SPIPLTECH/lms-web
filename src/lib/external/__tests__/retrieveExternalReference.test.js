@@ -20,8 +20,8 @@ function selectViewerStrategy(fileUrl, metadata = null) {
     return { strategy: "ERROR_STATE", message: "No Document URL Provided" };
   }
 
-  // A. Uploaded Vercel Blob PDF -> Existing PdfViewer + proxy flow
-  if (fileUrl.includes("blob.vercel-storage.com") && fileUrl.endsWith(".pdf")) {
+  // A. Uploaded (R2) PDF -> Existing PdfViewer + proxy flow
+  if (fileUrl.includes(".r2.cloudflarestorage.com/") && fileUrl.endsWith(".pdf")) {
     return { strategy: "EXISTING_BLOB_PDF_VIEWER", url: fileUrl };
   }
 
@@ -77,8 +77,8 @@ function selectViewerStrategy(fileUrl, metadata = null) {
 function runTests() {
   const testCases = [
     {
-      name: "A. Existing Uploaded Blob PDF Flow",
-      input: "https://qcgudnz7gjfguvas.private.blob.vercel-storage.com/content-uploads/sample.pdf",
+      name: "A. Existing Uploaded (R2) PDF Flow",
+      input: "https://0123456789abcdef0123456789abcdef.r2.cloudflarestorage.com/lms-private/content-uploads/sample.pdf",
       expectedStrategy: "EXISTING_BLOB_PDF_VIEWER",
     },
     {

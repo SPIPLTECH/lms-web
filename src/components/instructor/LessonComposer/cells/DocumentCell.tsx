@@ -422,7 +422,7 @@ export function DocumentCell({
               hideToolbar={true}
               onControlsRender={setPdfControls}
             />
-          ) : isPpt && (content.fileUrl.includes("blob.vercel-storage.com") || content.fileUrl.includes("/content-uploads/")) ? (
+          ) : isPpt && (content.fileUrl.includes("/content-uploads/")) ? (
             <PptViewer
               fileUrl={displayUrl}
               title={content.title || cellType.label}

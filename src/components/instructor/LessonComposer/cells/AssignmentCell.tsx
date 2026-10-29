@@ -37,7 +37,7 @@ function readOriginalFileName(data: ContentRow["data"]): string {
 /**
  * Human-readable fallback label for a `fileUrl` when no original filename
  * was captured at upload time (rows created before this field existed).
- * Never shows the raw storage key (e.g. a Vercel Blob hash filename) —
+ * Never shows the raw storage key (e.g. an R2 key with its random suffix) —
  * only a generic, honest label derived from the extension.
  */
 function genericFileLabel(fileUrl: string): string {
@@ -51,7 +51,7 @@ function genericFileLabel(fileUrl: string): string {
 }
 
 /**
- * The Assignment's single "Upload" action — same Vercel Blob upload infra
+ * The Assignment's single "Upload" action — same file-storage (R2) upload infra
  * as Document/Presentation cells (see DocumentCell.tsx's
  * PlainFileUploadFields), simplified to one button with no manual URL
  * entry, matching the Assignment design's `[ Upload ]` control. Captures

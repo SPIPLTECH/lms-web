@@ -100,11 +100,11 @@ export function ImageCell({
     setUploadError(null);
     setIsUploading(true);
     try {
-      showToast(`Uploading ${file.name} to Vercel Blob...`, "info");
+      showToast(`Uploading ${file.name}...`, "info");
       const result = await uploadFileToVercelBlob(file);
       if (result && result.url) {
         setSrc(result.url);
-        showToast("File uploaded to Vercel Blob successfully!", "success");
+        showToast("File uploaded successfully!", "success");
       } else {
         throw new Error("Invalid response from upload service");
       }
@@ -309,11 +309,11 @@ export function CreateImageForm({ parent, order, onCreated, onCancel }: CreateCe
     setUploadError(null);
     setIsUploading(true);
     try {
-      showToast(`Uploading ${file.name} to Vercel Blob...`, "info");
+      showToast(`Uploading ${file.name}...`, "info");
       const result = await uploadFileToVercelBlob(file);
       if (result && result.url) {
         setSrc(result.url);
-        showToast("File uploaded to Vercel Blob successfully!", "success");
+        showToast("File uploaded successfully!", "success");
       } else {
         throw new Error("Invalid response from upload service");
       }
@@ -371,7 +371,7 @@ export function CreateImageForm({ parent, order, onCreated, onCancel }: CreateCe
         </span>
       </div>
 
-      {/* File Selection Button (Triggers Automatic Vercel Blob Upload) */}
+      {/* File Selection Button (Triggers Automatic Upload) */}
       <div>
         <input
           ref={fileInputRef}
