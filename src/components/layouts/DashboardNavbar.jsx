@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/ToastProvider";
 import { useNotification } from "@/context/NotificationContext";
 import { useInstructorNavDrawer } from "@/context/InstructorNavDrawerContext";
 import { useAdminNavDrawer } from "@/context/AdminNavDrawerContext";
+import { useStudentTour } from "@/context/StudentTourContext";
 import Modal from "@/components/ui/Modal";
 import { ThemeSwitcher } from "@/components/ui/shadcn/theme-switcher";
 import { useInstructorCourse } from "@/hooks/queries/instructor/useInstructorCourse";
@@ -95,6 +96,8 @@ export default function Navbar({ title = "Dashboard", role }) {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const { open: openInstructorNavDrawer } = useInstructorNavDrawer();
   const { open: openAdminNavDrawer } = useAdminNavDrawer();
+  // Inert for other roles (no provider outside the Student layout).
+  const studentTour = useStudentTour();
 
   const pathname = usePathname();
   
@@ -508,6 +511,7 @@ export default function Navbar({ title = "Dashboard", role }) {
               user={currentUser}
               onLogout={() => setShowLogoutModal(true)}
               profileHref={isStudentRole ? "/student/profile" : "/admin/profile"}
+              onTakeTour={isStudentRole && studentTour.canStart ? () => studentTour.start() : null}
               // Settings is no longer offered to students — the entry is
               // dropped the same way it already was for every other role.
               settingsHref={null}

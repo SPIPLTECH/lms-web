@@ -14,18 +14,21 @@ import { PRIMARY_NAV_ITEMS } from "@/components/student/NavigationStrip/navigati
 // (StudentBottomTabs); the learn page fills them with Previous / Next.
 // z-40: under the learn page's sheets and drawers (z-50) and the AI window.
 // `showAi={false}` leaves the centre empty (a quiz is being attempted), so
-// the sides keep their places.
-export default function StudentBottomBar({ left, right, ariaLabel = "Student navigation", showAi = true }) {
+// the sides keep their places. `tourId` / `tourTap` mark the whole bar for
+// the onboarding tour (the learn page's Previous / Next).
+export default function StudentBottomBar({ left, right, ariaLabel = "Student navigation", showAi = true, tourId, tourTap }) {
   const launcher = useAiLauncher();
 
   return (
     <nav
       aria-label={ariaLabel}
+      data-tour={tourId}
+      data-tour-tap={tourTap}
       className="sm:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]"
     >
       <div className="grid h-14 grid-cols-3 items-center">
         <div className="flex justify-center">{left}</div>
-        <div className="flex flex-col items-center gap-0.5">
+        <div className="flex flex-col items-center gap-0.5" data-tour={showAi ? "ask-ai" : undefined}>
           {showAi && (
             <>
               <AiAssistantButton placement="bar" onOpen={() => launcher?.open()} />
@@ -40,7 +43,7 @@ export default function StudentBottomBar({ left, right, ariaLabel = "Student nav
 }
 
 // One slot of the bar: a link (tabs) or a button (Previous/Next).
-export function BottomBarItem({ href, onClick, icon: Icon, label, active = false, disabled = false, title, ariaLabel }) {
+export function BottomBarItem({ href, onClick, icon: Icon, label, active = false, disabled = false, title, ariaLabel, tourId }) {
   const className = `flex min-w-16 flex-col items-center justify-center gap-0.5 px-2 py-1 text-[11px] font-semibold leading-none transition ${
     active ? "text-link" : "text-muted-foreground hover:text-foreground"
   } ${disabled ? "opacity-40 cursor-not-allowed hover:text-muted-foreground" : "cursor-pointer"}`;
@@ -58,7 +61,7 @@ export function BottomBarItem({ href, onClick, icon: Icon, label, active = false
 
   if (href) {
     return (
-      <Link href={href} aria-current={active ? "page" : undefined} title={title} className={className}>
+      <Link href={href} aria-current={active ? "page" : undefined} title={title} data-tour={tourId} className={className}>
         {content}
       </Link>
     );
@@ -81,7 +84,7 @@ export function StudentBottomTabs() {
   const pathname = usePathname();
   const [leftItem, rightItem] = PRIMARY_NAV_ITEMS.filter((item) => item.primaryOnMobile);
   const tab = (item) =>
-    item && <BottomBarItem href={item.href} icon={item.icon} label={item.label} active={isTabActive(pathname, item)} />;
+    item && <BottomBarItem href={item.href} icon={item.icon} label={item.label} active={isTabActive(pathname, item)} tourId={item.tourId} />;
 
   return <StudentBottomBar ariaLabel="Student tabs" left={tab(leftItem)} right={tab(rightItem)} />;
 }

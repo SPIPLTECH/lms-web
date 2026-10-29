@@ -13,11 +13,15 @@ import Image from "next/image";
 export default function WelcomeBanner({
   eyebrow = "Welcome back",
   name,
+  title = null,
   subtitle,
   stats = null,
   isLoading = false,
   imageSrc = null,
   imageAlt = "",
+  // Optional row under the subtitle (Student > My Courses: the new-student
+  // onboarding actions). Omitted, the banner is unchanged.
+  children = null,
   // Opt-in for a page that must fit the screen (Student > My Courses): on a
   // short viewport the banner gives back height — tighter padding and a
   // one-line subtitle.
@@ -64,10 +68,16 @@ export default function WelcomeBanner({
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">{eyebrow}</p>
 
           <h1 className="mt-1.5 flex items-center gap-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            {name} !
-            <span className="inline-block origin-bottom-right animate-wave" aria-hidden="true">
-              👋
-            </span>
+            {title ? (
+              title
+            ) : (
+              <>
+                {name} !
+                <span className="inline-block origin-bottom-right animate-wave" aria-hidden="true">
+                  👋
+                </span>
+              </>
+            )}
           </h1>
 
           {subtitle && (
@@ -79,6 +89,8 @@ export default function WelcomeBanner({
               {subtitle}
             </p>
           )}
+
+          {children && <div className="mt-3">{children}</div>}
         </div>
 
         {hasStats && (

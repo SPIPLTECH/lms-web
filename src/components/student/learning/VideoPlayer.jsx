@@ -57,10 +57,22 @@ const parseSlides = (html) => {
  * "preparing" state, or why it cannot play (already playing on another
  * device, no access, …) with an explicit "Try again". Never retries by
  * itself — a conflict stays a conflict until the other device stops.
+ * "paused" is the learn page holding no lease on purpose (the onboarding
+ * tour is running): the video waits, with nothing to retry.
  */
 function PlaybackGate({ lease }) {
     const waiting = lease.status === "idle" || lease.status === "acquiring";
     const conflict = lease.status === "conflict";
+
+    if (lease.status === "paused") {
+        return (
+            <div role="status" className="flex h-80 w-full flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-[#0B101D] p-6 text-center">
+                <PlayCircle className="h-10 w-10 text-muted-foreground" />
+                <h4 className="text-base font-bold text-foreground">Video paused during the tour</h4>
+                <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">It plays as usual once the tour ends.</p>
+            </div>
+        );
+    }
 
     return (
         <div

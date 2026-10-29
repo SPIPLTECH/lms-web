@@ -8,7 +8,8 @@ import {
  * PRIMARY_NAV_ITEMS (@/components/instructor/NavigationStrip/navigationItems),
  * rendered through the shared QuickActionStrip component.
  * `primaryOnMobile` items are the phone bottom-bar tabs (StudentBottomTabs);
- * `matches` lists the other routes that keep that tab lit.
+ * `matches` lists the other routes that keep that tab lit; `tourId` is what
+ * the onboarding tour spotlights (both the strip pill and the bottom tab).
  */
 export const PRIMARY_NAV_ITEMS = [
   { label: "Learning", href: "/student/my-courses", icon: BookOpen, primaryOnMobile: true, matches: ["/student/courses"] },
@@ -22,5 +23,6 @@ export const PRIMARY_NAV_ITEMS = [
     icon: ClipboardCheck,
     primaryOnMobile: true,
     matches: ["/student/result", "/student/quizzes"],
+    tourId: "submissions",
   },
 ];

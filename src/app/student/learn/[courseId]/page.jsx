@@ -42,6 +42,7 @@ import { AiAssistantWidget } from "@/features/ai-assistant/components";
 
 
 import { useToast } from "@/components/ui/ToastProvider";
+import { useStudentTour } from "@/context/StudentTourContext";
 
 const LEVEL_LABELS = {
   course: "Course",
@@ -133,7 +134,17 @@ export default function LearnPage() {
   const markCompletePendingRef = useRef(false);
   const { showToast } = useToast();
 
+  // The onboarding tour (StudentTourContext). While it runs this page only
+  // shows things: no completion, no move to another step, no visit and no
+  // playback lease — see the `tourActive` checks below.
+  const tour = useStudentTour();
+  const tourActive = tour.active;
+
   const handleMarkComplete = useCallback(() => {
+    if (tourActive) {
+      showToast("Paused during the tour. Nothing was saved.", "info");
+      return;
+    }
     const { contentIds, completed } = activeCompletionRef.current;
     if (markCompletePendingRef.current || completed || contentIds.length === 0) return;
 
@@ -147,7 +158,7 @@ export default function LearnPage() {
         onError: () => showToast("Could not mark this item complete. Please try again.", "error"),
       }
     );
-  }, [completeContentMutation, showToast]);
+  }, [completeContentMutation, showToast, tourActive]);
 
   // The position asked for by the URL this page was OPENED with, captured once
   // at first render — the ?item= mirror below starts rewriting the URL as soon
@@ -231,9 +242,14 @@ export default function LearnPage() {
   });
 
   const step = steps[stepIndex] || null;
+  const isQuizStep = step?.kind === "QUIZ";
+  const isAssignmentStep = step?.kind === "ASSIGNMENT";
+  const isContentStep = step?.kind === "CONTENT";
   const activeContentId = step?.contentId;
+  // No lease during the tour: holding one is what "playing" means to the
+  // one-device rule, and the tour must never start playback.
   const learningLease = usePlaybackLease(activeContentId, {
-    enabled: Boolean(activeContentId && isEnrolled && !step?.locked),
+    enabled: Boolean(activeContentId && isEnrolled && !step?.locked && !tourActive),
   });
   const stepPath = step?.path || {};
   const selectedLesson = stepPath.lessonId ? containersById.get(stepPath.lessonId) || null : null;
@@ -350,8 +366,9 @@ export default function LearnPage() {
   //  - Only explicit controls (the expand tab button on the left edge) reopen the panels.
   //  - The only hold: KEYBOARD focus (:focus-visible) inside data-learn-chrome keeps
   //    the panels open so a keyboard user's focus is never swallowed.
+  //  - Off during the onboarding tour, which points at the rail and header.
   useEffect(() => {
-    if (!isDesktop) return undefined;
+    if (!isDesktop || tourActive) return undefined;
     const idle = workspaceCollapse !== null;
     let lastActivity = Date.now();
     let lastPointer = null;
@@ -417,14 +434,15 @@ export default function LearnPage() {
         window.removeEventListener(name, handler, { capture: true });
       });
     };
-  }, [isDesktop, workspaceCollapse]);
+  }, [isDesktop, workspaceCollapse, tourActive]);
 
-  // Narrowed below xl while idle: nothing would undo the timer's collapse on desktop.
+  // Narrowed below xl while idle: nothing would undo the timer's collapse on
+  // desktop. The tour brings an idle-hidden rail and header back the same way.
   useEffect(() => {
-    if (!isDesktop && workspaceCollapse === "idle") {
+    if ((!isDesktop || tourActive) && workspaceCollapse === "idle") {
       setWorkspaceCollapse(null);
     }
-  }, [isDesktop, workspaceCollapse]);
+  }, [isDesktop, workspaceCollapse, tourActive]);
 
   // Escape closes the below-xl Learning tools sheet, the same as its X, its
   // scrim and a swipe down. Bound only while the sheet is mounted (below xl,
@@ -478,6 +496,13 @@ export default function LearnPage() {
           : "Finish the earlier items in this course first.",
         "error"
       );
+      if (tourActive) tour.signal("lockTapped");
+      return false;
+    }
+    // The tour shows where Next leads without going there (a new step would
+    // record a visit and move the resume point).
+    if (tourActive) {
+      showToast(`Paused during the tour. Afterwards this opens “${target.title || "the next item"}”.`, "info");
       return false;
     }
     setStepIndex(index);
@@ -502,6 +527,13 @@ export default function LearnPage() {
   const nextPendingRef = useRef(false);
   const goToNextStepFresh = async () => {
     if (nextPendingRef.current) return;
+    // The tour only shows the answer (a lock, or where Next leads) from what
+    // is on screen: nothing to re-check with the server.
+    if (tourActive) {
+      tour.signal("nextTapped");
+      goToNextStep();
+      return;
+    }
     if (!isSequenceFetching && !steps[stepIndex + 1]?.locked) {
       goToNextStep();
       return;
@@ -539,16 +571,45 @@ export default function LearnPage() {
   };
 
   // Marks the step on screen visited, once per Content row — drives resume,
-  // and a reached step stays open for good.
+  // and a reached step stays open for good. Not while the onboarding tour
+  // runs; the visit is recorded when it ends, if the student is still here.
   const visitedIdsRef = useRef(new Set());
   useEffect(() => {
-    if (isOpenCourse || !step || step.locked || step.visited) return;
+    if (tourActive || isOpenCourse || !step || step.locked || step.visited) return;
     const ids = step.contentIds.filter((id) => !visitedIdsRef.current.has(id));
     if (ids.length === 0) return;
     ids.forEach((id) => visitedIdsRef.current.add(id));
     markVisitedMutation.mutate({ contentIds: ids });
     // markVisitedMutation intentionally omitted; the ref guard prevents re-sending.
-  }, [isOpenCourse, step?.contentId, step?.locked, step?.visited]);
+  }, [tourActive, isOpenCourse, step?.contentId, step?.locked, step?.visited]);
+
+  // Keep the tour informed of the step type so its copy adapts to the actual lesson.
+  const updateLessonMeta = tour.updateLessonMeta;
+  useEffect(() => {
+    if (!step) return;
+    updateLessonMeta?.({
+      kind: step.kind,
+      type: step.type,
+      title: step.title,
+      isQuiz: isQuizStep,
+      quizType: step.quizType,
+      isAssignment: isAssignmentStep,
+      completed: Boolean(step.completed),
+    });
+  }, [updateLessonMeta, step?.kind, step?.type, step?.title, step?.completed, isQuizStep, isAssignmentStep]);
+
+  // Onboarding tour: open what a step points at below xl (the Course Map
+  // drawer for "Steps open in order") and close what the previous step left
+  // open, so the next spotlight is not under a sheet.
+  useEffect(() => {
+    if (tour.active) {
+      if (tour.stepKey === "locks" && !isDesktop) setCourseMapOpen(true);
+      else if (tour.stepKey !== "map") setCourseMapOpen(false);
+      if (tour.stepKey !== "more") setRightPanelOpen(false);
+    } else {
+      if (!isDesktop) setCourseMapOpen(false);
+    }
+  }, [tour.active, tour.stepKey, isDesktop]);
 
   // Mirrors the step on screen into ?item=, so a refresh returns to this exact
   // item. history.replaceState, not router.replace — this is not navigation.
@@ -574,9 +635,6 @@ export default function LearnPage() {
     return <Card className="text-foreground">Course not found.</Card>;
   }
 
-  const isQuizStep = step?.kind === "QUIZ";
-  const isAssignmentStep = step?.kind === "ASSIGNMENT";
-  const isContentStep = step?.kind === "CONTENT";
   const contentItem =
     isContentStep && step.body
       ? { id: step.contentId, contentIds: step.contentIds, type: step.type, title: step.title, ...step.body }
@@ -597,15 +655,16 @@ export default function LearnPage() {
     isVideo: isContentStep && step?.type === "VIDEO",
     readOnly: !isContentStep,
     readOnlyHint: step?.completionHint || "",
+    isTouring: tourActive,
     onMarkComplete: handleMarkComplete,
   };
 
   // A quiz not attempted yet hides the floating Prev/Next — the quiz itself is
-  // the way through it.
-  const hideFloatingNavForActiveQuiz = isQuizStep && !step?.attempted;
+  // the way through it. During the tour, controls stay visible so the tour can point at them.
+  const hideFloatingNavForActiveQuiz = isQuizStep && !step?.attempted && !tourActive;
   // While a quiz is being attempted — the step's own, or a qualifying test not
-  // yet submitted — the AI Assistant is not offered at any width.
-  const quizInProgress = hideFloatingNavForActiveQuiz || (Boolean(qualifyingAttempt) && !qualifyingSubmitted);
+  // yet submitted — the AI Assistant is not offered at any width. During the tour, show it so it can be explained.
+  const quizInProgress = (isQuizStep && !step?.attempted && !tourActive) || (Boolean(qualifyingAttempt) && !qualifyingSubmitted);
 
   const resultReturnTo = `/student/learn/${courseId}${step ? `?item=${step.contentId}` : ""}`;
 
@@ -708,6 +767,7 @@ export default function LearnPage() {
           Width 0 when closed, so the workspace gets the full width back. */}
       <div
         data-learn-chrome=""
+        data-tour="course-map"
         inert={!railOpen}
         style={{ "--course-map-w": `${courseMapResize.width}px` }}
         className={`hidden xl:block relative shrink-0 overflow-hidden ${courseMapResize.isResizing ? "" : "transition-[width] duration-300 ease-in-out"} ${railOpen ? "w-full xl:w-[var(--course-map-w)]" : "w-full xl:w-0"}`}
@@ -838,7 +898,10 @@ export default function LearnPage() {
           levelLabel={pathwayLevelLabel}
           course={course}
           isStickyNotesOpen={rightPanelOpen}
-          onToggleStickyNotes={() => setRightPanelOpen((prev) => !prev)}
+          onToggleStickyNotes={() => {
+            setRightPanelOpen((prev) => !prev);
+            if (tourActive) tour.signal("moreOpened");
+          }}
         />
 
         {/* ========================================================== */}
@@ -886,7 +949,12 @@ export default function LearnPage() {
                 <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setCourseMapOpen(true)}
+                    onClick={() => {
+                      setCourseMapOpen(true);
+                      if (tourActive) tour.signal("mapOpened");
+                    }}
+                    data-tour="course-map"
+                    data-tour-tap="Tap Course Map"
                     className="shrink-0 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-primary/40 bg-primary/5 text-primary transition hover:bg-primary/10 cursor-pointer"
                     aria-label="Open course map"
                     title="Course Map"
@@ -914,7 +982,12 @@ export default function LearnPage() {
                   <div className="relative flex h-11 w-11 shrink-0 items-center justify-center">
                     <button
                       type="button"
-                      onClick={() => setRightPanelOpen((prev) => !prev)}
+                      onClick={() => {
+                        setRightPanelOpen((prev) => !prev);
+                        if (tourActive) tour.signal("moreOpened");
+                      }}
+                      data-tour="more"
+                      data-tour-tap="Tap ···"
                       aria-expanded={rightPanelOpen}
                       aria-haspopup="dialog"
                       aria-controls="learn-tools-sheet"
@@ -1005,7 +1078,7 @@ export default function LearnPage() {
                   side as the xl overlay. A video step has it below the
                   player instead (after the frame). */}
               {showCompletionBar && playerMode !== "aspect" && (
-                <div className="xl:hidden empty:hidden flex justify-end [&>button]:min-h-8 [&>button]:py-1 [&>button]:text-xs">
+                <div data-tour="complete" className="xl:hidden empty:hidden flex justify-end [&>button]:min-h-8 [&>button]:py-1 [&>button]:text-xs">
                   <ContentCompletionBar {...completionBarProps} />
                 </div>
               )}
@@ -1078,7 +1151,7 @@ export default function LearnPage() {
                       </p>
                     </div>
                   ) : isAssignmentStep ? (
-                    <div className="p-2.5 sm:p-5">
+                    <div data-tour="complete" className="p-2.5 sm:p-5">
                       <AssignmentWorkspacePanel
                         key={step.assignmentId}
                         assignmentId={step.assignmentId}
@@ -1087,7 +1160,7 @@ export default function LearnPage() {
                       />
                     </div>
                   ) : isQuizStep ? (
-                    <div className="p-2.5 sm:p-5">
+                    <div data-tour="complete" className="p-2.5 sm:p-5">
                       <QuizExperience
                         key={step.quizId}
                         quizId={step.quizId}
@@ -1100,7 +1173,7 @@ export default function LearnPage() {
                   ) : (
                     <LessonContentBlock
                       item={contentItem}
-                      lease={learningLease}
+                      lease={tourActive ? { ...learningLease, status: "paused", media: null } : learningLease}
                       videoPlayerRef={videoPlayerRef}
                       onTimeUpdate={setCurrentTimestamp}
                       onDurationChange={setVideoDuration}
@@ -1127,8 +1200,8 @@ export default function LearnPage() {
                     screen is a quiz still awaiting submission — see
                     hideFloatingNavForActiveQuiz. */}
                 {!hideFloatingNavForActiveQuiz && (
-                  <div className="max-xl:hidden absolute inset-3 flex items-center justify-between pointer-events-none opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-200">
-                    <LessonNavigationControls variant="corners" {...lessonNavProps} />
+                  <div className={`max-xl:hidden absolute inset-3 flex items-center justify-between pointer-events-none group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-200 ${tour.stepKey === "nav" ? "opacity-100" : "opacity-0"}`}>
+                    <LessonNavigationControls variant="corners" nextTourId="lesson-nav" {...lessonNavProps} />
                   </div>
                 )}
 
@@ -1155,7 +1228,7 @@ export default function LearnPage() {
                     actually clickable in that region, which reads exactly
                     like "Mark as Complete doesn't do anything." */}
                 {showCompletionBar && (
-                  <div className="max-xl:hidden absolute top-3 right-3 z-30">
+                  <div data-tour="complete" className="max-xl:hidden absolute top-3 right-3 z-30">
                     <ContentCompletionBar {...completionBarProps} />
                   </div>
                 )}
@@ -1165,7 +1238,7 @@ export default function LearnPage() {
                   under the player rather than above it. Everything else
                   about it is as described above. */}
               {showCompletionBar && playerMode === "aspect" && (
-                <div className="xl:hidden empty:hidden flex justify-end [&>button]:min-h-8 [&>button]:py-1 [&>button]:text-xs">
+                <div data-tour="complete" className="xl:hidden empty:hidden flex justify-end [&>button]:min-h-8 [&>button]:py-1 [&>button]:text-xs">
                   <ContentCompletionBar {...completionBarProps} />
                 </div>
               )}
@@ -1179,7 +1252,7 @@ export default function LearnPage() {
                   the document buttons stay neutral-outlined. Phones get the
                   same two controls in the bottom bar instead (below). */}
               {!hideFloatingNavForActiveQuiz && (
-                <div className="hidden sm:block xl:hidden">
+                <div data-tour="lesson-nav" data-tour-tap="Tap Next" className="hidden sm:block xl:hidden">
                   <LessonNavigationControls variant="below" {...lessonNavProps} />
                 </div>
               )}
@@ -1238,6 +1311,8 @@ export default function LearnPage() {
         {!hideFloatingNavForActiveQuiz && (
           <StudentBottomBar
             ariaLabel="Lesson navigation"
+            tourId="lesson-nav"
+            tourTap="Tap Next"
             showAi={!quizInProgress}
             left={
               <BottomBarItem

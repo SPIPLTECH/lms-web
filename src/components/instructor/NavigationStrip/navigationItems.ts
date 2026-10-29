@@ -19,6 +19,8 @@ export interface NavItem {
   href?: string;
   icon: LucideIcon;
   primaryOnMobile?: boolean;
+  // Student onboarding tour target (data-tour) — see StudentTour.
+  tourId?: string;
   children?: NavSubItem[];
 }
 
