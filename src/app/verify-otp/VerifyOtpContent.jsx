@@ -134,7 +134,7 @@ export default function VerifyOtpContent() {
           />
 
           <Countdown
-            countdown={countdown}
+            seconds={countdown}
             loading={resending}
             onResend={handleResendOtp}
           />

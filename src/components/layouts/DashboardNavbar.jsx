@@ -8,6 +8,7 @@ import Link from "next/link";
 import Image from "next/image";
 
 import useAuth from "@/hooks/useAuth";
+import { useToast } from "@/components/ui/ToastProvider";
 import useChat from "@/hooks/useChat";
 import { useNotification } from "@/context/NotificationContext";
 import { useStudentNavDrawer } from "@/context/StudentNavDrawerContext";
@@ -23,6 +24,7 @@ import { useQuiz } from "@/hooks/queries/instructor/useQuiz";
 import { useQuestion } from "@/hooks/queries/instructor/useQuestion";
 
 import GlobalSearch from "@/components/layouts/GlobalSearch";
+import EvaluatorBadge from "@/components/evaluator/EvaluatorBadge";
 import { NotificationsMenu, ProfileMenu } from "@/components/layouts/NavUserMenus";
 import { NavigationStrip } from "@/components/instructor/NavigationStrip/NavigationStrip";
 import { NavigationStrip as StudentNavigationStrip } from "@/components/student/NavigationStrip/NavigationStrip";
@@ -32,7 +34,6 @@ function ProfileDropdown({ user, onLogoutRequest, role }) {
   const [open, setOpen] = useState(false);
   const isAdmin = role === "ADMIN";
   const profileHref = isAdmin ? "/admin/profile" : "/instructor/profile";
-  const settingsHref = isAdmin ? "/admin/profile" : "/instructor/settings";
 
   useEffect(() => {
     if (!open) return;
@@ -77,13 +78,6 @@ function ProfileDropdown({ user, onLogoutRequest, role }) {
             >
               👤 My Profile
             </Link>
-            <Link
-              href={settingsHref}
-              onClick={() => setOpen(false)}
-              className="flex items-center px-3 py-2 text-[10px] font-bold text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition"
-            >
-              🛟 Help & Support
-            </Link>
             <button
               onClick={() => {
                 setOpen(false);
@@ -103,6 +97,7 @@ function ProfileDropdown({ user, onLogoutRequest, role }) {
 export default function Navbar({ title = "Dashboard", role }) {
   const router = useRouter();
   const { logout, user: currentUser } = useAuth();
+  const { showToast } = useToast();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const { open: openStudentNavDrawer } = useStudentNavDrawer();
   const { open: openInstructorNavDrawer } = useInstructorNavDrawer();
@@ -364,11 +359,16 @@ export default function Navbar({ title = "Dashboard", role }) {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     // logout() itself clears auth state and redirects to the Landing Page —
     // navigating here too would race it while cookies/user state are still
     // present, which is what let the old redirect bounce back into the app.
-    logout();
+    // If the server couldn't end the session, the user stays signed in.
+    const result = await logout();
+    if (result?.ok === false) {
+      setShowLogoutModal(false);
+      showToast(result.message, "error");
+    }
   };
 
   const handleMarkAllRead = () => {
@@ -623,6 +623,9 @@ export default function Navbar({ title = "Dashboard", role }) {
               onClearAll={handleClearAll}
               onItemClick={handleNotificationClick}
             />
+
+            {/* Temporary evaluator accounts only (server-provided flag). */}
+            <EvaluatorBadge evaluator={currentUser?.evaluator} />
 
             {/* Profile */}
             <ProfileMenu

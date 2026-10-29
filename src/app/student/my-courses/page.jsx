@@ -72,13 +72,10 @@ export default function MyCoursesPage() {
   }, [totalPages]);
 
   return (
-    <div
-      // Bleeds exactly to the layout's own padding (p-2 / sm:p-6 / md:p-16);
-      // -mx-4 on phones overshot it by 8px and scrolled the page sideways.
-      // The top is re-padded like every other edge (p-3 sm:p-6) rather than
-      // zeroed, so the greeting clears the sticky navbar it bleeds under by
-      // the same gap it keeps from the side edges.
-      className="-m-3 sm:-m-6 -mt-4 sm:-mt-6 md:-mt-16 -mx-2 sm:-mx-6 md:-mx-16 -mb-8 sm:-mb-12 md:-mb-16 p-3 sm:p-6 space-y-4 md:space-y-6 flex flex-col flex-1 min-h-0">
+    // student/layout.jsx gives this route its own viewport-height shell
+    // (p-3 sm:p-6, no DashboardLayout p-16/pb-32), so the page fills it
+    // directly; from md up only the Enrolled Courses grid scrolls.
+    <div className="space-y-4 md:space-y-6 flex flex-col flex-1 min-h-0">
       <div className="shrink-0">
         <StudentWelcomeCard />
       </div>
@@ -124,7 +121,7 @@ export default function MyCoursesPage() {
             )}
           </div>
 
-          <div className="md:flex-1 md:min-h-0 md:overflow-y-auto md:pr-1 md:-mr-1">
+          <div className="md:flex-1 md:min-h-0 md:overflow-y-auto md:pr-1 md:-mr-1 md:pb-1">
             <SnapCardSlider
               items={pagedEnrollments}
               getKey={(enrollment) => enrollment.id || enrollment.courseId}
@@ -140,23 +137,24 @@ export default function MyCoursesPage() {
               dotsLabel="Course slides"
               getDotLabel={(_, i) => `Go to course slide ${i + 1}`}
             />
-
-            {!isLoading && myEnrollments.length > 0 && (
-              <div className="hidden md:block">
-                <Pagination
-                  page={page}
-                  totalPages={totalPages}
-                  total={yearFilteredEnrollments.length}
-                  limit={limit}
-                  onPageChange={setPage}
-                  onLimitChange={(next) => {
-                    setLimit(next);
-                    setPage(1);
-                  }}
-                />
-              </div>
-            )}
           </div>
+
+          {/* Pinned under the scrolling grid, with clear space above it. */}
+          {!isLoading && myEnrollments.length > 0 && (
+            <div className="hidden md:block shrink-0 mt-6">
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                total={yearFilteredEnrollments.length}
+                limit={limit}
+                onPageChange={setPage}
+                onLimitChange={(next) => {
+                  setLimit(next);
+                  setPage(1);
+                }}
+              />
+            </div>
+          )}
         </div>
       )}
 

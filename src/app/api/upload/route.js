@@ -2,6 +2,7 @@ import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getDisplayUrl } from "@/lib/blob";
+import { CONTENT_ACTIVE_ON_ANOTHER_DEVICE, contentAccessFor } from "@/lib/server/sessionCaller";
 
 const ALLOWED_ROLES = ["INSTRUCTOR", "ADMIN"];
 
@@ -29,8 +30,14 @@ async function verifyAuth(request, { purpose } = {}) {
     throw new Error("Unauthorized: Missing authentication token");
   }
 
+  // The API binds sessions to a device; forward this browser's device key so
+  // the session check (GET /auth/profile) accepts the caller's own token.
+  const deviceKey = cookieStore.get("deviceKey")?.value || request?.headers.get("x-device-key");
   const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/profile`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(deviceKey ? { "X-Device-Key": deviceKey } : {}),
+    },
     cache: "no-store",
   });
 
@@ -44,6 +51,19 @@ async function verifyAuth(request, { purpose } = {}) {
   if (ALLOWED_ROLES.includes(role)) return { role };
 
   if (role === "STUDENT" && purpose === STUDENT_UPLOAD_PURPOSE) {
+    // A submission is a course-content action: not while another device of
+    // the account holds the playback lease (the API refuses the submit too).
+    const access = await contentAccessFor({ role, apiUrl: process.env.NEXT_PUBLIC_API_URL, accessToken: token, deviceKey });
+    if (access !== "allowed") {
+      const refusal = new Error(
+        access === "blocked"
+          ? "This account is currently active on another device. Stop playback on that device to access course content here."
+          : "Could not confirm access. Please try again."
+      );
+      refusal.status = access === "blocked" ? 409 : 503;
+      refusal.code = access === "blocked" ? CONTENT_ACTIVE_ON_ANOTHER_DEVICE : undefined;
+      throw refusal;
+    }
     return { role };
   }
 
@@ -98,28 +118,39 @@ export async function POST(request) {
     }
 
     // 4. Put file into Vercel Blob Store (supports both public and private stores)
+    //
+    // Video and audio are written private when the store allows it: a private
+    // blob is only readable through the API's lease-gated playback route (or
+    // the authenticated proxy, for instructors), whereas a public blob's URL
+    // plays for anyone who has it. Everything else stays public first, as
+    // before — course thumbnails, for one, are shown to signed-out visitors.
+    // A store fixed to the other access mode falls back to it.
     const prefix = isStudentSubmission ? STUDENT_UPLOAD_PREFIX : "content-uploads";
     const pathname = `${prefix}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+    const isMedia = /^(video|audio)\//i.test(typeof file.type === "string" ? file.type : "");
+    const accessOrder = isMedia ? ["private", "public"] : ["public", "private"];
+
     let blob;
-    try {
-      blob = await put(pathname, file, {
-        access: "public",
-        token: blobToken,
-        addRandomSuffix: true,
-      });
-    } catch (publicErr) {
-      const msg = publicErr instanceof Error ? publicErr.message : String(publicErr);
-      if (msg.includes("private store") || msg.includes("private access")) {
-        console.log("Vercel Blob store is configured with private access. Using access: 'private'");
+    let lastError;
+    for (const access of accessOrder) {
+      try {
         blob = await put(pathname, file, {
-          access: "private",
+          access,
           token: blobToken,
           addRandomSuffix: true,
         });
-      } else {
-        throw publicErr;
+        if (isMedia && access === "public") {
+          console.warn("Vercel Blob store does not accept private blobs; this media upload is public.");
+        }
+        break;
+      } catch (putErr) {
+        lastError = putErr;
+        const msg = putErr instanceof Error ? putErr.message : String(putErr);
+        // Only a store/access-mode mismatch is worth trying the other mode.
+        if (!/private|public|access/i.test(msg)) throw putErr;
       }
     }
+    if (!blob) throw lastError;
 
     return NextResponse.json({
       url: blob.url,
@@ -134,8 +165,9 @@ export async function POST(request) {
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Failed to upload file to Vercel Blob",
+        ...(error?.code ? { code: error.code } : {}),
       },
-      { status: 400 }
+      { status: error?.status || 400 }
     );
   }
 }

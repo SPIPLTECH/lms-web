@@ -44,6 +44,8 @@ type ErrorKind = "invalid" | "unavailable" | "network" | "playback";
 export interface OrangeVideoPlayerHandle {
   /** Jumps to a position and plays from it (sticky notes, transcript). */
   seekTo(seconds: number): void;
+  /** Pauses playback (e.g. when the playback lease is lost). */
+  pause(): void;
 }
 
 export interface OrangeVideoPlayerProps {
@@ -102,6 +104,13 @@ const CHROME_BLEED = 1;
 // its kind of link implies: Shorts are vertical, everything else is 16:9.
 const LANDSCAPE_ASPECT = 16 / 9;
 const SHORTS_ASPECT = 9 / 16;
+// YouTube picks the stream quality itself (the embed API no longer lets a
+// page set it), largely from the player's size in CSS pixels. So the embed is
+// laid out at least this big along the picture's long side and scaled down to
+// the picture: YouTube sees a 1080p-sized player and streams 1080p when the
+// connection and the upload allow it. A transform does not change the
+// iframe's own viewport, which is what YouTube measures.
+const RENDER_LONG_SIDE = 1920;
 
 interface PictureBox {
   width: number;
@@ -575,6 +584,9 @@ const YouTubeSurface = forwardRef<OrangeVideoPlayerHandle, SurfaceProps>(functio
         seekAndTrack(seconds);
         play();
       },
+      pause() {
+        playerRef.current?.pauseVideo();
+      },
     }),
     [seekAndTrack, play]
   );
@@ -680,17 +692,26 @@ const YouTubeSurface = forwardRef<OrangeVideoPlayerHandle, SurfaceProps>(functio
       } ${className}`}
     >
       {/* The YouTube iframe, taller than the picture so YouTube's own chrome
-          falls outside the player and is clipped (see CHROME_BLEED). */}
+          falls outside the player and is clipped (see CHROME_BLEED), and laid
+          out at 1080p size, then scaled to the picture (see RENDER_LONG_SIDE). */}
       <div
         ref={hostRef}
         style={
           picture
-            ? {
-                left: picture.left,
-                width: picture.width,
-                top: picture.top - picture.height * chromeBleed,
-                height: picture.height * (1 + 2 * chromeBleed),
-              }
+            ? (() => {
+                const longSide = Math.max(picture.width, picture.height);
+                const scale = longSide >= RENDER_LONG_SIDE ? 1 : longSide / RENDER_LONG_SIDE;
+                const width = picture.width / scale;
+                const height = picture.height / scale;
+                return {
+                  left: picture.left,
+                  top: picture.top - picture.height * chromeBleed,
+                  width,
+                  height: height * (1 + 2 * chromeBleed),
+                  transform: scale === 1 ? undefined : `scale(${scale})`,
+                  transformOrigin: "top left",
+                };
+              })()
             : { inset: 0 }
         }
         className="absolute [&>iframe]:absolute [&>iframe]:inset-0 [&>iframe]:h-full [&>iframe]:w-full"

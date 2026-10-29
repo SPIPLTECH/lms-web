@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import { FileText, Edit, Trash2, ArrowLeft, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import useAuth from "@/hooks/useAuth";
+import { useConfirm } from "@/context/ConfirmContext";
 import Card from "@/components/ui/Card";
 import Loader from "@/components/common/Loader";
 import AssessmentForm from "@/components/instructor/AssessmentForm";
@@ -41,6 +42,7 @@ function InstructorAssignmentsView() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user } = useAuth();
+  const confirm = useConfirm();
 
   // Which tab and which course are in the URL, not in state, so that coming
   // back from an item's page lands on the view it was opened from — and so a
@@ -111,16 +113,20 @@ function InstructorAssignmentsView() {
     );
   };
 
-  const handleDelete = (id) => {
-    if (confirm("Are you sure you want to delete this assignment?")) {
-      deleteMutation.mutate(id, {
-        onSuccess: () => {
-          setSuccessMsg("Assignment deleted successfully!");
-          setTimeout(() => setSuccessMsg(""), 4000);
-        },
-        onError: (err) => setErrorMsg(err.response?.data?.message || "Failed to delete assignment."),
-      });
-    }
+  const handleDelete = async (id) => {
+    const confirmed = await confirm({
+      title: "Delete assignment",
+      message: "Are you sure you want to delete this assignment?",
+      confirmText: "Delete",
+    });
+    if (!confirmed) return;
+    deleteMutation.mutate(id, {
+      onSuccess: () => {
+        setSuccessMsg("Assignment deleted successfully!");
+        setTimeout(() => setSuccessMsg(""), 4000);
+      },
+      onError: (err) => setErrorMsg(err.response?.data?.message || "Failed to delete assignment."),
+    });
   };
 
   if (loadingAssignments || loadingCourses) return <Loader />;

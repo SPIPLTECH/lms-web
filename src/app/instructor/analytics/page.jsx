@@ -9,6 +9,7 @@ import Card from "@/components/ui/Card";
 import Loader from "@/components/common/Loader";
 
 import AdaptiveInsightsPanel from "@/components/instructor/analytics/AdaptiveInsightsPanel";
+import LearningHealthPanel from "@/components/instructor/analytics/LearningHealthPanel";
 import { useInstructorCourses } from "@/hooks/queries/instructor/useInstructorCourses";
 import { useDashboardKPIs } from "@/hooks/queries/instructor/useInstructorDashboard";
 
@@ -92,6 +93,11 @@ function InstructorAnalyticsContent() {
               why, which concepts are not sticking, and what the engine is
               already telling each learner. Nothing on this panel changes a
               learning decision. */}
+          {/* LEARNING HEALTH — adaptive Phase 1 agent. Who may need a
+              check-in and why (level + named reasons, never a raw score).
+              Keyed by course so switching course starts it fresh. */}
+          <LearningHealthPanel key={selectedCourseId} courseId={selectedCourseId} />
+
           <AdaptiveInsightsPanel courseId={selectedCourseId} />
         </div>
       )}

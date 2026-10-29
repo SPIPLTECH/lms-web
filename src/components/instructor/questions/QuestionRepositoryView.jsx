@@ -29,6 +29,7 @@ import {
   useDeleteRepositoryQuestion,
 } from "@/hooks/queries/instructor/useQuestionRepository";
 import { useToast } from "@/components/ui/ToastProvider";
+import { useConfirm } from "@/context/ConfirmContext";
 import { QUESTION_TYPE_OPTIONS } from "@/lib/questionType";
 
 /**
@@ -38,6 +39,7 @@ import { QUESTION_TYPE_OPTIONS } from "@/lib/questionType";
  */
 export default function QuestionRepositoryView({ showImportShortcuts = false }) {
   const { showToast } = useToast();
+  const confirm = useConfirm();
 
   // Filters
   const [search, setSearch] = useState("");
@@ -101,16 +103,26 @@ export default function QuestionRepositoryView({ showImportShortcuts = false }) 
     });
   };
 
-  const handleArchive = (id) => {
-    if (!confirm("Are you sure you want to archive this question?")) return;
+  const handleArchive = async (id) => {
+    const confirmed = await confirm({
+      title: "Archive question",
+      message: "Are you sure you want to archive this question?",
+      confirmText: "Archive",
+    });
+    if (!confirmed) return;
     archiveMutation.mutate(id, {
       onSuccess: () => showToast("Question archived.", "success"),
       onError: (err) => showToast("Failed to archive question: " + (err?.message || "Server error"), "error"),
     });
   };
 
-  const handleDelete = (id) => {
-    if (!confirm("Are you sure you want to delete this question? If used in quizzes, it will be archived.")) return;
+  const handleDelete = async (id) => {
+    const confirmed = await confirm({
+      title: "Delete question",
+      message: "Are you sure you want to delete this question? If used in quizzes, it will be archived.",
+      confirmText: "Delete",
+    });
+    if (!confirmed) return;
     deleteMutation.mutate(id, {
       onSuccess: () => showToast("Question deleted / archived successfully.", "success"),
       onError: (err) => showToast("Failed to delete question: " + (err?.message || "Server error"), "error"),
@@ -133,14 +145,24 @@ export default function QuestionRepositoryView({ showImportShortcuts = false }) 
   };
 
   const handleBulkArchive = async () => {
-    if (!confirm(`Archive ${selectedIds.length} selected questions?`)) return;
+    const confirmed = await confirm({
+      title: "Archive selected",
+      message: `Archive ${selectedIds.length} selected questions?`,
+      confirmText: "Archive",
+    });
+    if (!confirmed) return;
     await Promise.allSettled(selectedIds.map((id) => archiveMutation.mutateAsync(id)));
     setSelectedIds([]);
     showToast("Selected questions archived.", "success");
   };
 
   const handleBulkDelete = async () => {
-    if (!confirm(`Delete/Archive ${selectedIds.length} selected questions?`)) return;
+    const confirmed = await confirm({
+      title: "Delete selected",
+      message: `Delete ${selectedIds.length} selected questions? Any used in quizzes will be archived instead.`,
+      confirmText: "Delete",
+    });
+    if (!confirmed) return;
     await Promise.allSettled(selectedIds.map((id) => deleteMutation.mutateAsync(id)));
     setSelectedIds([]);
     showToast("Selected questions processed.", "success");

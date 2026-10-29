@@ -2,6 +2,8 @@
 
 import { PanelLeftOpen, MoreHorizontal } from "lucide-react";
 
+import EvaluatorFeedbackButton from "@/components/evaluator/EvaluatorFeedbackButton";
+
 // Sub-header for the learning workspace — the lesson/topic currently playing
 // in the content player and the Sticky Notes trigger. The shared
 // dashboard Navbar (logo/nav/search/chat/notifications/profile) already
@@ -64,6 +66,11 @@ export default function LearnPageHeader({
               </div>
             </div>
 
+            <div className="flex shrink-0 items-center gap-3">
+            {/* Evaluator accounts only: the independent evaluation feedback
+                site (not the LMS Feedback panel behind More). */}
+            <EvaluatorFeedbackButton />
+
             {/* Side-panel toggle. globals.css gives every <button> an unlayered
                 border-radius / box-shadow / transition that beats Tailwind
                 utilities, so the pill radius and transition are set inline and the
@@ -99,6 +106,7 @@ export default function LearnPageHeader({
                 <span className="hidden sm:inline">More</span>
               </span>
             </button>
+            </div>
           </header>
         </div>
       </div>

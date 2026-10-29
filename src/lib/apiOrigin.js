@@ -77,6 +77,13 @@ const resolveForCurrentHost = (configured) => {
 /** Origin for REST calls and for files served from the API (e.g. /uploads). */
 export const getApiOrigin = () => resolveForCurrentHost(CONFIGURED_API_URL);
 
+const CONFIGURED_CODEIT_URL = stripTrailingSlash(
+  process.env.NEXT_PUBLIC_CODEIT_URL || "http://localhost:5100"
+);
+
+/** Origin of the Code-IT microservice (code-it-service), same loopback rule. */
+export const getCodeItOrigin = () => resolveForCurrentHost(CONFIGURED_CODEIT_URL);
+
 /**
  * Origin for the Socket.io connection. Keeps the existing precedence —
  * NEXT_PUBLIC_SOCKET_URL when set, otherwise the API origin.

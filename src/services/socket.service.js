@@ -1,6 +1,7 @@
 import { io } from "socket.io-client";
 
 import { getSocketOrigin } from "@/lib/apiOrigin";
+import { getDeviceKey } from "@/lib/authCookies";
 
 class SocketService {
   socket = null;
@@ -12,8 +13,11 @@ class SocketService {
     this.socket = io(
       socketUrl,
       {
+        // The handshake passes the same session gate as REST calls, so it
+        // carries the device key the session is bound to.
         auth: {
           token,
+          deviceKey: getDeviceKey(),
         },
       }
     );

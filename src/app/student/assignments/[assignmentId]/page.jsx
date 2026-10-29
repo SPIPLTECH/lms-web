@@ -9,6 +9,7 @@ import PageHeader from "@/components/layouts/PageHeader";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import useAssignment from "@/hooks/queries/student/useAssignment";
+import usePlaybackLease from "@/hooks/queries/student/usePlaybackLease";
 import useTrackCourseAccess from "@/hooks/queries/student/useTrackCourseAccess";
 import AssignmentSubmissionPanel from "@/components/student/assignments/AssignmentSubmissionPanel";
 import SubmissionStatusBadge from "@/components/student/submissions/SubmissionStatusBadge";
@@ -33,6 +34,8 @@ function StatTile({ icon: Icon, label, value, detail }) {
 
 export default function AssignmentDetailPage({ params }) {
   const { assignmentId } = use(params);
+
+  usePlaybackLease(assignmentId, { enabled: Boolean(assignmentId) });
 
   const {
     data: assignment,
@@ -262,6 +265,27 @@ export default function AssignmentDetailPage({ params }) {
           </h3>
           <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
             {record.feedback}
+          </p>
+        </Card>
+      )}
+
+      {/* Marks per point behind an instructor-approved evaluation. The API
+          sends it only after approval; absent for hand-typed grades. */}
+      {graded && assignment?.evaluation?.criteria?.length > 0 && (
+        <Card tone="flat">
+          <h3 className="text-lg font-semibold text-foreground">Marks for each point</h3>
+          <ul className="mt-3 divide-y divide-border">
+            {assignment.evaluation.criteria.map((c, i) => (
+              <li key={i} className="flex items-center gap-3 py-2 text-sm">
+                <span className="flex-1 text-foreground">{c.description}</span>
+                <span className="font-mono font-semibold text-foreground">
+                  {c.awarded}/{c.maxMarks}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Marked against your instructor&apos;s marking scheme and approved by your instructor.
           </p>
         </Card>
       )}

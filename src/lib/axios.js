@@ -1,8 +1,11 @@
 import axios from "axios";
 import Cookies from "js-cookie";
 
-import { setSessionCookies, clearSessionCookies } from "@/lib/authCookies";
+import { setSessionCookies, clearSessionCookies, getDeviceKey } from "@/lib/authCookies";
 import { getApiOrigin } from "@/lib/apiOrigin";
+import { interceptorAction, refreshFailureReason, isContentBlockedError } from "@/lib/sessionErrors";
+import { publishAuthEvent, beginSignOut, isSigningOut } from "@/lib/authBroadcast";
+import { EVALUATOR_BLOCK_CODES, EVALUATOR_ACCESS_PATH } from "@/lib/evaluatorAccess";
 
 // Same prefixes middleware.js guards. Used below to decide whether a failed
 // background session check is allowed to navigate the browser at all.
@@ -55,6 +58,13 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
+    // The API binds each session to the browser it was issued to and checks
+    // this on every request (and at sign-in, to recognise the same device).
+    const deviceKey = getDeviceKey();
+    if (deviceKey) {
+      config.headers["X-Device-Key"] = deviceKey;
+    }
+
     return config;
   },
   (error) => Promise.reject(error)
@@ -69,33 +79,44 @@ api.interceptors.response.use(
     // Don't try to refresh for auth endpoints
     const isAuthRoute =
       originalRequest?.url?.includes("/auth/login") ||
+      originalRequest?.url?.includes("/auth/google") ||
       originalRequest?.url?.includes("/auth/register") ||
       originalRequest?.url?.includes("/auth/logout") ||
       originalRequest?.url?.includes("/auth/refresh-token");
 
-    if (
-      error.response?.status === 401 &&
-      !originalRequest._retry &&
-      !isAuthRoute
-    ) {
+    // The session itself is over (logged out, expired, revoked, account
+    // suspended — or a 401 with no refresh credential left): no refresh can
+    // revive it, so drop local auth state and send the user to sign in.
+    // Anything else, including no answer at all, is this request's own error.
+    const refreshToken = Cookies.get("refreshToken");
+    const action = interceptorAction(error, {
+      isAuthRoute,
+      alreadyRetried: Boolean(originalRequest?._retry),
+      hasRefreshToken: Boolean(refreshToken),
+    });
+
+    if (action.type === "end") {
+      endLocalSession(action.reason);
+      return Promise.reject(error);
+    }
+
+    if (action.type === "refresh") {
       originalRequest._retry = true;
 
+      let newAccessToken;
       try {
-        const refreshToken = Cookies.get("refreshToken");
-
-        if (!refreshToken) {
-          throw new Error("Refresh token missing");
-        }
-
-        // Bare axios, so the interceptor above does not apply — resolve here too.
+        // Bare axios, so the interceptor above does not apply — resolve here
+        // too, and send the device key the session is bound to.
+        const deviceKey = getDeviceKey();
         const response = await axios.post(
           `${getApiOrigin()}/auth/refresh-token`,
           {
             refreshToken,
-          }
+          },
+          deviceKey ? { headers: { "X-Device-Key": deviceKey } } : undefined
         );
 
-        const newAccessToken =
+        newAccessToken =
           response.data.data.accessToken;
 
         // Both cookies, same lifetime — writing accessToken alone here is
@@ -105,41 +126,79 @@ api.interceptors.response.use(
           accessToken: newAccessToken,
           role: resolveSessionRole(response.data.data),
         });
-
-        originalRequest.headers.Authorization =
-          `Bearer ${newAccessToken}`;
-
-        return api(originalRequest);
       } catch (refreshError) {
-        clearSessionCookies();
-
-        localStorage.removeItem("user");
-
-        // Only force-navigate when the page the browser is actually showing
-        // requires auth. A failed *background* session check (e.g. the
-        // silent verifySession() call every page fires on load) must not
-        // hijack navigation away from a public page like a course detail
-        // page — that page never needed a session in the first place, and
-        // a stale/expired token here shouldn't be able to yank the browser
-        // back to "/" mid-navigation. Protected pages still redirect: their
-        // own layout guard (and middleware, on a full load) send an
-        // unauthenticated visitor to "/" regardless, so this is belt-and-
-        // suspenders there, not the only thing keeping them out.
-        if (typeof window !== "undefined") {
-          const isOnProtectedPath = PROTECTED_PREFIXES.some((prefix) =>
-            window.location.pathname.startsWith(prefix)
-          );
-          if (isOnProtectedPath) {
-            window.location.replace("/");
-          }
-        }
-
+        // Only a refusal from the server ends the session here. A timeout,
+        // network drop or 5xx says nothing about the session: throwing the
+        // credentials away would leave the server session ACTIVE although
+        // this browser could no longer use it.
+        const reason = refreshFailureReason(refreshError);
+        if (reason) endLocalSession(reason);
         return Promise.reject(refreshError);
       }
+
+      // Retried outside the refresh's try: the retry failing for its own
+      // reasons (a 409 conflict, a 403 on that resource, a 500) is that
+      // request's error, not a reason to sign the user out.
+      originalRequest.headers.Authorization =
+        `Bearer ${newAccessToken}`;
+
+      return api(originalRequest);
+    }
+
+    // An evaluator account whose learning access is closed (feedback not yet
+    // verified, or the 2-day period over). The session is still valid — the
+    // access page explains which case it is.
+    if (
+      error.response?.status === 403 &&
+      EVALUATOR_BLOCK_CODES.includes(error.response.data?.code) &&
+      typeof window !== "undefined" &&
+      window.location.pathname !== EVALUATOR_ACCESS_PATH
+    ) {
+      window.location.replace(EVALUATOR_ACCESS_PATH);
+    }
+
+    if (isContentBlockedError(error) && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("lms:content-blocked", { detail: { error } }));
     }
 
     return Promise.reject(error);
   }
 );
+
+/**
+ * Clears this browser's session state and, on a protected page, sends the
+ * user to sign in with the reason (the login page shows the matching
+ * message). The device key is kept: this is still the same device.
+ */
+function endLocalSession(reason) {
+  // This tab is signing out itself (logout() does the cleanup and navigates
+  // to "/"), or is already on its way to the sign-in page: a late 401 must
+  // not redirect it again with a different reason.
+  if (isSigningOut()) return;
+
+  clearSessionCookies();
+
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("user");
+
+  // The cookies are shared by every tab of this browser, so the session is
+  // over for all of them: tell the others now rather than on their next call.
+  publishAuthEvent({ type: "session-ended", reason });
+
+  // Only force-navigate when the page the browser is actually showing
+  // requires auth. A failed *background* session check (e.g. the silent
+  // verifySession() call every page fires on load) must not hijack navigation
+  // away from a public page. Protected pages still redirect: their own layout
+  // guard (and middleware, on a full load) send an unauthenticated visitor
+  // away regardless, so this is belt-and-suspenders there.
+  const isOnProtectedPath = PROTECTED_PREFIXES.some((prefix) =>
+    window.location.pathname.startsWith(prefix)
+  );
+  if (isOnProtectedPath) {
+    beginSignOut();
+    const query = reason ? `?reason=${encodeURIComponent(reason)}` : "";
+    window.location.replace(`/login${query}`);
+  }
+}
 
 export default api;

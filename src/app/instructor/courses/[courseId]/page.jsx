@@ -30,6 +30,7 @@ import useTrackCourseView from "@/hooks/queries/instructor/useTrackCourseView";
 import { useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { useToast } from "@/components/ui/ToastProvider";
+import { useConfirm } from "@/context/ConfirmContext";
 import { LessonComposerPanel } from "@/components/instructor/LessonComposer/LessonComposerPanel";
 import { duplicateCourse } from "@/services/course.service";
 import { createQuiz as createQuizService, updateQuiz as updateQuizService, deleteQuiz as deleteQuizService, getQuizById as getQuizByIdService } from "@/services/quiz.service";
@@ -42,6 +43,7 @@ import {
 
 import { CourseComposerHeader } from "@/components/instructor/courses/CourseComposerHeader";
 import { CourseComposerSidebar } from "@/components/instructor/courses/CourseComposerSidebar";
+import { ComposerNodeHeader } from "@/components/instructor/courses/ComposerNodeHeader";
 import ResizeHandle from "@/components/ui/ResizeHandle";
 import useResizableWidth from "@/hooks/useResizableWidth";
 import { CourseOverviewView } from "@/components/instructor/courses/CourseOverviewView";
@@ -132,6 +134,8 @@ export default function CourseDetailsPage() {
   const searchParams = useSearchParams();
   const courseId = params.courseId;
   const { showToast } = useToast();
+  const confirm = useConfirm();
+  const confirmDelete = (title, message) => confirm({ title, message, confirmText: "Delete" });
 
   // React Query Hooks
   // This page renders the syllabus from useModules() below — `course.modules`
@@ -420,17 +424,9 @@ export default function CourseDetailsPage() {
           );
         }
 
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.COURSE, courseId] }),
-          queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.MODULES, courseId] }),
-          queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.INSTRUCTOR_COURSES] }),
-          ...(contextData.topicId || composeTopicId
-            ? [
-                queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.CONTENTS, contextData.topicId || composeTopicId] }),
-                queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.TOPIC, contextData.topicId || composeTopicId] }),
-              ]
-            : []),
-        ]);
+        // The raw api call skips the global post-mutation refresh: refetch
+        // everything on screen and mark the rest stale.
+        await queryClient.invalidateQueries();
         showToast(`${scope} created from AI!`, "success");
         return;
       }
@@ -1549,12 +1545,9 @@ export default function CourseDetailsPage() {
             freshQuiz = { ...resQuiz, questions: updatedQuizData.questions || [] };
           }
 
-          await Promise.allSettled([
-            queryClient.refetchQueries({ queryKey: [QUERY_KEYS.COURSE, courseId] }),
-            queryClient.refetchQueries({ queryKey: [QUERY_KEYS.COURSE, courseId, "meta"] }),
-            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.INSTRUCTOR_COURSES] }),
-            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.QUIZZES] }),
-          ]);
+          // Refetches everything on screen (course, tree, quiz lists) and marks
+          // the rest stale — the service call skips the global mutation refresh.
+          await queryClient.invalidateQueries();
 
           showToast(
             !topicScopeOnly && composeConceptId
@@ -1616,12 +1609,7 @@ export default function CourseDetailsPage() {
             freshQuiz = updatedQuiz;
           }
 
-          await Promise.allSettled([
-            queryClient.refetchQueries({ queryKey: [QUERY_KEYS.COURSE, courseId] }),
-            queryClient.refetchQueries({ queryKey: [QUERY_KEYS.COURSE, courseId, "meta"] }),
-            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.INSTRUCTOR_COURSES] }),
-            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.QUIZZES] }),
-          ]);
+          await queryClient.invalidateQueries();
 
           showToast("Quiz updated successfully!", "success");
           setSelectedQuizState(freshQuiz);
@@ -1740,7 +1728,9 @@ export default function CourseDetailsPage() {
           lessonId: lesson?.id || null,
           topicId: topic?.id || null,
         });
-        await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.INSTRUCTOR_COURSES] });
+        // A raw api call skips the global post-mutation refresh, so refresh
+        // here — the composer's tree and quiz lists, not just the course list.
+        await queryClient.invalidateQueries();
         showToast("Quiz duplicated successfully!", "success");
       } catch (err) {
         showToast("Failed to duplicate quiz.", "error");
@@ -1750,7 +1740,7 @@ export default function CourseDetailsPage() {
 
   const handleDeleteQuiz = async (e, quiz, mod = null, lesson = null, topic = null) => {
     if (e) e.stopPropagation();
-    if (!window.confirm(`Are you sure you want to delete "${quiz.title || "this quiz"}"?`)) return;
+    if (!(await confirmDelete("Delete quiz", `Are you sure you want to delete "${quiz.title || "this quiz"}"?`))) return;
 
     if (isDraftMode) {
       const qTargetId = quiz.id || quiz._id;
@@ -1815,7 +1805,7 @@ export default function CourseDetailsPage() {
         const qTargetId = quiz.id || quiz._id;
         if (qTargetId && !String(qTargetId).startsWith("draft-")) {
           await deleteQuizService(qTargetId);
-          await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.INSTRUCTOR_COURSES] });
+          await queryClient.invalidateQueries();
         }
         showToast("Quiz deleted successfully!", "success");
         if (composeQuizId && String(composeQuizId) === String(qTargetId)) {
@@ -2113,7 +2103,8 @@ export default function CourseDetailsPage() {
 
   const handleDeleteAssignment = async (e, assignment) => {
     if (e) e.stopPropagation();
-    if (!assignment || !window.confirm(`Are you sure you want to delete "${assignment.title || "this assignment"}"?`)) return;
+    if (!assignment) return;
+    if (!(await confirmDelete("Delete assignment", `Are you sure you want to delete "${assignment.title || "this assignment"}"?`))) return;
     if (isDraftMode) {
       updateDraftAssignments((list) => list.filter((a) => String(a.id) !== String(assignment.id)));
     } else {
@@ -2269,7 +2260,7 @@ export default function CourseDetailsPage() {
   // Delete Handlers for structural children
   const handleDeleteModule = async (e, mod) => {
     if (e) e.stopPropagation();
-    if (!window.confirm("Are you sure you want to delete this module and all its contents?")) return;
+    if (!(await confirmDelete("Delete module", "Are you sure you want to delete this module and all its contents?"))) return;
     if (isDraftMode) {
       const deletedLessonIds = new Set((mod.lessons || []).map((l) => l.id));
       const deletedTopicIds = new Set((mod.lessons || []).flatMap((l) => (l.topics || []).map((t) => t.id)));
@@ -2294,7 +2285,7 @@ export default function CourseDetailsPage() {
 
   const handleDeleteLesson = async (e, lesson, moduleId) => {
     if (e) e.stopPropagation();
-    if (!window.confirm("Are you sure you want to delete this lesson?")) return;
+    if (!(await confirmDelete("Delete lesson", "Are you sure you want to delete this lesson?"))) return;
     if (isDraftMode) {
       const deletedTopicIds = new Set((lesson.topics || []).map((t) => t.id));
       const nextMods = draftModules.map((m) => {
@@ -2326,7 +2317,7 @@ export default function CourseDetailsPage() {
 
   const handleDeleteTopic = async (e, topic, lessonId) => {
     if (e) e.stopPropagation();
-    if (!window.confirm("Are you sure you want to delete this topic and all its contents?")) return;
+    if (!(await confirmDelete("Delete topic", "Are you sure you want to delete this topic and all its contents?"))) return;
     if (isDraftMode) {
       const nextMods = draftModules.map((m) => ({
         ...m,
@@ -2366,7 +2357,7 @@ export default function CourseDetailsPage() {
 
   const handleDeleteContent = async (e, content, topicId) => {
     if (e) e.stopPropagation();
-    if (!window.confirm("Are you sure you want to delete this content?")) return;
+    if (!(await confirmDelete("Delete content", "Are you sure you want to delete this content?"))) return;
     if (isDraftMode) {
       const nextMods = draftModules.map((m) => ({
         ...m,
@@ -2403,7 +2394,7 @@ export default function CourseDetailsPage() {
   // unlike handleDeleteContent above, no draftModules branch is needed.
   const handleDeleteContentAtParent = async (e, content, parent) => {
     if (e) e.stopPropagation();
-    if (!window.confirm("Are you sure you want to delete this content?")) return;
+    if (!(await confirmDelete("Delete content", "Are you sure you want to delete this content?"))) return;
     try {
       await deleteContentMutation.mutateAsync({ contentId: content.id, parent });
       showToast("Content deleted successfully", "success");
@@ -2418,9 +2409,10 @@ export default function CourseDetailsPage() {
   const handleDeleteSubTopic = async (e, subTopic, context = {}) => {
     if (e) e.stopPropagation();
     if (
-      !window.confirm(
+      !(await confirmDelete(
+        "Delete subtopic",
         `Delete "${subTopic.title || "this subtopic"}"? Its concepts, contents and quizzes will be deleted too.`
-      )
+      ))
     )
       return;
     try {
@@ -2442,7 +2434,7 @@ export default function CourseDetailsPage() {
 
   const handleDeleteConcept = async (e, concept, context = {}) => {
     if (e) e.stopPropagation();
-    if (!window.confirm(`Delete "${concept.title || "this concept"}"? Its contents and quizzes will be deleted too.`)) return;
+    if (!(await confirmDelete("Delete concept", `Delete "${concept.title || "this concept"}"? Its contents and quizzes will be deleted too.`))) return;
     try {
       await deleteConceptMutation.mutateAsync({
         conceptId: concept.id,
@@ -2576,8 +2568,7 @@ export default function CourseDetailsPage() {
         }
 
         sessionStorage.removeItem("imported_course_draft");
-        await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.INSTRUCTOR_COURSES] });
-        await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.INSTRUCTOR_COURSES_TABLE] });
+        await queryClient.invalidateQueries();
         await queryClient.resetQueries({ queryKey: [QUERY_KEYS.INSTRUCTOR_COURSES_TABLE] });
 
         showToast("Course saved and created successfully!", "success", "Saved");
@@ -2690,6 +2681,7 @@ export default function CourseDetailsPage() {
     try {
       const res = await duplicateCourse(courseId);
       const newCourse = res?.data || res;
+      queryClient.invalidateQueries();
       showToast("Course duplicated successfully!", "success");
       if (newCourse?.id) {
         router.push(`/instructor/courses/${newCourse.id}`);
@@ -2753,7 +2745,10 @@ export default function CourseDetailsPage() {
     // this fills that shell rather than pulling back padding that isn't
     // there any more. flex-col + min-h-0 lets the Notebook cell stack below
     // become the one scrollable region instead of the whole page.
-    <div className="h-full flex flex-col animate-fade-in duration-300">
+    // pt-3/sm:pt-5 is the gap under the navbar and lg:pl-5 the gap left of the
+    // Course Map rail (desktop only — below lg the map is a drawer) — both
+    // match the gap-5 between the Course Map and the workspace beside it.
+    <div className="h-full flex flex-col pt-3 sm:pt-5 lg:pl-5 animate-fade-in duration-300">
       {/* 1. APP HEADER — no visible bar now; just the mobile Course Map
           toggle (floating) and Ask OTree AI (floating). Status and the
           Publish/Unpublish/Restore/Save actions live on the Course Header
@@ -2922,7 +2917,7 @@ export default function CourseDetailsPage() {
           {/* Notebook Workspace Dynamic View — the one scrollable region in
               this page now; everything else (navbar, Course Map, this
               reopen button) stays fixed in place while these cells scroll. */}
-          <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl border border-transparent bg-background/60 p-2 sm:p-6 shadow-xl">
+          <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl border border-transparent bg-background/60 p-2 pt-0 sm:p-6 sm:pt-0 shadow-xl">
             {composerMode === "course" && (
               <CourseOverviewView
                 course={effectiveCourse}
@@ -3058,6 +3053,25 @@ export default function CourseDetailsPage() {
             )}
 
             {composerMode === "topic" && (
+              <>
+              <ComposerNodeHeader
+                type="topic"
+                title={composingTopic?.title}
+                description={composingTopic?.description}
+                parentTitle={composingLesson?.title}
+                onEdit={
+                  composingTopic && !isDraftMode
+                    ? () =>
+                        openEntityModal({
+                          entity: "topic",
+                          mode: "edit",
+                          entityData: composingTopic,
+                          parentId: composingLesson?.id || composeLessonId,
+                          moduleId: composingModule?.id || composeModuleId,
+                        })
+                    : undefined
+                }
+              />
               <LessonComposerPanel
                 parent={{ parentType: "topic", parentId: composeTopicId }}
                 selectedCellId={selectedCellId}
@@ -3086,9 +3100,29 @@ export default function CourseDetailsPage() {
                   }
                 }}
               />
+              </>
             )}
 
             {composerMode === "subTopic" && !isDraftMode && (
+              <>
+              <ComposerNodeHeader
+                type="subTopic"
+                title={composingSubTopicTitle}
+                description={activeSubTopic?.description}
+                parentTitle={composingTopic?.title}
+                onEdit={
+                  activeSubTopic
+                    ? () =>
+                        openEntityModal({
+                          entity: "subTopic",
+                          mode: "edit",
+                          entityData: activeSubTopic,
+                          parentId: activeSubTopic.topicId || composeTopicId,
+                          context: { module: composingModule, lesson: composingLesson, topic: composingTopic },
+                        })
+                    : undefined
+                }
+              />
               <LessonComposerPanel
                 parent={{ parentType: "subTopic", parentId: composeSubTopicId }}
                 selectedCellId={selectedCellId}
@@ -3099,9 +3133,34 @@ export default function CourseDetailsPage() {
                   handleAddSubTopicQuiz({ id: composeSubTopicId, title: composingSubTopicTitle }, {}, order)
                 }
               />
+              </>
             )}
 
             {composerMode === "concept" && !isDraftMode && (
+              <>
+              <ComposerNodeHeader
+                type="concept"
+                title={composingConceptTitle}
+                description={activeConcept?.description}
+                parentTitle={composingSubTopicTitle}
+                onEdit={
+                  activeConcept
+                    ? () =>
+                        openEntityModal({
+                          entity: "concept",
+                          mode: "edit",
+                          entityData: activeConcept,
+                          parentId: activeConcept.subTopicId || composeSubTopicId,
+                          context: {
+                            module: composingModule,
+                            lesson: composingLesson,
+                            topic: composingTopic,
+                            subTopic: activeSubTopic || { id: composeSubTopicId, title: composingSubTopicTitle },
+                          },
+                        })
+                    : undefined
+                }
+              />
               <LessonComposerPanel
                 parent={{ parentType: "concept", parentId: composeConceptId }}
                 selectedCellId={selectedCellId}
@@ -3112,6 +3171,7 @@ export default function CourseDetailsPage() {
                   handleAddConceptQuiz({ id: composeConceptId, title: composingConceptTitle }, {}, order)
                 }
               />
+              </>
             )}
           </div>
         </main>

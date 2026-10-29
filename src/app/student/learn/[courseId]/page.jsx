@@ -11,6 +11,7 @@ import QuizExperience from "@/components/student/attempt/QuizExperience";
 import LearnSidePanel from "@/components/student/learning/LearnSidePanel";
 import LessonNavigationControls from "@/components/student/learning/LessonNavigationControls";
 import LearnPageHeader from "@/components/student/learning/LearnPageHeader";
+import EvaluatorFeedbackButton from "@/components/evaluator/EvaluatorFeedbackButton";
 import SkipQualificationModal from "@/components/student/learning/SkipQualificationModal";
 import QualificationResultPanel from "@/components/student/learning/QualificationResultPanel";
 import StudentCourseMap from "@/components/student/learning/StudentCourseMap";
@@ -18,19 +19,19 @@ import StudentCourseMap from "@/components/student/learning/StudentCourseMap";
 import { buildPathIndex, getSkipOfferForScope } from "@/lib/learningPath";
 
 import {
-  useCourse,
   useStudentState,
   useUpdateStudentState,
   useCompleteContent,
   useMarkVisited,
 } from "@/hooks/queries/student";
-import useLearningPath from "@/hooks/queries/student/useLearningPath";
 import useLearningSequence from "@/hooks/queries/student/useLearningSequence";
+import usePlaybackLease from "@/hooks/queries/student/usePlaybackLease";
 import useQuizResult from "@/hooks/queries/student/useQuizResult";
 import useMyCourses from "@/hooks/queries/student/useMyCourses";
 import useTrackCourseAccess from "@/hooks/queries/student/useTrackCourseAccess";
 import useLearningStateSync from "@/hooks/queries/student/useLearningStateSync";
 import useMediaQuery from "@/hooks/useMediaQuery";
+import useAuth from "@/hooks/useAuth";
 import useResizableWidth from "@/hooks/useResizableWidth";
 import ResizeHandle from "@/components/ui/ResizeHandle";
 
@@ -70,10 +71,10 @@ function indexContainers(tree) {
 export default function LearnPage() {
   const { courseId } = useParams();
   const router = useRouter();
-
-  // Course metadata only (title, language): what the player walks comes from
-  // the learning sequence below.
-  const { data: course, isLoading, isError } = useCourse(courseId);
+  // Evaluator accounts have every step open (backend learningSequence
+  // `unlockAll`), so there is nothing for them to mark complete.
+  const { user } = useAuth();
+  const isEvaluator = Boolean(user?.evaluator);
 
   // Same enrollment gate as /student/courses/[courseId] — this is the actual
   // lesson content, not just an overview. A non-enrolled student who reaches
@@ -92,21 +93,36 @@ export default function LearnPage() {
   // assignments — as one ordered list of steps, with the server's completed /
   // visited / locked flags. Prev/Next, the Course Map, resume and the
   // completion strip all read it; nothing here orders, merges or gates items.
+  // Not gated on the enrollment list: the server refuses a non-enrolled
+  // student itself (403), and the render guard below waits on isEnrolled, so
+  // starting in parallel only saves the wait.
   const {
     data: sequence,
     isPending: isSequencePending,
     isError: isSequenceError,
     refetch: refetchSequence,
-  } = useLearningSequence(courseId, { enabled: isEnrolled });
+  } = useLearningSequence(courseId, { withPath: true });
   const steps = sequence?.steps || [];
   const containersById = useMemo(() => indexContainers(sequence?.tree), [sequence]);
+
+  // The course record fields the player shows (title, language) ride on the
+  // sequence, so the page needs no GET /courses/:id of its own.
+  const course = useMemo(
+    () => (sequence ? { id: courseId, title: sequence.title, language: sequence.language } : null),
+    [sequence, courseId]
+  );
+  // Sequential learning off: every step is open (backend `unlockAll`) and the
+  // course keeps no progress — nothing is marked complete or visited, and the
+  // player shows no completion strip. The server reports it as
+  // progressTracked: false.
+  const isOpenCourse = sequence?.progressTracked === false;
 
   const completeContentMutation = useCompleteContent();
   const markVisitedMutation = useMarkVisited();
 
   // The server's lesson/topic path — read here only for qualifying-test
-  // (skip) offers.
-  const { data: learningPathData } = useLearningPath(courseId);
+  // (skip) offers. Comes with the sequence (same roll-up, same request).
+  const learningPathData = sequence?.learningPath;
   const pathIndex = useMemo(
     () => buildPathIndex(learningPathData?.path),
     [learningPathData]
@@ -218,6 +234,10 @@ export default function LearnPage() {
   });
 
   const step = steps[stepIndex] || null;
+  const activeContentId = step?.contentId;
+  const learningLease = usePlaybackLease(activeContentId, {
+    enabled: Boolean(activeContentId && isEnrolled && !step?.locked),
+  });
   const stepPath = step?.path || {};
   const selectedLesson = stepPath.lessonId ? containersById.get(stepPath.lessonId) || null : null;
   // The most specific container below the lesson (Concept, SubTopic or
@@ -500,7 +520,7 @@ export default function LearnPage() {
   // sequence says the next step is open, so the gate never reads stale flags.
   const handleVideoEnded = async () => {
     const finished = step;
-    if (finished?.kind === "CONTENT" && !finished.completed) {
+    if (!isOpenCourse && finished?.kind === "CONTENT" && !finished.completed) {
       try {
         await completeContentMutation.mutateAsync({ contentIds: finished.contentIds, completed: true });
         const { data: fresh } = await refetchSequence();
@@ -517,13 +537,13 @@ export default function LearnPage() {
   // and a reached step stays open for good.
   const visitedIdsRef = useRef(new Set());
   useEffect(() => {
-    if (!step || step.locked || step.visited) return;
+    if (isOpenCourse || !step || step.locked || step.visited) return;
     const ids = step.contentIds.filter((id) => !visitedIdsRef.current.has(id));
     if (ids.length === 0) return;
     ids.forEach((id) => visitedIdsRef.current.add(id));
     markVisitedMutation.mutate({ contentIds: ids });
     // markVisitedMutation intentionally omitted; the ref guard prevents re-sending.
-  }, [step?.contentId, step?.locked, step?.visited]);
+  }, [isOpenCourse, step?.contentId, step?.locked, step?.visited]);
 
   // Mirrors the step on screen into ?item=, so a refresh returns to this exact
   // item. history.replaceState, not router.replace — this is not navigation.
@@ -541,11 +561,11 @@ export default function LearnPage() {
     videoPlayerRef.current?.seekTo(seconds);
   };
 
-  if (isLoading || isEnrollmentsLoading || !isEnrolled || isSequencePending || !stateRestored) {
+  if (isEnrollmentsLoading || !isEnrolled || isSequencePending || !stateRestored) {
     return <Loader />;
   }
 
-  if (isError || !course || isSequenceError || !sequence) {
+  if (isSequenceError || !sequence) {
     return <Card className="text-foreground">Course not found.</Card>;
   }
 
@@ -564,7 +584,8 @@ export default function LearnPage() {
     contentIds: isContentStep ? step.contentIds : [],
     completed: Boolean(step?.completed),
   };
-  const showCompletionBar = Boolean(step) && !step.locked && !qualifyingAttempt;
+  // An open course keeps no progress, so it has no completion strip at all.
+  const showCompletionBar = Boolean(step) && !step.locked && !qualifyingAttempt && !isEvaluator && !isOpenCourse;
   const completionBarProps = {
     completed: Boolean(step?.completed),
     isPending: completeContentMutation.isPending,
@@ -881,6 +902,12 @@ export default function LearnPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Phones only: LearnPageHeader, which carries this from sm
+                    up, is hidden below sm. Evaluator accounts only. */}
+                <div className="sm:hidden empty:hidden mt-3 flex">
+                  <EvaluatorFeedbackButton className="w-full" />
+                </div>
               </div>
 
               {/* CONTENT PLAYER FRAME — a bounded box at every width, so the
@@ -1013,6 +1040,7 @@ export default function LearnPage() {
                   ) : (
                     <LessonContentBlock
                       item={contentItem}
+                      lease={learningLease}
                       videoPlayerRef={videoPlayerRef}
                       onTimeUpdate={setCurrentTimestamp}
                       onDurationChange={setVideoDuration}
@@ -1129,12 +1157,14 @@ export default function LearnPage() {
             refetches the material itself and re-checks enrollment per turn,
             so `isEnrolled` here is a UI hint, never a grant. Quiz/assignment
             ids are deliberately NOT passed: the assistant never retrieves
-            assessment material. */}
+            assessment material. On a video step it sits bottom-left, clear
+            of the player's fullscreen control in the bottom-right. */}
         <AiAssistantWidget
           courseId={courseId}
           courseTitle={course?.title}
           isEnrolled={isEnrolled}
           getPosition={getAiLearningPosition}
+          side={playerMode === "aspect" ? "left" : "right"}
         />
       </div>
     </div>

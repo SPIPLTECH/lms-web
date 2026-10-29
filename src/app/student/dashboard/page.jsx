@@ -19,6 +19,9 @@ import RecommendedCoursesCarousel from "@/components/dashboard/RecommendedCourse
 import LearningRecommendations from "@/components/student/dashboard/LearningRecommendations";
 import LearningSignals from "@/components/student/dashboard/LearningSignals";
 import NextActionCard from "@/components/student/learning/NextActionCard";
+import MotivationCard from "@/components/student/dashboard/MotivationCard";
+import StudyPlanCard from "@/components/student/dashboard/StudyPlanCard";
+import CareerReadinessCard from "@/components/student/dashboard/CareerReadinessCard";
 import ContinueLearningRow from "@/components/dashboard/ContinueLearningRow";
 import RecommendedCourseCard from "@/components/dashboard/RecommendedCourseCard";
 import QuickActionButton from "@/components/dashboard/QuickActionButton";
@@ -272,6 +275,18 @@ export default function StudentDashboardPage() {
               <NextActionCard courseId={topEnrollment.courseId} />
             )}
 
+            {/* KEEP GOING — Motivation agent: streak and a few timely nudges
+                (deadlines, time away, fading concepts, milestones). Renders
+                nothing until there is something to say. */}
+            <MotivationCard />
+
+            {/* STUDY PLAN — Learning Path agent: this week's plan for the same
+                course as the next-action card, sized to the student's own
+                weekly hours. */}
+            {topEnrollment?.courseId && (
+              <StudyPlanCard courseId={topEnrollment.courseId} courseTitle={topEnrollment.course?.title} />
+            )}
+
             {/* Continue Learning */}
             <div className="rounded-2xl bg-card border border-border p-5">
               <div className="flex items-center justify-between mb-4">
@@ -370,6 +385,9 @@ export default function StudentDashboardPage() {
                 </div>
               )}
             </div>
+
+            {/* CAREER READINESS — Career Guidance agent. */}
+            <CareerReadinessCard />
 
           </div>
         </div>

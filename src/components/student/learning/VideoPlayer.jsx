@@ -16,6 +16,8 @@ import DOMPurify from "isomorphic-dompurify";
 import { resolveVideoSource } from "@/lib/videoSource";
 import VideoSurface from "@/components/shared/video/VideoSurface";
 import OrangeVideoPlayer from "@/components/student/learning/video/OrangeVideoPlayer";
+import usePlaybackLease from "@/hooks/queries/student/usePlaybackLease";
+import { Button } from "@/components/ui/shadcn/button";
 import { getDisplayUrl } from "@/lib/blob";
 import MarkdownRenderer from "@/components/ui/MarkdownEditor/MarkdownRenderer";
 import { unescapeFromContentApi, highlightCode } from "@/lib/markdown";
@@ -89,8 +91,39 @@ const parseSlides = (html) => {
     return sections.map(s => s.trim()).filter(Boolean);
 };
 
+/**
+ * What a protected video shows until its playback lease is held: a short
+ * "preparing" state, or why it cannot play (already playing on another
+ * device, no access, …) with an explicit "Try again". Never retries by
+ * itself — a conflict stays a conflict until the other device stops.
+ */
+function PlaybackGate({ lease }) {
+    const waiting = lease.status === "idle" || lease.status === "acquiring";
+    const conflict = lease.status === "conflict";
+
+    return (
+        <div
+            role={waiting ? "status" : "alert"}
+            className="flex h-80 w-full flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-[#0B101D] p-6 text-center"
+        >
+            <PlayCircle className={`h-10 w-10 text-amber-500 ${waiting ? "animate-pulse" : ""}`} />
+            <h4 className="text-base font-bold text-foreground">
+                {waiting ? "Preparing video…" : conflict ? "Playing on another device" : "This video can't start"}
+            </h4>
+            {!waiting && (
+                <>
+                    <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">{lease.message}</p>
+                    <Button type="button" size="sm" variant="outline" onClick={lease.retry}>
+                        Try again
+                    </Button>
+                </>
+            )}
+        </div>
+    );
+}
+
 const VideoPlayer = forwardRef(function VideoPlayer(
-    { content, onTimeUpdate, onEnded, onDurationChange, initialTime = 0, speechLanguage, lessonTitle, reserveHeaderCorner = false },
+    { content, lease: externalLease = null, onTimeUpdate, onEnded, onDurationChange, initialTime = 0, speechLanguage, lessonTitle, reserveHeaderCorner = false },
     ref
 ) {
     // The video itself is drawn by OrangeVideoPlayer (YouTube) or the shared
@@ -118,12 +151,23 @@ const VideoPlayer = forwardRef(function VideoPlayer(
     const htmlContent = content?.htmlContent;
     const externalUrl = content?.externalUrl;
 
-    // How this video renders (YouTube embed vs. our own hosted file) is decided
-    // once, in the shared resolver, so the student and the instructor cannot
-    // disagree about the same row. Private Vercel Blob URLs are routed through
-    // /api/blob-proxy by the resolver.
-    const videoSource = resolveVideoSource(content);
+    // A student is never sent a video's source with the course content
+    // (`mediaProtected`): it comes from the playback lease, claimed when the
+    // item opens. Only one device per account holds that lease; the server
+    // decides, and a second device gets a clear conflict instead of a video.
+    const protectedVideo = type === "VIDEO" && (content?.mediaProtected === true || Boolean(externalLease?.media));
+    const localLease = usePlaybackLease(content?.id, { enabled: !externalLease && protectedVideo });
+    const lease = externalLease || localLease;
+
+    const videoSource = protectedVideo
+        ? resolveVideoSource(lease.media?.url || "")
+        : resolveVideoSource(content);
     const displayFileUrl = getDisplayUrl(fileUrl);
+
+    // Lease lost mid-playback: stop the picture now, then explain.
+    useEffect(() => {
+        if (lease.status === "lost") surfaceRef.current?.pause?.();
+    }, [lease.status]);
 
     // A layout effect, so it runs before the new content's viewer reports its
     // first page state (children's passive effects) rather than wiping it.
@@ -166,18 +210,8 @@ const VideoPlayer = forwardRef(function VideoPlayer(
     // what they're showing and in which language.
     const documentReadAloud = content?.id ? { sessionKey: content.id, lang: resolveSpeechLang(speechLanguage) } : null;
 
-    if (!content) {
-        return (
-            <div className="flex aspect-video min-h-[220px] max-h-[520px] w-full items-center justify-center rounded-2xl border border-border bg-background p-6 text-center">
-                <div>
-                    <PlayCircle className="mx-auto mb-3 h-12 w-12 text-slate-600 animate-pulse" />
-                    <h3 className="text-lg sm:text-2xl font-semibold text-foreground">Select a lesson</h3>
-                    <p className="mt-1 text-sm sm:text-base text-muted-foreground">Choose a lesson from the sidebar to begin learning.</p>
-                </div>
-            </div>
-        );
-    }
-
+    // Images: computed and loaded before the empty-content return below, so
+    // every render calls the same hooks in the same order.
     const isImage =
         type === "IMAGE" ||
         type === "image" ||
@@ -225,6 +259,18 @@ const VideoPlayer = forwardRef(function VideoPlayer(
 
     const effectiveImageAlt = content?.title || parsedImg.alt || "Lesson image";
     const effectiveImageCaption = parsedImg.caption || (fileUrl ? htmlContent : "");
+
+    if (!content) {
+        return (
+            <div className="flex aspect-video min-h-[220px] max-h-[520px] w-full items-center justify-center rounded-2xl border border-border bg-background p-6 text-center">
+                <div>
+                    <PlayCircle className="mx-auto mb-3 h-12 w-12 text-slate-600 animate-pulse" />
+                    <h3 className="text-lg sm:text-2xl font-semibold text-foreground">Select a lesson</h3>
+                    <p className="mt-1 text-sm sm:text-base text-muted-foreground">Choose a lesson from the sidebar to begin learning.</p>
+                </div>
+            </div>
+        );
+    }
 
     const isTextLike = (type === "TEXT" || type === "HTML") && !isImage;
     const isPresentationLike = type === "PRESENTATION" || type === "SLIDE";
@@ -393,8 +439,21 @@ const VideoPlayer = forwardRef(function VideoPlayer(
 
             {/* Content Area with fluid aspect ratio */}
             <div className={`relative w-full flex flex-col bg-background ${contentAreaSizing}`}>
-                {/* VIDEO */}
-                {type === "VIDEO" && (
+                {/* VIDEO — a protected video waits for its playback lease */}
+                {protectedVideo && !lease.media && <PlaybackGate lease={lease} />}
+
+                {protectedVideo && lease.status === "lost" && (
+                    <div
+                        role="alert"
+                        className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-black/80 p-6 text-center"
+                    >
+                        <PlayCircle className="h-10 w-10 text-amber-500" />
+                        <p className="max-w-sm text-sm font-semibold text-white">{lease.message}</p>
+                        <Button type="button" size="sm" onClick={lease.retry}>Try again</Button>
+                    </div>
+                )}
+
+                {type === "VIDEO" && (!protectedVideo || lease.media) && (
                     videoSource.kind === "youtube" ? (
                         /* YouTube plays through the Orange LMS player: our
                            controls over the YouTube IFrame Player API, which

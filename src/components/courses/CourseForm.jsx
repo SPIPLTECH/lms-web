@@ -21,6 +21,7 @@ const INITIAL_FORM = {
     tags: "",
     certificatesEnabled: false,
     discussionEnabled: true,
+    sequentialLearning: true,
     estimatedLearningHours: 0,
 };
 
@@ -89,6 +90,7 @@ export default function CourseForm({
                 tags: Array.isArray(initialValues.tags) ? initialValues.tags.join(", ") : (initialValues.tags ?? ""),
                 certificatesEnabled: initialValues.certificatesEnabled ?? false,
                 discussionEnabled: initialValues.discussionEnabled ?? true,
+                sequentialLearning: initialValues.sequentialLearning ?? true,
                 estimatedLearningHours: initialValues.estimatedLearningHours ?? 0,
             });
         }
@@ -375,6 +377,22 @@ export default function CourseForm({
                             className="w-4 h-4 rounded border-transparent bg-background text-primary focus:ring-orange-500/20"
                         />
                         <span className="text-sm text-foreground">Enable Course Discussions</span>
+                    </label>
+
+                    <label className="flex items-start gap-3 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            name="sequentialLearning"
+                            checked={formData.sequentialLearning}
+                            onChange={handleChange}
+                            className="mt-0.5 w-4 h-4 rounded border-transparent bg-background text-primary focus:ring-orange-500/20"
+                        />
+                        <span className="text-sm text-foreground">
+                            Sequential learning
+                            <span className="block text-xs text-muted-foreground">
+                                Students must finish each item before the next one opens, and their progress is tracked. Turn off to let them open any lesson, quiz or assignment in any order; progress is then not tracked.
+                            </span>
+                        </span>
                     </label>
                 </div>
 

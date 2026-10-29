@@ -22,6 +22,8 @@ import {
 import DatePicker from "@/components/ui/DatePicker";
 import useUpdateProfile from "@/hooks/queries/student/useUpdateProfile";
 import { changePassword } from "@/services/auth.service";
+import { getNewPasswordError } from "@/lib/passwordPolicy";
+import PasswordRequirements from "@/components/auth/PasswordRequirements";
 import { uploadAvatar, removeAvatar } from "@/services/profile.service";
 import { getDisplayUrl } from "@/lib/blob";
 
@@ -206,8 +208,9 @@ export default function DesktopEditProfileView({ profile, onRefresh }) {
     e.preventDefault();
     setPasswordStatus({ loading: false, error: "", success: "" });
 
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setPasswordStatus({ loading: false, error: "New passwords do not match.", success: "" });
+    const passwordError = getNewPasswordError(passwordData);
+    if (passwordError) {
+      setPasswordStatus({ loading: false, error: passwordError, success: "" });
       return;
     }
 
@@ -807,6 +810,9 @@ export default function DesktopEditProfileView({ profile, onRefresh }) {
                   onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
                   className="w-full bg-background border border-border rounded-xl px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-primary transition"
                 />
+                <div className="mt-2">
+                  <PasswordRequirements password={passwordData.newPassword} />
+                </div>
               </div>
 
               <div>

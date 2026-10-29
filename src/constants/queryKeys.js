@@ -3,6 +3,16 @@ export const QUERY_KEYS = {
     // Auth
     // ==========================
     AUTH_SESSION: "auth-session",
+    /** GET /sessions/me — the signed-in browser's own session (keep-alive). */
+    SESSION_ME: "session-me",
+    /** GET /playback/status — this account's playback lease, as this device sees it. */
+    PLAYBACK_STATUS: "playback-status",
+
+    // ==========================
+    // Evaluator (temporary testing accounts)
+    // ==========================
+    EVALUATOR_REGISTRATION: "evaluator-registration",
+    EVALUATOR_STATUS: "evaluator-status",
 
     // ==========================
     // Public / guest (no token required)
@@ -32,6 +42,10 @@ export const QUERY_KEYS = {
     STICKY_NOTES: "sticky-notes",
     TRANSCRIPT: "transcript",
     NOTES: "notes",
+    /** Code-IT microservice: lab topics per language, and one exercise. */
+    CODEIT_LANGUAGES: "codeit-languages",
+    CODEIT_TOPICS: "codeit-topics",
+    CODEIT_EXERCISE: "codeit-exercise",
     BOOKMARKS: "bookmarks",
     LIVE_CLASSES: "live-classes",
     ACHIEVEMENTS: "achievements",
@@ -48,6 +62,15 @@ export const QUERY_KEYS = {
     INSTRUCTOR_INSIGHTS: "instructor-insights",
     INSTRUCTOR_LEARNERS: "instructor-learners",
     INSTRUCTOR_LEARNER: "instructor-learner",
+    LEARNING_HEALTH: "learning-health",
+    LEARNING_HEALTH_LEARNER: "learning-health-learner",
+    MOTIVATION: "motivation",
+    STUDY_PLAN: "study-plan",
+    CAREER: "career",
+    CAREER_ROLES: "career-roles",
+    ADMIN_ANALYTICS_PLATFORM: "admin-analytics-platform",
+    ADMIN_ANALYTICS_COURSES: "admin-analytics-courses",
+    ADMIN_INTELLIGENCE: "admin-intelligence",
     COURSE_REVIEWS: "course-reviews",
     COURSE_REVIEW_STATS: "course-review-stats",
     PROGRESS: "progress",
@@ -66,6 +89,7 @@ export const QUERY_KEYS = {
 
     ADMIN_USERS: "admin-users",
     ADMIN_USER: "admin-user",
+    ADMIN_USER_SESSIONS: "admin-user-sessions",
 
     ADMIN_STUDENTS: "admin-students",
     ADMIN_STUDENT: "admin-student",
@@ -135,6 +159,8 @@ export const QUERY_KEYS = {
     MY_REVIEWS: "my-reviews",
     RESULTS: "results",
     ASSESSMENTS: "assessments",
+    ASSIGNMENT_EVALUATION: "assignment-evaluation",
+    EVALUATION_SYNONYMS: "evaluation-synonyms",
     INSTRUCTOR_CERTIFICATES: "instructor-certificates",
     COURSE_IMPORT_JOB: "course-import-job",
 };

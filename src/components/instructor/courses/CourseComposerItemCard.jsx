@@ -38,7 +38,7 @@ export function CourseComposerItemCard({
         {/* 3-Dot Menu */}
         {menuItems.length > 0 && (
           <div onClick={(e) => e.stopPropagation()}>
-            <DropdownMenu>
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"

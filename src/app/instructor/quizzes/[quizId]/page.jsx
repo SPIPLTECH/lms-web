@@ -24,11 +24,13 @@ import {
   useUpdateQuizQuestionMarks,
 } from "@/hooks/queries/instructor/useQuestionRepository";
 import { useToast } from "@/components/ui/ToastProvider";
+import { useConfirm } from "@/context/ConfirmContext";
 
 export default function InstructorQuizDetailPage({ params }) {
   const resolvedParams = use(params);
   const quizId = resolvedParams.quizId;
   const { showToast } = useToast();
+  const confirm = useConfirm();
 
   const { data: quiz, isLoading: loading } = useQuiz(quizId);
   const [editingMarksId, setEditingMarksId] = useState(null);
@@ -40,8 +42,13 @@ export default function InstructorQuizDetailPage({ params }) {
   const updateQuizMutation = useUpdateQuiz();
 
   // Remove question from quiz
-  const handleRemoveQuestion = (questionId) => {
-    if (!confirm("Remove this question from the quiz? It will remain in your Question Repository.")) return;
+  const handleRemoveQuestion = async (questionId) => {
+    const confirmed = await confirm({
+      title: "Remove question",
+      message: "Remove this question from the quiz? It will remain in your Question Repository.",
+      confirmText: "Remove",
+    });
+    if (!confirmed) return;
     removeQuestionMutation.mutate(
       { quizId, questionId },
       {

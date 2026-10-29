@@ -1,5 +1,13 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { get } from "@vercel/blob";
+
+import {
+  CONTENT_ACTIVE_ON_ANOTHER_DEVICE,
+  contentAccessFor,
+  isAllowedBlobUrl,
+  resolveCaller,
+} from "@/lib/server/sessionCaller";
 
 export const dynamic = "force-dynamic";
 
@@ -9,11 +17,41 @@ export const dynamic = "force-dynamic";
  * GET /api/external-file/reference/[id]?url=<blob-reference-url>
  *
  * Security:
- * - Ensures target URL belongs to Vercel Blob storage & ends with .json / external-references/.
+ * - Signed-in users only (any role: the document viewer is shared by
+ *   instructors and students). It used to answer anyone.
+ * - Target must be an https URL on Vercel's own hosts and a JSON reference.
+ *   The fallback fetch sends the Blob read/write token to that host, so the
+ *   old `endsWith("vercel.com")` check — which `evilvercel.com` passed — let a
+ *   caller exfiltrate the token.
  * - Never returns Blob read/write tokens or internal secrets to the client.
  */
 export async function GET(request, { params }) {
   try {
+    const store = await cookies();
+    const credentials = {
+      apiUrl: process.env.NEXT_PUBLIC_API_URL,
+      accessToken: store.get("accessToken")?.value,
+      deviceKey: store.get("deviceKey")?.value,
+    };
+    const caller = await resolveCaller(credentials);
+    if (!caller) {
+      return NextResponse.json({ error: "Sign in to view this document." }, { status: 401 });
+    }
+    // STUDENT only: no course documents while another device is playing.
+    const access = await contentAccessFor({ ...credentials, role: caller.role });
+    if (access === "blocked") {
+      return NextResponse.json(
+        {
+          error: "This account is currently active on another device. Stop playback on that device to access course content here.",
+          code: CONTENT_ACTIVE_ON_ANOTHER_DEVICE,
+        },
+        { status: 409 }
+      );
+    }
+    if (access === "unknown") {
+      return NextResponse.json({ error: "Could not confirm access to this document. Please try again." }, { status: 503 });
+    }
+
     const { searchParams } = new URL(request.url);
     const resolvedParams = await params;
     const refId = resolvedParams?.id;
@@ -41,9 +79,7 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: "Invalid reference URL format." }, { status: 400 });
     }
 
-    const isVercelBlobDomain =
-      parsedUrl.hostname.endsWith(".blob.vercel-storage.com") ||
-      parsedUrl.hostname.endsWith("vercel.com");
+    const isVercelBlobDomain = isAllowedBlobUrl(referenceUrl);
 
     const isJsonReference =
       parsedUrl.pathname.includes("external-references/") ||

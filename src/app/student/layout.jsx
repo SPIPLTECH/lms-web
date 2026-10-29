@@ -9,21 +9,35 @@ import { QaProvider } from "@/context/QaContext";
 import Loader from "@/components/common/Loader";
 import StudentNavDrawer from "@/components/layouts/StudentNavDrawer";
 import { StudentNavDrawerProvider } from "@/context/StudentNavDrawerContext";
+import ContentAccessGuard from "@/components/student/learning/ContentAccessGuard";
+import { isCourseContentPath } from "@/lib/sessionErrors";
+import EvaluatorNotice from "@/components/evaluator/EvaluatorNotice";
+import useEvaluatorState from "@/hooks/useEvaluatorState";
+import { EVALUATOR_STATES, EVALUATOR_ACCESS_PATH } from "@/lib/evaluatorAccess";
 
 export default function Layout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, loading } = useAuth();
 
+  // Temporary evaluator accounts: full access for 2 days, then no student
+  // page (the access page asks for feedback if it hasn't been given). The API
+  // refuses the same requests; this just sends the browser to the page that
+  // says why, typed URL or not.
+  const evaluatorState = useEvaluatorState(user?.evaluator);
+  const evaluatorBlocked = Boolean(evaluatorState) && evaluatorState !== EVALUATOR_STATES.ACTIVE;
+
   useEffect(() => {
     if (!loading) {
       if (!user || user.role !== "STUDENT") {
         router.replace("/");
+      } else if (evaluatorBlocked) {
+        router.replace(EVALUATOR_ACCESS_PATH);
       }
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, evaluatorBlocked]);
 
-  if (loading) {
+  if (loading || evaluatorBlocked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
         <Loader />
@@ -37,6 +51,12 @@ export default function Layout({ children }) {
 
   const isLearnPage = pathname?.includes("/student/learn/");
 
+  // Pages that show course content follow the account's playback lease: while
+  // another device of this account is playing, they show why instead.
+  const content = (
+    <ContentAccessGuard enabled={isCourseContentPath(pathname)}>{children}</ContentAccessGuard>
+  );
+
   if (isLearnPage) {
     // Same top bar as every other Student page, but the learn page still
     // owns its own fixed-viewport, internally-scrolling layout below it
@@ -47,7 +67,42 @@ export default function Layout({ children }) {
         <StudentNavDrawerProvider>
           <div className="h-screen flex flex-col overflow-hidden">
             <DashboardNavbar role="STUDENT" title="Learning Workspace" />
-            <div className="flex-1 min-h-0">{children}</div>
+            <div className="flex-1 min-h-0">{content}</div>
+          </div>
+          <StudentNavDrawer />
+        </StudentNavDrawerProvider>
+      </QaProvider>
+    );
+  }
+
+  // My Courses fits the viewport from md up: the page itself doesn't scroll,
+  // only the Enrolled Courses grid does. Below md the cards are a horizontal
+  // slider, so the page keeps its normal document scroll there.
+  // Code-IT is a full-viewport workspace: from md up the editor and output
+  // stretch to the bottom of the screen and only their panes scroll.
+  if (pathname === "/student/code-it") {
+    return (
+      <QaProvider>
+        <StudentNavDrawerProvider>
+          <div className="min-h-screen md:h-screen flex flex-col md:overflow-hidden bg-background">
+            <DashboardNavbar role="STUDENT" title="Code-IT" />
+            <main className="flex-1 min-h-0 w-full flex flex-col px-3 py-3 sm:px-4">{content}</main>
+          </div>
+          <StudentNavDrawer />
+        </StudentNavDrawerProvider>
+      </QaProvider>
+    );
+  }
+
+  if (pathname === "/student/my-courses") {
+    return (
+      <QaProvider>
+        <StudentNavDrawerProvider>
+          <div className="min-h-screen md:h-screen flex flex-col md:overflow-hidden bg-background">
+            <DashboardNavbar role="STUDENT" title="Student Dashboard" />
+            <main className="flex-1 min-h-0 w-full max-w-[1728px] mx-auto flex flex-col p-3 sm:p-6">
+              {children}
+            </main>
           </div>
           <StudentNavDrawer />
         </StudentNavDrawerProvider>
@@ -58,9 +113,19 @@ export default function Layout({ children }) {
   return (
     <QaProvider>
       <StudentNavDrawerProvider>
-        <DashboardLayout role="STUDENT" title="Student Dashboard">
+        <DashboardLayout
+          role="STUDENT"
+          title="Student Dashboard"
+          banner={
+            evaluatorState === EVALUATOR_STATES.ACTIVE ? (
+              <div className="max-w-[1600px] mx-auto">
+                <EvaluatorNotice evaluator={user.evaluator} />
+              </div>
+            ) : null
+          }
+        >
           <div className="max-w-[1600px] mx-auto w-full flex flex-col flex-1 min-h-0">
-            {children}
+            {content}
           </div>
         </DashboardLayout>
         <StudentNavDrawer />

@@ -3,19 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, LifeBuoy, LogOut, X } from "lucide-react";
+import { ChevronDown, LogOut, X } from "lucide-react";
 
 import { useInstructorNavDrawer } from "@/context/InstructorNavDrawerContext";
 import { PRIMARY_NAV_ITEMS } from "@/components/instructor/NavigationStrip/navigationItems";
 import useAuth from "@/hooks/useAuth";
+import { useToast } from "@/components/ui/ToastProvider";
 import Modal from "@/components/ui/Modal";
 import { ThemeModeRow } from "@/components/ui/shadcn/theme-switcher";
-
-// Account-level links that aren't part of the desktop nav strip (see
-// PRIMARY_NAV_ITEMS, rendered above these in the tree below).
-const SECONDARY_ITEMS = [
-  { id: "help", label: "Help & Support", icon: LifeBuoy, href: "/instructor/settings" },
-];
 
 function isHrefActive(pathname, href) {
   if (!href) return false;
@@ -90,16 +85,15 @@ function DrawerNavItem({ item, pathname, depth = 0, onNavigate }) {
 // The Instructor mobile navigation drawer — opened from the header's
 // hamburger button (see DashboardNavbar) via shared context. Now the sole
 // mobile nav surface (the bottom tab bar was removed): it mirrors the
-// desktop top-nav's 5 sections in full via PRIMARY_NAV_ITEMS, plus
-// account-level Settings/Help/Logout. Messages and Profile stay reachable
+// desktop top-nav's 5 sections in full via PRIMARY_NAV_ITEMS, plus the theme
+// switch and Logout. Messages and Profile stay reachable
 // from the header's own icons, which are always visible on mobile.
 export default function InstructorNavDrawer() {
   const pathname = usePathname();
   const { logout } = useAuth();
+  const { showToast } = useToast();
   const { isOpen, close } = useInstructorNavDrawer();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-
-  const isItemActive = (item) => pathname && pathname.startsWith(item.href);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -115,13 +109,15 @@ export default function InstructorNavDrawer() {
     };
   }, [isOpen, close]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setShowLogoutModal(false);
     close();
     // logout() itself clears auth state and redirects to the Landing Page —
     // navigating here too would race it while cookies/user state are still
     // present, which is what let the old redirect bounce back into the app.
-    logout();
+    // If the server couldn't end the session, the user stays signed in.
+    const result = await logout();
+    if (result?.ok === false) showToast(result.message, "error");
   };
 
   if (!isOpen) return null;
@@ -147,26 +143,6 @@ export default function InstructorNavDrawer() {
           ))}
 
           <div className="my-2 border-t border-border/60" />
-
-          {SECONDARY_ITEMS.map((item) => {
-            const Icon = item.icon;
-            const active = isItemActive(item);
-            return (
-              <Link
-                key={item.id}
-                href={item.href}
-                onClick={close}
-                className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 ${
-                  active
-                    ? "bg-primary text-slate-950 font-bold shadow-[0_2px_12px_rgba(249,115,22,0.35)]"
-                    : "text-foreground hover:text-foreground hover:bg-muted/50 font-semibold"
-                }`}
-              >
-                <Icon size={18} className={active ? "text-primary-foreground" : "text-muted-foreground"} />
-                <span className="text-nav">{item.label}</span>
-              </Link>
-            );
-          })}
 
           <ThemeModeRow />
 

@@ -10,6 +10,7 @@ import {
   Home,
   Compass,
   ClipboardCheck,
+  CodeXml,
 } from "lucide-react";
 
 /**
@@ -30,6 +31,9 @@ export const PRIMARY_NAV_ITEMS = [
   // dismissible notification. The route keeps its /assignments path so
   // existing links still land here.
   { label: "Submissions", href: "/student/assignments", icon: ClipboardCheck, primaryOnMobile: true },
+  // Code-IT: coding lab + playground (Java, Python, C, C++, JS), served by
+  // the separate code-it-service microservice.
+  { label: "Code-IT", href: "/student/code-it", icon: CodeXml, primaryOnMobile: true },
   // {
   //   label: "Schedule & Communication",
   //   icon: CalendarDays,

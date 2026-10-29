@@ -73,10 +73,12 @@ export const getCourseProgress = async (courseId, studentId = null) => {
  * carries no material. The player's Prev/Next, the Course Map and resume all
  * read this, so they cannot disagree. Returns
  * { courseId, title, progress, steps, tree, currentIndex, resumeIndex }.
+ * With `includePath`, also `learningPath` in getLearningPath's shape, built
+ * from the same server roll-up (one request instead of two).
  */
-export const getLearningSequence = async (courseId, studentId = null) => {
+export const getLearningSequence = async (courseId, studentId = null, { includePath = false } = {}) => {
   const { data } = await api.get("/progress/learning-sequence", {
-    params: { courseId, ...(studentId && { studentId }) },
+    params: { courseId, ...(studentId && { studentId }), ...(includePath && { include: "path" }) },
   });
   return data.data ?? data;
 };

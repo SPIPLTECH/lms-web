@@ -42,6 +42,8 @@ export default function AssessmentForm({
   // Replaces the Publish / Save Draft wording where submitting only saves edits.
   submitLabel = null,
   onSubmit,
+  // Extra fields shown above the submit button (e.g. auto-evaluation settings).
+  children = null,
 }) {
   const [formData, setFormData] = useState(INITIAL_FORM);
   const [uploading, setUploading] = useState(false);
@@ -224,6 +226,8 @@ export default function AssessmentForm({
           Publish immediately (uncheck to Save Draft)
         </label>
       </div>
+
+      {children}
 
       <div className="flex justify-end gap-3 pt-3 border-t border-slate-850">
         <Button type="submit" disabled={loading || uploading}>

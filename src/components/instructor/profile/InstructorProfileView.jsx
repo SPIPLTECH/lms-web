@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Link from "next/link";
 import {
   User,
   Mail,
@@ -20,11 +19,12 @@ import {
   Award,
   Clock,
   FileText,
-  Settings as SettingsIcon,
 } from "lucide-react";
 
 import useUpdateProfile from "@/hooks/queries/student/useUpdateProfile";
 import { changePassword } from "@/services/auth.service";
+import { getNewPasswordError } from "@/lib/passwordPolicy";
+import PasswordRequirements from "@/components/auth/PasswordRequirements";
 import { uploadAvatar, removeAvatar } from "@/services/profile.service";
 import { getDisplayUrl } from "@/lib/blob";
 
@@ -268,17 +268,6 @@ export default function InstructorProfileView({ profile, onRefresh }) {
               <Lock size={14} />
               <span>Change Password</span>
             </button>
-
-            {/* Plain link: the ?from=profile marker this used to carry only
-                steered the settings page's back link, which no longer
-                exists. */}
-            <Link
-              href="/instructor/settings"
-              className="flex items-center justify-center gap-2 rounded-xl bg-background hover:bg-muted border border-transparent text-foreground font-bold text-xs px-5 py-2.5 transition active:scale-95"
-            >
-              <SettingsIcon size={14} />
-              <span>Settings</span>
-            </Link>
           </div>
         </div>
       </div>
@@ -514,8 +503,9 @@ function ChangePasswordModal({ onClose }) {
     e.preventDefault();
     setStatus({ loading: false, error: "", success: "" });
 
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setStatus({ loading: false, error: "New passwords do not match.", success: "" });
+    const passwordError = getNewPasswordError(passwordData);
+    if (passwordError) {
+      setStatus({ loading: false, error: passwordError, success: "" });
       return;
     }
 
@@ -585,6 +575,9 @@ function ChangePasswordModal({ onClose }) {
               onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
               className="w-full bg-background border border-border rounded-xl px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-primary transition"
             />
+            <div className="mt-2">
+              <PasswordRequirements password={passwordData.newPassword} />
+            </div>
           </div>
           <div>
             <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Confirm Password</label>

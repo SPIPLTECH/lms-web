@@ -13,9 +13,11 @@ import ImportQuestionsModal from "@/components/instructor/questions/ImportQuesti
 import { useQuiz } from "@/hooks/queries/instructor/useQuiz";
 import { useQuestions } from "@/hooks/queries/instructor/useQuestions";
 import { useDeleteQuestion } from "@/hooks/queries/instructor/useDeleteQuestion";
+import { useConfirm } from "@/context/ConfirmContext";
 
 export default function QuestionListPage() {
   const { quizId } = useParams();
+  const confirm = useConfirm();
   const [showImport, setShowImport] = useState(false);
 
   const { data: quiz, isLoading: quizLoading } = useQuiz(quizId);
@@ -29,7 +31,8 @@ export default function QuestionListPage() {
   const deleteQuestionMutation = useDeleteQuestion();
 
   const handleDelete = async (questionId) => {
-    if (!window.confirm("Delete this question?")) return;
+    const confirmed = await confirm({ title: "Delete question", message: "Delete this question?", confirmText: "Delete" });
+    if (!confirmed) return;
 
     try {
       await deleteQuestionMutation.mutateAsync({ questionId, quizId });

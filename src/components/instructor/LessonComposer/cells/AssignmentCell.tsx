@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { CheckCircle2, Loader2, Paperclip, Upload, X } from "lucide-react";
+import Link from "next/link";
+import { CheckCircle2, ClipboardCheck, Loader2, Paperclip, Upload, X } from "lucide-react";
 
 import { Button } from "@/components/ui/shadcn/button";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -9,6 +10,11 @@ import { useConfirm } from "@/context/ConfirmContext";
 import { getDisplayUrl } from "@/lib/blob";
 import { escapeForContentApi, unescapeFromContentApi } from "@/lib/markdown";
 import { uploadFileToVercelBlob } from "@/services/content.service";
+import AutoEvaluationSetup, {
+  checkAutoEvaluationSetup,
+  saveAutoEvaluationSetup,
+} from "@/components/instructor/assignments/evaluation/AutoEvaluationSetup";
+import type { toForm } from "@/components/instructor/assignments/evaluation/rubricForm";
 
 import { useCreateContent, useUpdateContent, useDeleteContent } from "../contentMutations";
 import { CellShell } from "../CellShell";
@@ -311,6 +317,16 @@ export function AssignmentCell({
               </a>
             </div>
           )}
+
+          {content.assignmentId && (
+            <Link
+              href={`/instructor/assignments/${content.assignmentId}`}
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+            >
+              <ClipboardCheck className="size-3.5" aria-hidden />
+              Marking &amp; auto-evaluation
+            </Link>
+          )}
         </div>
       )}
     </CellShell>
@@ -330,6 +346,9 @@ export function CreateAssignmentForm({ parent, order, onCreated, onCancel }: Cre
   const [description, setDescription] = useState("");
   const [fileUrl, setFileUrl] = useState("");
   const [fileName, setFileName] = useState("");
+  // Optional marking scheme, saved right after the assignment is created.
+  const [evaluation, setEvaluation] = useState<ReturnType<typeof toForm> | null>(null);
+  const [savingEvaluation, setSavingEvaluation] = useState(false);
 
   const createContent = useCreateContent();
   const { showToast } = useToast();
@@ -339,8 +358,14 @@ export function CreateAssignmentForm({ parent, order, onCreated, onCancel }: Cre
       showToast("Please select or create this item first.", "error", "Selection Required");
       return;
     }
+    // Checked first, so a bad marking scheme never leaves a half-made assignment.
+    const problem = checkAutoEvaluationSetup(evaluation);
+    if (problem) {
+      showToast(problem, "error", "Auto-evaluation");
+      return;
+    }
     try {
-      await createContent.mutateAsync({
+      const created = (await createContent.mutateAsync({
         ...toParentField(parent),
         type: "ASSIGNMENT",
         order,
@@ -348,7 +373,13 @@ export function CreateAssignmentForm({ parent, order, onCreated, onCancel }: Cre
         htmlContent: escapeForContentApi(description),
         fileUrl,
         data: fileUrl ? { originalFileName: fileName || null } : null,
-      });
+      })) as { data?: ContentRow } & Partial<ContentRow>;
+      if (evaluation) {
+        setSavingEvaluation(true);
+        const evaluationError = await saveAutoEvaluationSetup(created?.data?.assignmentId ?? created?.assignmentId, evaluation);
+        setSavingEvaluation(false);
+        if (evaluationError) showToast(evaluationError, "error", "Auto-evaluation");
+      }
       onCreated();
     } catch (error) {
       showToast(getErrorMessage(error, "Failed to create this assignment."), "error", "Create failed");
@@ -388,12 +419,14 @@ export function CreateAssignmentForm({ parent, order, onCreated, onCancel }: Cre
         />
       </div>
 
+      <AutoEvaluationSetup value={evaluation} onChange={setEvaluation} />
+
       <div className="flex justify-end gap-2 pt-2 border-t border-border">
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="button" size="sm" onClick={handleCreate} disabled={createContent.isPending}>
-          {createContent.isPending ? "Creating…" : "Create Assignment"}
+        <Button type="button" size="sm" onClick={handleCreate} disabled={createContent.isPending || savingEvaluation}>
+          {createContent.isPending || savingEvaluation ? "Creating…" : "Create Assignment"}
         </Button>
       </div>
     </div>

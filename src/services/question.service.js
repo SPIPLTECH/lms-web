@@ -71,6 +71,18 @@ export const bulkCreateQuestions = async (quizId, questions) => {
   return response.data;
 };
 
+// Parses a question file and returns its questions for review, row by row.
+// Writes nothing: the composer adds the chosen rows to the quiz being edited.
+export const previewQuestionImport = async (file) => {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await api.post("/questions/import/preview", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return response.data?.data;
+};
+
 export const importQuestions = async (quizId, file) => {
   const formData = new FormData();
   formData.append("file", file);

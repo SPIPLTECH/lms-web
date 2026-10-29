@@ -1,4 +1,5 @@
 import api from "@/lib/axios";
+import { setSessionCookies } from "@/lib/authCookies";
 
 /* ---------------- Register ---------------- */
 
@@ -28,6 +29,15 @@ export const resendVerificationOtp = async (email) => {
 
 export const loginUser = async (credentials) => {
   const response = await api.post("/auth/login", credentials);
+  return response.data;
+};
+
+/* ---------------- Google Sign-In ---------------- */
+
+// `credential` is the ID token Google Identity Services returned. Nothing
+// else about the Google account is sent: the API verifies the token itself.
+export const loginWithGoogle = async ({ credential, currentRefreshToken }) => {
+  const response = await api.post("/auth/google", { credential, currentRefreshToken });
   return response.data;
 };
 
@@ -64,6 +74,15 @@ export const forgotPassword = async (email) => {
   return response.data;
 };
 
+export const verifyResetOtp = async ({ email, otp }) => {
+  const response = await api.post("/auth/verify-reset-otp", {
+    email,
+    otp,
+  });
+
+  return response.data;
+};
+
 export const resetPassword = async ({
   email,
   otp,
@@ -82,7 +101,11 @@ export const resetPassword = async ({
 };
 /* ---------------- Change Password ---------------- */
 
+// Changing the password signs out every other session; the response carries
+// fresh tokens so this one stays signed in.
 export const changePassword = async (data) => {
   const response = await api.post("/auth/change-password", data);
+  const { accessToken, refreshToken } = response.data?.data || {};
+  if (accessToken) setSessionCookies({ accessToken, refreshToken });
   return response.data;
 };
