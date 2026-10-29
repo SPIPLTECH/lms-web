@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pin, Edit2, Trash2, X } from "lucide-react";
 
 import { useDeleteStickyNote } from "@/hooks/queries/student/useDeleteStickyNote";
@@ -16,17 +16,35 @@ function formatTimestamp(seconds = 0) {
 }
 
 const colorClasses = {
-  yellow: "border-l-amber-500 bg-amber-500/5 text-amber-200",
-  blue: "border-l-blue-500 bg-blue-500/5 text-blue-200",
-  green: "border-l-emerald-500 bg-emerald-500/5 text-emerald-200",
-  pink: "border-l-pink-500 bg-pink-500/5 text-pink-200",
-  purple: "border-l-purple-500 bg-purple-500/5 text-purple-200",
+  yellow: "border-l-yellow-400 bg-yellow-400/10 text-yellow-100",
+  grey: "border-l-slate-400 bg-slate-500/15 text-slate-200",
+  gray: "border-l-slate-400 bg-slate-500/15 text-slate-200",
+  blue: "border-l-blue-500 bg-blue-500/10 text-blue-200",
+  green: "border-l-emerald-500 bg-emerald-500/10 text-emerald-200",
+  pink: "border-l-rose-400 bg-rose-500/10 text-rose-200",
+  purple: "border-l-purple-500 bg-purple-500/10 text-purple-200",
+};
+
+const colorStyles = {
+  yellow: { borderLeftColor: "#facc15", backgroundColor: "rgba(250, 204, 21, 0.08)" },
+  grey: { borderLeftColor: "#9ca3af", backgroundColor: "rgba(156, 163, 175, 0.12)" },
+  gray: { borderLeftColor: "#9ca3af", backgroundColor: "rgba(156, 163, 175, 0.12)" },
+  blue: { borderLeftColor: "#3b82f6", backgroundColor: "rgba(59, 130, 246, 0.08)" },
+  green: { borderLeftColor: "#22c55e", backgroundColor: "rgba(34, 197, 94, 0.08)" },
+  pink: { borderLeftColor: "#f472b6", backgroundColor: "rgba(244, 114, 182, 0.08)" },
+  purple: { borderLeftColor: "#a855f7", backgroundColor: "rgba(168, 85, 247, 0.08)" },
 };
 
 export default function StickyNoteCard({ note, onSeek }) {
   const [isEditing, setIsEditing] = useState(false);
   const [content, setContent] = useState(note.content);
   const [color, setColor] = useState(note.color || "yellow");
+
+  // Keep local draft in sync if parent note changes
+  useEffect(() => {
+    setContent(note.content);
+    setColor(note.color || "yellow");
+  }, [note.content, note.color]);
 
   const { mutate: updateStickyNote, isPending: isUpdating } =
     useUpdateStickyNote();
@@ -63,6 +81,7 @@ export default function StickyNoteCard({ note, onSeek }) {
           onSeek?.(note.timestamp || 0);
         }
       }}
+      style={colorStyles[color] || colorStyles.yellow}
       className={`group relative rounded-r-xl border-l-4 border-y border-r border-border/80 p-3 transition-all duration-200 cursor-pointer select-none ${
         colorClasses[color] || colorClasses.yellow
       }`}
@@ -142,8 +161,9 @@ export default function StickyNoteCard({ note, onSeek }) {
                   key={item.name}
                   type="button"
                   onClick={() => setColor(item.name)}
-                  className={`h-4 w-4 rounded-full border transition ${
-                    color === item.name ? "border-white scale-110" : "border-transparent"
+                  style={{ backgroundColor: item.hex }}
+                  className={`h-5 w-5 rounded-full transition cursor-pointer ${
+                    color === item.name ? "ring-2 ring-white ring-offset-1 ring-offset-background scale-110" : "opacity-75 hover:opacity-100"
                   } ${item.className}`}
                 />
               ))}

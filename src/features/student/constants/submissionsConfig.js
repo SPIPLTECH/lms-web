@@ -101,6 +101,7 @@ function parseAssignmentGrade(grade, marks) {
 
 // Result and attempt pages send the student back here when they're done.
 const FROM_SUBMISSIONS = `from=${encodeURIComponent("/student/assignments")}`;
+const FROM_QUIZ_SUBMISSIONS = `from=${encodeURIComponent("/student/assignments?type=quiz")}`;
 
 // Exported so the standalone assignment detail page can derive the exact
 // same status/grade shape the Submissions list uses, instead of
@@ -161,8 +162,8 @@ function quizRecord(q) {
     maxAttempts: q.maxAttempts,
     unlimitedAttempts: q.unlimitedAttempts,
     canRetake: Boolean(q.canAttempt),
-    href: `/student/result/${q.id}?${FROM_SUBMISSIONS}`,
-    retakeHref: `/student/attempt/${q.id}?${FROM_SUBMISSIONS}`,
+    href: `/student/result/${q.id}?${FROM_QUIZ_SUBMISSIONS}`,
+    retakeHref: `/student/attempt/${q.id}?${FROM_QUIZ_SUBMISSIONS}`,
     actionLabel: "View Result",
   };
 }

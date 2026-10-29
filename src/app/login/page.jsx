@@ -28,7 +28,7 @@ const HEADINGS = {
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, googleLogin } = useAuth();
+  const { login, googleLogin, user, loading: authLoading } = useAuth();
 
   const signedInBefore = useSyncExternalStore(subscribeReturningUser, hasSignedInBefore, () => null);
   const heading = HEADINGS[signedInBefore === null ? "unknown" : signedInBefore ? "returning" : "new"];
@@ -53,6 +53,13 @@ export default function LoginPage() {
 
   // Signed in from another tab: whatever this page was showing is over.
   useEffect(() => subscribeSignedIn(() => setError("")), []);
+
+  // Auto-redirect to dashboard if user is already authenticated
+  useEffect(() => {
+    if (!authLoading && user) {
+      redirectAfterSignIn(user);
+    }
+  }, [user, authLoading]);
 
   const redirectAfterSignIn = (user) => {
     switch (user.role) {

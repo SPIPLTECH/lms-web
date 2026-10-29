@@ -216,17 +216,69 @@ export default function LearnPage() {
   const collapseWorkspace = () => setWorkspaceCollapse("manual");
   const expandWorkspace = () => setWorkspaceCollapse(null);
 
-  // Right-hand utility column (Ask Instructor / Sticky Notes / Feedback)
-  // collapse state — mirrors the left Course Map sidebar's collapse
-  // behavior. Closed by default to match the Course Index being open on
-  // first arrival (avoids both wide panels competing for space). One flag,
-  // two surfaces: the xl+ column and the below-xl "More" popover in the
-  // lesson context row, the same way renderCourseTree serves both the
-  // desktop rail and the mobile drawer.
-  const [rightPanelOpen, setRightPanelOpen] = useState(false);
+  // Right-hand utility column (Ask Instructor / Sticky Notes)
+  // collapse state. Preserved across refreshes via URL and localStorage for both desktop and mobile.
+  const [rightPanelOpen, setRightPanelOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const urlPanel = params.get("panel");
+      if (urlPanel === "false" || urlPanel === "0" || urlPanel === "closed") return false;
+      if (urlPanel) return true;
+      const saved = localStorage.getItem("lms.learn.rightPanelOpen.student");
+      return saved === "true";
+    } catch {
+      return false;
+    }
+  });
+
   // Which section of that panel is expanded (LearnSidePanel shows one at a
   // time; null collapses all). Shared by both surfaces, like the flag above.
-  const [sidePanelFeature, setSidePanelFeature] = useState("notes");
+  const [sidePanelFeature, setSidePanelFeature] = useState(() => {
+    if (typeof window === "undefined") return "notes";
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const urlPanel = params.get("panel");
+      if (urlPanel && !["true", "1", "open", "false", "0", "closed"].includes(urlPanel)) {
+        return urlPanel;
+      }
+      const saved = localStorage.getItem("lms.learn.sidePanelFeature.student");
+      return saved || "notes";
+    } catch {
+      return "notes";
+    }
+  });
+
+  // Persist panel open/closed state and active tool across desktop and mobile, keeping URL in sync
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem("lms.learn.rightPanelOpen.student", String(rightPanelOpen));
+      if (sidePanelFeature) {
+        localStorage.setItem("lms.learn.sidePanelFeature.student", sidePanelFeature);
+      }
+
+      const params = new URLSearchParams(window.location.search);
+      const currentParam = params.get("panel");
+      const targetParam = rightPanelOpen ? (sidePanelFeature || "true") : null;
+
+      if (currentParam !== targetParam) {
+        if (targetParam) {
+          params.set("panel", targetParam);
+        } else {
+          params.delete("panel");
+        }
+        const searchStr = params.toString();
+        const nextUrl = searchStr ? `${window.location.pathname}?${searchStr}` : window.location.pathname;
+        // Keep the step this tab remembers (learnItem, see the mirror below):
+        // replacing the entry with null would make a refresh lose it.
+        const learnItem = window.history.state?.learnItem;
+        window.history.replaceState(learnItem ? { learnItem } : null, "", nextUrl);
+      }
+    } catch {
+      // Storage unavailable
+    }
+  }, [rightPanelOpen, sidePanelFeature]);
 
   // The below-xl "More" popover mounts on a real viewport check rather than
   // an xl:hidden class: its dismiss listeners would otherwise bind on
@@ -711,7 +763,9 @@ export default function LearnPage() {
     <LearnSidePanel
       activeFeature={sidePanelFeature}
       onChangeFeature={setSidePanelFeature}
-      lessonId={selectedLesson?.id ?? null}
+      courseId={courseId}
+      moduleId={stepPath.moduleId || null}
+      lessonId={selectedLesson?.id ?? (steps.find((s) => s.path?.lessonId)?.path?.lessonId || null)}
       askTarget={
         step && !step.locked
           ? {
@@ -938,7 +992,11 @@ export default function LearnPage() {
           course={course}
           isStickyNotesOpen={rightPanelOpen}
           onToggleStickyNotes={() => {
-            setRightPanelOpen((prev) => !prev);
+            setRightPanelOpen((prev) => {
+              const next = !prev;
+              if (next && !sidePanelFeature) setSidePanelFeature("notes");
+              return next;
+            });
             if (tourActive) tour.signal("moreOpened");
           }}
         />
@@ -1022,7 +1080,11 @@ export default function LearnPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        setRightPanelOpen((prev) => !prev);
+                        setRightPanelOpen((prev) => {
+                          const next = !prev;
+                          if (next && !sidePanelFeature) setSidePanelFeature("notes");
+                          return next;
+                        });
                         if (tourActive) tour.signal("moreOpened");
                       }}
                       data-tour="more"
@@ -1337,22 +1399,25 @@ export default function LearnPage() {
         <AiAssistantWidget
           courseId={courseId}
           courseTitle={course?.title}
+          contentTitle={step?.title}
+          contentType={step?.type}
           isEnrolled={isEnrolled}
           getPosition={getAiLearningPosition}
-          side={isDesktop && playerMode === "aspect" ? "left" : "right"}
+          side="right"
           hideLauncherBelowSm
           hidden={quizInProgress}
         />
-        {/* Phones: Previous | Ask AI | Next — lessonNavProps' handlers and
-            enabled rules, so it is the same control as the row above in a
-            third placement. Hidden with it while a quiz awaits its attempt;
-            during a qualifying test it keeps Previous/Next but no AI. */}
+        {/* Phones: Previous | Learning | Ask AI | Submissions | Next —
+            lessonNavProps' handlers and enabled rules alongside primary tabs.
+            Hidden with it while a quiz awaits its attempt; during a qualifying
+            test it keeps navigation controls without AI. */}
         {!hideFloatingNavForActiveQuiz && (
           <StudentBottomBar
             ariaLabel="Lesson navigation"
             tourId="lesson-nav"
             tourTap="Tap Next"
             showAi={!quizInProgress}
+            includePrimaryTabs
             left={
               <BottomBarItem
                 icon={ChevronLeft}
@@ -1361,6 +1426,7 @@ export default function LearnPage() {
                 disabled={!lessonNavProps.previousItem}
                 title={`Previous ${lessonNavProps.unitLabel}`}
                 ariaLabel="Previous content"
+                compact
               />
             }
             right={
@@ -1371,6 +1437,7 @@ export default function LearnPage() {
                 disabled={!lessonNavProps.nextItem}
                 title={`Next ${lessonNavProps.unitLabel}`}
                 ariaLabel="Next content"
+                compact
               />
             }
           />

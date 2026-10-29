@@ -20,7 +20,7 @@ import ListenButton from "@/components/student/tts/ListenButton";
 import { buildResultOverviewSpeech } from "@/lib/quizSpeech";
 import { formatDate, formatDuration, formatTime } from "@/features/student/constants/submissionsConfig";
 
-const SUBMISSIONS_HREF = "/student/assignments";
+const SUBMISSIONS_HREF = "/student/assignments?type=quiz";
 
 /** One labelled value in the result summary (Score, Pass mark, Attempt). */
 function SummaryFact({ label, children, divided = false }) {
@@ -53,6 +53,23 @@ function QuizResultPageContent() {
   const { quizId } = useParams();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("from");
+
+  // A lesson-launched quiz should return the student to that lesson. Prefer
+  // the exact page the quiz was launched from (returnTo); fall back to a
+  // guess from the quiz's own lessonId; otherwise the Submissions page.
+  // Defined at the top level to strictly satisfy React Rules of Hooks.
+  const safeReturnTo = useMemo(() => {
+    if (!returnTo) return null;
+    if (returnTo === "/student/assignments") return "/student/assignments?type=quiz";
+    if (returnTo.startsWith("/student/assignments?")) {
+      const url = new URL(returnTo, "https://local.dummy");
+      if (!url.searchParams.has("type")) {
+        url.searchParams.set("type", "quiz");
+        return `${url.pathname}?${url.searchParams.toString()}`;
+      }
+    }
+    return returnTo;
+  }, [returnTo]);
   // One specific earlier attempt (?attempt=<id>); the latest when absent.
   const attemptId = searchParams.get("attempt");
   const { data, isLoading, isError } = useQuizResult(quizId, { attemptId });
@@ -138,16 +155,15 @@ function QuizResultPageContent() {
   const { quiz, score, totalMarks, percentage, passed, submittedAt, conceptScores } = submission;
   const passingScore = quiz?.passingScore ?? 70;
 
-  // A lesson-launched quiz should return the student to that lesson. Prefer
-  // the exact page the quiz was launched from (returnTo); fall back to a
-  // guess from the quiz's own lessonId; otherwise the Submissions page.
+
+
   const backHref =
-    returnTo ||
+    safeReturnTo ||
     (quiz?.lessonId ? `/student/learn/${quiz.courseId}?lessonId=${quiz.lessonId}` : SUBMISSIONS_HREF);
   const backLabel = backHref.startsWith("/student/learn/")
     ? "Back to Lesson"
-    : backHref.startsWith(SUBMISSIONS_HREF)
-      ? "Back to Submissions"
+    : backHref.includes("/student/assignments")
+      ? "Back to Quizzes"
       : "Back";
 
   // Links between attempts (and to a retake) keep the page the student came from.

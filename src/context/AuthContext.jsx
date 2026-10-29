@@ -167,8 +167,34 @@ export const AuthProvider = ({ children }) => {
 
   const initializeAuth = async () => {
     const token = Cookies.get("accessToken");
+    const refreshToken = Cookies.get("refreshToken");
 
     if (!token) {
+      if (refreshToken) {
+        // We have a refresh token: attempt silent refresh to restore the session
+        try {
+          const deviceKey = Cookies.get("deviceKey");
+          const { default: api } = await import("@/lib/axios");
+          const { getApiOrigin } = await import("@/lib/apiOrigin");
+          const { default: axios } = await import("axios");
+          const response = await axios.post(
+            `${getApiOrigin()}/auth/refresh-token`,
+            { refreshToken },
+            deviceKey ? { headers: { "X-Device-Key": deviceKey } } : undefined
+          );
+          if (response.data?.data?.accessToken) {
+            setSessionCookies({
+              accessToken: response.data.data.accessToken,
+              role: response.data.data?.role || response.data.data?.user?.role || Cookies.get("role"),
+            });
+            await verifySession();
+            setLoading(false);
+            return;
+          }
+        } catch (refreshErr) {
+          console.warn("Silent session restoration failed:", refreshErr?.message);
+        }
+      }
       logoutLocal();
       setLoading(false);
       return;

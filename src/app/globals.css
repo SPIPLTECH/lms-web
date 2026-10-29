@@ -1105,3 +1105,12 @@ button.bg-primary:hover, a.bg-primary:hover, .btn-rainbow:hover {
   color: var(--qcode-del-fg);
   background-color: var(--qcode-del-bg);
 }
+
+/* Restrict image and canvas dragging and open in new tab */
+img, canvas {
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  user-drag: none;
+}

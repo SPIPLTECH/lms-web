@@ -319,9 +319,6 @@ export default function DesktopEditProfileView({ profile, onRefresh }) {
                 <h1 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">
                   {formData.name || profile?.name}
                 </h1>
-                <div className="h-5 w-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/40" title="Verified Account">
-                  <Check size={12} className="stroke-[3]" />
-                </div>
               </div>
 
               <p className="text-sm font-medium text-muted-foreground">
@@ -340,10 +337,6 @@ export default function DesktopEditProfileView({ profile, onRefresh }) {
                   <span>Active</span>
                 </span>
 
-                <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted/80 border border-transparent px-2.5 py-1 text-[11px] font-bold text-foreground">
-                  <ShieldCheck size={13} className="text-emerald-400" />
-                  <span>Verified Account</span>
-                </span>
 
                 <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground ml-1">
                   <Calendar size={13} />

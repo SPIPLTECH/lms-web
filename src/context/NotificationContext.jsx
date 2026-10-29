@@ -266,6 +266,9 @@ export function NotificationProvider({ children }) {
         displayType = "quiz";
       } else if (backendType === "CHAT" || backendType.startsWith("QA")) {
         displayType = "chat";
+        // Instantly invalidate questions cache so student sees replies without refreshing
+        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.MY_QUESTIONS] });
+        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LESSON_QUERIES] });
       }
 
       const formatted = {

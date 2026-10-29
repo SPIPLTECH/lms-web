@@ -37,6 +37,8 @@ const AiAssistantWindow = dynamic(() => import("./AiAssistantWindow"), { ssr: fa
 export default function AiAssistantWidget({
   courseId,
   courseTitle,
+  contentTitle,
+  contentType,
   scopeHint,
   isEnrolled = false,
   getPosition,
@@ -99,6 +101,8 @@ export default function AiAssistantWidget({
           scope={scope}
           courseId={courseId}
           courseTitle={courseTitle}
+          contentTitle={contentTitle}
+          contentType={contentType}
           getPosition={readPosition}
           conversationId={conversationId}
           setConversationId={setConversationId}

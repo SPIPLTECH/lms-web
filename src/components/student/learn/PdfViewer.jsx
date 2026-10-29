@@ -40,6 +40,7 @@ export default function PdfViewer({
   title,
   className = "",
   hideToolbar = false,
+  showDownload = false,
   // Opt-in (the learn player below xl): instead of the standalone
   // reading-pane sizing, fill exactly the height the parent allots and let
   // THIS viewport be the scroll container.
@@ -419,17 +420,19 @@ export default function PdfViewer({
       </div>
 
       {/* Download Button */}
-      <a
-        href={resolvedUrl || fileUrl}
-        download
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-1.5 rounded-xl bg-primary hover:bg-orange-600 px-3 py-1.5 text-sm font-extrabold text-slate-950 transition cursor-pointer shadow-md"
-        title="Download PDF Document"
-      >
-        <Download size={14} />
-        <span className="hidden sm:inline">Download</span>
-      </a>
+      {showDownload && (
+        <a
+          href={resolvedUrl || fileUrl}
+          download
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 rounded-xl bg-primary hover:bg-orange-600 px-3 py-1.5 text-sm font-extrabold text-slate-950 transition cursor-pointer shadow-md"
+          title="Download PDF Document"
+        >
+          <Download size={14} />
+          <span className="hidden sm:inline">Download</span>
+        </a>
+      )}
     </div>
   );
 
@@ -532,7 +535,10 @@ export default function PdfViewer({
       <div className={touchZoom ? "relative flex w-full flex-1 min-h-0 flex-col" : "contents"}>
       <div
         ref={viewportRef}
-        className={`relative w-full min-h-0 bg-[#060913] p-2 sm:p-3.5 flex ${isZoomedIn ? "justify-start" : "justify-center"} items-start scroll-smooth rounded-2xl border border-border/80 ${touchZoom ? "touch-pan-x touch-pan-y" : ""} ${viewportSizing}`}
+        onContextMenu={(e) => e.preventDefault()}
+        onDragStart={(e) => e.preventDefault()}
+        onCopy={(e) => e.preventDefault()}
+        className={`relative w-full min-h-0 bg-[#060913] p-2 sm:p-3.5 flex ${isZoomedIn ? "justify-start" : "justify-center"} items-start scroll-smooth rounded-2xl border border-border/80 select-none ${touchZoom ? "touch-pan-x touch-pan-y" : ""} ${viewportSizing}`}
       >
         {/* Loading Overlay */}
         {loading && (
@@ -578,7 +584,10 @@ export default function PdfViewer({
             <div className={`my-auto py-3 sm:py-6 transition-all duration-150 flex ${isZoomedIn ? "justify-start max-w-none" : "justify-center max-w-full"}`}>
               <div
                 ref={pageBoxRef}
-                className={`relative ${isZoomedIn ? "max-w-none" : "max-w-full"}`}
+                onContextMenu={(e) => e.preventDefault()}
+                onDragStart={(e) => e.preventDefault()}
+                onCopy={(e) => e.preventDefault()}
+                className={`relative select-none ${isZoomedIn ? "max-w-none" : "max-w-full"}`}
                 style={pinchScale !== 1 ? { transform: `scale(${pinchScale})`, transformOrigin: pinchOrigin || "top left" } : undefined}
               >
                 <Page
