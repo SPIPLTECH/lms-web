@@ -9,7 +9,6 @@ import useMyCourses from "@/hooks/queries/student/useMyCourses";
 import useCompleteOnboarding from "@/hooks/queries/student/useCompleteOnboarding";
 import StudentTour, { TOUR_STEPS } from "@/components/student/onboarding/StudentTour";
 import { QUERY_KEYS } from "@/constants/queryKeys";
-import { getCourseById } from "@/services/course.service";
 import { getLearningSequence } from "@/services/progress.service";
 import { getStudentState } from "@/services/student.service";
 import {
@@ -68,7 +67,7 @@ export function StudentTourProvider({ children }) {
   const [lessonMeta, setLessonMeta] = useState(null);
 
   // Background prefetch: When courseId is resolved (e.g. while student views the welcome modal
-  // or on any student page), prefetch the Next.js learn route and the learning sequence / course metadata.
+  // or on any student page), prefetch the Next.js learn route, the learning sequence and the saved position.
   // This turns a cold ~10-15s load into an instantaneous transition by the time the student clicks
   // "Start the tour".
   useEffect(() => {
@@ -80,14 +79,13 @@ export function StudentTourProvider({ children }) {
       // prefetch silently ignored if not supported
     }
 
+    // The learn page reads the sequence with its learning path (and the course
+    // title/language) from this one key — useLearningSequence(…, { withPath }).
+    // Any other key would be a second whole roll-up on the server, queued
+    // ahead of the page's own request.
     queryClient.prefetchQuery({
-      queryKey: [QUERY_KEYS.COURSE, courseId, "meta"],
-      queryFn: () => getCourseById(courseId, { shallow: true }),
-      staleTime: 5 * 60 * 1000,
-    });
-    queryClient.prefetchQuery({
-      queryKey: [QUERY_KEYS.LEARNING_SEQUENCE, courseId, null],
-      queryFn: () => getLearningSequence(courseId, null),
+      queryKey: [QUERY_KEYS.LEARNING_SEQUENCE, courseId, null, "with-path"],
+      queryFn: () => getLearningSequence(courseId, null, { includePath: true }),
       staleTime: 5 * 60 * 1000,
     });
     queryClient.prefetchQuery({
