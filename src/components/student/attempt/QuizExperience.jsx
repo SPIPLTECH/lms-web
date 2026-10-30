@@ -9,7 +9,7 @@ import Button from "@/components/ui/Button";
 import QuizHeader from "@/components/student/attempt/QuizHeader";
 import { getQuizTimerStorageKey } from "@/components/student/attempt/QuizTimer";
 import QuestionCard from "@/components/student/attempt/QuestionCard";
-import QuizNavigation from "@/components/student/attempt/QuizNavigation";
+import QuizNavigation, { QuestionPalette, isLargeQuiz } from "@/components/student/attempt/QuizNavigation";
 import QuizSubmitModal from "@/components/student/attempt/QuizSubmitModal";
 import QuizResultSummary from "@/components/student/attempt/QuizResultSummary";
 import useQuiz from "@/hooks/queries/student/useQuiz";
@@ -146,6 +146,8 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
         () => quiz?.questions || [],
         [quiz]
     );
+
+    const largeQuiz = isLargeQuiz(questions.length);
 
     const [showSubmitModal, setShowSubmitModal] =
         useState(false);
@@ -527,6 +529,14 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
                     </p>
                 )}
 
+                {/* A quiz with more than LARGE_QUIZ_THRESHOLD questions gets
+                    its question palette beside the question where the quiz
+                    is wide enough (@3xl of this container, so the learn
+                    page's frame counts, not the window); narrower, the
+                    palette opens under the nav bar instead. */}
+                <div className="@container">
+                <div className={largeQuiz ? "@3xl:grid @3xl:grid-cols-[minmax(0,1fr)_16rem] @3xl:items-start @3xl:gap-3" : undefined}>
+                <div className="min-w-0 space-y-2 sm:space-y-3">
                 <QuestionCard
                     question={currentQuestion}
                     selectedAnswer={currentAnswer}
@@ -561,6 +571,32 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
                     practice={isPractice}
                     checkedResults={checkedResults}
                 />
+                </div>
+
+                {largeQuiz && (
+                    <aside
+                        aria-label="Question palette"
+                        className="hidden @3xl:block rounded-2xl border border-border bg-background p-3"
+                    >
+                        <p className="mb-2 flex items-baseline justify-between gap-2 px-0.5 text-sm font-bold text-foreground">
+                            Questions
+                            <span className="text-xs font-medium tabular-nums text-muted-foreground">
+                                {currentQuestionIndex + 1} of {questions.length}
+                            </span>
+                        </p>
+                        <QuestionPalette
+                            questions={questions}
+                            currentQuestionIndex={currentQuestionIndex}
+                            questionStates={questionStates}
+                            checkedResults={checkedResults}
+                            practice={isPractice}
+                            onJumpTo={goToQuestion}
+                            gridClassName="max-h-[min(60vh,32rem)]"
+                        />
+                    </aside>
+                )}
+                </div>
+                </div>
 
                 {isPractice && (
                     <PracticeStatus
