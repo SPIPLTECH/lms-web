@@ -10,6 +10,9 @@ export default function QuizHeader({
                                        onBack,
                                        onTimeUp,
                                        answeredCount = 0,
+                                       // Replaces the icon-only arrow with a labelled button shown
+                                       // at every width (a Self-Test's way out, phones included).
+                                       exitLabel = null,
                                    }) {
     if (!quiz) return null;
 
@@ -34,7 +37,16 @@ export default function QuizHeader({
         <div className="flex min-w-0 flex-row items-center justify-between sm:justify-start gap-2 sm:gap-3 rounded-xl border border-border bg-background/80 px-2.5 sm:px-4 py-2 sm:py-2.5">
             {/* Identity row */}
             <div className="flex min-w-0 flex-1 items-center gap-2">
-                {onBack ? (
+                {onBack && exitLabel ? (
+                    <button
+                        type="button"
+                        onClick={onBack}
+                        className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-transparent px-2 sm:px-2.5 text-xs font-semibold text-muted-foreground transition hover:border-primary/40 hover:text-primary cursor-pointer"
+                    >
+                        <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                        {exitLabel}
+                    </button>
+                ) : onBack ? (
                     <button
                         type="button"
                         onClick={onBack}
