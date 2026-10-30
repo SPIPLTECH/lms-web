@@ -1,28 +1,9 @@
 /**
- * Shared checks for the Next route handlers that read or write Vercel Blob
- * with the server's Blob token (/api/blob-proxy, /api/external-file/*).
- * Server-only. No Next imports, so it can be unit-tested with plain node.
+ * Shared checks for the Next route handlers that serve stored files with the
+ * server's storage credentials (/api/blob-proxy, /api/external-file/*,
+ * /api/uploads-proxy). Server-only. No Next imports, so it can be unit-tested
+ * with plain node.
  */
-
-const BLOB_STORE_SUFFIX = ".blob.vercel-storage.com";
-
-/**
- * True only for https URLs on Vercel's own hosts. The previous check,
- * `hostname.endsWith("vercel.com")`, also matched attacker-registrable names
- * such as `evilvercel.com`, and these handlers send the Blob read/write token
- * to whatever host passes it.
- */
-export function isAllowedBlobUrl(rawUrl) {
-  let url;
-  try {
-    url = new URL(rawUrl);
-  } catch {
-    return false;
-  }
-  if (url.protocol !== "https:") return false;
-  const host = url.hostname.toLowerCase();
-  return host.endsWith(BLOB_STORE_SUFFIX) || host === "vercel.com" || host.endsWith(".vercel.com");
-}
 
 /**
  * The signed-in caller's role, validated by the API (GET /auth/profile runs

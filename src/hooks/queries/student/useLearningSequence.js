@@ -16,13 +16,24 @@ import { defaultQueryOptions } from "@/lib/queryOptions";
  * Refetched on mount for the same reason the learning path is: a completion,
  * a quiz attempt or a submission moves the locks, and the player remounts
  * around those events.
+ *
+ * `withPath` also brings the learning path (`data.learningPath`: { path,
+ * nextItem, lockedCount, skippableCount }) in the same request. Cached under its own key so a
+ * sequence fetched without it is never served where the path is expected;
+ * invalidating [LEARNING_SEQUENCE] still refreshes both.
+ *
+ * A 403 (not enrolled) is not retried — asking again cannot change it.
  */
-export default function useLearningSequence(courseId, { studentId = null, enabled = true } = {}) {
+export default function useLearningSequence(courseId, { studentId = null, enabled = true, withPath = false } = {}) {
   return useQuery({
-    queryKey: [QUERY_KEYS.LEARNING_SEQUENCE, courseId, studentId],
-    queryFn: () => getLearningSequence(courseId, studentId),
+    queryKey: withPath
+      ? [QUERY_KEYS.LEARNING_SEQUENCE, courseId, studentId, "with-path"]
+      : [QUERY_KEYS.LEARNING_SEQUENCE, courseId, studentId],
+    queryFn: () => getLearningSequence(courseId, studentId, { includePath: withPath }),
     enabled: Boolean(courseId) && enabled,
     ...defaultQueryOptions,
+    retry: (failureCount, error) =>
+      error?.response?.status !== 403 && failureCount < defaultQueryOptions.retry,
     refetchOnMount: true,
   });
 }

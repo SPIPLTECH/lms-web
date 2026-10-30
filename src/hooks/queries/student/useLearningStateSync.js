@@ -13,9 +13,10 @@ const SAVE_MAX_WAIT_MS = 10000;
  * save of where they are.
  *
  * Restore, once, in this order:
- *   1. `?item=` from the URL the page was opened with — the exact step the
- *      student was on (a Content id; an older link's quiz/assignment id still
- *      resolves to that item's step);
+ *   1. `openedWith.itemId` — `?item=` from the link the page was opened with,
+ *      or, on a refresh, the step the page kept in this tab's history entry:
+ *      the exact step the student was on (a Content id; an older link's
+ *      quiz/assignment id still resolves to that item's step);
  *   2. `?lessonId=` — the first step of that lesson;
  *   3. in a course that keeps no progress (`sequence.progressTracked`
  *      false), the item saved in StudentState — where the student last was;

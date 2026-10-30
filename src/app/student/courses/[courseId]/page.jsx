@@ -12,6 +12,7 @@ import useMyCourses from "@/hooks/queries/student/useMyCourses";
 import useTrackCourseAccess from "@/hooks/queries/student/useTrackCourseAccess";
 import useLearningSequence from "@/hooks/queries/student/useLearningSequence";
 import { normalizeCourseHierarchy } from "@/lib/courseMapper";
+import { learnHref } from "@/lib/courseSlug";
 
 // Every LESSON node of a learning-sequence tree.
 function sequenceLessons(node, out = []) {
@@ -79,11 +80,13 @@ export default function CourseDetailsPage({ params }) {
     );
   }
 
-  const openPlayer = () => router.push(`/student/learn/${courseId}`);
+  // The learn page is addressed by the course's readable key, not its id.
+  const learnPath = learnHref({ id: courseId, title: course?.title }, myEnrollments);
+  const openPlayer = () => router.push(learnPath);
   // A syllabus lesson opens at that lesson's first step; the overview only
   // offers lessons the sequence says are open, and the player still falls
   // back to the current step if a lock changed in between.
-  const openLesson = (lessonId) => router.push(`/student/learn/${courseId}?lessonId=${lessonId}`);
+  const openLesson = (lessonId) => router.push(`${learnPath}?lessonId=${lessonId}`);
 
   // The student layout pads <main> by 64px from md up; this page has no
   // breadcrumb or toolbar above its title, so it pulls up to sit closer to

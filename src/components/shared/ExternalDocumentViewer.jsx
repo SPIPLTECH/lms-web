@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { FileText, ExternalLink, AlertCircle, Loader2 } from "lucide-react";
 import { resolveExternalFile } from "@/lib/external/resolveExternalFile";
+import { isStoredFileUrl } from "@/lib/blob";
 import { PdfViewer, PptViewer, DocxViewer } from "@/components/shared/LazyDocumentViewers";
 
 
@@ -44,7 +45,7 @@ export default function ExternalDocumentViewer({
   const extStateSizing = fillHeight ? "flex-1 min-h-0" : "h-[480px]";
   const [iframeError, setIframeError] = useState(false);
 
-  // Check if fileUrl points to a Vercel Blob JSON metadata reference
+  // Check if fileUrl points to a stored JSON metadata reference
   const isReferenceJson = Boolean(
     fileUrl &&
       typeof fileUrl === "string" &&
@@ -94,11 +95,11 @@ export default function ExternalDocumentViewer({
     };
   }, [fileUrl, isReferenceJson]);
 
-  // Safety Safeguard: Uploaded Vercel Blob PDF -> Delegate directly to native PdfViewer
+  // Safety Safeguard: Uploaded (R2) PDF -> Delegate directly to native PdfViewer
   const isUploadedBlobPdf = Boolean(
     fileUrl &&
       typeof fileUrl === "string" &&
-      (fileUrl.includes("blob.vercel-storage.com") || fileUrl.includes("/api/blob-proxy")) &&
+      (isStoredFileUrl(fileUrl) || fileUrl.includes("/api/blob-proxy")) &&
       !fileUrl.includes("/external-references/") &&
       (fileUrl.toLowerCase().includes(".pdf") || fileUrl.toLowerCase().includes("pdf"))
   );
@@ -117,11 +118,11 @@ export default function ExternalDocumentViewer({
     );
   }
 
-  // Safety Safeguard: Uploaded Vercel Blob PPT/PPTX -> Delegate directly to client PptViewer
+  // Safety Safeguard: Uploaded (R2) PPT/PPTX -> Delegate directly to client PptViewer
   const isUploadedBlobPpt = Boolean(
     fileUrl &&
       typeof fileUrl === "string" &&
-      (fileUrl.includes("blob.vercel-storage.com") || fileUrl.includes("/api/blob-proxy")) &&
+      (isStoredFileUrl(fileUrl) || fileUrl.includes("/api/blob-proxy")) &&
       !fileUrl.includes("/external-references/") &&
       (fileUrl.toLowerCase().includes(".ppt") || fileUrl.toLowerCase().includes(".pptx"))
   );
@@ -139,11 +140,11 @@ export default function ExternalDocumentViewer({
     );
   }
 
-  // Safety Safeguard: Uploaded Vercel Blob DOC/DOCX -> Delegate directly to client DocxViewer
+  // Safety Safeguard: Uploaded (R2) DOC/DOCX -> Delegate directly to client DocxViewer
   const isUploadedBlobDoc = Boolean(
     fileUrl &&
       typeof fileUrl === "string" &&
-      (fileUrl.includes("blob.vercel-storage.com") || fileUrl.includes("/api/blob-proxy")) &&
+      (isStoredFileUrl(fileUrl) || fileUrl.includes("/api/blob-proxy")) &&
       !fileUrl.includes("/external-references/") &&
       (fileUrl.toLowerCase().includes(".doc") || fileUrl.toLowerCase().includes(".docx"))
   );
@@ -305,7 +306,7 @@ export default function ExternalDocumentViewer({
     targetUrl.includes("localhost") ||
     PRIVATE_HOST_RE.test(targetUrl);
   const isPrivateVercelBlob =
-    targetUrl.includes("blob.vercel-storage.com") || targetUrl.includes("/api/blob-proxy");
+    isStoredFileUrl(targetUrl) || targetUrl.includes("/api/blob-proxy");
 
   // Public DOC/DOCX files -> DocxViewer
   if (resolved.provider === "DIRECT_URL" && (resolved.fileType === "DOC" || resolved.fileType === "DOCX")) {

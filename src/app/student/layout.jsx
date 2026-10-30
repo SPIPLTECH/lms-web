@@ -85,32 +85,19 @@ export default function Layout({ children }) {
         <AiLauncherProvider>
           {isLearnPage ? (
             // Same top bar as every other Student page, but the learn page still
-            // owns its own fixed-viewport, internally-scrolling layout below it.
+            // owns its own fixed-viewport, internally-scrolling layout below it
+            // (not DashboardLayout's Sidebar/padded <main>/ChatWidget — the learn
+            // page already renders its own ChatWidget).
+            // h-dvh, not h-screen: on a phone 100vh is the height with the browser's
+            // address bar hidden, so while the bar shows, the bottom of this shell
+            // (Previous/Next) sat behind it and under the fixed AI launcher. The
+            // dynamic viewport follows the bar; on desktop the two are the same.
+            // On phones the learn page renders its own bottom bar (Previous | Ask AI
+            // | Next) instead of the tabs.
             <div className="h-dvh flex flex-col overflow-hidden">
               <DashboardNavbar role="STUDENT" title="Learning Workspace" />
               <div className="flex-1 min-h-0">{content}</div>
             </div>
-          ) : pathname === "/student/my-courses" ? (
-            // My Courses fits the screen: a viewport-height shell (h-dvh, so a phone's
-            // address bar is allowed for) whose <main> hands the page a definite height.
-            <>
-              <div className="h-dvh flex flex-col bg-background">
-                <DashboardNavbar role="STUDENT" title="Student Dashboard" />
-                {evaluatorBanner && (
-                  <div className="shrink-0 w-full max-w-[1800px] mx-auto px-2 pt-3 sm:px-6 sm:pt-4 md:px-16">
-                    {evaluatorBanner}
-                  </div>
-                )}
-                {/* max-sm bottom: room for the bottom bar and its raised AI
-                    button, so neither sits on a course card's Continue button. */}
-                <main className="flex-1 min-h-0 overflow-y-auto w-full max-w-[1800px] mx-auto flex flex-col p-3 sm:p-6 max-sm:pb-[calc(5.25rem_+_env(safe-area-inset-bottom))]">
-                  <div className="max-w-[1600px] mx-auto w-full flex flex-col flex-1 min-h-fit">
-                    {content}
-                  </div>
-                </main>
-              </div>
-              {bottomTabs}
-            </>
           ) : (
             <>
               <DashboardLayout

@@ -18,15 +18,14 @@ import QualificationResultPanel from "@/components/student/learning/Qualificatio
 import StudentCourseMap from "@/components/student/learning/StudentCourseMap";
 
 import { buildPathIndex, getSkipOfferForScope } from "@/lib/learningPath";
+import { learnHref, looksLikeCourseId, resolveCourseKey } from "@/lib/courseSlug";
 
 import {
-  useCourse,
   useStudentState,
   useUpdateStudentState,
   useCompleteContent,
   useMarkVisited,
 } from "@/hooks/queries/student";
-import useLearningPath from "@/hooks/queries/student/useLearningPath";
 import useLearningSequence from "@/hooks/queries/student/useLearningSequence";
 import usePlaybackLease from "@/hooks/queries/student/usePlaybackLease";
 import useQuizResult from "@/hooks/queries/student/useQuizResult";
@@ -71,27 +70,26 @@ function indexContainers(tree) {
 }
 
 export default function LearnPage() {
-  const { courseId } = useParams();
+  // The URL names the course by a readable key built from its title
+  // (lib/courseSlug.js) or, in an older link, by its id.
+  const { courseId: courseKey } = useParams();
   const router = useRouter();
   // Evaluator accounts have every step open (backend learningSequence
   // `unlockAll`), so there is nothing for them to mark complete.
   const { user } = useAuth();
   const isEvaluator = Boolean(user?.evaluator);
 
-  // Course metadata only (title, language): what the player walks comes from
-  // the learning sequence below. Shallow — the full tree (~300 KB, seconds
-  // slower) is never read here, and the page waits for this query.
-  const { data: course, isLoading, isError } = useCourse(courseId, { shallow: true });
-  // Sequential learning off: every step is open (backend `unlockAll`) and the
-  // course keeps no progress — nothing is marked complete or visited, and the
-  // player shows no completion strip.
-  const isOpenCourse = course?.sequentialLearning === false;
-
   // Same enrollment gate as /student/courses/[courseId] — this is the actual
   // lesson content, not just an overview. A non-enrolled student who reaches
   // this URL directly is sent back to My Courses (enrollment happens on the
   // main Orange Tree site).
   const { data: myEnrollments, isLoading: isEnrollmentsLoading } = useMyCourses();
+  // Either form resolves to the id among the student's own enrollments; an
+  // id-shaped key is used at once, so an id link does not wait for the list.
+  const courseId = useMemo(
+    () => resolveCourseKey(courseKey, myEnrollments || []) || (looksLikeCourseId(courseKey) ? courseKey : null),
+    [courseKey, myEnrollments]
+  );
   const isEnrolled = (myEnrollments || []).some((e) => (e.courseId || e.course?.id) === courseId);
 
   useEffect(() => {
@@ -104,27 +102,42 @@ export default function LearnPage() {
   // assignments — as one ordered list of steps, with the server's completed /
   // visited / locked flags. Prev/Next, the Course Map, resume and the
   // completion strip all read it; nothing here orders, merges or gates items.
-  // Fetched alongside the enrollment list rather than after it: the server
-  // refuses a student who is not enrolled (403), and the loader below keeps
-  // such a student on a spinner until the redirect above sends them away.
+  // Not gated on the enrollment list: the server refuses a non-enrolled student itself (403), and the render guard below waits on isEnrolled, so starting in parallel only saves the wait.
   const {
     data: sequence,
     isPending: isSequencePending,
     isError: isSequenceError,
     isFetching: isSequenceFetching,
     refetch: refetchSequence,
-  } = useLearningSequence(courseId);
+  } = useLearningSequence(courseId, { withPath: true });
   const steps = sequence?.steps || [];
   const containersById = useMemo(() => indexContainers(sequence?.tree), [sequence]);
+
+  // The course record fields the player shows (title, language) ride on the
+  // sequence, so the page needs no GET /courses/:id of its own.
+  const course = useMemo(
+    () => (sequence ? { id: courseId, title: sequence.title, language: sequence.language } : null),
+    [sequence, courseId]
+  );
+  // This course's address: /student/learn/<readable key> (lib/courseSlug.js).
+  const learnPath = useMemo(() => {
+    if (!courseId) return null;
+    const enrollment = (myEnrollments || []).find((e) => (e.courseId || e.course?.id) === courseId);
+    const title = enrollment?.course?.title ?? sequence?.title;
+    return learnHref({ id: courseId, title }, myEnrollments || []);
+  }, [courseId, myEnrollments, sequence?.title]);
+  // Sequential learning off: every step is open (backend `unlockAll`) and the
+  // course keeps no progress — nothing is marked complete or visited, and the
+  // player shows no completion strip. The server reports it as
+  // progressTracked: false.
+  const isOpenCourse = sequence?.progressTracked === false;
 
   const completeContentMutation = useCompleteContent();
   const markVisitedMutation = useMarkVisited();
 
   // The server's lesson/topic path — read here only for qualifying-test
-  // (skip) offers. Asked for once the sequence is in, so its roll-up does not
-  // compete with the sequence's on the way to first paint; a skip offer
-  // appearing a moment later costs nothing.
-  const { data: learningPathData } = useLearningPath(courseId, { enabled: Boolean(sequence) });
+  // (skip) offers. Comes with the sequence (same roll-up, same request).
+  const learningPathData = sequence?.learningPath;
   const pathIndex = useMemo(
     () => buildPathIndex(learningPathData?.path),
     [learningPathData]
@@ -163,15 +176,23 @@ export default function LearnPage() {
     );
   }, [completeContentMutation, showToast, tourActive]);
 
-  // The position asked for by the URL this page was OPENED with, captured once
-  // at first render — the ?item= mirror below starts rewriting the URL as soon
-  // as the player settles.
+  // The position this page was OPENED at, captured once at first render — the
+  // mirror below rewrites the URL as soon as the player settles. A link may
+  // ask for it (?item= / ?lessonId=, e.g. "back to the lesson" from a result
+  // page); a refresh of this tab finds it in the history entry instead, where
+  // the mirror keeps it so the address bar shows no step id.
   const openedWithRef = useRef(null);
   if (openedWithRef.current === null) {
-    const search = typeof window === "undefined" ? "" : window.location.search;
-    const opened = new URLSearchParams(search);
+    const isBrowser = typeof window !== "undefined";
+    const opened = new URLSearchParams(isBrowser ? window.location.search : "");
+    let remembered = null;
+    try {
+      remembered = isBrowser ? window.history.state?.learnItem ?? null : null;
+    } catch {
+      remembered = null;
+    }
     openedWithRef.current = {
-      itemId: opened.get("item"),
+      itemId: opened.get("item") || remembered,
       lessonId: opened.get("lessonId"),
     };
   }
@@ -249,7 +270,10 @@ export default function LearnPage() {
         }
         const searchStr = params.toString();
         const nextUrl = searchStr ? `${window.location.pathname}?${searchStr}` : window.location.pathname;
-        window.history.replaceState(null, "", nextUrl);
+        // Keep the step this tab remembers (learnItem, see the mirror below):
+        // replacing the entry with null would make a refresh lose it.
+        const learnItem = window.history.state?.learnItem;
+        window.history.replaceState(learnItem ? { learnItem } : null, "", nextUrl);
       }
     } catch {
       // Storage unavailable
@@ -663,15 +687,30 @@ export default function LearnPage() {
     }
   }, [tour.active, tour.stepKey, isDesktop]);
 
-  // Mirrors the step on screen into ?item=, so a refresh returns to this exact
-  // item. history.replaceState, not router.replace — this is not navigation.
+  // Keeps the step on screen in this tab's history entry (not the address
+  // bar), so a refresh returns to this exact item, and shows the course by its
+  // readable key whatever link opened it (an id from a result page or a
+  // notification included). ?item= / ?lessonId= are read once on open, then
+  // dropped from the URL; any other query (e.g. ?onboarding=) is kept.
+  // history.replaceState, not router.replace — this is not navigation. Only
+  // our own key is passed: Next.js adds its router state to it.
   useEffect(() => {
-    if (typeof window === "undefined" || !step) return;
+    if (typeof window === "undefined" || !step || !learnPath) return;
     const params = new URLSearchParams(window.location.search);
-    if (params.get("item") === String(step.contentId)) return;
-    params.set("item", String(step.contentId));
-    window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
-  }, [step?.contentId]);
+    const item = String(step.contentId);
+    if (
+      window.location.pathname === learnPath &&
+      !params.has("item") &&
+      !params.has("lessonId") &&
+      window.history.state?.learnItem === item
+    ) {
+      return;
+    }
+    params.delete("item");
+    params.delete("lessonId");
+    const query = params.toString();
+    window.history.replaceState({ learnItem: item }, "", `${learnPath}${query ? `?${query}` : ""}`);
+  }, [step?.contentId, learnPath]);
 
   // Still used by Sticky Notes (both the mobile tab and the desktop side
   // panel) to jump the video to a note's timestamp.
@@ -679,11 +718,11 @@ export default function LearnPage() {
     videoPlayerRef.current?.seekTo(seconds);
   };
 
-  if (isLoading || isEnrollmentsLoading || !isEnrolled || isSequencePending || !stateRestored) {
+  if (isEnrollmentsLoading || !isEnrolled || isSequencePending || !stateRestored) {
     return <Loader />;
   }
 
-  if (isError || !course || isSequenceError || !sequence) {
+  if (isSequenceError || !sequence) {
     return <Card className="text-foreground">Course not found.</Card>;
   }
 
@@ -718,7 +757,7 @@ export default function LearnPage() {
   // yet submitted — the AI Assistant is not offered at any width. During the tour, show it so it can be explained.
   const quizInProgress = (isQuizStep && !step?.attempted && !tourActive) || (Boolean(qualifyingAttempt) && !qualifyingSubmitted);
 
-  const resultReturnTo = `/student/learn/${courseId}${step ? `?item=${step.contentId}` : ""}`;
+  const resultReturnTo = `${learnPath || `/student/learn/${courseId}`}${step ? `?item=${step.contentId}` : ""}`;
 
   const renderSidePanel = ({ compact = false, tabs = false } = {}) => (
     <LearnSidePanel

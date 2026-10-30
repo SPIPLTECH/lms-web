@@ -17,7 +17,9 @@ const PRIVATE_LAN_DEV_ORIGINS = [
 const isProd = process.env.NODE_ENV === "production";
 
 // Explicit script-src Content-Security-Policy to constrain executable script
-// origins and block eval/object gadgets if an XSS sink occurs.
+// origins and block eval/object gadgets if an XSS sink occurs. frame-src lists
+// every host the app embeds: YouTube and Vimeo (lessons), Google Docs/Slides/
+// Drive and the Office viewer (ExternalDocumentViewer), sign-in and checkout.
 const CONTENT_SECURITY_POLICY = [
     "default-src 'self'",
     `script-src 'self' 'unsafe-inline'${isProd ? "" : " 'unsafe-eval'"} https://accounts.google.com https://apis.google.com https://checkout.razorpay.com https://www.youtube.com https://s.ytimg.com blob:`,
@@ -27,45 +29,32 @@ const CONTENT_SECURITY_POLICY = [
     "media-src 'self' data: blob: https: http:",
     "font-src 'self' data: https://fonts.gstatic.com",
     "connect-src 'self' https: http: ws: wss:",
-    "frame-src 'self' https://accounts.google.com https://api.razorpay.com https://checkout.razorpay.com https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com blob:",
+    "frame-src 'self' https://accounts.google.com https://api.razorpay.com https://checkout.razorpay.com https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://docs.google.com https://drive.google.com https://view.officeapps.live.com blob:",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'self'",
 ].join("; ");
 
+// Sent with every page. Also: no MIME sniffing, a trimmed Referer, and no
+// camera/microphone/location (nothing here uses them). HTTPS only once
+// deployed; on http://localhost or the LAN it has no business being sent.
+const SECURITY_HEADERS = [
+    { key: "Content-Security-Policy", value: CONTENT_SECURITY_POLICY },
+    { key: "X-Frame-Options", value: "SAMEORIGIN" },
+    { key: "X-Content-Type-Options", value: "nosniff" },
+    { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+    { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+    ...(isProd
+        ? [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" }]
+        : []),
+];
+
 const nextConfig: NextConfig = {
     allowedDevOrigins: PRIVATE_LAN_DEV_ORIGINS,
+    poweredByHeader: false,
     async headers() {
-        const securityHeaders = [
-            {
-                key: "Content-Security-Policy",
-                value: CONTENT_SECURITY_POLICY,
-            },
-            {
-                key: "X-Content-Type-Options",
-                value: "nosniff",
-            },
-            {
-                key: "Referrer-Policy",
-                value: "strict-origin-when-cross-origin",
-            },
-            ...(isProd
-                ? [
-                      {
-                          key: "Strict-Transport-Security",
-                          value: "max-age=63072000; includeSubDomains; preload",
-                      },
-                  ]
-                : []),
-        ];
-
-        return [
-            {
-                source: "/:path*",
-                headers: securityHeaders,
-            },
-        ];
+        return [{ source: "/:path*", headers: SECURITY_HEADERS }];
     },
     images: {
         remotePatterns: [

@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { get } from "@vercel/blob";
 
 import {
   CONTENT_ACTIVE_ON_ANOTHER_DEVICE,
   createCallerCache,
-  isAllowedBlobUrl,
   resolveCallerWithAccess,
 } from "@/lib/server/sessionCaller";
+import { parseR2Url, signedR2Url } from "@/lib/server/r2";
 
 /**
- * Serves private Vercel Blob files to signed-in users.
+ * Serves stored files (R2's private bucket) to signed-in users.
  *
  * Authorization: the caller must hold a valid LMS session. The browser sends
  * this route its `accessToken` and `deviceKey` cookies (same origin), and the
@@ -33,7 +32,7 @@ import {
  */
 
 const PRIVATE_NO_STORE = "private, no-store";
-// An image may stay in this viewer's own browser for an hour: a Blob URL is
+// An image may stay in this viewer's own browser for an hour: a stored URL is
 // unique per upload, so a kept copy is never stale, and `private` keeps it
 // out of every shared cache. PDFs, video and audio stay no-store.
 const PRIVATE_IMAGE_CACHE = "private, max-age=3600";
@@ -88,10 +87,9 @@ const rememberResized = (key, entry) => {
 };
 
 /** The image scaled to `width` as WebP, or null when it can't be (no sharp, bad image). */
-async function resizeImage(stream, width) {
+async function resizeImage(input, width) {
   try {
     const { default: sharp } = await import("sharp");
-    const input = Buffer.from(await new Response(stream).arrayBuffer());
     const body = await sharp(input).rotate().resize({ width, withoutEnlargement: true }).webp({ quality: 78 }).toBuffer();
     return { body, contentType: "image/webp" };
   } catch (error) {
@@ -124,19 +122,11 @@ export async function GET(request) {
       }
     }
 
-    // Normalize legacy R2 bucket URLs to active Vercel Blob storage
-    if (targetUrl && targetUrl.includes("r2.cloudflarestorage.com/orangetreeprivate/")) {
-      targetUrl = targetUrl.replace(
-        /https:\/\/[^/]+\.r2\.cloudflarestorage\.com\/orangetreeprivate\//,
-        "https://qcgudnz7gjfguvas.private.blob.vercel-storage.com/"
-      );
-    }
-
-    // SSRF & Domain Validation: Target must be a Vercel Blob store URL. This
-    // route sends the Blob token to the target, so the host check is strict
-    // (see lib/server/sessionCaller.js).
-    if (!isAllowedBlobUrl(targetUrl)) {
-      return jsonError(400, "Forbidden: Target URL does not belong to Vercel Blob storage.");
+    // SSRF & Domain Validation: Target must be a file in our R2 bucket. The
+    // check is strict because whatever passes gets signed (lib/server/r2.js).
+    const r2Key = parseR2Url(targetUrl);
+    if (!r2Key) {
+      return jsonError(400, "Forbidden: Target URL does not belong to this LMS's file storage.");
     }
 
     const caller = await callerFromCookies();
@@ -152,13 +142,6 @@ export async function GET(request) {
     }
     if (caller.access === "unknown") {
       return jsonError(503, "Could not confirm access to this file. Please try again.");
-    }
-
-    // Server-side secret token ONLY (Never use or expose NEXT_PUBLIC_* tokens)
-    const blobToken = process.env.VERCEL_BLOB_READ_WRITE_TOKEN || process.env.BLOB_READ_WRITE_TOKEN;
-    if (!blobToken) {
-      console.error("[BLOB PROXY ERROR] Neither VERCEL_BLOB_READ_WRITE_TOKEN nor BLOB_READ_WRITE_TOKEN is configured in server environment.");
-      return jsonError(500, "Server error: Vercel Blob token is missing in server environment variables.");
     }
 
     const mayStreamMedia = caller.role === "INSTRUCTOR" || caller.role === "ADMIN";
@@ -183,52 +166,9 @@ export async function GET(request) {
       });
     }
 
-    // 1. No range requested: the SDK's private read, streamed through.
-    if (!rangeHeader) {
-      try {
-        const blobResult = await get(targetUrl, { access: "private", token: blobToken });
-        if (blobResult && blobResult.stream) {
-          const contentType = blobResult.blob?.contentType || "application/octet-stream";
-          if (isMediaType(contentType) && !mayStreamMedia) {
-            blobResult.stream.cancel?.().catch?.(() => {});
-            return mediaRefused();
-          }
-          if (width && RESIZABLE.test(contentType)) {
-            const resized = await resizeImage(blobResult.stream, width);
-            if (resized) {
-              rememberResized(resizedKey, resized);
-              return new NextResponse(resized.body, {
-                status: 200,
-                headers: {
-                  "Content-Type": resized.contentType,
-                  "Content-Length": String(resized.body.length),
-                  "Cache-Control": PRIVATE_IMAGE_CACHE,
-                },
-              });
-            }
-            // Couldn't resize: the stream is spent, so read the original
-            // again below rather than send nothing.
-          } else {
-            const headers = {
-              "Content-Type": contentType,
-              "Cache-Control": isImageType(contentType) ? PRIVATE_IMAGE_CACHE : PRIVATE_NO_STORE,
-              "Accept-Ranges": "bytes",
-            };
-            if (blobResult.blob?.size) headers["Content-Length"] = String(blobResult.blob.size);
-            return new NextResponse(blobResult.stream, { status: 200, headers });
-          }
-        }
-      } catch (sdkErr) {
-        console.warn("[BLOB PROXY] @vercel/blob SDK get() note:", sdkErr?.message || sdkErr);
-      }
-    }
-
-    // 2. Authenticated fetch, forwarding Range.
-    const upstream = await fetch(targetUrl, {
-      headers: {
-        Authorization: `Bearer ${blobToken}`,
-        ...(rangeHeader ? { Range: rangeHeader } : {}),
-      },
+    // Read through a short-lived signed URL, forwarding Range.
+    const upstream = await fetch(await signedR2Url(r2Key), {
+      headers: rangeHeader ? { Range: rangeHeader } : {},
       cache: "no-store",
     });
 
@@ -243,6 +183,23 @@ export async function GET(request) {
     if (isMediaType(contentType) && !mayStreamMedia) {
       upstream.body?.cancel?.().catch?.(() => {});
       return mediaRefused();
+    }
+
+    // A scaled-down image. If it can't be resized, the original bytes are
+    // served instead.
+    if (width && upstream.status === 200 && RESIZABLE.test(contentType)) {
+      const original = Buffer.from(await upstream.arrayBuffer());
+      const resized = await resizeImage(original, width);
+      if (resized) rememberResized(resizedKey, resized);
+      const body = resized ? resized.body : original;
+      return new NextResponse(body, {
+        status: 200,
+        headers: {
+          "Content-Type": resized ? resized.contentType : contentType,
+          "Content-Length": String(body.length),
+          "Cache-Control": PRIVATE_IMAGE_CACHE,
+        },
+      });
     }
 
     const headers = {

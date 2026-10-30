@@ -141,7 +141,7 @@ export function renderMarkdownToSafeHtml(source) {
   const highlightedHtml = highlightLegacyCodeBlocks(safeHtml);
   const wrappedTablesHtml = wrapLegacyTables(highlightedHtml);
   // Imported lesson content can carry raw <img>/<a> URLs pointing straight at
-  // a private Vercel Blob file — those 403 unless routed through the
+  // a private R2 file — those fail unless routed through the
   // /api/blob-proxy proxy that getDisplayUrl() otherwise handles for us.
   return rewritePrivateBlobUrlsInHtml(wrappedTablesHtml);
 }

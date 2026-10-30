@@ -53,11 +53,13 @@ function runTests() {
     {
       name: "resolveTourCourseId prioritizes current learn page course over enrollment list",
       run: () => {
+        // Course ids are cuids; the learn URL may carry one (an older link).
+        const active = "cactivecourse00000000001";
         const enrollments = [{ courseId: "c-recent" }, { courseId: "c-old" }];
-        const onCourse = resolveTourCourseId("/student/learn/c-active", enrollments);
+        const onCourse = resolveTourCourseId(`/student/learn/${active}`, enrollments);
         const onOtherPage = resolveTourCourseId("/student/my-courses", enrollments);
         const onSubmissions = resolveTourCourseId("/student/assignments", enrollments);
-        return onCourse === "c-active" && onOtherPage === "c-recent" && onSubmissions === "c-recent";
+        return onCourse === active && onOtherPage === "c-recent" && onSubmissions === "c-recent";
       },
     },
     {

@@ -1,11 +1,10 @@
 /**
- * F-01 / F-02 / F-05: the Next route handlers that use the Blob read/write
- * token must only talk to Vercel's own hosts, and must only serve a caller
- * the API recognises as signed in. Runs the real lib/server/sessionCaller.js
- * with a fake fetch.
+ * F-01 / F-02 / F-05: the Next route handlers that serve stored files must
+ * only serve a caller the API recognises as signed in. (Which storage URLs
+ * they may read is lib/server/r2.js's parseR2Url, tested in r2.test.js.)
+ * Runs the real lib/server/sessionCaller.js with a fake fetch.
  */
 import {
-  isAllowedBlobUrl,
   resolveCaller,
   contentAccessFor,
   normalizeUploadsPath,
@@ -15,22 +14,6 @@ import {
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const cases = [];
-
-cases.push({
-  name: "only https Vercel hosts are allowed (evilvercel.com is not)",
-  run: () => [
-    isAllowedBlobUrl("https://store.private.blob.vercel-storage.com/a.pdf"),
-    isAllowedBlobUrl("https://store.public.blob.vercel-storage.com/x/external-references/r.json"),
-    isAllowedBlobUrl("https://vercel.com/api/blob/x"),
-    isAllowedBlobUrl("https://api.vercel.com/x"),
-    isAllowedBlobUrl("https://evilvercel.com/x.json"),
-    isAllowedBlobUrl("https://vercel.com.evil.io/x.json"),
-    isAllowedBlobUrl("https://blob.vercel-storage.com.evil.io/x"),
-    isAllowedBlobUrl("http://store.public.blob.vercel-storage.com/x"),
-    isAllowedBlobUrl("not a url"),
-  ],
-  expected: [true, true, true, true, false, false, false, false, false],
-});
 
 const fakeFetch = (status, body, calls) => async (url, init) => {
   calls.push({ url, headers: init.headers });

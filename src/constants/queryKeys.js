@@ -78,6 +78,8 @@ export const QUERY_KEYS = {
     INSTRUCTOR_COURSES: "instructor-courses",
     INSTRUCTOR_COURSES_TABLE: "instructor-courses-table",
     INSTRUCTOR_COURSE: "instructor-course",
+    /** GET /courses/resolve/:key — a staff URL's readable course key -> id. */
+    COURSE_KEY: "course-key",
 
     MODULES: "modules",
     MODULE: "module",

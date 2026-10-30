@@ -83,6 +83,15 @@ export const getCourseById = async (
 };
 
 /**
+ * The course a staff URL's readable key (or a course id) names among the
+ * signed-in instructor's / admin's courses. Returns { id }; 404 when none.
+ */
+export const resolveCourseKey = async (key) => {
+    const { data } = await api.get(`/courses/resolve/${encodeURIComponent(key)}`);
+    return data.data ?? data;
+};
+
+/**
  * Create Course
  */
 export const createCourse = async (

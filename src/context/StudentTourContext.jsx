@@ -9,7 +9,7 @@ import useMyCourses from "@/hooks/queries/student/useMyCourses";
 import useCompleteOnboarding from "@/hooks/queries/student/useCompleteOnboarding";
 import StudentTour, { TOUR_STEPS } from "@/components/student/onboarding/StudentTour";
 import { QUERY_KEYS } from "@/constants/queryKeys";
-import { getCourseById } from "@/services/course.service";
+import { isLearnPathFor, learnHrefForId } from "@/lib/courseSlug";
 import { getLearningSequence } from "@/services/progress.service";
 import { getStudentState } from "@/services/student.service";
 import {
@@ -68,26 +68,25 @@ export function StudentTourProvider({ children }) {
   const [lessonMeta, setLessonMeta] = useState(null);
 
   // Background prefetch: When courseId is resolved (e.g. while student views the welcome modal
-  // or on any student page), prefetch the Next.js learn route and the learning sequence / course metadata.
+  // or on any student page), prefetch the Next.js learn route, the learning sequence and the saved position.
   // This turns a cold ~10-15s load into an instantaneous transition by the time the student clicks
   // "Start the tour".
   useEffect(() => {
     if (!courseId) return;
     try {
-      router.prefetch(`/student/learn/${courseId}`);
+      router.prefetch(learnHrefForId(courseId, enrollments));
       router.prefetch("/student/assignments");
     } catch {
       // prefetch silently ignored if not supported
     }
 
+    // The learn page reads the sequence with its learning path (and the course
+    // title/language) from this one key — useLearningSequence(…, { withPath }).
+    // Any other key would be a second whole roll-up on the server, queued
+    // ahead of the page's own request.
     queryClient.prefetchQuery({
-      queryKey: [QUERY_KEYS.COURSE, courseId, "meta"],
-      queryFn: () => getCourseById(courseId, { shallow: true }),
-      staleTime: 5 * 60 * 1000,
-    });
-    queryClient.prefetchQuery({
-      queryKey: [QUERY_KEYS.LEARNING_SEQUENCE, courseId, null],
-      queryFn: () => getLearningSequence(courseId, null),
+      queryKey: [QUERY_KEYS.LEARNING_SEQUENCE, courseId, null, "with-path"],
+      queryFn: () => getLearningSequence(courseId, null, { includePath: true }),
       staleTime: 5 * 60 * 1000,
     });
     queryClient.prefetchQuery({
@@ -95,7 +94,7 @@ export function StudentTourProvider({ children }) {
       queryFn: () => getStudentState(courseId),
       staleTime: 5 * 60 * 1000,
     });
-  }, [courseId, router, queryClient]);
+  }, [courseId, enrollments, router, queryClient]);
 
   const updateLessonMeta = useCallback((meta) => {
     setLessonMeta((prev) => {
@@ -110,7 +109,7 @@ export function StudentTourProvider({ children }) {
 
   // Kept current for goTo, which runs from timers and child callbacks.
   const live = useRef({});
-  live.current = { pathname, courseId, userId: user?.id };
+  live.current = { pathname, courseId, userId: user?.id, enrollments };
 
   // Watch for route changes to advance pending tour steps once the destination route mounts
   useEffect(() => {
@@ -123,7 +122,7 @@ export function StudentTourProvider({ children }) {
       return;
     }
     const id = live.current.courseId;
-    const readyForLearn = targetStep.route === "learn" && pathname?.startsWith(`/student/learn/${id}`);
+    const readyForLearn = targetStep.route === "learn" && isLearnPathFor(pathname, id, live.current.enrollments);
     const readyForSubs = targetStep.route === "submissions" && pathname === "/student/assignments";
     const readySameRoute = !targetStep.route || (targetStep.route !== "learn" && targetStep.route !== "submissions");
 
@@ -153,14 +152,14 @@ export function StudentTourProvider({ children }) {
       if (!step) return;
       const { pathname: path, courseId: id, userId } = live.current;
 
-      const needsRouteToLearn = step.route === "learn" && id && !path?.startsWith(`/student/learn/${id}`);
+      const needsRouteToLearn = step.route === "learn" && id && !isLearnPathFor(path, id, live.current.enrollments);
       const needsRouteToSubs = step.route === "submissions" && path !== "/student/assignments";
 
       if (needsRouteToLearn || needsRouteToSubs) {
         setIsNavigating(true);
         pendingIndexRef.current = i;
         if (needsRouteToLearn) {
-          router.push(`/student/learn/${id}`);
+          router.push(learnHrefForId(id, live.current.enrollments));
         } else if (needsRouteToSubs) {
           router.push("/student/assignments");
         }
@@ -212,7 +211,7 @@ export function StudentTourProvider({ children }) {
     markCompletedIfNeeded();
     const { pathname: path, courseId: id } = live.current;
     if (path === "/student/assignments" && id) {
-      router.push(`/student/learn/${id}`);
+      router.push(learnHrefForId(id, live.current.enrollments));
     }
   }, [markCompletedIfNeeded, router]);
 
@@ -223,7 +222,7 @@ export function StudentTourProvider({ children }) {
     markCompletedIfNeeded();
     const { pathname: path, courseId: id } = live.current;
     if (path === "/student/assignments" && id) {
-      router.push(`/student/learn/${id}`);
+      router.push(learnHrefForId(id, live.current.enrollments));
     }
   }, [markCompletedIfNeeded, router]);
 
@@ -233,7 +232,7 @@ export function StudentTourProvider({ children }) {
     setIndex(null);
     markCompletedIfNeeded();
     const id = live.current.courseId;
-    if (id) router.push(`/student/learn/${id}`);
+    if (id) router.push(learnHrefForId(id, live.current.enrollments));
   }, [markCompletedIfNeeded, router]);
 
   // Auto-start for eligible first-time students on initial successful login

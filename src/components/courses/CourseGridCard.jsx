@@ -20,6 +20,8 @@ const STATUS_STYLE = {
  *  kebab menu for delete. */
 export default function CourseGridCard({ course }) {
   const router = useRouter();
+  // Instructor URLs name the course by its readable key (GET /courses urlKey).
+  const courseKey = encodeURIComponent(course.urlKey || course.id);
   const confirm = useConfirm();
   const showAlert = useAlert();
   const { showToast } = useToast();
@@ -61,7 +63,7 @@ export default function CourseGridCard({ course }) {
 
   return (
     <div
-      onClick={() => router.push(`/instructor/courses/${course.id}`)}
+      onClick={() => router.push(`/instructor/courses/${courseKey}`)}
       className="bg-card group relative flex w-[85%] shrink-0 snap-center max-md:first:ml-[5%] max-md:last:mr-[5%] md:w-full md:shrink-0 flex-col overflow-hidden rounded-2xl border border-border shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer"
     >
       {/* Flush image wrapper — 16:9 so the banner scales with the card's
@@ -128,7 +130,7 @@ export default function CourseGridCard({ course }) {
 
         <div className="mt-auto pt-3 border-t border-border flex items-center justify-between">
           <Link
-            href={`/instructor/courses/edit/${course.id}`}
+            href={`/instructor/courses/edit/${courseKey}`}
             onClick={(e) => e.stopPropagation()}
             className="inline-flex min-h-11 items-center gap-1.5 text-[11px] font-medium text-link hover:text-link-hover hover:underline transition"
           >
@@ -136,7 +138,7 @@ export default function CourseGridCard({ course }) {
             Edit
           </Link>
           <Link
-            href={`/instructor/courses/${course.id}`}
+            href={`/instructor/courses/${courseKey}`}
             onClick={(e) => e.stopPropagation()}
             className="inline-flex min-h-11 items-center gap-1 text-[11px] font-semibold text-link hover:text-link-hover hover:underline transition"
           >

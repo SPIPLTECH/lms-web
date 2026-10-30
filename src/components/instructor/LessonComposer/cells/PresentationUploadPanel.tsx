@@ -19,7 +19,7 @@ interface PresentationUploadPanelProps {
 /**
  * Dynamic Presentation Source Input Panel.
  * Supports 3 dynamic input modes via a single compact Source selector:
- * 1. UPLOAD: Upload PPT/PPTX file via Vercel Blob
+ * 1. UPLOAD: Upload PPT/PPTX file to file storage (R2)
  * 2. EXTERNAL_URL: Direct PPT/PPTX URL (validated)
  * 3. GOOGLE_DRIVE: Google Drive presentation link (validated)
  */
@@ -41,7 +41,7 @@ export function PresentationUploadPanel({ fileUrl, onFileUrlChange }: Presentati
       return "EXTERNAL_URL";
     }
     if (url.startsWith("http://") || url.startsWith("https://")) {
-      if (!url.includes("blob.vercel-storage.com") && !url.includes("/content-uploads/")) {
+      if (!url.includes("/content-uploads/")) {
         return "EXTERNAL_URL";
       }
     }
@@ -127,7 +127,7 @@ export function PresentationUploadPanel({ fileUrl, onFileUrlChange }: Presentati
 
     if (newType === "UPLOAD") {
       // If currently holding an uploaded file, retain it, else clear
-      const isUploadUrl = urlInput.includes("blob.vercel-storage.com") || urlInput.includes("/content-uploads/");
+      const isUploadUrl = urlInput.includes("/content-uploads/");
       if (!isUploadUrl) {
         setUrlInput("");
         onFileUrlChange("");
@@ -242,7 +242,7 @@ export function PresentationUploadPanel({ fileUrl, onFileUrlChange }: Presentati
       {/* SINGLE DYNAMIC SOURCE INPUT AREA */}
       {sourceType === "UPLOAD" && (
         <div className="space-y-2">
-          {fileUrl && !isUploading && (fileUrl.includes("blob.vercel-storage.com") || fileUrl.includes("/content-uploads/")) ? (
+          {fileUrl && !isUploading && (fileUrl.includes("/content-uploads/")) ? (
             <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2.5 text-sm text-foreground">
               <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />
               <span className="truncate flex-1 font-medium">{fileName || "Presentation uploaded"}</span>

@@ -90,9 +90,9 @@ export function resolveVideoSource(input) {
     return { kind: "vimeo", embedUrl: `https://player.vimeo.com/video/${vimeo[1]}`, url };
   }
 
-  // Everything else is our own media: a Vercel Blob upload, a file served from
-  // the API's /uploads, or a plain direct link. getDisplayUrl routes private
-  // Blob URLs through /api/blob-proxy and resolves root-relative paths against
+  // Everything else is our own media: an R2 upload, a file served from
+  // the API's /uploads, or a plain direct link. getDisplayUrl routes stored
+  // (R2) URLs through /api/blob-proxy and resolves root-relative paths against
   // the API origin, so the element it lands in can just use it.
   return { kind: "file", src: getDisplayUrl(url), url };
 }

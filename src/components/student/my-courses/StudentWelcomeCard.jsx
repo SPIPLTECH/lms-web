@@ -9,6 +9,9 @@ import { needsOnboarding } from "@/lib/studentOnboarding";
 import WelcomeBanner from "@/components/common/WelcomeBanner";
 import Button from "@/components/ui/Button";
 
+// Shown the same way as the Instructor welcome banner's illustration.
+const WELCOME_IMAGE = "/images/student_welcome.jpg";
+
 /**
  * The greeting banner at the top of Student > My Courses — same shell as
  * Instructor > My Courses' InstructorWelcomeCard, but greeting only: the
@@ -31,6 +34,7 @@ export default function StudentWelcomeCard({ courseTitle = null }) {
         eyebrow="New here"
         title={`Welcome, ${firstName}`}
         subtitle={`You're enrolled in ${courseTitle || "your course"}. Take a one-minute tour of the learning page before you start.`}
+        imageSrc={WELCOME_IMAGE}
         compactWhenShort
       >
         <div className="flex flex-wrap items-center gap-2">
@@ -56,7 +60,7 @@ export default function StudentWelcomeCard({ courseTitle = null }) {
     <WelcomeBanner
       name={firstName}
       subtitle="Keep up the great work. Pick a course to continue learning."
-      compactWhenShort
+      imageSrc={WELCOME_IMAGE}
     />
   );
 }

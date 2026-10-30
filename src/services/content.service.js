@@ -9,7 +9,7 @@ export const getContents = async (parent) => {
 
 import { uploadFileToBlob } from "./blobUpload.service";
 
-/** Uploads a raw file (PDF/PPT/DOCX/ZIP/Video/Image) directly to Vercel Blob and returns { url, fileUrl, originalName, size }. */
+/** Uploads a raw file (PDF/PPT/DOCX/ZIP/Video/Image) to file storage (R2, via /api/upload) and returns { url, fileUrl, originalName, size }. */
 export const uploadFileToVercelBlob = async (file, options = {}) => {
   return await uploadFileToBlob(file, options);
 };

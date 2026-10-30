@@ -104,7 +104,7 @@ export default function GlobalSearch({ role = "student" }) {
           results: instructorCourses
             .filter((c) => matches(c.title, c.category))
             .slice(0, RESULTS_PER_CATEGORY)
-            .map((c) => ({ id: c.id, title: c.title, subtitle: c.category || c.status || "Course", href: `/instructor/courses/${c.id}` })),
+            .map((c) => ({ id: c.id, title: c.title, subtitle: c.category || c.status || "Course", href: `/instructor/courses/${encodeURIComponent(c.urlKey || c.id)}` })),
         },
         {
           id: "students",

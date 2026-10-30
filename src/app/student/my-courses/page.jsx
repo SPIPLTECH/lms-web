@@ -62,11 +62,10 @@ export default function MyCoursesPage() {
   }, [totalPages]);
 
   return (
-    // student/layout.jsx gives this route a viewport-height shell, so the
-    // page fills a definite height: the welcome card keeps its size, the
-    // Enrolled Courses card takes the rest, and the course card's thumbnail
-    // shrinks to fit (MyCourseCard) — no page scroll, no grid scroll.
-    <div className="flex flex-col flex-1 min-h-fit gap-4">
+    // Same shell as the Instructor Courses page: bleeds out to DashboardLayout's
+    // padding (p-2 / sm:p-6 / md:p-16) and re-pads evenly; the page scrolls as
+    // a normal document, the Enrolled Courses grid does not scroll on its own.
+    <div className="-m-2 sm:-m-6 md:-m-16 p-3 sm:p-6 space-y-4 md:space-y-6 flex flex-col flex-1 min-h-0">
       <div className="shrink-0">
         <StudentWelcomeCard courseTitle={primaryCourseTitle} />
       </div>
@@ -90,10 +89,8 @@ export default function MyCoursesPage() {
           description="Courses you purchase will appear here once your enrollment is active."
         />
       ) : (
-        <div className="flex flex-col flex-1 min-h-fit rounded-2xl border border-border bg-card px-3 py-4 md:px-12 md:py-6">
-          {/* One row at every width (title left, year filter right): stacked
-              on a phone it cost ~44px the course card needs to fit. */}
-          <div className="flex flex-row items-center justify-between gap-2 md:gap-4 mb-4 shrink-0">
+        <div className="flex flex-col flex-1 min-h-0 rounded-2xl border border-border bg-card px-3 py-4 md:px-12 md:py-6">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-4 mb-4 md:mb-6 shrink-0">
             <div className="flex items-center gap-2">
               <GraduationCap size={18} className="text-primary" />
               <h2 className="text-base sm:text-lg font-bold text-foreground">Enrolled Courses</h2>
@@ -118,25 +115,17 @@ export default function MyCoursesPage() {
             )}
           </div>
 
-          {/* The height left for the cards, handed down: the slider row (or
-              the md+ grid rows) fill it, each item is a column the card is
-              capped to, and MyCourseCard's thumbnail shrinks when the card
-              would not fit. Rows never go below a card's smallest size.
-              md:w-full: with mx-auto in this flex column the grid would
-              shrink to its content, and the empty loading skeletons have
-              none — every 1fr column collapsed to 0px, leaving only each
-              skeleton's borders on screen as thin vertical lines. */}
-          <div className="flex flex-1 flex-col">
+          <div className="flex-1">
             <SnapCardSlider
               items={pagedEnrollments}
               getKey={(enrollment) => enrollment.id || enrollment.courseId}
               renderItem={(enrollment) => <MyCourseCard enrollment={enrollment} />}
-              gridClassName="md:justify-items-center md:mx-auto md:w-full md:max-w-[1328px] md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-              itemClassName="flex flex-col md:max-w-[320px]"
+              gridClassName="md:justify-items-center md:mx-auto md:max-w-[1328px] md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              itemClassName="md:max-w-[320px]"
               isLoading={isLoading}
               skeletonCount={6}
               skeleton={
-                <div className="h-full min-h-64 w-full rounded-2xl border border-border bg-muted animate-pulse" />
+                <div className="h-72 md:h-72 rounded-2xl border border-slate-200 bg-white/10 animate-pulse" />
               }
               emptyState={<EmptyState title="No courses enrolled in the selected year." />}
               dotsLabel="Course slides"
@@ -146,7 +135,7 @@ export default function MyCoursesPage() {
 
           {/* Under the grid, with clear space above it. */}
           {!isLoading && myEnrollments.length > 0 && (
-            <div className="hidden md:block shrink-0 mt-4">
+            <div className="hidden md:block shrink-0 mt-6">
               <Pagination
                 page={page}
                 totalPages={totalPages}

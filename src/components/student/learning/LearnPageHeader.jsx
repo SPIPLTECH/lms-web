@@ -1,6 +1,6 @@
 "use client";
 
-import { PanelLeftOpen, MoreHorizontal, StickyNote } from "lucide-react";
+import { PanelLeftOpen, MoreHorizontal } from "lucide-react";
 
 import EvaluatorFeedbackButton from "@/components/evaluator/EvaluatorFeedbackButton";
 
@@ -99,13 +99,14 @@ export default function LearnPageHeader({
                     : "bg-background text-foreground/80 group-hover:text-foreground"
                 }`}
               >
-                <StickyNote
+                <MoreHorizontal
                   size={15}
+                  aria-hidden="true"
                   className={`transition-transform duration-300 motion-safe:group-hover:scale-110 ${
                     isStickyNotesOpen ? "" : "text-primary"
                   }`}
                 />
-                <span className="hidden sm:inline">Notes & Tools</span>
+                <span className="hidden sm:inline">More</span>
               </span>
             </button>
             </div>
