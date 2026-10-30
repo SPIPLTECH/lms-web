@@ -5,8 +5,6 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Download,
-  ExternalLink,
   Layers,
   Loader2,
   Upload,
@@ -191,7 +189,6 @@ export function DocumentCell({
 
   const parsedSlides = parseSlideDeckJson(content.htmlContent || content.body);
   const hasSlides = parsedSlides.length > 0;
-  const hasFile = Boolean(content.fileUrl && content.fileUrl.trim());
 
   const [presentationMode, setPresentationMode] = useState<"slideshow" | "upload">(
     hasSlides ? "slideshow" : "upload"
@@ -425,7 +422,7 @@ export function DocumentCell({
               hideToolbar={true}
               onControlsRender={setPdfControls}
             />
-          ) : isPpt && (content.fileUrl.includes("blob.vercel-storage.com") || content.fileUrl.includes("/content-uploads/")) ? (
+          ) : isPpt && (content.fileUrl.includes("/content-uploads/")) ? (
             <PptViewer
               fileUrl={displayUrl}
               title={content.title || cellType.label}

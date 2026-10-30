@@ -244,14 +244,24 @@ export default function DocxViewer({
   const wrapPaper = (body) =>
     fillHeight ? (
       <PagedContent onPageStateChange={onPageStateChange}>
-        <div ref={paperRef} className="text-foreground" style={{ zoom: zoomScale }}>
+        <div
+          ref={paperRef}
+          onContextMenu={(e) => e.preventDefault()}
+          onDragStart={(e) => e.preventDefault()}
+          onCopy={(e) => e.preventDefault()}
+          className="text-foreground select-none"
+          style={{ zoom: zoomScale }}
+        >
           {body}
         </div>
       </PagedContent>
     ) : (
       <div
         ref={paperRef}
-        className="w-full max-w-4xl bg-background border border-border text-foreground p-6 sm:p-12 shadow-2xl rounded-2xl transition-transform duration-150 origin-top"
+        onContextMenu={(e) => e.preventDefault()}
+        onDragStart={(e) => e.preventDefault()}
+        onCopy={(e) => e.preventDefault()}
+        className="w-full max-w-4xl bg-background border border-border text-foreground p-6 sm:p-12 shadow-2xl rounded-2xl transition-transform duration-150 origin-top select-none"
         style={{
           transform: `scale(${zoomScale})`,
         }}

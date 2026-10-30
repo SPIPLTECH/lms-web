@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Plus,
@@ -22,6 +22,9 @@ import { useQuiz } from "@/hooks/queries/instructor/useQuiz";
 import { useInstructorCourse } from "@/hooks/queries/instructor/useInstructorCourse";
 import ImportQuestionsModal from "@/components/instructor/questions/ImportQuestionsModal";
 import { QUESTION_TYPE_OPTIONS, RETIRED_QUESTION_TYPES } from "@/lib/questionType";
+import QuizRichText from "@/components/quiz/QuizRichText";
+import QuizTextEditor from "@/components/quiz/QuizTextEditor";
+import DuplicateOptionsWarning from "@/components/quiz/DuplicateOptionsWarning";
 
 const INITIAL_FORM = {
   type: "MCQ_SINGLE",
@@ -35,13 +38,16 @@ const INITIAL_FORM = {
   shuffleOptions: false
 };
 
+// An imported question stores each option as { id, optionText, isCorrect, … }.
+// The form edits the text; the rest is kept aside and put back on save.
+const optionTextOf = (opt) =>
+  opt && typeof opt === "object" ? String(opt.optionText ?? opt.text ?? "") : String(opt ?? "");
+
 // UI-only field names/casing this form works with vs. the backend/Prisma
 // contract (questionType, subject, uppercase DifficultyLevel enum) — kept
 // as a translation layer at the submit/load boundary rather than renaming
 // the form's own state, since the <select> options and labels below are
 // title-case and every other handler here reads formData.type/.concept.
-const DIFFICULTY_LABEL_BY_DB_VALUE = { EASY: "Easy", MEDIUM: "Medium", HARD: "Hard" };
-
 export default function QuestionForm({
                                        mode = "create",
                                        initialValues = null,
@@ -70,6 +76,10 @@ export default function QuestionForm({
   
   // Submit tracking to clear form in "Save & Add Another"
   const [submitAction, setSubmitAction] = useState("save");
+  // Per option (same index as formData.options): the stored option object
+  // when it was one, so saving keeps its id, per-option explanation and the
+  // like instead of flattening it to text. null for a plain-text option.
+  const optionObjectsRef = useRef([]);
 
   useEffect(() => {
     if (initialValues) {
@@ -82,11 +92,26 @@ export default function QuestionForm({
       const rawDifficulty = initialValues.difficulty ?? "MEDIUM";
       const difficulty = rawDifficulty.charAt(0).toUpperCase() + rawDifficulty.slice(1).toLowerCase();
 
+      const storedOptions = initialValues.options;
+      const isChoice = type === "MCQ_SINGLE" || type === "MCQ_MULTI";
+      optionObjectsRef.current =
+        isChoice && Array.isArray(storedOptions)
+          ? storedOptions.map((opt) => (opt && typeof opt === "object" ? opt : null))
+          : [];
+      // A single answer saved as a one-item list (["an"]) is still one answer.
+      const storedCorrect = initialValues.correctAnswer ?? "";
+      const correctAnswer =
+        type === "MCQ_SINGLE" && Array.isArray(storedCorrect) && storedCorrect.length === 1
+          ? storedCorrect[0]
+          : storedCorrect;
+
       setFormData({
         type,
         question: initialValues.question ?? "",
-        options: initialValues.options ?? ["", "", "", ""],
-        correctAnswer: initialValues.correctAnswer ?? "",
+        options: isChoice && Array.isArray(storedOptions)
+          ? storedOptions.map(optionTextOf)
+          : storedOptions ?? ["", "", "", ""],
+        correctAnswer,
         marks: initialValues.marks ?? 5,
         concept: initialValues.concept ?? initialValues.tags ?? "",
         difficulty,
@@ -134,6 +159,7 @@ export default function QuestionForm({
       defaultCorrect = "";
     }
 
+    optionObjectsRef.current = [];
     setFormData((prev) => ({
       ...prev,
       type: newType,
@@ -143,13 +169,22 @@ export default function QuestionForm({
   };
 
   // MCQ options change
+  // The answer key is the option's text, so it follows that text as it is
+  // edited — otherwise changing a correct option's code would leave the key
+  // naming text no option has any more.
   const handleOptionChange = (index, value) => {
+    const oldValue = formData.options[index];
     const updatedOptions = [...formData.options];
     updatedOptions[index] = value;
-    setFormData((prev) => ({
-      ...prev,
-      options: updatedOptions,
-    }));
+    setFormData((prev) => {
+      let correctAnswer = prev.correctAnswer;
+      if (oldValue && prev.type === "MCQ_SINGLE" && correctAnswer === oldValue) {
+        correctAnswer = value;
+      } else if (oldValue && prev.type === "MCQ_MULTI" && Array.isArray(correctAnswer)) {
+        correctAnswer = correctAnswer.map((answer) => (answer === oldValue ? value : answer));
+      }
+      return { ...prev, options: updatedOptions, correctAnswer };
+    });
   };
 
   const addOption = () => {
@@ -162,7 +197,8 @@ export default function QuestionForm({
   const removeOption = (index) => {
     if (formData.options.length <= 2) return;
     const updatedOptions = formData.options.filter((_, i) => i !== index);
-    
+    optionObjectsRef.current = optionObjectsRef.current.filter((_, i) => i !== index);
+
     // Clean correct answer if removed
     let newCorrect = formData.correctAnswer;
     if (formData.type === "MCQ_SINGLE" && formData.correctAnswer === formData.options[index]) {
@@ -243,6 +279,19 @@ export default function QuestionForm({
       submissionData.correctAnswer = validTokens;
     } else if (formData.type === "SELF_ASSESSMENT") {
       submissionData.options = [];
+    } else if (optionObjectsRef.current.some(Boolean)) {
+      // Put each stored option object back around its edited text, with
+      // isCorrect (when it had one) following the answer chosen here.
+      const correct = Array.isArray(formData.correctAnswer) ? formData.correctAnswer : [formData.correctAnswer];
+      submissionData.options = formData.options.map((text, i) => {
+        const stored = optionObjectsRef.current[i];
+        if (!stored) return text;
+        return {
+          ...stored,
+          optionText: text,
+          ...("isCorrect" in stored ? { isCorrect: text !== "" && correct.includes(text) } : {}),
+        };
+      });
     }
 
     // Translate this form's UI-only field names to the backend contract
@@ -258,6 +307,7 @@ export default function QuestionForm({
     
     if (success && submitAction === "another") {
       // Clear form on Add Another click
+      optionObjectsRef.current = [];
       setFormData({
         ...INITIAL_FORM,
         type: formData.type, // keep type
@@ -352,17 +402,18 @@ export default function QuestionForm({
                 <div className="space-y-2">
                   <label className="text-label text-muted-foreground flex justify-between">
                     <span>Question Title *</span>
-                    <span className="font-mono">{formData.question.length}/500</span>
+                    <span className="font-mono">{formData.question.length}/2000</span>
                   </label>
-                  <textarea
-                    name="question"
+                  {/* 2000, not 500: a question can now carry a code snippet. */}
+                  <QuizTextEditor
                     value={formData.question}
-                    onChange={handleChange}
-                    maxLength={500}
+                    onChange={(text) => setFormData((prev) => ({ ...prev, question: text }))}
+                    maxLength={2000}
                     placeholder="Enter your question here..."
+                    ariaLabel="Question"
                     required
-                    rows={4}
-                    className="w-full bg-background border border-border text-foreground rounded-xl focus:border-primary outline-none transition px-4 py-3 text-sm resize-none placeholder-slate-600"
+                    minRows={4}
+                    className="w-full bg-background border border-border text-foreground rounded-xl focus:border-primary outline-none transition px-4 py-3 text-sm placeholder-slate-600"
                   />
                 </div>
 
@@ -469,20 +520,21 @@ export default function QuestionForm({
               {formData.type === "MCQ_SINGLE" && (
                 <div className="space-y-4">
                   {formData.options.map((option, index) => (
-                    <div key={index} className="flex items-center gap-3 group">
-                      <GripVertical className="text-slate-700 group-hover:text-muted-foreground transition cursor-grab" size={16} />
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background text-xs font-bold text-foreground">
+                    <div key={index} className="flex items-start gap-3 group">
+                      <GripVertical className="mt-3 text-slate-700 group-hover:text-muted-foreground transition cursor-grab" size={16} />
+                      <span className="mt-1.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-background text-xs font-bold text-foreground">
                         {String.fromCharCode(65 + index)}
                       </span>
-                      <input
-                        type="text"
+                      <QuizTextEditor
+                        variant="option"
                         value={option}
-                        onChange={(e) => handleOptionChange(index, e.target.value)}
+                        onChange={(text) => handleOptionChange(index, text)}
                         placeholder={`Enter option ${String.fromCharCode(65 + index).toLowerCase()}`}
-                        className="flex-1 bg-background border border-border text-foreground rounded-xl focus:border-primary outline-none transition px-4 py-2.5 text-sm"
+                        ariaLabel={`Option ${String.fromCharCode(65 + index)}`}
+                        className="w-full bg-background border border-border text-foreground rounded-xl focus:border-primary outline-none transition px-4 py-2.5 text-sm"
                         required
                       />
-                      <label className="flex items-center gap-2 cursor-pointer shrink-0">
+                      <label className="mt-3 flex items-center gap-2 cursor-pointer shrink-0">
                         <input
                           type="radio"
                           name="correctAnswer"
@@ -497,7 +549,7 @@ export default function QuestionForm({
                         <button
                           type="button"
                           onClick={() => removeOption(index)}
-                          className="text-slate-600 hover:text-red-400 p-2 transition"
+                          className="mt-0.5 text-slate-600 hover:text-red-400 p-2 transition"
                         >
                           <Trash2 size={16} />
                         </button>
@@ -512,6 +564,7 @@ export default function QuestionForm({
                     <Plus size={14} />
                     <span>Add Option</span>
                   </button>
+                  <DuplicateOptionsWarning options={formData.options} />
                 </div>
               )}
 
@@ -519,20 +572,21 @@ export default function QuestionForm({
               {formData.type === "MCQ_MULTI" && (
                 <div className="space-y-4">
                   {formData.options.map((option, index) => (
-                    <div key={index} className="flex items-center gap-3 group">
-                      <GripVertical className="text-slate-700 group-hover:text-muted-foreground transition cursor-grab" size={16} />
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background text-xs font-bold text-foreground">
+                    <div key={index} className="flex items-start gap-3 group">
+                      <GripVertical className="mt-3 text-slate-700 group-hover:text-muted-foreground transition cursor-grab" size={16} />
+                      <span className="mt-1.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-background text-xs font-bold text-foreground">
                         {String.fromCharCode(65 + index)}
                       </span>
-                      <input
-                        type="text"
+                      <QuizTextEditor
+                        variant="option"
                         value={option}
-                        onChange={(e) => handleOptionChange(index, e.target.value)}
+                        onChange={(text) => handleOptionChange(index, text)}
                         placeholder={`Enter option ${String.fromCharCode(65 + index).toLowerCase()}`}
-                        className="flex-1 bg-background border border-border text-foreground rounded-xl focus:border-primary outline-none transition px-4 py-2.5 text-sm"
+                        ariaLabel={`Option ${String.fromCharCode(65 + index)}`}
+                        className="w-full bg-background border border-border text-foreground rounded-xl focus:border-primary outline-none transition px-4 py-2.5 text-sm"
                         required
                       />
-                      <label className="flex items-center gap-2 cursor-pointer shrink-0">
+                      <label className="mt-3 flex items-center gap-2 cursor-pointer shrink-0">
                         <input
                           type="checkbox"
                           checked={Array.isArray(formData.correctAnswer) && formData.correctAnswer.includes(option) && option !== ""}
@@ -546,7 +600,7 @@ export default function QuestionForm({
                         <button
                           type="button"
                           onClick={() => removeOption(index)}
-                          className="text-slate-600 hover:text-red-400 p-2 transition"
+                          className="mt-0.5 text-slate-600 hover:text-red-400 p-2 transition"
                         >
                           <Trash2 size={16} />
                         </button>
@@ -561,6 +615,7 @@ export default function QuestionForm({
                     <Plus size={14} />
                     <span>Add Option</span>
                   </button>
+                  <DuplicateOptionsWarning options={formData.options} />
                 </div>
               )}
 
@@ -683,20 +738,22 @@ export default function QuestionForm({
               <div className="bg-white border border-slate-200 rounded-2xl p-6 text-slate-900 space-y-6">
                 <div>
                   <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Question</h4>
-                  <p className="text-sm font-bold text-slate-950 mt-2 leading-relaxed whitespace-pre-wrap">
-                    {formData.question || "What is the output of the following Java code?"}
-                  </p>
+                  <div className="text-sm font-bold text-slate-950 mt-2 leading-relaxed whitespace-pre-wrap">
+                    <QuizRichText text={formData.question || "What is the output of the following Java code?"} />
+                  </div>
                 </div>
 
                 {/* Options Previews */}
                 <div className="space-y-3">
                   {(formData.type === "MCQ_SINGLE" || formData.type === "MCQ_MULTI") &&
                     formData.options.map((opt, i) => (
-                      <div key={i} className="flex items-center gap-3">
+                      <div key={i} className="flex items-start gap-3">
                         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-slate-300 text-[10px] font-extrabold text-muted-foreground">
                           {String.fromCharCode(65 + i)}
                         </span>
-                        <span className="text-xs text-slate-600 truncate">{opt || `Option ${String.fromCharCode(65 + i)}`}</span>
+                        <div className="min-w-0 flex-1 break-words text-xs text-slate-600">
+                          <QuizRichText text={opt || `Option ${String.fromCharCode(65 + i)}`} variant="option" preserveLines />
+                        </div>
                       </div>
                     ))}
 
@@ -769,16 +826,16 @@ export default function QuestionForm({
               <div className="space-y-2">
                 <label className="text-label text-muted-foreground flex justify-between">
                   <span>Hint Content</span>
-                  <span className="font-mono">{formData.explanation.length}/500</span>
+                  <span className="font-mono">{formData.explanation.length}/2000</span>
                 </label>
-                <textarea
-                  name="explanation"
+                <QuizTextEditor
                   value={formData.explanation}
-                  onChange={handleChange}
-                  maxLength={500}
+                  onChange={(text) => setFormData((prev) => ({ ...prev, explanation: text }))}
+                  maxLength={2000}
                   placeholder="Enter explanation or hint here..."
-                  rows={4}
-                  className="w-full bg-background border border-border text-foreground rounded-xl focus:border-primary outline-none transition px-4 py-3 text-sm resize-none placeholder-slate-600"
+                  ariaLabel="Explanation"
+                  minRows={4}
+                  className="w-full bg-background border border-border text-foreground rounded-xl focus:border-primary outline-none transition px-4 py-3 text-sm placeholder-slate-600"
                 />
               </div>
             </Card>

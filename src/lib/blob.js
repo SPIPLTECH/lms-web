@@ -1,17 +1,34 @@
 import { getApiOrigin } from "@/lib/apiOrigin";
 
+// Uploaded files live in R2's private bucket (lib/server/r2.js); their stored
+// URL does not open directly.
+const R2_HOST_PART = ".r2.cloudflarestorage.com/";
+
+/** True when `url` is a file in the LMS's own storage (R2). */
+export function isStoredFileUrl(url) {
+  return typeof url === "string" && url.includes(R2_HOST_PART);
+}
+
 /**
  * Resolves media URLs for browser display.
- * - If the URL points to a private Vercel Blob store (.private.blob.vercel-storage.com),
+ * - If the URL points to the LMS's private file storage (R2),
  *   it routes through the secure server proxy (/api/blob-proxy) using server credentials,
  *   allowing standard HTML elements (<img>, <video>, <iframe>) to render private files securely.
  * - If the URL is root-relative (e.g. "/uploads/thumbnails/x.png", returned by legacy/imported
- *   courses that were saved to the API's local disk instead of Blob storage), it is prefixed
+ *   courses that were saved to the API's local disk instead of file storage), it is prefixed
  *   with the API origin. Otherwise a relative path resolves against the frontend's own origin
  *   (e.g. the Vercel deployment) and 404s, since that file only exists on the API server.
  */
-export function getDisplayUrl(url) {
+export function getDisplayUrl(url, { width } = {}) {
   if (!url || typeof url !== "string") return "";
+
+  // `width`: an image shown small (a course card) asks the file proxy for a
+  // copy scaled to that width instead of the full upload (see
+  // /api/blob-proxy RESIZE_WIDTHS). Ignored for anything not served there.
+  if (width) {
+    const full = getDisplayUrl(url);
+    return full.startsWith("/api/blob-proxy?") ? `${full}&w=${width}` : full;
+  }
 
   // Convert Google Drive view/share links to direct image CDN links
   const driveFileMatch = url.match(/drive\.google\.com\/file\/d\/([^\/\?#]+)/);
@@ -27,11 +44,7 @@ export function getDisplayUrl(url) {
   if (url.includes("/api/blob-proxy")) {
     return url;
   }
-  if (
-    url.includes(".private.blob.vercel-storage.com") ||
-    url.includes("vercel.com/api/blob") ||
-    url.includes("pathname=")
-  ) {
+  if (isStoredFileUrl(url)) {
     return `/api/blob-proxy?url=${encodeURIComponent(url)}`;
   }
   // Resolved per call, not once at module load: getApiOrigin() needs the host
@@ -82,11 +95,11 @@ function apiUploadsPath(url, apiOrigin) {
   return apiOrigins.includes(parsed.origin) ? parsed.pathname : null;
 }
 
-const PRIVATE_BLOB_ATTR_RE = /(src|href)(\s*=\s*)(["'])(https:\/\/[^"']*\.private\.blob\.vercel-storage\.com[^"']*)\3/gi;
+const PRIVATE_BLOB_ATTR_RE = /(src|href)(\s*=\s*)(["'])(https:\/\/[^"']*\.r2\.cloudflarestorage\.com[^"']*)\3/gi;
 
 /**
  * Imported lesson HTML (Content.htmlContent) can carry raw <img>/<a> tags
- * that point straight at a private Vercel Blob URL — the markdown/HTML
+ * that point straight at a private storage URL (R2) — the markdown/HTML
  * importer never rewrote them, so the browser requests them directly and
  * gets a 403 instead of going through getDisplayUrl()'s /api/blob-proxy.
  * Rewrites just those attribute values in place; everything else in the

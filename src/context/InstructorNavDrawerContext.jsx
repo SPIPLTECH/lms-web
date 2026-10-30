@@ -8,7 +8,6 @@ const InstructorNavDrawerContext = createContext(null);
 // trigger (the header's hamburger button) and the drawer panel itself can
 // live in different parts of the tree without prop-drilling through
 // DashboardLayout/DashboardNavbar (which are also shared with Student/Admin).
-// Mirrors StudentNavDrawerContext.
 export function InstructorNavDrawerProvider({ children }) {
   const [isOpen, setIsOpen] = useState(false);
 

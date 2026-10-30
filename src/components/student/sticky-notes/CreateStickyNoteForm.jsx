@@ -82,12 +82,13 @@ export default function CreateStickyNoteForm({
               }
               aria-label={`${item.name} note colour`}
               aria-pressed={color === item.name}
-              className={`rounded-full border-2 transition ${
+              style={{ backgroundColor: item.hex }}
+              className={`rounded-full transition cursor-pointer ${
   compact ? "h-6 w-6" : "h-8 w-8"
 } ${
   color === item.name
-    ? "border-white"
-    : "border-transparent"
+    ? "ring-2 ring-white ring-offset-2 ring-offset-background scale-105"
+    : "opacity-80 hover:opacity-100"
 } ${item.className}`}
             />
           ))}

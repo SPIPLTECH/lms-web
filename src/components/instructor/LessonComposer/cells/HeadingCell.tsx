@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/shadcn/button";
 import { useToast } from "@/components/ui/ToastProvider";
 import { useConfirm } from "@/context/ConfirmContext";
 
-import { useCreateContent, useUpdateContent, useDeleteContent } from "../contentMutations";
+import { useUpdateContent, useDeleteContent } from "../contentMutations";
 import { CellShell } from "../CellShell";
 import { CELL_TYPES } from "../cellTypes";
 import { getErrorMessage } from "../getErrorMessage";
 import { buildHeadingHtml, parseHeadingDesign } from "../blockStyle";
-import { getContentParent, toParentField, type CellActionProps, type ContentRow, type CreateCellFormProps } from "../types";
+import { getContentParent, type CellActionProps, type ContentRow } from "../types";
 
 const CELL_TYPE = CELL_TYPES.find((c) => c.id === "heading")!;
 
@@ -144,45 +144,3 @@ export function HeadingCell({
   );
 }
 
-/** The "Add Cell" creation form for a Heading block — hosted inside AddCellModal. */
-export function CreateHeadingForm({ parent, order, onCreated, onCancel }: CreateCellFormProps) {
-  const [text, setText] = useState("");
-
-  const createContent = useCreateContent();
-  const { showToast } = useToast();
-
-  const handleCreate = async () => {
-    try {
-      await createContent.mutateAsync({
-        ...toParentField(parent),
-        type: "HTML",
-        order,
-        title: text,
-        htmlContent: buildHeadingHtml({ tag: "h2", text }),
-      });
-      onCreated();
-    } catch (error) {
-      showToast(getErrorMessage(error, "Failed to add this heading."), "error", "Add failed");
-    }
-  };
-
-  return (
-    <div className="space-y-3">
-      <input
-        type="text"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder="Heading text"
-        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xl font-bold text-foreground outline-none focus:border-primary"
-      />
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button type="button" size="sm" onClick={handleCreate} disabled={createContent.isPending || !text.trim()}>
-          {createContent.isPending ? "Adding…" : "Add Heading"}
-        </Button>
-      </div>
-    </div>
-  );
-}

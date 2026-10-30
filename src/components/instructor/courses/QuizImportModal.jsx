@@ -7,14 +7,72 @@ import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import { usePreviewQuestionImport } from "@/hooks/queries/instructor/usePreviewQuestionImport";
 import { RETIRED_QUESTION_TYPES } from "@/lib/questionType";
+import { quizTextSummary } from "@/lib/quizText";
 
 const ACCEPTED = ".csv,.xlsx,.xls,.docx,.pdf,.txt,.json";
 
-const SAMPLE_CSV = `question,optionA,optionB,optionC,optionD,correctAnswer,marks,difficulty,explanation
-"Which planet is known as the Red Planet?",Venus,Mars,Jupiter,Saturn,B,1,EASY,"Iron oxide on its surface makes it look red."
-"Which of these are prime numbers?",2,4,5,9,"A;C",2,MEDIUM,"Separate several correct answers with a semicolon."
-"The Sun is a star.",True,False,,,True,1,EASY,
+// `correctAnswer` is the correct option's number — 1 for the first option —
+// with several separated by a semicolon. `explanation` says why the correct
+// answer is right; each optionX_explanation says why that option is wrong,
+// and is left empty for a correct option.
+const SAMPLE_CSV = `question,optionA,optionB,optionC,optionD,correctAnswer,marks,difficulty,explanation,optionA_explanation,optionB_explanation,optionC_explanation,optionD_explanation
+"Which planet is known as the Red Planet?",Venus,Mars,Jupiter,Saturn,2,1,EASY,"Iron oxide (rust) in its soil makes it look red.","Venus looks yellow-white because of its thick clouds.",,"Jupiter shows bands of cream, brown and orange.","Saturn looks pale gold."
+"Which of these are prime numbers?",2,4,5,9,"1;3",2,MEDIUM,"2 and 5 can only be divided by 1 and themselves.",,"4 = 2 × 2, so it has a divisor other than 1 and itself.",,"9 = 3 × 3, so it is not prime."
+"The Sun is a star.",True,False,,,1,1,EASY,"The Sun makes its own light by nuclear fusion, which is what a star is.",,"Planets and moons only reflect light. The Sun makes its own, so it is a star.",,
 `;
+
+// The same in JSON: `correctAnswer` is the option's number (a list of
+// numbers for several), and an option is an object whose `explanation` says
+// why it is wrong. The third question has options that differ only by case —
+// the number is what tells them apart.
+const SAMPLE_JSON = `${JSON.stringify(
+  [
+    {
+      question: "Which keyword starts a function definition in Python?",
+      type: "MCQ_SINGLE",
+      options: [
+        { optionText: "function", explanation: "function is the JavaScript keyword. In Python, writing function greet(): is a syntax error." },
+        { optionText: "def" },
+        { optionText: "func", explanation: "func is used in languages such as Go and Swift. Python does not recognise it." },
+        { optionText: "define", explanation: "define is plain English, not a Python keyword. Python only accepts def." },
+      ],
+      correctAnswer: 2,
+      marks: 1,
+      difficulty: "EASY",
+      explanation: "Python uses def, then the function name and parentheses, for example def greet():.",
+    },
+    {
+      question: "Which of these are prime numbers?",
+      type: "MCQ_MULTI",
+      options: [
+        { optionText: "2" },
+        { optionText: "4", explanation: "4 = 2 × 2, so it has a divisor other than 1 and itself." },
+        { optionText: "5" },
+        { optionText: "9", explanation: "9 = 3 × 3, so it is not prime." },
+      ],
+      correctAnswer: [1, 3],
+      marks: 2,
+      difficulty: "MEDIUM",
+      explanation: "2 and 5 can only be divided by 1 and themselves.",
+    },
+    {
+      question: "Which of the following declarations compiles without error?",
+      type: "MCQ_SINGLE",
+      options: [
+        { optionText: "int float = 4;", explanation: "float is a C keyword, so it cannot be used as a variable name." },
+        { optionText: "int 2ndYear = 4;", explanation: "A name cannot start with a digit." },
+        { optionText: "int roll# = 4;", explanation: "# is not allowed in a name. Only letters, digits and the underscore are." },
+        { optionText: "int Float = 4;" },
+      ],
+      correctAnswer: 4,
+      marks: 1,
+      difficulty: "EASY",
+      explanation: "C is case-sensitive, so Float is an ordinary name, not the keyword float.",
+    },
+  ],
+  null,
+  2
+)}\n`;
 
 const TYPE_LABEL = {
   ...RETIRED_QUESTION_TYPES,
@@ -31,11 +89,22 @@ const answerOnly = (problems) => problems.length > 0 && problems.every((p) => AN
 
 const textKey = (text) => String(text || "").trim().replace(/\s+/g, " ").toLowerCase();
 
-function downloadSample() {
-  const url = URL.createObjectURL(new Blob([SAMPLE_CSV], { type: "text/csv" }));
+// The answer as the file wrote it and as it was understood: the option's
+// number with its text — "4 (int Float = 4;)" — so a wrong number shows up
+// here, before the questions are added.
+const answerLabel = (row) =>
+  (Array.isArray(row.correctAnswer) ? row.correctAnswer : [row.correctAnswer])
+    .map((answer) => {
+      const position = (row.options || []).findIndex((opt) => String(opt).trim() === String(answer).trim());
+      return position >= 0 ? `${position + 1} (${answer})` : String(answer);
+    })
+    .join(", ");
+
+function downloadSample(content, filename, type) {
+  const url = URL.createObjectURL(new Blob([content], { type }));
   const a = document.createElement("a");
   a.href = url;
-  a.download = "quiz_questions_sample.csv";
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -166,16 +235,36 @@ export default function QuizImportModal({ open, onClose, existingQuestions = [],
           <div className="space-y-2 rounded-xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
             <p>
               <span className="font-semibold text-foreground">CSV or Excel:</span> one question per row, with columns question,
-              optionA to optionD, correctAnswer, marks, difficulty and explanation. Write the answer as the option text or its
-              letter; separate several correct answers with a semicolon.
+              optionA to optionD, correctAnswer, marks, difficulty and explanation. Write correctAnswer as the correct option&apos;s
+              number — 1 for the first option — and separate several with a semicolon (1;3). Use explanation for why the correct
+              answer is right, and the optional optionA_explanation to optionD_explanation columns for why each wrong option is
+              wrong.
+            </p>
+            <p>
+              <span className="font-semibold text-foreground">JSON:</span> a list of questions. Write each option as an object
+              with optionText, and add an explanation to a wrong option to say why it is wrong. correctAnswer is the correct
+              option&apos;s number (2), or a list of numbers for several ([1, 3]).
             </p>
             <p>
               <span className="font-semibold text-foreground">Word or PDF:</span> numbered questions (1.), lettered options (A))
               and an &quot;Answer:&quot; line. Scanned PDFs can&apos;t be read.
             </p>
-            <button type="button" onClick={downloadSample} className="inline-flex items-center gap-1.5 font-semibold text-primary hover:underline cursor-pointer">
-              <Download size={14} aria-hidden="true" /> Download sample CSV
-            </button>
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
+              <button
+                type="button"
+                onClick={() => downloadSample(SAMPLE_CSV, "quiz_questions_sample.csv", "text/csv")}
+                className="inline-flex items-center gap-1.5 font-semibold text-primary hover:underline cursor-pointer"
+              >
+                <Download size={14} aria-hidden="true" /> Download sample CSV
+              </button>
+              <button
+                type="button"
+                onClick={() => downloadSample(SAMPLE_JSON, "quiz_questions_sample.json", "application/json")}
+                className="inline-flex items-center gap-1.5 font-semibold text-primary hover:underline cursor-pointer"
+              >
+                <Download size={14} aria-hidden="true" /> Download sample JSON
+              </button>
+            </div>
           </div>
 
           {canReplace && (
@@ -240,14 +329,18 @@ export default function QuizImportModal({ open, onClose, existingQuestions = [],
                   />
                   <span className="min-w-0 flex-1 space-y-1">
                     <span className="block font-semibold text-foreground">
-                      {r.row}. {r.question || "(no question text)"}
+                      {r.row}. {quizTextSummary(r.question) || "(no question text)"}
                     </span>
                     <span className="block text-xs text-muted-foreground">
                       {TYPE_LABEL[r.questionType] || r.questionType}, {r.options.length} options, {r.marks} mark{r.marks === 1 ? "" : "s"}
+                      {(() => {
+                        const reasons = (r.optionExplanations || []).filter(Boolean).length;
+                        return reasons > 0 ? `, ${reasons} wrong-option reason${reasons === 1 ? "" : "s"}` : "";
+                      })()}
                       {r.problems.length === 0 && (
                         <>
                           {" "}
-                          · Answer: <span className="text-foreground">{Array.isArray(r.correctAnswer) ? r.correctAnswer.join(", ") : r.correctAnswer}</span>
+                          · Answer: <span className="text-foreground">{answerLabel(r)}</span>
                         </>
                       )}
                     </span>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, LifeBuoy, LogOut, X } from "lucide-react";
+import { ChevronDown, LogOut, X } from "lucide-react";
 
 import { useAdminNavDrawer } from "@/context/AdminNavDrawerContext";
 import { PRIMARY_NAV_ITEMS } from "@/components/admin/NavigationStrip/navigationItems";
@@ -13,7 +13,7 @@ import Modal from "@/components/ui/Modal";
 import { ThemeModeRow } from "@/components/ui/shadcn/theme-switcher";
 
 const SECONDARY_ITEMS = [
-  { id: "help", label: "Help & Support", icon: LifeBuoy, href: "/admin/profile" },
+  // Help & Support — removed (it only linked to /admin/profile).
 ];
 
 function isHrefActive(pathname, href) {
@@ -107,7 +107,7 @@ export default function AdminNavDrawer() {
   const handleLogout = async () => {
     setShowLogoutModal(false);
     close();
-    // logout() itself clears auth state and redirects to the Landing Page —
+    // logout() itself clears auth state and redirects to Login —
     // navigating here too would race it while cookies/user state are still
     // present, which is what let the old redirect bounce back into the app.
     // If the server couldn't end the session, the user stays signed in.

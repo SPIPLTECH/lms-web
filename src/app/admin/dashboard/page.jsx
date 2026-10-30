@@ -37,8 +37,6 @@ import RecentUsers from "@/components/dashboard/RecentUsers";
  *  - "Top performing instructor". A leaderboard of exactly one person, ranked
  *    by raw enrollment count — which rewards whoever owns the biggest course
  *    rather than measuring performance. The Instructors screen ranks properly.
- *  - The upcoming-events panel, which duplicated /admin/calendar.
- * Those components are still in the tree if the product wants them back.
  */
 export default function AdminDashboard() {
   const { user } = useAuth();

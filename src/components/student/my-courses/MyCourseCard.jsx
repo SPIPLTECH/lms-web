@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { BookOpen, User, Eye, ArrowRight } from "lucide-react";
 
 import { getDisplayUrl } from "@/lib/blob";
+import { learnHref } from "@/lib/courseSlug";
+import useMyCourses from "@/hooks/queries/student/useMyCourses";
 
 // Same status-pill colors as the Instructor course card
 // (@/components/courses/CourseGridCard) — Not Started stays neutral, every
@@ -23,6 +25,8 @@ const STATUS_STYLE = {
  *  (details) and "Continue Learning" (resume) as the two footer actions. */
 export default function MyCourseCard({ enrollment, course: rawCourse }) {
   const router = useRouter();
+  // Cached already on every page that shows course cards.
+  const { data: myEnrollments = [] } = useMyCourses();
   const course = enrollment?.course || rawCourse;
 
   if (!course) return null;
@@ -55,9 +59,12 @@ export default function MyCourseCard({ enrollment, course: rawCourse }) {
 
   const instructorName = course.creator?.name;
 
-  const continueLabel = isComplete ? "Review" : tracksProgress ? "Continue Learning" : "Open Course";
+  const hasStarted = progress > 0;
+  const continueLabel = isComplete ? "Review" : tracksProgress ? (hasStarted ? "Continue Learning" : "Start Learning") : "Open Course";
+  const continueShortLabel = isComplete ? "Review" : tracksProgress ? (hasStarted ? "Continue" : "Start") : "Open";
 
-  const learnDestination = `/student/learn/${course.id}`;
+  // The learn page is addressed by the course's readable key, not its id.
+  const learnDestination = learnHref(course, myEnrollments);
   const detailsDestination = `/student/courses/${course.id}`;
   const feedbackDestination = `/student/feedback?courseId=${course.id}`;
   const primaryDestination = isEnrolled ? learnDestination : detailsDestination;
@@ -77,9 +84,12 @@ export default function MyCourseCard({ enrollment, course: rawCourse }) {
         {course.thumbnailUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={getDisplayUrl(course.thumbnailUrl)}
+            // A card is ~320 px wide: ask for a 640 px copy (sharp on 2x
+            // screens) rather than the full multi-MB upload.
+            src={getDisplayUrl(course.thumbnailUrl, { width: 640 })}
             alt=""
             loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
           />
         ) : (
@@ -165,7 +175,7 @@ export default function MyCourseCard({ enrollment, course: rawCourse }) {
               className="inline-flex flex-auto items-center justify-center gap-1 whitespace-nowrap rounded-md border border-primary/40 bg-transparent px-2 py-2 min-h-[40px] md:py-1 md:min-h-0 text-[11px] font-bold text-primary hover:bg-primary/10 hover:border-primary/60 transition"
             >
               <span className="max-[359px]:hidden">{continueLabel}</span>
-              <span className="hidden max-[359px]:inline">{isComplete ? "Review" : tracksProgress ? "Continue" : "Open"}</span>
+              <span className="hidden max-[359px]:inline">{continueShortLabel}</span>
               <ArrowRight size={13} aria-hidden="true" />
             </button>
           )}

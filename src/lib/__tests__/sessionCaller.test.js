@@ -1,29 +1,19 @@
 /**
- * F-01 / F-02 / F-05: the Next route handlers that use the Blob read/write
- * token must only talk to Vercel's own hosts, and must only serve a caller
- * the API recognises as signed in. Runs the real lib/server/sessionCaller.js
- * with a fake fetch.
+ * F-01 / F-02 / F-05: the Next route handlers that serve stored files must
+ * only serve a caller the API recognises as signed in. (Which storage URLs
+ * they may read is lib/server/r2.js's parseR2Url, tested in r2.test.js.)
+ * Runs the real lib/server/sessionCaller.js with a fake fetch.
  */
-import { isAllowedBlobUrl, resolveCaller, contentAccessFor, normalizeUploadsPath } from "../server/sessionCaller.js";
+import {
+  resolveCaller,
+  contentAccessFor,
+  normalizeUploadsPath,
+  createCallerCache,
+  resolveCallerWithAccess,
+} from "../server/sessionCaller.js";
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const cases = [];
-
-cases.push({
-  name: "only https Vercel hosts are allowed (evilvercel.com is not)",
-  run: () => [
-    isAllowedBlobUrl("https://store.private.blob.vercel-storage.com/a.pdf"),
-    isAllowedBlobUrl("https://store.public.blob.vercel-storage.com/x/external-references/r.json"),
-    isAllowedBlobUrl("https://vercel.com/api/blob/x"),
-    isAllowedBlobUrl("https://api.vercel.com/x"),
-    isAllowedBlobUrl("https://evilvercel.com/x.json"),
-    isAllowedBlobUrl("https://vercel.com.evil.io/x.json"),
-    isAllowedBlobUrl("https://blob.vercel-storage.com.evil.io/x"),
-    isAllowedBlobUrl("http://store.public.blob.vercel-storage.com/x"),
-    isAllowedBlobUrl("not a url"),
-  ],
-  expected: [true, true, true, true, false, false, false, false, false],
-});
 
 const fakeFetch = (status, body, calls) => async (url, init) => {
   calls.push({ url, headers: init.headers });
@@ -130,6 +120,80 @@ cases.push({
     "/uploads/contents/x.png",
     null, null, null, null, null, null, null, null, null, null, null,
   ],
+});
+
+// ---------------------------------------------------------------------------
+// Remembering a successful check (the file proxies' speed-up)
+// ---------------------------------------------------------------------------
+
+// A fake API answering /auth/profile with `role` and /playback/status with
+// `lease`, counting the calls it gets.
+const fakeApi = (role, lease, calls) => async (url) => {
+  calls.push(url);
+  if (url.endsWith("/auth/profile")) return { ok: Boolean(role), status: role ? 200 : 401, json: async () => ({ data: { role } }) };
+  return { ok: true, status: 200, json: async () => ({ data: lease }) };
+};
+const creds = (fetchImpl) => ({ apiUrl: "http://api", accessToken: "tok", deviceKey: "dev", fetchImpl });
+
+cases.push({
+  name: "a student's allowed check is remembered: the next file asks the API nothing",
+  run: async () => {
+    const calls = [];
+    const cache = createCallerCache({ ttlMs: 60_000 });
+    const api = fakeApi("STUDENT", { active: false }, calls);
+    const first = await resolveCallerWithAccess(creds(api), cache);
+    const second = await resolveCallerWithAccess(creds(api), cache);
+    return [first, second, calls.length];
+  },
+  expected: [{ role: "STUDENT", access: "allowed" }, { role: "STUDENT", access: "allowed" }, 2],
+});
+
+cases.push({
+  name: "a blocked student is asked again every time, never remembered",
+  run: async () => {
+    const calls = [];
+    const cache = createCallerCache({ ttlMs: 60_000 });
+    const api = fakeApi("STUDENT", { active: true, heldByThisDevice: false }, calls);
+    const first = await resolveCallerWithAccess(creds(api), cache);
+    await resolveCallerWithAccess(creds(api), cache);
+    return [first.access, calls.length];
+  },
+  expected: ["blocked", 4],
+});
+
+cases.push({
+  name: "an instructor is never limited by the lease answer",
+  run: async () => {
+    const calls = [];
+    const api = fakeApi("INSTRUCTOR", { active: true, heldByThisDevice: false }, calls);
+    return (await resolveCallerWithAccess(creds(api), createCallerCache())).access;
+  },
+  expected: "allowed",
+});
+
+cases.push({
+  name: "no session: nothing is returned and nothing remembered",
+  run: async () => {
+    const calls = [];
+    const cache = createCallerCache();
+    const api = fakeApi(null, { active: false }, calls);
+    return [await resolveCallerWithAccess(creds(api), cache), cache.size];
+  },
+  expected: [null, 0],
+});
+
+cases.push({
+  name: "a remembered check expires after its time, and another session is not served from it",
+  run: async () => {
+    let now = 0;
+    const cache = createCallerCache({ ttlMs: 60_000, now: () => now });
+    cache.set("a", { role: "STUDENT", access: "allowed" });
+    const fresh = cache.get("a");
+    const otherSession = cache.get("b");
+    now = 60_001;
+    return [Boolean(fresh), otherSession, cache.get("a")];
+  },
+  expected: [true, null, null],
 });
 
 for (const tc of cases) {

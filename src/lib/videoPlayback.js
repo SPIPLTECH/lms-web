@@ -20,7 +20,7 @@ export function watchedPercent(currentTime, duration) {
 
 // A saved position inside the last few seconds would resume straight into the
 // end of the video (and into the lesson's auto-advance), so it restarts instead.
-export const RESUME_END_GUARD_SECONDS = 10;
+const RESUME_END_GUARD_SECONDS = 10;
 
 /**
  * Where to resume a video from, given the position saved for it.
@@ -36,7 +36,7 @@ export function resolveResumeTime(savedSeconds, duration = 0) {
 }
 
 /** The speeds the settings menu offers, when the video supports them. */
-export const PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 2];
+const PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
 /** The offered speeds YouTube reports as available for this video. Always includes 1. */
 export function pickPlaybackRates(availableRates) {

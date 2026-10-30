@@ -1,9 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { markStepsCompleted, markStepsVisited } from "@/lib/learningSequence";
 import {
   markContentComplete,
   markContentCompleteBatch,
-  completeLesson as completeLessonApi,
   markVisited as markVisitedApi,
 } from "@/services/progress.service";
 
@@ -43,7 +43,7 @@ export function useCompleteContent() {
         ? markContentCompleteBatch(ids, completed)
         : markContentComplete(ids[0], completed);
     },
-    onSuccess: (data) => {
+    onSuccess: (data, { contentId, contentIds, completed = true } = {}) => {
       // The response's `courseProgress` (when present) IS the exact payload
       // GET /progress/courses/:courseId would return — the backend already
       // recomputed it, in the SAME request that just confirmed the write, to
@@ -81,6 +81,17 @@ export function useCompleteContent() {
       // the next one, so the gate has to be refetched alongside the numbers.
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_PATH] });
       // …and the learning sequence the player walks, which carries the locks.
+      // The learn page's "Mark as Complete" reads `completed` from this
+      // sequence, not from COURSE_PROGRESS above — so mark the step in the
+      // cached copy first. Otherwise the button came back the moment this
+      // request settled and stayed until the (slow, full) sequence refetch
+      // landed, which read as "the first click did nothing" and drew a second.
+      if (data?.progressTracked !== false) {
+        const ids = (Array.isArray(contentIds) && contentIds.length > 0 ? contentIds : [contentId]).filter(Boolean);
+        queryClient.setQueriesData({ queryKey: [QUERY_KEYS.LEARNING_SEQUENCE] }, (old) =>
+          markStepsCompleted(old, ids, completed)
+        );
+      }
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_SEQUENCE] });
       // The next action is derived from the path and the evidence, so it
       // moves whenever either does.
@@ -116,7 +127,7 @@ export function useMarkVisited() {
       }
       return markVisitedApi(rest);
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables = {}) => {
       // The backend now skips the write (and the rollup) entirely for a
       // revisit that doesn't change anything, and reports that via
       // `changed: false`. Mirror that here: don't invalidate (and force a
@@ -128,43 +139,31 @@ export function useMarkVisited() {
       const anyChanged = results.some((r) => r?.changed !== false);
       if (anyChanged) {
         queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.COURSE_PROGRESS] });
-        // A visit moves "Continue learning" and keeps a step open for good.
-        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_SEQUENCE] });
+        // A visit moves "Continue learning" and keeps a step open for good —
+        // but it never unlocks anything (locks follow completion only, and a
+        // step can only be visited once it is open). So the steps just visited
+        // are marked in the cached sequence instead of refetching the whole
+        // sequence (a full roll-up and ~0.5 MB) on every newly opened step.
+        // The query is still marked stale, so its next mount reads the
+        // server's numbers (container flags, resume pointer).
+        const ids = new Set(
+          (Array.isArray(variables.contentIds) && variables.contentIds.length > 0
+            ? variables.contentIds
+            : [variables.contentId]
+          ).filter(Boolean)
+        );
+        if (ids.size === 0) {
+          // A container or quiz visit: nothing to mark locally.
+          queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_SEQUENCE] });
+          return;
+        }
+        const visitedAt = new Date().toISOString();
+        queryClient.setQueriesData({ queryKey: [QUERY_KEYS.LEARNING_SEQUENCE] }, (old) =>
+          markStepsVisited(old, ids, visitedAt)
+        );
+        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_SEQUENCE], refetchType: "none" });
       }
     }
   });
 }
 
-export function useCompleteLesson() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ lessonId, completed = true }) => completeLessonApi(lessonId, completed),
-    onSuccess: (data) => {
-      // Same reasoning as useCompleteContent above: write the response's
-      // already-fresh rollup straight into the cache instead of paying for a
-      // second network round trip + a second full server-side rollup.
-      const fresh = data?.courseProgress;
-      if (fresh?.hierarchy) {
-        queryClient.setQueriesData({ queryKey: [QUERY_KEYS.COURSE_PROGRESS] }, (old) => {
-          if (!old || old.courseId !== fresh.courseId || old.studentId !== fresh.studentId) return old;
-          return fresh;
-        });
-      } else {
-        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.COURSE_PROGRESS] });
-      }
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.PROGRESS] });
-      // Completing content can settle the node the student is on and open
-      // the next one, so the gate has to be refetched alongside the numbers.
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_PATH] });
-      // …and the learning sequence the player walks, which carries the locks.
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.LEARNING_SEQUENCE] });
-      // The next action is derived from the path and the evidence, so it
-      // moves whenever either does.
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.NEXT_ACTION] });
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.RECOMMENDATIONS] });
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.STUDENT_DASHBOARD] });
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.MY_COURSES] });
-    }
-  });
-}

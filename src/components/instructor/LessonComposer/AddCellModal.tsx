@@ -45,7 +45,7 @@ const SIMPLE_FORMS: Partial<Record<CellTypeId, ComponentType<CreateCellFormProps
   assignment: CreateAssignmentForm,
 };
 
-export const VISIBLE_CELL_OPTIONS = [
+const VISIBLE_CELL_OPTIONS = [
   {
     id: "text" as CellTypeId,
     label: "Markdown",

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useMemo, useState } from "react";
 
 import useDashboard from "@/hooks/queries/student/useDashboard";
 import { useMyQuestions, useCreateLessonQuery } from "@/hooks/queries/student/useLessonQueries";
@@ -56,10 +56,3 @@ export function QaProvider({ children }) {
   return <QaContext.Provider value={value}>{children}</QaContext.Provider>;
 }
 
-export function useQa() {
-  const ctx = useContext(QaContext);
-  if (!ctx) {
-    throw new Error("useQa must be used within a QaProvider");
-  }
-  return ctx;
-}

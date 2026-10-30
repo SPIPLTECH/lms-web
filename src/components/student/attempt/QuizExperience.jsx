@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2 } from "lucide-react";
+import { ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 
 import Loader from "@/components/common/Loader";
 import Button from "@/components/ui/Button";
@@ -17,8 +17,81 @@ import useSubmitQuiz from "@/hooks/queries/student/useSubmitQuiz";
 import useQuizResult from "@/hooks/queries/student/useQuizResult";
 import useTrackCourseAccess from "@/hooks/queries/student/useTrackCourseAccess";
 import useQuizAttemptTracker from "@/hooks/useQuizAttemptTracker";
+import { useToast } from "@/components/ui/ToastProvider";
+import { useStudentTour } from "@/context/StudentTourContext";
 import { checkAnswerCorrectness } from "@/lib/quizAnswers";
+import { allQuestionsChecked } from "@/lib/quizAttemptState";
 import { resolveQuestionType } from "@/lib/questionType";
+
+/**
+ * Under a Self-Test's navigation: how many answers are checked, then — once
+ * every one is and the attempt has saved itself — how it went and the way
+ * on. There is no Submit and no result page for practice; this is its end.
+ */
+function PracticeStatus({
+    checkedCount,
+    totalQuestions,
+    allChecked,
+    saving,
+    saved,
+    saveError,
+    onRetrySave,
+    rightCount,
+    markedCount,
+    onNextContent,
+    onBack,
+}) {
+    if (!allChecked) {
+        return (
+            <p className="px-1 text-xs text-muted-foreground sm:text-sm">
+                {checkedCount} of {totalQuestions} checked — check every question to finish this practice.
+            </p>
+        );
+    }
+
+    if (saveError && !saving) {
+        return (
+            <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 sm:p-4">
+                <p className="text-sm text-rose-700 dark:text-rose-300">
+                    Your practice couldn&apos;t be saved. Check your connection and try again.
+                </p>
+                <Button type="button" onClick={onRetrySave} className="min-h-[44px]">
+                    Save again
+                </Button>
+            </div>
+        );
+    }
+
+    if (!saved) {
+        return (
+            <p className="flex items-center gap-2 px-1 text-xs text-muted-foreground sm:text-sm" aria-live="polite">
+                <Loader2 size={14} className="animate-spin" aria-hidden />
+                Saving your practice…
+            </p>
+        );
+    }
+
+    return (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 sm:p-4" aria-live="polite">
+            <p className="flex items-center gap-2 text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+                <CheckCircle2 size={18} className="shrink-0" aria-hidden />
+                <span>
+                    Practice complete
+                    {markedCount > 0 && ` — ${rightCount} of ${markedCount} correct`}.
+                </span>
+            </p>
+            {onNextContent ? (
+                <Button type="button" onClick={onNextContent} className="inline-flex min-h-[44px] items-center gap-1.5">
+                    Next <ArrowRight size={16} aria-hidden />
+                </Button>
+            ) : onBack ? (
+                <Button type="button" variant="outline" onClick={onBack} className="min-h-[44px]">
+                    Done
+                </Button>
+            ) : null}
+        </div>
+    );
+}
 
 /**
  * The actual quiz-taking experience (timer, questions, navigation, submit) —
@@ -43,6 +116,8 @@ import { resolveQuestionType } from "@/lib/questionType";
 //
 // It skips the CONFIRMATION only, never the allowance — see showCompletedCard.
 export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextContent, speechLanguage, onSubmitted, autoReattempt = false }) {
+    const { showToast } = useToast();
+    const tour = useStudentTour();
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [submitError, setSubmitError] = useState("");
     // Dismisses the "already completed" landing card below in favor of the
@@ -75,6 +150,13 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
     const [showSubmitModal, setShowSubmitModal] =
         useState(false);
 
+    // A Self-Test — the server's call (revealAnswers), the one quiz whose
+    // answer key the student is sent. It is practice: each answer is checked
+    // as the student goes, there is no Submit (the attempt saves itself once
+    // every question is checked), no "already completed" card and no result
+    // page — coming back to it simply starts it again.
+    const isPractice = quiz?.revealAnswers === true;
+
     // Present for students only (see GET /quizzes/:id).
     const allowance = quiz?.attemptStatus;
     const hasPriorAttempt = Boolean(allowance && allowance.attemptsUsed > 0);
@@ -91,7 +173,7 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
     // which walked a student with a spent allowance into a quiz the server
     // would always refuse, under a header reading "Attempt 2 of 1". The
     // allowance is now part of the gate and autoReattempt cannot override it.
-    const showCompletedCard = hasPriorAttempt && (!reattempting || !canTakeAnother);
+    const showCompletedCard = !isPractice && hasPriorAttempt && (!reattempting || !canTakeAnother);
 
     // Whether an attempt is actually being taken right now, as opposed to the
     // "already completed" card or the post-submit summary being shown over the
@@ -108,12 +190,14 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
         currentQuestionIndex,
         currentQuestion,
         currentAnswer,
+        currentAnswerChecked,
         summary,
         goToQuestion,
         goToNext,
         goToPrevious,
         answerCurrentQuestion,
         viewCurrentHint,
+        checkCurrentAnswer,
         skipCurrentQuestion,
         buildSubmitPayload,
         clearStoredProgress,
@@ -122,9 +206,28 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
         questions,
         attemptsUsed: quiz?.attemptStatus?.attemptsUsed ?? 0,
         active: isAttemptActive,
+        // A refresh keeps a Self-Test's answers; leaving it starts it fresh.
+        forgetOnLeave: isPractice,
     });
 
     const answeredQuestions = summary.answeredCount;
+
+    // Each checked Self-Test question: right (true), wrong (false), or
+    // nothing to mark (null — a written answer, compared by the student).
+    const checkedResults = useMemo(() => {
+        if (!isPractice) return {};
+        const results = {};
+        for (const q of questions) {
+            const record = questionStates[q.id];
+            if (!record?.answerChecked) continue;
+            const type = resolveQuestionType(q.questionType);
+            results[q.id] = type === "SELF_ASSESSMENT" ? null : checkAnswerCorrectness(type, record.answer, q.correctAnswer, q.options);
+        }
+        return results;
+    }, [isPractice, questions, questionStates]);
+    const practiceAllChecked = isPractice && allQuestionsChecked(questionStates, questions);
+    const practiceMarked = Object.values(checkedResults).filter((v) => v !== null);
+    const practiceRight = practiceMarked.filter(Boolean).length;
 
     useEffect(() => {
         if (quiz && startedAtRef.current === null) {
@@ -153,6 +256,12 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
     // the timeout path skips the completeness gate below since the attempt
     // has to close regardless of how many questions got answered.
     const performSubmit = () => {
+        if (tour.active) {
+            showToast?.("Paused during the tour. Quizzes cannot be submitted while the tour is running.", "info");
+            setShowSubmitModal(false);
+            submitInFlightRef.current = false;
+            return;
+        }
         if (submitInFlightRef.current) return;
         submitInFlightRef.current = true;
 
@@ -216,6 +325,21 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
         performSubmit();
     };
 
+    // A Self-Test ends when its last unchecked question is checked: that
+    // check saves the attempt — the same submit a Final makes — so completion,
+    // progress and the learning path move on exactly as before. Checking does
+    // not change any answer, so the payload built here already holds them all.
+    const handleCheckAnswer = () => {
+        if (!currentQuestion?.id || !questionStates[currentQuestion.id]?.answered) return;
+        checkCurrentAnswer();
+        const othersChecked = questions.every(
+            (q) => q.id === currentQuestion.id || questionStates[q.id]?.answerChecked === true
+        );
+        if (isPractice && othersChecked && !isSubmitted) {
+            performSubmit();
+        }
+    };
+
     // The timer (persisted per-attempt, see QuizTimer) fires this once its
     // deadline passes — including immediately on a refresh that lands after
     // time was already up. Auto-submit whatever was answered so far rather
@@ -231,7 +355,9 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
     // each question's correctAnswer (stripped from useQuiz above so a
     // student can't see it mid-attempt).
     const { data: resultData, isLoading: isResultLoading } = useQuizResult(quizId, {
-        enabled: isSubmitted || Boolean(quiz?.attemptStatus?.attemptsUsed > 0),
+        // A Self-Test has no result screen to feed; its summary is worked out
+        // from the answers on screen.
+        enabled: !isPractice && (isSubmitted || Boolean(quiz?.attemptStatus?.attemptsUsed > 0)),
     });
 
     const submissionResult = resultData?.data || resultData;
@@ -257,7 +383,8 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
             return checkAnswerCorrectness(
                 resolveQuestionType(q.questionType),
                 userAnswer?.answer ?? userAnswer?.selectedOption,
-                q.correctAnswer
+                q.correctAnswer,
+                q.options
             );
         }).length;
     }, [submissionResult, parsedSubmissionAnswers]);
@@ -284,7 +411,10 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
         );
     }
 
-    if (isSubmitted) {
+    // A Self-Test stays on its questions after it saves — the student keeps
+    // the answers and reasons in front of them — so only a graded quiz swaps
+    // to the result summary.
+    if (isSubmitted && !isPractice) {
         return (
             <QuizResultSummary
                 quizTitle={quiz.title}
@@ -336,9 +466,9 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
                 <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
                     {allowance.canAttempt
                         ? `You can view your result or retake “${quiz.title}”.`
-                        : `You've used all ${allowance.maxAttempts} attempt${allowance.maxAttempts === 1 ? "" : "s"} allowed for “${quiz.title}”.`}
+                        : `You've used all ${allowance.maxAttempts} attempt${allowance.maxAttempts === 1 ? "" : "s"} allowed for “${quiz.title}”.${onNextContent ? " You can carry on with the course." : ""}`}
                 </p>
-                <div className="mx-auto mt-6 flex max-w-sm flex-col gap-2 sm:flex-row sm:justify-center">
+                <div className="mx-auto mt-6 flex max-w-md flex-col gap-2 sm:flex-row sm:justify-center">
                     <Button asChild className="inline-flex flex-1 items-center justify-center">
                         <Link href={resultHref}>View result</Link>
                     </Button>
@@ -350,6 +480,13 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
                             className="flex-1"
                         >
                             Retake
+                        </Button>
+                    )}
+                    {/* Out of attempts, the quiz is done whether passed or not
+                        (the server's completion rule), so the next step is open. */}
+                    {onNextContent && !allowance.canAttempt && (
+                        <Button type="button" variant="outline" onClick={onNextContent} className="flex-1 whitespace-nowrap">
+                            Continue course
                         </Button>
                     )}
                     {onBack && (
@@ -372,14 +509,14 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
                     answeredCount={answeredQuestions}
                 />
 
-                {allowance && (allowance.attemptsUsed > 0 || !allowance.unlimitedAttempts) && (
+                {!isPractice && allowance && (allowance.attemptsUsed > 0 || !allowance.unlimitedAttempts) && (
                     <p className="px-1 text-xs font-medium text-muted-foreground">
                         Attempt {allowance.attemptsUsed + 1}
                         {allowance.unlimitedAttempts ? "" : ` of ${allowance.maxAttempts}`}
                     </p>
                 )}
 
-                {submitError && !showSubmitModal && (
+                {submitError && !showSubmitModal && !isPractice && (
                     <p
                         role="alert"
                         className="rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-500"
@@ -400,6 +537,11 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
                     // later attempt, and the hint text is absent otherwise.
                     hintsUnlocked={quiz.hintsUnlocked === true}
                     onViewHint={viewCurrentHint}
+                    // Also the server's decision: true only for a Self-Test,
+                    // the one quiz whose answer key is sent to the student.
+                    revealAnswers={isPractice}
+                    answerChecked={currentAnswerChecked}
+                    onCheckAnswer={handleCheckAnswer}
                 />
 
                 <QuizNavigation
@@ -411,10 +553,28 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
                     onPrevious={goToPrevious}
                     onNext={goToNext}
                     onJumpTo={goToQuestion}
-                    onSkip={skipCurrentQuestion}
+                    onSkip={isPractice ? undefined : skipCurrentQuestion}
                     onSubmit={() => setShowSubmitModal(true)}
                     isSubmitting={submitQuizMutation.isPending}
+                    practice={isPractice}
+                    checkedResults={checkedResults}
                 />
+
+                {isPractice && (
+                    <PracticeStatus
+                        checkedCount={summary.checkedCount}
+                        totalQuestions={questions.length}
+                        allChecked={practiceAllChecked}
+                        saving={submitQuizMutation.isPending}
+                        saved={isSubmitted}
+                        saveError={submitError}
+                        onRetrySave={performSubmit}
+                        rightCount={practiceRight}
+                        markedCount={practiceMarked.length}
+                        onNextContent={onNextContent}
+                        onBack={onBack}
+                    />
+                )}
             </div>
 
             <QuizSubmitModal

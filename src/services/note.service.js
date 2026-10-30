@@ -7,11 +7,6 @@ export const getNotes = async (params = {}) => {
   return data.data;
 };
 
-export const getNoteById = async (noteId) => {
-  const { data } = await api.get(`${BASE}/${noteId}`);
-  return data.data;
-};
-
 export const createNote = async (payload) => {
   const { data } = await api.post(BASE, payload);
   return data.data;

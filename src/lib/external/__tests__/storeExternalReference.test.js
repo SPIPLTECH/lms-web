@@ -2,7 +2,7 @@ import { resolveExternalFile } from "../resolveExternalFile.js";
 
 /**
  * Creates an external reference JSON metadata object from a URL input.
- * Simulates server-side metadata preparation for Vercel Blob reference storage.
+ * Simulates server-side metadata preparation for R2 reference storage.
  *
  * @param {string} url
  * @returns {object|null}

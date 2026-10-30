@@ -18,7 +18,7 @@ import { getDisplayUrl } from "@/lib/blob";
  *
  * @param {object} props
  * @param {object} props.course          normalized course (normalizeCourseHierarchy)
- * @param {object} [props.progress]      GET /progress/courses/:id payload
+ * @param {object} [props.progress]      { lessonProgresses: completed lesson ids }
  * @param {object} [props.sequence]      GET /progress/learning-sequence payload
  * @param {boolean} props.hasProgress    any visited/completed item
  * @param {() => void} props.onContinue  opens the player at the resume step
@@ -69,8 +69,8 @@ export default function StudentCourseOverview({ course, progress, sequence, hasP
       : isComplete
         ? "Review course"
         : hasProgress
-          ? "Continue learning"
-          : "Start learning";
+          ? "Continue Learning"
+          : "Start Learning";
 
   // Where Continue lands: the resume step and the lesson that holds it.
   const nextStep = sequence?.steps?.[sequence?.resumeIndex] || null;
@@ -79,7 +79,8 @@ export default function StudentCourseOverview({ course, progress, sequence, hasP
   // Step titles are often generic ("Image", "Video"); the topic says more.
   const nextTopic = nextLesson?.topics?.find((t) => t.id === nextStep?.path?.topicId) || null;
 
-  const courseImage = course.thumbnailUrl ? getDisplayUrl(course.thumbnailUrl) : null;
+  // Shown at most about half a page wide: a 1280 px copy, not the full upload.
+  const courseImage = course.thumbnailUrl ? getDisplayUrl(course.thumbnailUrl, { width: 1280 }) : null;
   const description = course.description || "";
   const isLongDescription = description.length > 320;
 

@@ -9,6 +9,7 @@ import {
 
 import { useStudents } from '@/hooks/queries/instructor/useStudents';
 import { useInstructorCourses } from '@/hooks/queries/instructor/useInstructorCourses';
+import LearningHealthPanel from '@/components/instructor/analytics/LearningHealthPanel';
 
 function StudentsDirectoryContent() {
   const searchParams = useSearchParams();
@@ -219,14 +220,6 @@ function StudentsDirectoryContent() {
                         {selectedStudent.assignmentRate != null ? `${selectedStudent.assignmentRate}%` : '—'}
                       </p>
                     </div>
-                    {/* Attendance Rate tile hidden with the rest of the attendance UI.
-                        Uncomment this and change the grid back to sm:grid-cols-3. */}
-                    {/* <div className="p-3 bg-white/[0.01] border border-border rounded-xl text-center">
-                      <p className="text-[9px] text-muted-foreground font-black uppercase">Attendance Rate</p>
-                      <p className="text-lg font-black text-foreground mt-1">
-                        {selectedStudent.attendanceRate != null ? `${selectedStudent.attendanceRate}%` : "N/A"}
-                      </p>
-                    </div> */}
                   </div>
 
                   {/* Modules detail */}
@@ -398,10 +391,6 @@ function StudentsDirectoryContent() {
                   <th className="pb-3">Course</th>
                   <th className="pb-3 text-center">Status</th>
                   <th className="pb-3 text-center">Course Progress</th>
-                  {/* Attendance column hidden — no attendance tracking exists yet, so it
-                      only ever rendered "N/A". Uncomment this and the matching <td>
-                      below (and set colSpan back to 6) to bring it back. */}
-                  {/* <th className="pb-3 text-center">Attendance</th> */}
                   <th className="pb-3 text-right pr-2">Action</th>
                 </tr>
               </thead>
@@ -462,9 +451,6 @@ function StudentsDirectoryContent() {
                           <span className="font-bold text-foreground tabular-nums">{standing.progress}%</span>
                         </div>
                       </td>
-                      {/* <td className="py-4 text-center font-bold text-foreground">
-                        {student.attendanceRate != null ? `${student.attendanceRate}%` : "N/A"}
-                      </td> */}
                       <td className="py-4 text-right pr-2">
                         <button
                           onClick={() => handleSelectStudent(student.id)}
@@ -481,6 +467,14 @@ function StudentsDirectoryContent() {
             </table>
           </div>
         </div>
+      )}
+
+      {/* LEARNING HEALTH: who in the selected course needs a check-in and why
+          (level plus named reasons, never a raw score). One course at a time,
+          so it appears once a course is chosen; keyed by course so switching
+          course starts it fresh. */}
+      {!selectedStudent && selectedCourse && (
+        <LearningHealthPanel key={selectedCourse.id} courseId={selectedCourse.id} />
       )}
     </div>
   );

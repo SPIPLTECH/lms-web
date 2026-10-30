@@ -46,14 +46,6 @@ export const getStudentById = async (studentId) => {
 };
 
 /**
- * Update Student
- */
-export const updateStudent = async (studentId, studentData) => {
-  const { data } = await api.put(`/students/${studentId}`, studentData);
-  return data;
-};
-
-/**
  * Get Student Learning State (Journey State)
  */
 export const getStudentState = async (courseId) => {
@@ -68,4 +60,12 @@ export const getStudentState = async (courseId) => {
 export const updateStudentState = async (stateData) => {
   const { data } = await api.post("/students/state", stateData);
   return data;
+};
+/**
+ * The signed-in student finished or set aside the first-run onboarding
+ * (StudentProfile.onboardingCompletedAt). Idempotent on the server.
+ */
+export const completeOnboarding = async () => {
+  const { data } = await api.post("/students/me/onboarding");
+  return data.data ?? data;
 };

@@ -13,11 +13,19 @@ import Image from "next/image";
 export default function WelcomeBanner({
   eyebrow = "Welcome back",
   name,
+  title = null,
   subtitle,
   stats = null,
   isLoading = false,
   imageSrc = null,
   imageAlt = "",
+  // Optional row under the subtitle (Student > My Courses: the new-student
+  // onboarding actions). Omitted, the banner is unchanged.
+  children = null,
+  // Opt-in for a page that must fit the screen (Student > My Courses): on a
+  // short viewport the banner gives back height — tighter padding and a
+  // one-line subtitle.
+  compactWhenShort = false,
 }) {
   const hasStats = Array.isArray(stats) && stats.length > 0;
 
@@ -52,21 +60,37 @@ export default function WelcomeBanner({
       <div
         className={`relative flex flex-col gap-6 px-5 py-6 md:px-10 md:py-7 ${
           hasStats ? "lg:flex-row lg:items-center lg:gap-8" : ""
-        } ${imageSrc ? "lg:pr-72 xl:pr-[22rem]" : ""}`}
+        } ${imageSrc ? "lg:pr-72 xl:pr-[22rem]" : ""} ${
+          compactWhenShort ? "[@media(max-height:720px)]:py-4" : ""
+        }`}
       >
         <div className={`min-w-0 ${hasStats ? "shrink-0 md:max-w-sm lg:max-w-[17rem] xl:max-w-sm" : ""}`}>
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">{eyebrow}</p>
 
           <h1 className="mt-1.5 flex items-center gap-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            {name} !
-            <span className="inline-block origin-bottom-right animate-wave" aria-hidden="true">
-              👋
-            </span>
+            {title ? (
+              title
+            ) : (
+              <>
+                {name} !
+                <span className="inline-block origin-bottom-right animate-wave" aria-hidden="true">
+                  👋
+                </span>
+              </>
+            )}
           </h1>
 
           {subtitle && (
-            <p className="mt-2 min-h-[2.5rem] text-sm text-muted-foreground line-clamp-2">{subtitle}</p>
+            <p
+              className={`mt-2 min-h-[2.5rem] text-sm text-muted-foreground line-clamp-2 ${
+                compactWhenShort ? "[@media(max-height:720px)]:min-h-0 [@media(max-height:720px)]:line-clamp-1" : ""
+              }`}
+            >
+              {subtitle}
+            </p>
           )}
+
+          {children && <div className="mt-3">{children}</div>}
         </div>
 
         {hasStats && (

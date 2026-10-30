@@ -1,6 +1,6 @@
 "use client";
 
-import {useState} from "react";
+import {useEffect, useState} from "react";
 import {useParams, useRouter} from "next/navigation";
 
 import Card from "@/components/ui/Card";
@@ -8,10 +8,18 @@ import Loader from "@/components/common/Loader";
 import CourseForm from "@/components/courses/CourseForm";
 
 import {useInstructorCourse} from "@/hooks/queries/instructor/useInstructorCourse";
+import useInstructorCourseKey from "@/hooks/queries/instructor/useInstructorCourseKey";
 import {useUpdateCourse} from "@/hooks/queries/instructor/useUpdateCourse";
 
 export default function EditCoursePage() {
-    const {courseId} = useParams();
+    // The URL names the course by its readable key (`urlKey`) or, in an older
+    // link, by its id.
+    const params = useParams();
+    const {
+        courseId,
+        isResolving: courseKeyResolving,
+        notFound: courseKeyNotFound,
+    } = useInstructorCourseKey(params.courseId);
 
     const router = useRouter();
     const [submitError, setSubmitError] = useState("");
@@ -24,6 +32,16 @@ export default function EditCoursePage() {
         isLoading,
         isError,
     } = useInstructorCourse(courseId, { shallow: true });
+
+    // Show the course by its readable key, whatever link opened this form.
+    // history.replaceState: not a navigation; Next.js keeps its router state.
+    useEffect(() => {
+        if (typeof window === "undefined" || !course?.urlKey) return;
+        const path = `/instructor/courses/edit/${encodeURIComponent(course.urlKey)}`;
+        if (window.location.pathname !== path) {
+            window.history.replaceState(null, "", `${path}${window.location.search}`);
+        }
+    }, [course?.urlKey]);
 
     const updateCourseMutation =
         useUpdateCourse();
@@ -48,7 +66,7 @@ export default function EditCoursePage() {
         }
     };
 
-    if (isLoading) {
+    if (courseKeyResolving || isLoading) {
         return (
             <div className="flex justify-center py-20">
                 <Loader/>
@@ -56,7 +74,7 @@ export default function EditCoursePage() {
         );
     }
 
-    if (isError || !course) {
+    if (courseKeyNotFound || isError || !course) {
         return (
             <Card>
                 <div className="py-16 text-center">
@@ -86,7 +104,7 @@ export default function EditCoursePage() {
             onSubmit={handleSubmit}
             onCancel={() =>
                 router.push(
-                    `/instructor/courses/${courseId}`
+                    `/instructor/courses/${encodeURIComponent(course.urlKey || courseId)}`
                 )
             }
             submitError={submitError}

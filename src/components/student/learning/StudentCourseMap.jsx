@@ -14,10 +14,12 @@ import {
   Lightbulb,
   Lock,
   PanelLeftClose,
+  XCircle,
 } from "lucide-react";
 
 import { NodeBadge } from "@/components/student/learning/CourseContentAccordion";
 import { useToast } from "@/components/ui/ToastProvider";
+import { useStudentTour } from "@/context/StudentTourContext";
 import {
   getContentTypeMeta,
   getQuizTagStyle,
@@ -114,6 +116,10 @@ function StepRow({ step, isActive, onSelect, rowRef, tracksProgress }) {
         }
       }}
       title={`${step.title || label} — ${label}${step.locked ? " (locked)" : ""}`}
+      // The onboarding tour's "Steps open in order" stop: the first locked
+      // row on screen.
+      data-tour={step.locked ? "locked-item" : undefined}
+      data-tour-tap={step.locked ? "Tap the locked item" : undefined}
       className={`flex items-center justify-between gap-2 pl-2 pr-1 py-1.5 rounded-lg cursor-pointer transition-colors ${tone}`}
     >
       <div className="flex items-center gap-1.5 min-w-0 flex-1">
@@ -123,6 +129,9 @@ function StepRow({ step, isActive, onSelect, rowRef, tracksProgress }) {
       <span className="shrink-0 flex items-center">
         {step.locked ? (
           <Lock size={12} className="text-muted-foreground/70" aria-label="Locked" />
+        ) : tracksProgress && step.completed && step.passed === false ? (
+          // A Final failed on its last attempt: done, so the course goes on, but not passed.
+          <XCircle size={13} className="text-rose-500" aria-label="Not passed" />
         ) : tracksProgress && step.completed ? (
           <CheckCircle2 size={13} className="text-emerald-500" aria-label="Completed" />
         ) : null}
@@ -143,6 +152,7 @@ function ContainerNode({
   tracksProgress,
 }) {
   const { showToast } = useToast();
+  const tour = useStudentTour();
   const meta = LEVEL_META[node.kind] || LEVEL_META.TOPIC;
   const Icon = meta.icon;
   const containsActive =
@@ -160,11 +170,16 @@ function ContainerNode({
   return (
     <div>
       <div
+        data-tour={blocked ? "locked-item" : undefined}
+        data-tour-tap={blocked ? "Tap the locked item" : undefined}
         className={`flex items-center justify-between gap-1.5 pl-1 pr-1 py-1.5 rounded-lg transition-colors border-l-2 cursor-pointer ${
           containsActive ? "bg-background/40 border-primary/40" : "border-transparent hover:bg-background/60"
         } ${node.locked ? "text-muted-foreground" : "text-foreground"}`}
         onClick={() => {
-          if (blocked) return refuse();
+          if (blocked) {
+            if (tour.active) tour.signal("lockTapped");
+            return refuse();
+          }
           if (node.firstStepIndex !== null) onSelectStep(node.firstStepIndex);
           else onToggle(node.id);
         }}
@@ -174,7 +189,10 @@ function ContainerNode({
             type="button"
             onClick={(event) => {
               event.stopPropagation();
-              if (blocked) return refuse();
+              if (blocked) {
+                if (tour.active) tour.signal("lockTapped");
+                return refuse();
+              }
               onToggle(node.id);
             }}
             className="p-0.5 text-muted-foreground hover:text-slate-50 transition cursor-pointer shrink-0"

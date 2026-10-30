@@ -5,30 +5,3 @@ export const getInstructors = async () => {
     return data.data;
 };
 
-/**
- * Get Instructor By ID
- */
-export const getInstructorById = async (
-    instructorId
-) => {
-    const {data} = await api.get(
-        `/teachers/${instructorId}`
-    );
-
-    return data.data;
-};
-
-/**
- * Update Instructor
- */
-export const updateInstructor = async (
-    instructorId,
-    instructorData
-) => {
-    const {data} = await api.put(
-        `/teachers/${instructorId}`,
-        instructorData
-    );
-
-    return data;
-};

@@ -33,7 +33,7 @@ const timeAgo = (iso) => {
 const TARGET_FIELD = { content: "contentId", quiz: "quizId", assignment: "assignmentId" };
 const TARGET_FALLBACK_LABEL = { content: "this section", quiz: "this quiz", assignment: "this assignment" };
 
-export default function AskInstructorCard({ lessonId, target, inline = false }) {
+export default function AskInstructorCard({ courseId = null, moduleId = null, lessonId = null, target, inline = false }) {
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const rootRef = useRef(null);
@@ -43,15 +43,28 @@ export default function AskInstructorCard({ lessonId, target, inline = false }) 
   const isShown = inline || open;
   const targetField = target?.id ? TARGET_FIELD[target.kind] : null;
   const targetId = targetField ? target.id : null;
-  const canAsk = Boolean(targetId || lessonId);
+  const canAsk = Boolean(targetId || lessonId || moduleId || courseId);
   const aboutLabel = targetId
     ? target.title || TARGET_FALLBACK_LABEL[target.kind]
-    : "this lesson";
+    : lessonId
+    ? "this lesson"
+    : moduleId
+    ? "this module"
+    : "this course";
 
-  // Past questions for exactly this item; lesson-wide only when there's none.
+  const queryFilters = targetId
+    ? { [targetField]: targetId }
+    : lessonId
+    ? { lessonId, lessonOnly: "true" }
+    : moduleId
+    ? { moduleId, moduleOnly: "true" }
+    : courseId
+    ? { courseId, courseOnly: "true" }
+    : {};
+
   const { data: questions = [], isLoading } = useMyQuestions(
-    targetId ? { [targetField]: targetId } : { lessonId, lessonOnly: "true" },
-    { enabled: isShown && canAsk }
+    queryFilters,
+    { enabled: isShown && canAsk, refetchInterval: isShown ? 4000 : false }
   );
   const createMutation = useCreateLessonQuery();
 
@@ -76,7 +89,7 @@ export default function AskInstructorCard({ lessonId, target, inline = false }) 
   // A new item on screen means a new context — start the draft fresh.
   useEffect(() => {
     setQuestion("");
-  }, [targetField, targetId, lessonId]);
+  }, [targetField, targetId, lessonId, moduleId, courseId]);
 
   const trimmed = question.trim();
 
@@ -87,6 +100,8 @@ export default function AskInstructorCard({ lessonId, target, inline = false }) 
       {
         ...(targetId ? { [targetField]: targetId } : {}),
         ...(lessonId ? { lessonId } : {}),
+        ...(moduleId ? { moduleId } : {}),
+        ...(courseId ? { courseId } : {}),
         question: trimmed,
       },
       {
@@ -153,7 +168,7 @@ export default function AskInstructorCard({ lessonId, target, inline = false }) 
           </div>
         </form>
       ) : (
-        <p className="px-4 pt-3 text-sm text-muted-foreground">Open a lesson to ask your instructor about it.</p>
+        <p className="px-4 pt-3 text-sm text-muted-foreground">Select a course or lesson to ask your instructor about it.</p>
       )}
 
       <div className="mt-3 border-t border-border px-4 py-3">

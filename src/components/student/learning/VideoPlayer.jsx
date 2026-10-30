@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import {
     FileText,
     ExternalLink,
@@ -17,6 +17,7 @@ import { resolveVideoSource } from "@/lib/videoSource";
 import VideoSurface from "@/components/shared/video/VideoSurface";
 import OrangeVideoPlayer from "@/components/student/learning/video/OrangeVideoPlayer";
 import usePlaybackLease from "@/hooks/queries/student/usePlaybackLease";
+import useMediaQuery from "@/hooks/useMediaQuery";
 import { Button } from "@/components/ui/shadcn/button";
 import { getDisplayUrl } from "@/lib/blob";
 import MarkdownRenderer from "@/components/ui/MarkdownEditor/MarkdownRenderer";
@@ -40,51 +41,11 @@ const isPptUrl = (url) => {
     return !isPdfUrl(u) && u.includes(".ppt");
 };
 
-/**
- * True when a content item renders through PptViewer — an uploaded .ppt/.pptx
- * with no authored slide JSON to draw instead. PptViewer's canvas takes the
- * slide's own aspect ratio from its width, so unlike a PDF or a document it
- * has no further height to give; the learn page reads this to let the desktop
- * player frame size to the deck rather than leave dead backdrop beneath it.
- * Kept here, beside the branch it mirrors, so the two cannot drift apart.
- */
-export function rendersUploadedDeck(content) {
-    if (!isPptUrl(content?.fileUrl)) return false;
-    const type = content?.type;
-    if (type === "FILE" || type === "DOCUMENT") return true;
-    if (type !== "PRESENTATION" && type !== "SLIDE") return false;
-    // A Presentation authored in the canvas slide editor keeps its slides as
-    // JSON in htmlContent and renders through SlideColumnsView instead — see
-    // isFileLike below.
-    return parseSlideDeckJson(content?.htmlContent).length === 0;
-}
-
 const isGoogleSlidesUrl = (url) => Boolean(url?.includes("docs.google.com/presentation"));
 const getGoogleSlidesEmbedUrl = (url) => {
     if (!url) return "";
     return url.replace(/\/edit(\?.*)?$/, "/embed").replace(/\/pub(\?.*)?$/, "/embed");
 };
-/**
- * A human-readable name for an attached file. Prefers the original upload name
- * recorded on the Content row and falls back to the last path segment of the
- * stored URL, so the row never renders a blank label.
- */
-const getAttachmentName = (content) => {
-    const recorded = content?.data?.originalName || content?.data?.fileName;
-    if (recorded) return recorded;
-    const raw = content?.fileUrl;
-    if (!raw) return "Attachment";
-    try {
-        const last = raw.split("?")[0].split("#")[0].split("/").pop();
-        if (!last) return "Attachment";
-        // Uploads are stored as "<epoch>-<original name>"; show the part a
-        // student would recognise rather than the storage key.
-        return decodeURIComponent(last).replace(/^\d{10,}-/, "");
-    } catch {
-        return "Attachment";
-    }
-};
-
 const parseSlides = (html) => {
     if (!html) return [];
     const sections = html.split(/<hr\s*\/?>|<!--\s*slide\s*-->/i);
@@ -96,10 +57,22 @@ const parseSlides = (html) => {
  * "preparing" state, or why it cannot play (already playing on another
  * device, no access, …) with an explicit "Try again". Never retries by
  * itself — a conflict stays a conflict until the other device stops.
+ * "paused" is the learn page holding no lease on purpose (the onboarding
+ * tour is running): the video waits, with nothing to retry.
  */
 function PlaybackGate({ lease }) {
     const waiting = lease.status === "idle" || lease.status === "acquiring";
     const conflict = lease.status === "conflict";
+
+    if (lease.status === "paused") {
+        return (
+            <div role="status" className="flex h-80 w-full flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-[#0B101D] p-6 text-center">
+                <PlayCircle className="h-10 w-10 text-muted-foreground" />
+                <h4 className="text-base font-bold text-foreground">Video paused during the tour</h4>
+                <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">It plays as usual once the tour ends.</p>
+            </div>
+        );
+    }
 
     return (
         <div
@@ -146,6 +119,10 @@ const VideoPlayer = forwardRef(function VideoPlayer(
     const [pdfPage, setPdfPage] = useState(null);
     const reportPdfPage = (state) => setPdfPage(state);
 
+    // Below xl a fitted PDF page is too small to read, so it gets pinch/zoom
+    // (PdfViewer touchZoom); the desktop reading pane is unchanged.
+    const isBelowXl = useMediaQuery("(max-width: 1279.98px)");
+
     const type = content?.type;
     const fileUrl = content?.fileUrl;
     const htmlContent = content?.htmlContent;
@@ -168,6 +145,32 @@ const VideoPlayer = forwardRef(function VideoPlayer(
     useEffect(() => {
         if (lease.status === "lost") surfaceRef.current?.pause?.();
     }, [lease.status]);
+
+    // A lease re-claimed in the background (usePlaybackLease) comes with a new
+    // signed URL for the same video; the player reloads it, so pick up where
+    // the picture was rather than at the step's resume point.
+    const lastTimeRef = useRef(0);
+    const mediaUrl = protectedVideo ? lease.media?.url || null : null;
+    const shownMediaRef = useRef({ contentId: content?.id, url: mediaUrl });
+    const [renewedFrom, setRenewedFrom] = useState(null);
+    useEffect(() => {
+        const shown = shownMediaRef.current;
+        shownMediaRef.current = { contentId: content?.id, url: mediaUrl };
+        if (shown.contentId !== content?.id) {
+            lastTimeRef.current = 0;
+            setRenewedFrom(null);
+        } else if (shown.url && mediaUrl && shown.url !== mediaUrl) {
+            setRenewedFrom({ url: mediaUrl, time: lastTimeRef.current });
+        }
+    }, [content?.id, mediaUrl]);
+    const videoInitialTime = renewedFrom && renewedFrom.url === mediaUrl ? renewedFrom.time : initialTime;
+    const handleTimeUpdate = useCallback(
+        (seconds) => {
+            lastTimeRef.current = seconds;
+            onTimeUpdate?.(seconds);
+        },
+        [onTimeUpdate]
+    );
 
     // A layout effect, so it runs before the new content's viewer reports its
     // first page state (children's passive effects) rather than wiping it.
@@ -478,8 +481,8 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                         <VideoSurface
                             ref={surfaceRef}
                             source={videoSource}
-                            initialTime={initialTime}
-                            onTimeUpdate={onTimeUpdate}
+                            initialTime={videoInitialTime}
+                            onTimeUpdate={handleTimeUpdate}
                             onEnded={onEnded}
                             onDurationChange={onDurationChange}
                             title={content?.title}
@@ -509,9 +512,13 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                        height: a flex column taking the content area's
                        remaining space, which each viewer fits its page,
                        slide or reflowed document into. */
-                    <div className="w-full flex-1 min-h-0 flex flex-col">
+                    <div
+                        onContextMenu={(e) => e.preventDefault()}
+                        onDragStart={(e) => e.preventDefault()}
+                        onCopy={(e) => e.preventDefault()}
+                        className="w-full flex-1 min-h-0 flex flex-col select-none">
                         {isPdfUrl(displayFileUrl) ? (
-                            <PdfViewer fileUrl={displayFileUrl} title={content?.title} hideToolbar fillHeight onPageStateChange={reportPdfPage} readAloud={documentReadAloud} />
+                            <PdfViewer fileUrl={displayFileUrl} title={content?.title} hideToolbar fillHeight onPageStateChange={reportPdfPage} readAloud={documentReadAloud} touchZoom={isBelowXl} />
                         ) : isPptUrl(displayFileUrl) ? (
                             /* No fillHeight: the slide area sizes itself from
                                the deck's aspect ratio at every width, and the
@@ -546,7 +553,12 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                             <ExternalDocumentViewer fileUrl={displayFileUrl} title={content?.title} fillHeight className="h-full flex flex-col" readAloud={documentReadAloud} />
                         ) : htmlContent ? (
                             <PagedContent key={content.id} onPageStateChange={reportPdfPage}>
-                                <div className="select-text min-w-0">
+                                <div
+                                    onContextMenu={(e) => e.preventDefault()}
+                                    onDragStart={(e) => e.preventDefault()}
+                                    onCopy={(e) => e.preventDefault()}
+                                    className="select-none min-w-0"
+                                >
                                     <MarkdownRenderer
                                         source={unescapeFromContentApi(htmlContent || "")}
                                         emptyText="No document content provided."
@@ -653,7 +665,10 @@ const VideoPlayer = forwardRef(function VideoPlayer(
                                 <img
                                     src={effectiveImageSrc}
                                     alt={effectiveImageAlt}
-                                    className="w-full h-full object-contain object-center rounded-xl shadow-sm"
+                                    draggable={false}
+                                    onContextMenu={(e) => e.preventDefault()}
+                                    onDragStart={(e) => e.preventDefault()}
+                                    className="w-full h-full object-contain object-center rounded-xl shadow-sm select-none pointer-events-auto"
                                 />
                             </div>
                         ) : null}

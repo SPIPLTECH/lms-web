@@ -25,11 +25,12 @@ export const SUBMISSION_STATUS_FILTERS = [
 
 // Quizzes-tab-only filter — quizTag on the Quiz model, not a submission
 // property, so it's a separate list from SUBMISSION_STATUS_FILTERS.
-const QUIZ_TAG_TO_FILTER = { SELF_TEST: "self", FINAL: "final", QUALIFYING: "qualifying" };
+const QUIZ_TAG_TO_FILTER = { FINAL: "final", QUALIFYING: "qualifying" };
 
+// No Self-Test entry: Self-Tests are practice and are not listed as
+// submissions (see buildSubmissionRecords).
 export const SUBMISSION_QUIZ_TYPE_FILTERS = [
   { key: "all", label: "All quiz types" },
-  { key: "self", label: "Self-Test" },
   { key: "final", label: "Final Quiz" },
   // A qualifying test is a real attempt with a real result, so it belongs in
   // the student's submissions — but it is neither practice nor the formal
@@ -79,7 +80,7 @@ export function formatDuration(seconds) {
  * ("18/20", "90%"), or a bare number against the assignment's marks, becomes
  * a score; anything else ("A+", "Excellent") stays text with no percentage.
  */
-export function parseAssignmentGrade(grade, marks) {
+function parseAssignmentGrade(grade, marks) {
   if (!grade) return null;
   const text = String(grade).trim();
 
@@ -100,6 +101,7 @@ export function parseAssignmentGrade(grade, marks) {
 
 // Result and attempt pages send the student back here when they're done.
 const FROM_SUBMISSIONS = `from=${encodeURIComponent("/student/assignments")}`;
+const FROM_QUIZ_SUBMISSIONS = `from=${encodeURIComponent("/student/assignments?type=quiz")}`;
 
 // Exported so the standalone assignment detail page can derive the exact
 // same status/grade shape the Submissions list uses, instead of
@@ -160,8 +162,8 @@ function quizRecord(q) {
     maxAttempts: q.maxAttempts,
     unlimitedAttempts: q.unlimitedAttempts,
     canRetake: Boolean(q.canAttempt),
-    href: `/student/result/${q.id}?${FROM_SUBMISSIONS}`,
-    retakeHref: `/student/attempt/${q.id}?${FROM_SUBMISSIONS}`,
+    href: `/student/result/${q.id}?${FROM_QUIZ_SUBMISSIONS}`,
+    retakeHref: `/student/attempt/${q.id}?${FROM_QUIZ_SUBMISSIONS}`,
     actionLabel: "View Result",
   };
 }
@@ -173,7 +175,10 @@ export function buildSubmissionRecords(assignments = [], quizzes = []) {
   // side that needs filtering down to match — this is a Submissions list,
   // not an assignment browser.
   const submittedAssignments = assignments.map(assignmentRecord).filter((r) => r.submitted);
-  return [...submittedAssignments, ...quizzes.map(quizRecord)];
+  // A Self-Test is practice — its answers were shown while it was taken and
+  // it has no result page — so it is not a submission to list here.
+  const gradedQuizzes = quizzes.filter((q) => q.quizTag !== "SELF_TEST");
+  return [...submittedAssignments, ...gradedQuizzes.map(quizRecord)];
 }
 
 const STATUS_MATCHERS = {

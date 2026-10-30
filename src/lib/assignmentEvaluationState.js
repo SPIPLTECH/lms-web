@@ -8,7 +8,7 @@
  * instructor approves or sets them ("published").
  */
 
-export const EVALUATION_STATUS = {
+const EVALUATION_STATUS = {
   pending: {
     label: "Not evaluated yet",
     tone: "muted",

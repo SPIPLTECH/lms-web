@@ -196,7 +196,7 @@ function NavPill({
   }
 
   return (
-    <Link href={item.href!} aria-current={active ? "page" : undefined} className={pillClass}>
+    <Link href={item.href!} aria-current={active ? "page" : undefined} data-tour={item.tourId} className={pillClass}>
       {active && !mobile && (
         <m.span
           layoutId={layoutId}

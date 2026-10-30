@@ -27,13 +27,13 @@ export function UploadButton({
 
     try {
       setIsUploading(true);
-      showToast(`Uploading ${file.name} to Vercel Blob...`, "info");
+      showToast(`Uploading ${file.name}...`, "info");
 
       const result = await uploadFileToVercelBlob(file);
 
       if (result && result.url) {
         onUploadSuccess(result.url);
-        showToast("File uploaded to Vercel Blob successfully!", "success");
+        showToast("File uploaded successfully!", "success");
       } else {
         throw new Error("Invalid response from Blob upload route");
       }

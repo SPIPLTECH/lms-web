@@ -17,8 +17,8 @@ import { defaultQueryOptions } from "@/lib/queryOptions";
  * a quiz attempt or a submission moves the locks, and the player remounts
  * around those events.
  *
- * `withPath` also brings the learning path (`data.learningPath`, the shape
- * useLearningPath returns) in the same request. Cached under its own key so a
+ * `withPath` also brings the learning path (`data.learningPath`: { path,
+ * nextItem, lockedCount, skippableCount }) in the same request. Cached under its own key so a
  * sequence fetched without it is never served where the path is expected;
  * invalidating [LEARNING_SEQUENCE] still refreshes both.
  *

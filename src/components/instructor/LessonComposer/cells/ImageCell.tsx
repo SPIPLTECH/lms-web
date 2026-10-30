@@ -40,7 +40,7 @@ function escapeHtml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-export function buildImageHtml({ src, alt, caption }: ParsedImage): string {
+function buildImageHtml({ src, alt, caption }: ParsedImage): string {
   const figcaption = caption ? `<figcaption>${escapeHtml(caption)}</figcaption>` : "";
   return `<figure class="${IMAGE_MARKER_CLASS}"><img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" />${figcaption}</figure>`;
 }
@@ -100,11 +100,11 @@ export function ImageCell({
     setUploadError(null);
     setIsUploading(true);
     try {
-      showToast(`Uploading ${file.name} to Vercel Blob...`, "info");
+      showToast(`Uploading ${file.name}...`, "info");
       const result = await uploadFileToVercelBlob(file);
       if (result && result.url) {
         setSrc(result.url);
-        showToast("File uploaded to Vercel Blob successfully!", "success");
+        showToast("File uploaded successfully!", "success");
       } else {
         throw new Error("Invalid response from upload service");
       }
@@ -293,7 +293,7 @@ export function ImageCell({
 
 export function CreateImageForm({ parent, order, onCreated, onCancel }: CreateCellFormProps) {
   const [src, setSrc] = useState("");
-  const [alt, setAlt] = useState("");
+  const alt = "";
   const [caption, setCaption] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -309,11 +309,11 @@ export function CreateImageForm({ parent, order, onCreated, onCancel }: CreateCe
     setUploadError(null);
     setIsUploading(true);
     try {
-      showToast(`Uploading ${file.name} to Vercel Blob...`, "info");
+      showToast(`Uploading ${file.name}...`, "info");
       const result = await uploadFileToVercelBlob(file);
       if (result && result.url) {
         setSrc(result.url);
-        showToast("File uploaded to Vercel Blob successfully!", "success");
+        showToast("File uploaded successfully!", "success");
       } else {
         throw new Error("Invalid response from upload service");
       }
@@ -371,7 +371,7 @@ export function CreateImageForm({ parent, order, onCreated, onCancel }: CreateCe
         </span>
       </div>
 
-      {/* File Selection Button (Triggers Automatic Vercel Blob Upload) */}
+      {/* File Selection Button (Triggers Automatic Upload) */}
       <div>
         <input
           ref={fileInputRef}

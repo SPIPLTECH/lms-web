@@ -12,7 +12,7 @@ export const DEFAULT_RATE = 1;
 
 // Long enough for a natural sentence, short enough that one utterance stays
 // well under the ~15s after which some Chrome voices silently stop speaking.
-export const MAX_CHUNK_LENGTH = 200;
+const MAX_CHUNK_LENGTH = 200;
 // Fragments shorter than this ("Yes.", "1.") are folded into a neighbour so
 // a lesson doesn't become hundreds of tiny utterances.
 const MIN_CHUNK_LENGTH = 24;
@@ -77,7 +77,7 @@ export function resolveSpeechLang(language) {
 }
 
 /** "hi-IN" -> "hi". */
-export function primaryLanguage(lang) {
+function primaryLanguage(lang) {
   return (lang || "").split(/[-_]/)[0].toLowerCase();
 }
 

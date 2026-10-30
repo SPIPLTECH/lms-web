@@ -16,6 +16,7 @@ import { getMySession } from "@/services/session.service";
 import { defaultQueryOptions } from "@/lib/queryOptions";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { setSessionCookies, clearSessionCookies, setDeviceKey } from "@/lib/authCookies";
+import { RETURNING_USER_KEY, markSignedIn } from "@/lib/returningUser";
 import {
   SESSION_ERROR_CODES,
   getErrorCode,
@@ -55,8 +56,9 @@ const AuthContext = createContext();
 // next-themes (see src/providers/ThemeProvider.tsx) is mounted with no
 // custom `storageKey`, so it persists under its library default, "theme".
 // Theme is a device UI preference, not session state — logging out must not
-// reset it.
-const PRESERVED_ON_LOGOUT_KEYS = ["theme"];
+// reset it. The "signed in here before" flag must survive too — it is what
+// makes the login page say "Welcome Back" after a sign-out.
+const PRESERVED_ON_LOGOUT_KEYS = ["theme", RETURNING_USER_KEY];
 
 // Shared with any future consumer that wants the current identity without
 // re-fetching it (React Query dedupes/caches on this key).
@@ -165,8 +167,34 @@ export const AuthProvider = ({ children }) => {
 
   const initializeAuth = async () => {
     const token = Cookies.get("accessToken");
+    const refreshToken = Cookies.get("refreshToken");
 
     if (!token) {
+      if (refreshToken) {
+        // We have a refresh token: attempt silent refresh to restore the session
+        try {
+          const deviceKey = Cookies.get("deviceKey");
+          const { default: api } = await import("@/lib/axios");
+          const { getApiOrigin } = await import("@/lib/apiOrigin");
+          const { default: axios } = await import("axios");
+          const response = await axios.post(
+            `${getApiOrigin()}/auth/refresh-token`,
+            { refreshToken },
+            deviceKey ? { headers: { "X-Device-Key": deviceKey } } : undefined
+          );
+          if (response.data?.data?.accessToken) {
+            setSessionCookies({
+              accessToken: response.data.data.accessToken,
+              role: response.data.data?.role || response.data.data?.user?.role || Cookies.get("role"),
+            });
+            await verifySession();
+            setLoading(false);
+            return;
+          }
+        } catch (refreshErr) {
+          console.warn("Silent session restoration failed:", refreshErr?.message);
+        }
+      }
       logoutLocal();
       setLoading(false);
       return;
@@ -279,6 +307,7 @@ export const AuthProvider = ({ children }) => {
     if (typeof window !== "undefined") {
       localStorage.setItem("user", JSON.stringify(user));
       sessionStorage.setItem("fresh_login", "true");
+      markSignedIn();
     }
 
     // Seed the same cache key verifySession() reads, so the freshly-logged-in

@@ -14,13 +14,30 @@ const PRIVATE_LAN_DEV_ORIGINS = [
     ...Array.from({ length: 16 }, (_, i) => `172.${16 + i}.*.*`),
 ];
 
+// Sent with every page. Only rules that cannot break a feature: no other site
+// may frame the app (clickjacking), no MIME sniffing, no plugin content, no
+// <base> hijacking, a trimmed Referer, and no camera/microphone/location
+// (nothing here uses them). A script-src CSP — what would actually blunt an
+// XSS — needs per-request nonces for Next's inline scripts and an allowlist
+// for YouTube, Vimeo and Google sign-in, so it is left for its own change.
+const SECURITY_HEADERS = [
+    { key: "Content-Security-Policy", value: "frame-ancestors 'self'; object-src 'none'; base-uri 'self'" },
+    { key: "X-Frame-Options", value: "SAMEORIGIN" },
+    { key: "X-Content-Type-Options", value: "nosniff" },
+    { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+    { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+    // HTTPS only once deployed; on http://localhost or the LAN it would only
+    // be ignored, but it has no business being sent there.
+    ...(process.env.NODE_ENV === "production"
+        ? [{ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" }]
+        : []),
+];
+
 const nextConfig: NextConfig = {
     allowedDevOrigins: PRIVATE_LAN_DEV_ORIGINS,
-    experimental: {
-        // Without this, Turbopack/webpack was emitting a separate ~330KB
-        // recharts chunk per route that imports it (verified via `next build`:
-        // 4 identical 329,038-byte chunks) instead of one shared chunk.
-        optimizePackageImports: ["recharts"],
+    poweredByHeader: false,
+    async headers() {
+        return [{ source: "/:path*", headers: SECURITY_HEADERS }];
     },
     images: {
         remotePatterns: [

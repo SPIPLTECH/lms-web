@@ -3,6 +3,10 @@
 import { Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+import QuizRichText from "@/components/quiz/QuizRichText";
+import useOptionCardPress from "@/components/quiz/useOptionCardPress";
+import { isRichQuizText } from "@/lib/quizText";
+
 const getOptionText = (opt) => {
   if (opt === null || opt === undefined) return "";
   if (typeof opt === "string") return opt;
@@ -24,6 +28,7 @@ export default function MCQMultiOptionList({
     }
     onSelect(newAnswers);
   };
+  const cardPress = useOptionCardPress();
 
   return (
     <div className="space-y-1.5 sm:space-y-4">
@@ -36,20 +41,24 @@ export default function MCQMultiOptionList({
       {options.map((option, index) => {
         const optionText = getOptionText(option);
         const isSelected = selectedAnswers.includes(optionText) || selectedAnswers.includes(option);
+        // An option holding code is a card, not a <button> — see
+        // useOptionCardPress — and doesn't scale on hover, which blurs code.
+        const rich = isRichQuizText(optionText);
+        const OptionElement = rich ? motion.div : motion.button;
+        const pressProps = rich
+          ? { ...cardPress(() => handleToggle(optionText)), "aria-pressed": isSelected }
+          : { type: "button", onClick: () => handleToggle(optionText), whileHover: { scale: 1.01, y: -2 }, whileTap: { scale: 0.99 } };
 
         return (
-          <motion.button
+          <OptionElement
             key={index}
-            type="button"
-            onClick={() => handleToggle(optionText)}
-            whileHover={{ scale: 1.01, y: -2 }}
-            whileTap={{ scale: 0.99 }}
+            {...pressProps}
             transition={{ type: "spring", stiffness: 400, damping: 25 }}
             className={`
               relative
               flex
               w-full
-              items-center
+              ${rich ? "items-start" : "items-center"}
               gap-2
               sm:gap-4
               rounded-xl
@@ -110,15 +119,25 @@ export default function MCQMultiOptionList({
 
             {/* Option Text */}
             <div className="flex-1 min-w-0">
-              <p
-                className={`text-xs sm:text-base leading-snug sm:leading-relaxed break-words transition-colors duration-200 ${
-                  isSelected
-                    ? "font-semibold text-foreground"
-                    : "text-slate-400"
-                }`}
-              >
-                {optionText}
-              </p>
+              {rich ? (
+                <div
+                  className={`text-xs sm:text-base leading-snug sm:leading-relaxed transition-colors duration-200 ${
+                    isSelected ? "font-semibold text-foreground" : "text-slate-400"
+                  }`}
+                >
+                  <QuizRichText text={optionText} variant="option" />
+                </div>
+              ) : (
+                <p
+                  className={`text-xs sm:text-base leading-snug sm:leading-relaxed break-words transition-colors duration-200 ${
+                    isSelected
+                      ? "font-semibold text-foreground"
+                      : "text-slate-400"
+                  }`}
+                >
+                  <QuizRichText text={optionText} preserveLines />
+                </p>
+              )}
             </div>
 
             {/* Checkbox indicator */}
@@ -145,7 +164,7 @@ export default function MCQMultiOptionList({
                 )}
               </AnimatePresence>
             </div>
-          </motion.button>
+          </OptionElement>
         );
       })}
     </div>

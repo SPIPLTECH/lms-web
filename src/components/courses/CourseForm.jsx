@@ -302,7 +302,7 @@ export default function CourseForm({
                                 </div>
                             ) : (
                                 <img
-                                    src={getDisplayUrl(formData.thumbnailUrl)}
+                                    src={getDisplayUrl(formData.thumbnailUrl, { width: 640 })}
                                     alt="Thumbnail Preview"
                                     onError={() => setImageError(true)}
                                     className="h-full w-full object-cover grayscale hover:grayscale-0 transition-all duration-500"

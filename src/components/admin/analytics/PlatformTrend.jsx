@@ -1,13 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { ChartCardSkeleton } from "@/components/ui/Skeleton";
 
-// recharts is loaded only when this chart mounts — the same pattern as the
-// instructor StudentEngagement chart, keeping it out of the route bundle.
+// recharts is loaded only when this chart mounts, keeping it out of the
+// route bundle.
 const PlatformTrend = dynamic(() => import("./PlatformTrend.chart"), {
     ssr: false,
-    loading: () => <ChartCardSkeleton title="Loading trend" height="h-64" />,
+    loading: () => (
+        <div className="h-64 rounded-xl bg-muted/50 animate-pulse" role="status" aria-label="Loading trend" />
+    ),
 });
 
 export default PlatformTrend;

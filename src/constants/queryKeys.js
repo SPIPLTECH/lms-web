@@ -1,8 +1,4 @@
 export const QUERY_KEYS = {
-    // ==========================
-    // Auth
-    // ==========================
-    AUTH_SESSION: "auth-session",
     /** GET /sessions/me — the signed-in browser's own session (keep-alive). */
     SESSION_ME: "session-me",
     /** GET /playback/status — this account's playback lease, as this device sees it. */
@@ -15,22 +11,12 @@ export const QUERY_KEYS = {
     EVALUATOR_STATUS: "evaluator-status",
 
     // ==========================
-    // Public / guest (no token required)
-    // ==========================
-    /** Guest-accessible published catalogue at /courses (GET /courses). */
-    PUBLIC_COURSES: "public-courses",
-
-    // ==========================
     // Student
     // ==========================
     COURSES: "courses",
     COURSE: "course",
     MY_COURSES: "my-courses",
-    STORE_COURSES: "store-courses",
     STUDENT_DASHBOARD: "student-dashboard",
-    PAYMENTS: "payments",
-    PAYMENT_ORDERS: "payment-orders",
-    UPCOMING_TASKS: "upcoming-tasks",
     STUDENT_PROFILE: "student-profile",
     STUDENT_CERTIFICATES: "student-certificates",
     STUDENT_STATE: "student-state",
@@ -47,11 +33,8 @@ export const QUERY_KEYS = {
     CODEIT_TOPICS: "codeit-topics",
     CODEIT_EXERCISE: "codeit-exercise",
     BOOKMARKS: "bookmarks",
-    LIVE_CLASSES: "live-classes",
-    ACHIEVEMENTS: "achievements",
     MY_ACHIEVEMENTS: "my-achievements",
     DASHBOARD: "dashboard",
-    CALENDAR: "calendar_events",
     NOTIFICATIONS: "notifications",
     COURSE_STATE: "course-state",
     LEARNING_PATH: "learning-path",
@@ -59,9 +42,6 @@ export const QUERY_KEYS = {
     RECOMMENDATIONS: "recommendations",
     NEXT_ACTION: "next-action",
     LEARNING_SIGNALS: "learning-signals",
-    INSTRUCTOR_INSIGHTS: "instructor-insights",
-    INSTRUCTOR_LEARNERS: "instructor-learners",
-    INSTRUCTOR_LEARNER: "instructor-learner",
     LEARNING_HEALTH: "learning-health",
     LEARNING_HEALTH_LEARNER: "learning-health-learner",
     MOTIVATION: "motivation",
@@ -71,8 +51,6 @@ export const QUERY_KEYS = {
     ADMIN_ANALYTICS_PLATFORM: "admin-analytics-platform",
     ADMIN_ANALYTICS_COURSES: "admin-analytics-courses",
     ADMIN_INTELLIGENCE: "admin-intelligence",
-    COURSE_REVIEWS: "course-reviews",
-    COURSE_REVIEW_STATS: "course-review-stats",
     PROGRESS: "progress",
     COURSE_PROGRESS: "course-progress",
 
@@ -95,17 +73,11 @@ export const QUERY_KEYS = {
     ADMIN_STUDENT: "admin-student",
 
     ADMIN_INSTRUCTORS: "admin-instructors",
-    ADMIN_INSTRUCTOR: "admin-instructor",
 
     ADMIN_COURSES: "admin-courses",
     ADMIN_COURSE: "admin-course",
 
     ADMIN_ENROLLMENTS: "admin-enrollments",
-    ADMIN_ENROLLMENT: "admin-enrollment",
-
-    ADMIN_CERTIFICATES: "admin-certificates",
-
-    ADMIN_CALENDAR_EVENTS: "admin-calendar-events",
 
     PROFILE: "profile",
     ADMIN_PROFILE: "admin-profile",
@@ -118,9 +90,9 @@ export const QUERY_KEYS = {
 
     INSTRUCTOR_COURSES: "instructor-courses",
     INSTRUCTOR_COURSES_TABLE: "instructor-courses-table",
-    /** Server-computed summary counts (GET /courses/stats/mine) — never a list. */
-    INSTRUCTOR_COURSE_STATS: "instructor-course-stats",
     INSTRUCTOR_COURSE: "instructor-course",
+    /** GET /courses/resolve/:key — a staff URL's readable course key -> id. */
+    COURSE_KEY: "course-key",
 
     MODULES: "modules",
     MODULE: "module",
@@ -156,11 +128,9 @@ export const QUERY_KEYS = {
 
     EXAMS: "exams",
     EXAM: "exam",
-    MY_REVIEWS: "my-reviews",
     RESULTS: "results",
     ASSESSMENTS: "assessments",
     ASSIGNMENT_EVALUATION: "assignment-evaluation",
     EVALUATION_SYNONYMS: "evaluation-synonyms",
-    INSTRUCTOR_CERTIFICATES: "instructor-certificates",
     COURSE_IMPORT_JOB: "course-import-job",
 };

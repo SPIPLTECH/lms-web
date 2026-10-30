@@ -11,11 +11,12 @@ import { defaultQueryOptions } from "@/lib/queryOptions";
  * filters ({ contentId } / { lessonId }). `enabled` lets a popover fetch only
  * once it's opened.
  */
-export function useMyQuestions(filters = {}, { enabled = true } = {}) {
+export function useMyQuestions(filters = {}, { enabled = true, refetchInterval = false } = {}) {
   return useQuery({
     queryKey: [QUERY_KEYS.MY_QUESTIONS, filters],
     queryFn: () => getMyQuestions(filters),
     enabled,
+    refetchInterval,
     ...defaultQueryOptions,
   });
 }

@@ -28,9 +28,23 @@ function ContentCompletionBar({
   completed = false,
   isPending = false,
   readOnly = false,
+  isTouring = false,
   onMarkComplete,
 }) {
   if (completed || readOnly) {
+    if (isTouring && completed && !readOnly) {
+      return (
+        <button
+          type="button"
+          disabled
+          title="Completed"
+          className="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full border border-emerald-500/50 bg-card/90 backdrop-blur-sm shadow-md text-sm font-bold text-emerald-400 opacity-90 cursor-default"
+        >
+          <CheckCircle2 size={14} className="shrink-0" />
+          Completed
+        </button>
+      );
+    }
     return null;
   }
 

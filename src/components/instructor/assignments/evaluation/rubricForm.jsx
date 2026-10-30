@@ -14,7 +14,7 @@ import { Field, INPUT_CLASS, SMALL_BUTTON_CLASS, fmtMarks, splitComma, splitLine
  * reaches a student until an instructor approves or sets the marks.
  */
 
-export const emptyCriterion = () => ({ description: "", marks: "1", keywords: "", phrases: "", contradictions: "", minKeywords: "" });
+const emptyCriterion = () => ({ description: "", marks: "1", keywords: "", phrases: "", contradictions: "", minKeywords: "" });
 
 /** Form state from a saved scheme (or a fresh one). */
 export function toForm(rubric, assignmentMarks) {

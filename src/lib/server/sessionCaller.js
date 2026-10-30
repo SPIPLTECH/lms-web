@@ -1,28 +1,9 @@
 /**
- * Shared checks for the Next route handlers that read or write Vercel Blob
- * with the server's Blob token (/api/blob-proxy, /api/external-file/*).
- * Server-only. No Next imports, so it can be unit-tested with plain node.
+ * Shared checks for the Next route handlers that serve stored files with the
+ * server's storage credentials (/api/blob-proxy, /api/external-file/*,
+ * /api/uploads-proxy). Server-only. No Next imports, so it can be unit-tested
+ * with plain node.
  */
-
-const BLOB_STORE_SUFFIX = ".blob.vercel-storage.com";
-
-/**
- * True only for https URLs on Vercel's own hosts. The previous check,
- * `hostname.endsWith("vercel.com")`, also matched attacker-registrable names
- * such as `evilvercel.com`, and these handlers send the Blob read/write token
- * to whatever host passes it.
- */
-export function isAllowedBlobUrl(rawUrl) {
-  let url;
-  try {
-    url = new URL(rawUrl);
-  } catch {
-    return false;
-  }
-  if (url.protocol !== "https:") return false;
-  const host = url.hostname.toLowerCase();
-  return host.endsWith(BLOB_STORE_SUFFIX) || host === "vercel.com" || host.endsWith(".vercel.com");
-}
 
 /**
  * The signed-in caller's role, validated by the API (GET /auth/profile runs
@@ -52,6 +33,72 @@ export async function resolveCaller({ apiUrl, accessToken, deviceKey, fetchImpl 
 }
 
 export const CONTENT_ACTIVE_ON_ANOTHER_DEVICE = "CONTENT_ACTIVE_ON_ANOTHER_DEVICE";
+
+/**
+ * A short memory of callers already checked, keyed by session and device.
+ *
+ * The file proxies check the session (and, for a student, the playback lease)
+ * with the API on every request, and one page can make many — a course list
+ * with several cover images, a PDF fetched in ranges. Each check is a round
+ * trip to the API and its database, so they dominated load time. A successful
+ * check is remembered for `ttlMs`; the cost is that a session ended, or a
+ * lease taken on another device, reaches this proxy up to `ttlMs` late.
+ * Only "allowed" answers are kept — a refusal or a failed check is asked again.
+ *
+ * @param {{ ttlMs?: number, max?: number, now?: () => number }} [options]
+ */
+export function createCallerCache({ ttlMs = 60_000, max = 1000, now = () => Date.now() } = {}) {
+  const entries = new Map();
+  return {
+    get(key) {
+      const entry = entries.get(key);
+      if (!entry) return null;
+      if (entry.expiresAt <= now()) {
+        entries.delete(key);
+        return null;
+      }
+      return entry.value;
+    },
+    set(key, value) {
+      if (entries.size >= max) {
+        // Drop expired entries first; if still full, the oldest one.
+        const t = now();
+        for (const [k, e] of entries) if (e.expiresAt <= t) entries.delete(k);
+        if (entries.size >= max) entries.delete(entries.keys().next().value);
+      }
+      entries.set(key, { value, expiresAt: now() + ttlMs });
+    },
+    get size() {
+      return entries.size;
+    },
+  };
+}
+
+/** The key a caller is remembered under: their session token and device. */
+export const callerCacheKey = (accessToken, deviceKey) => `${accessToken || ""}\u0000${deviceKey || ""}`;
+
+/**
+ * The caller and, for a student, their content access — asked in parallel
+ * (the lease check is asked before the role is known; its answer is simply
+ * not used for other roles) and remembered for a short while when allowed.
+ *
+ * @returns {Promise<{ role: string, access: "allowed" | "blocked" | "unknown" } | null>}
+ */
+export async function resolveCallerWithAccess(credentials, cache) {
+  const key = callerCacheKey(credentials.accessToken, credentials.deviceKey);
+  const remembered = cache?.get(key);
+  if (remembered) return remembered;
+
+  const [caller, studentAccess] = await Promise.all([
+    resolveCaller(credentials),
+    contentAccessFor({ ...credentials, role: "STUDENT" }),
+  ]);
+  if (!caller) return null;
+
+  const result = { ...caller, access: caller.role === "STUDENT" ? studentAccess : "allowed" };
+  if (result.access === "allowed") cache?.set(key, result);
+  return result;
+}
 
 /**
  * The API path /api/uploads-proxy may fetch: a file under /uploads/, as the

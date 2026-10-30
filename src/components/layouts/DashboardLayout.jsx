@@ -8,8 +8,10 @@ import DashboardNavbar from "@/components/layouts/DashboardNavbar";
 // <main>: pages bleed into main's padding with negative margins, which would
 // slide them over anything placed inside main above them.
 export default function DashboardLayout({ children, role, title, banner = null }) {
+  // min-h-dvh, not min-h-screen: on a phone 100vh is the height with the
+  // address bar hidden, so a page that fits still scrolled while it showed.
   return (
-    <div className={`flex min-h-screen bg-background`}>
+    <div className={`flex min-h-dvh bg-background`}>
       <div
         className="
           flex-1

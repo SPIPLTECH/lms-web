@@ -1,24 +1,57 @@
 "use client";
 
-import { Check, X, ArrowRight, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowRight, Check, CircleMinus, Minus, X } from "lucide-react";
 
-import Card from "@/components/ui/Card";
 import ListenButton from "@/components/student/tts/ListenButton";
+import QuizRichText from "@/components/quiz/QuizRichText";
+import OptionReview, { explanationInsideOption } from "@/components/student/quiz-review/OptionReview";
 import { checkAnswerCorrectness } from "@/lib/quizAnswers";
-import { resolveQuestionType } from "@/lib/questionType";
+import { resolveQuestionType, TRUE_FALSE_OPTIONS } from "@/lib/questionType";
 import { buildAnswerReviewSpeech } from "@/lib/quizSpeech";
 
-// One question's row in the "Detailed Question Review" list — options review
-// for MCQ types, plus dedicated layouts for ARRANGE_TOKENS/MATCH_PAIRS/
-// SELF_ASSESSMENT, each showing the student's answer against the correct one.
-export default function QuestionReviewCard({ question, index, userAnswer }) {
+const hasAnswer = (value) =>
+  Array.isArray(value)
+    ? value.length > 0
+    : value && typeof value === "object"
+      ? Object.keys(value).length > 0
+      : value !== undefined && value !== null && String(value).trim() !== "";
+
+/**
+ * What happened to one question in an attempt: "correct", "wrong" or
+ * "skipped". The result page counts its filters with this too, so a tag and
+ * the filter it falls under always agree.
+ */
+export function getQuestionReviewStatus(question, userAnswer) {
+  const selected = userAnswer?.answer ?? userAnswer?.selectedOption;
+  if (!hasAnswer(selected)) return "skipped";
+  const qType = resolveQuestionType(question.questionType);
+  return checkAnswerCorrectness(qType, selected, question.correctAnswer, question.options) ? "correct" : "wrong";
+}
+
+const STATUS_TAG = {
+  correct: { label: "Correct", icon: Check, className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" },
+  wrong: { label: "Wrong", icon: X, className: "bg-red-500/10 text-red-700 dark:text-red-400" },
+  skipped: { label: "Skipped", icon: Minus, className: "bg-muted text-muted-foreground" },
+};
+
+// One question in the result page's review list: its position and marks, what
+// happened to it, the question text, the options (or the dedicated layout for
+// ARRANGE_TOKENS / MATCH_PAIRS / SELF_ASSESSMENT) and the explanation, which
+// carries the Listen control.
+export default function QuestionReviewCard({ question, index, total, userAnswer }) {
   const qType = resolveQuestionType(question.questionType);
   const selectedOption = userAnswer?.answer ?? userAnswer?.selectedOption;
-  const isCorrect = checkAnswerCorrectness(qType, selectedOption, question.correctAnswer);
+  const isCorrect = checkAnswerCorrectness(qType, selectedOption, question.correctAnswer, question.options);
+  const status = getQuestionReviewStatus(question, userAnswer);
+  const tag = STATUS_TAG[status];
+  const TagIcon = tag.icon;
+  const marks = question.marks || 1;
+
+  const isChoice = qType === "MCQ_SINGLE" || qType === "MCQ_MULTI";
 
   // Format option text mapping
   let optionsList = [];
-  if (qType === "MCQ_SINGLE" || qType === "MCQ_MULTI") {
+  if (isChoice) {
     if (typeof question.options === "string") {
       try {
         optionsList = JSON.parse(question.options);
@@ -28,94 +61,75 @@ export default function QuestionReviewCard({ question, index, userAnswer }) {
     } else if (Array.isArray(question.options)) {
       optionsList = question.options;
     }
+    // A True/False question saved without its options still has them.
+    if (optionsList.length === 0 && question.questionType === "TRUE_FALSE") {
+      optionsList = TRUE_FALSE_OPTIONS;
+    }
   }
 
-  return (
-    <Card padding="" className="p-3 sm:p-6 border-border bg-background/30 min-w-0">
-      <div className="flex items-start gap-2.5 sm:gap-4">
-        {/* Number Badge */}
-        <span className="flex-shrink-0 flex h-7 w-7 sm:h-7 sm:w-7 items-center justify-center rounded-lg bg-slate-800/80 text-xs font-bold text-foreground border border-slate-700/60">
-          {index + 1}
-        </span>
+  const explanation = typeof question.explanation === "string" ? question.explanation.trim() : "";
+  // A single-answer choice question explains its correct option; anything
+  // else gets a general explanation.
+  const explanationTitle =
+    isChoice && explanationInsideOption(optionsList, question.correctAnswer) ? "Why it's correct" : "Explanation";
+  const listen = (
+    <ListenButton
+      sessionKey={question.id ? `quiz-review:${question.id}` : null}
+      getChunks={() => buildAnswerReviewSpeech({ question, index, type: qType, selectedOption })}
+      label="Listen"
+      ariaLabel={`Listen to review of question ${index + 1}`}
+      compact
+    />
+  );
 
-        <div className="flex-1 space-y-2.5 sm:space-y-4 min-w-0">
-          {/* Question Title & Marks */}
-          <div className="flex justify-between items-start gap-2 sm:gap-4 min-w-0">
-            <h4 className="text-xs sm:text-sm font-medium text-foreground leading-snug sm:leading-relaxed break-words flex-1">
-              {question.question}
-            </h4>
-            <div className="flex flex-col items-end gap-0.5 shrink-0">
-              <span className="text-[9px] sm:text-[10px] bg-slate-800/90 px-1.5 py-0.5 rounded border border-border text-muted-foreground font-bold uppercase shrink-0 whitespace-nowrap">
-                <span className="sm:hidden">{question.marks || 1}M</span>
-                <span className="hidden sm:inline">{question.marks || 1} {question.marks === 1 ? "Mark" : "Marks"}</span>
+  return (
+    // Inline radius: globals.css styles .bg-card unlayered (8px), which a
+    // rounded-* utility can't override.
+    <article style={{ borderRadius: 14 }} className="min-w-0 border border-border bg-card p-3 sm:p-4">
+      <div className="space-y-2 sm:space-y-2.5">
+          {/* Position and marks, and what happened to the question. */}
+          <div className="flex items-center justify-between gap-2.5">
+            <p className="min-w-0 text-xs font-semibold tabular-nums text-muted-foreground">
+              Question {index + 1}
+              <span className="font-normal">
+                {total ? ` of ${total}` : ""}, {marks} {marks === 1 ? "mark" : "marks"}
               </span>
-              {question.concept && (
-                <span className="text-[8px] sm:text-[9px] text-primary font-semibold uppercase tracking-wider">
-                  {question.concept}
-                </span>
-              )}
-            </div>
+              {question.concept && <span className="font-normal">, {question.concept}</span>}
+            </p>
+            <span
+              style={{ borderRadius: 9999 }}
+              className={`inline-flex shrink-0 items-center gap-1 px-2 py-0.5 text-[11px] font-semibold sm:text-xs ${tag.className}`}
+            >
+              <TagIcon size={12} strokeWidth={2.6} aria-hidden />
+              {tag.label}
+            </span>
+          </div>
+
+          {/* A <div>, not a heading: the text may hold code blocks. */}
+          <div className="min-w-0 break-words font-serif text-sm font-medium leading-snug text-foreground sm:text-base">
+            <QuizRichText text={question.question} />
           </div>
 
           {/* Conditional Display per Question Type */}
 
-          {/* 1. MCQ_SINGLE / MCQ_MULTI Options Review */}
-          {(qType === "MCQ_SINGLE" || qType === "MCQ_MULTI") && (
-            <div className="grid gap-2 sm:gap-2.5">
-              {optionsList.map((option, optIdx) => {
-                const optionText = typeof option === "string" ? option : (option?.optionText || option?.text || String(option));
-                const isSelected = qType === "MCQ_SINGLE"
-                  ? selectedOption === optionText || selectedOption === option
-                  : Array.isArray(selectedOption) && (selectedOption.includes(optionText) || selectedOption.includes(option));
-                // The key may be a string or a one-element array — the same
-                // rule checkAnswerCorrectness applies to the summary line.
-                const isAnswerCorrect = qType === "MCQ_SINGLE"
-                  ? checkAnswerCorrectness("MCQ_SINGLE", optionText, question.correctAnswer) ||
-                    (typeof option === "object" && option?.isCorrect)
-                  : Array.isArray(question.correctAnswer) && question.correctAnswer.includes(optionText);
-
-                let optionStyle = "border-slate-800/80 bg-background/40 text-muted-foreground";
-                let badgeIcon = null;
-                let radioCircle = <span className="h-3.5 w-3.5 rounded-full border border-slate-600 shrink-0 mr-2.5" />;
-
-                if (isSelected) {
-                  if (isAnswerCorrect) {
-                    optionStyle = "border-emerald-500/40 bg-emerald-500/10 text-emerald-300 font-medium";
-                    badgeIcon = <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" />;
-                    radioCircle = <span className="h-3.5 w-3.5 rounded-full border-2 border-emerald-400 bg-emerald-400/30 flex items-center justify-center shrink-0 mr-2.5"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /></span>;
-                  } else {
-                    optionStyle = "border-rose-500/40 bg-rose-500/10 text-rose-300 font-medium";
-                    badgeIcon = <X className="h-3.5 w-3.5 text-rose-400 shrink-0" />;
-                    radioCircle = <span className="h-3.5 w-3.5 rounded-full border-2 border-rose-400 bg-rose-400/30 flex items-center justify-center shrink-0 mr-2.5"><span className="h-1.5 w-1.5 rounded-full bg-rose-400" /></span>;
-                  }
-                } else if (isAnswerCorrect) {
-                  optionStyle = "border-emerald-500/30 bg-emerald-500/5 text-emerald-400";
-                  badgeIcon = <Check className="h-3.5 w-3.5 text-emerald-500/60 shrink-0" />;
-                  radioCircle = <span className="h-3.5 w-3.5 rounded-full border border-emerald-500/50 shrink-0 mr-2.5" />;
-                }
-
-                return (
-                  <div
-                    key={optIdx}
-                    className={`flex items-center justify-between rounded-lg sm:rounded-xl border px-3 py-2 sm:p-3.5 text-[11px] sm:text-xs min-h-[36px] transition ${optionStyle}`}
-                  >
-                    <div className="flex items-center min-w-0 pr-2">
-                      {radioCircle}
-                      <span className="break-words leading-tight sm:leading-normal">{optionText}</span>
-                    </div>
-                    {badgeIcon}
-                  </div>
-                );
-              })}
-            </div>
+          {/* 1. MCQ_SINGLE / MCQ_MULTI Options Review — the same option cards
+              a Self-Test shows once an answer is checked. The question's own
+              explanation is shown below the options here, with Listen, so it
+              is not passed in; per-option "Why it's wrong" reasons still are. */}
+          {isChoice && (
+            <OptionReview
+              options={optionsList}
+              selectedAnswer={selectedOption}
+              correctAnswer={question.correctAnswer}
+            />
           )}
 
           {/* 2. ARRANGE_TOKENS Review */}
           {qType === "ARRANGE_TOKENS" && (
-            <div className="space-y-2.5 sm:space-y-3 bg-background/40 p-3 sm:p-4 rounded-xl border border-slate-800">
-              <div className="space-y-1.5 sm:space-y-2">
+            <div className="space-y-2 bg-background/40 p-2.5 sm:p-3 rounded-xl border border-slate-800">
+              <div className="space-y-1 sm:space-y-1.5">
                 <span className="text-[9px] sm:text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Your Sequence:</span>
-                <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                <div className="flex flex-wrap gap-1 sm:gap-1.5">
                   {Array.isArray(selectedOption) && selectedOption.length > 0 ? (
                     selectedOption.map((token, tIdx) => {
                       const tokenText = typeof token === "string" ? token : (token?.optionText || token?.text || String(token));
@@ -156,9 +170,9 @@ export default function QuestionReviewCard({ question, index, userAnswer }) {
 
           {/* 3. MATCH_PAIRS Review */}
           {qType === "MATCH_PAIRS" && (
-            <div className="space-y-2.5 sm:space-y-3 bg-background/40 p-3 sm:p-4 rounded-xl border border-slate-800">
+            <div className="space-y-2 bg-background/40 p-2.5 sm:p-3 rounded-xl border border-slate-800">
               <span className="text-[9px] sm:text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Matches Review:</span>
-              <div className="grid gap-2 sm:gap-3">
+              <div className="grid gap-1.5 sm:gap-2">
                 {Object.entries(question.correctAnswer || {}).map(([leftItem, rightItem]) => {
                   const studentMatch = selectedOption?.[leftItem] || "";
                   const isMatchCorrect = studentMatch === rightItem;
@@ -204,53 +218,30 @@ export default function QuestionReviewCard({ question, index, userAnswer }) {
             </div>
           )}
 
-          {/* Explanation — sent with the result once the attempt is
-              submitted; shown (and read aloud) when the question has one. */}
-          {question.explanation && String(question.explanation).trim() && (
-            <div className="rounded-xl border border-border bg-muted/40 p-3 sm:p-4 space-y-1">
-              <span className="text-[9px] sm:text-[10px] text-primary font-bold uppercase tracking-wider">Explanation</span>
-              <p className="text-[11px] sm:text-xs text-foreground leading-relaxed whitespace-pre-wrap break-words">
-                {question.explanation}
-              </p>
-            </div>
+          {status === "skipped" && (
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <CircleMinus size={15} aria-hidden />
+              You didn&apos;t answer this question
+            </p>
           )}
 
-          {/* Result Summary Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 sm:pt-2.5">
-            <div className="flex items-center gap-2">
-            {selectedOption ? (
-              <>
-                {isCorrect ? (
-                  <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-emerald-400 font-semibold">
-                    <CheckCircle2 size={14} />
-                    <span>Correct Choice</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-rose-400 font-semibold">
-                    <XCircle size={14} />
-                    <span>Incorrect Choice</span>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-muted-foreground font-semibold italic">
-                <XCircle size={14} />
-                <span>Not Answered</span>
+          {/* Explanation — sent with the result once the attempt is
+              submitted — with Listen, which reads the whole review of this
+              question. Without an explanation, Listen stands on its own. */}
+          {explanation ? (
+            <div className="rounded-lg sm:rounded-xl border-l-[3px] border-emerald-500 bg-muted/50 py-1.5 pl-3 pr-2.5 sm:py-2 sm:pl-3.5 sm:pr-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-foreground sm:text-[13px]">{explanationTitle}</p>
+                {listen}
               </div>
-            )}
+              <div className="mt-0.5 whitespace-pre-wrap break-words text-xs leading-snug text-foreground/85 sm:text-[13px]">
+                <QuizRichText text={explanation} />
+              </div>
             </div>
-            <ListenButton
-              sessionKey={question.id ? `quiz-review:${question.id}` : null}
-              getChunks={() =>
-                buildAnswerReviewSpeech({ question, index, type: qType, selectedOption })
-              }
-              label="Listen"
-              ariaLabel={`Listen to review of question ${index + 1}`}
-              compact
-            />
-          </div>
-        </div>
+          ) : (
+            <div className="flex justify-end">{listen}</div>
+          )}
       </div>
-    </Card>
+    </article>
   );
 }

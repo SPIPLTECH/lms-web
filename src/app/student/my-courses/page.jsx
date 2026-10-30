@@ -9,6 +9,11 @@ import Pagination from "@/components/ui/Pagination";
 import SnapCardSlider from "@/components/ui/SnapCardSlider";
 import MyCourseCard from "@/components/student/my-courses/MyCourseCard";
 import StudentWelcomeCard from "@/components/student/my-courses/StudentWelcomeCard";
+import GettingStartedChecklist from "@/components/student/onboarding/GettingStartedChecklist";
+import MotivationCard from "@/components/student/dashboard/MotivationCard";
+import StudyPlanCard from "@/components/student/dashboard/StudyPlanCard";
+import CareerReadinessCard from "@/components/student/dashboard/CareerReadinessCard";
+import { courseIdOf, sortByRecentAccess } from "@/lib/studentOnboarding";
 import useMyCourses from "@/hooks/queries/student/useMyCourses";
 import { AiAssistantWidget } from "@/features/ai-assistant/components";
 
@@ -19,24 +24,12 @@ export default function MyCoursesPage() {
 
   // Sort enrollments strictly by student's actual course access (lastAccessedAt desc).
   // Accessed courses (lastAccessedAt exists) come first in order of recency.
-  // Never-accessed courses fall back to enrolledAt desc.
-  const sortedEnrollments = useMemo(() => {
-    return [...myEnrollments].sort((a, b) => {
-      const timeA = a.lastAccessedAt ? new Date(a.lastAccessedAt).getTime() : 0;
-      const timeB = b.lastAccessedAt ? new Date(b.lastAccessedAt).getTime() : 0;
-
-      if (timeA !== timeB) {
-        return timeB - timeA;
-      }
-
-      const enrollA = a.enrolledAt ? new Date(a.enrolledAt).getTime() : 0;
-      const enrollB = b.enrolledAt ? new Date(b.enrolledAt).getTime() : 0;
-      return enrollB - enrollA;
-    });
-  }, [myEnrollments]);
+  // Never-accessed courses fall back to enrolledAt desc. Shared with the
+  // onboarding tour, which opens this same first course.
+  const sortedEnrollments = useMemo(() => sortByRecentAccess(myEnrollments), [myEnrollments]);
 
   const primaryCourse = sortedEnrollments[0];
-  const primaryCourseId = primaryCourse?.courseId || primaryCourse?.course?.id || null;
+  const primaryCourseId = courseIdOf(primaryCourse);
   const primaryCourseTitle = primaryCourse?.course?.title || null;
 
   // Years the student has an enrollment in, newest first — drives the Year filter.
@@ -72,14 +65,29 @@ export default function MyCoursesPage() {
   }, [totalPages]);
 
   return (
-    // student/layout.jsx gives this route its own viewport-height shell
-    // (p-3 sm:p-6, no DashboardLayout p-16/pb-32), so the page fills it
-    // directly; from md up only the Enrolled Courses grid scrolls.
-    <div className="space-y-4 md:space-y-6 flex flex-col flex-1 min-h-0">
+    // Same shell as the Instructor Courses page: bleeds out to DashboardLayout's
+    // padding (p-2 / sm:p-6 / md:p-16) and re-pads evenly; the page scrolls as
+    // a normal document, the Enrolled Courses grid does not scroll on its own.
+    <div className="-m-2 sm:-m-6 md:-m-16 p-3 sm:p-6 space-y-4 md:space-y-6 flex flex-col flex-1 min-h-0">
       <div className="shrink-0">
-        <StudentWelcomeCard />
+        <StudentWelcomeCard courseTitle={primaryCourseTitle} />
       </div>
 
+      {/* New students only (renders nothing otherwise). */}
+      <div className="shrink-0 empty:hidden">
+        <GettingStartedChecklist />
+      </div>
+
+      {/* Adaptive agents. Each card renders nothing until it has something to
+          say, and nothing on an error, so the row disappears entirely when
+          the agents have no data. KEEP GOING: streak and a few timely nudges.
+          STUDY PLAN: this week's plan for the most recently opened course.
+          CAREER READINESS: readiness for the student's chosen role. */}
+      <div className="shrink-0 grid gap-4 lg:grid-cols-3 items-start empty:hidden">
+        <MotivationCard />
+        {primaryCourseId && <StudyPlanCard courseId={primaryCourseId} courseTitle={primaryCourseTitle} />}
+        <CareerReadinessCard />
+      </div>
 
       {isError ? (
         <div className="rounded-2xl border border-border bg-card py-16 text-center space-y-3">
@@ -121,7 +129,7 @@ export default function MyCoursesPage() {
             )}
           </div>
 
-          <div className="md:flex-1 md:min-h-0 md:overflow-y-auto md:pr-1 md:-mr-1 md:pb-1">
+          <div className="flex-1">
             <SnapCardSlider
               items={pagedEnrollments}
               getKey={(enrollment) => enrollment.id || enrollment.courseId}
@@ -139,7 +147,7 @@ export default function MyCoursesPage() {
             />
           </div>
 
-          {/* Pinned under the scrolling grid, with clear space above it. */}
+          {/* Under the grid, with clear space above it. */}
           {!isLoading && myEnrollments.length > 0 && (
             <div className="hidden md:block shrink-0 mt-6">
               <Pagination
@@ -163,6 +171,7 @@ export default function MyCoursesPage() {
         courseTitle={primaryCourseTitle}
         isEnrolled={Boolean(primaryCourseId)}
         scopeHint="ENROLLED"
+        hideLauncherBelowSm
       />
     </div>
   );

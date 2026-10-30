@@ -28,7 +28,7 @@ export const SPEECH_STATUS = {
   COMPLETED: "completed",
 };
 
-export const SPEECH_UNAVAILABLE_MESSAGE = "Speech playback is unavailable.";
+const SPEECH_UNAVAILABLE_MESSAGE = "Speech playback is unavailable.";
 
 // Errors the engine reports for utterances WE cancelled — expected, not failures.
 const BENIGN_ERRORS = new Set(["interrupted", "canceled"]);

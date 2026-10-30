@@ -1,9 +1,9 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, Inbox, Search, SearchX, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Inbox, Search, SearchX, SlidersHorizontal, X } from "lucide-react";
 
 import PageHeader from "@/components/layouts/PageHeader";
 import SubmissionListItem from "@/components/student/submissions/SubmissionListItem";
@@ -20,6 +20,170 @@ import {
 
 const SELECT_CLASS =
   "h-11 min-w-0 cursor-pointer rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none transition-colors focus:border-primary sm:w-40";
+
+// Phone filter chips (the Filters sheet and the active-filter row). Inline
+// radius: globals.css gives every <button> an unlayered 6px radius.
+const PILL = { borderRadius: 9999 };
+const chipClass = (active) =>
+  `inline-flex min-h-[36px] cursor-pointer items-center gap-1.5 border px-3 text-xs font-semibold transition-colors ${
+    active
+      ? "border-primary/50 bg-primary/10 text-primary"
+      : "border-border bg-card text-foreground hover:border-primary/40"
+  }`;
+// "All status" / "All quiz types" read as just "All" inside a labelled group.
+const chipLabel = (option) => (option.key === "all" ? "All" : option.label);
+
+/**
+ * Phones only: every filter of the page in one bottom sheet — the same
+ * dialog idiom as the learn page's Learning tools sheet (scrim, Escape,
+ * slide-up). Filters apply as they are chosen; the button closes the sheet
+ * and says how many results that leaves.
+ */
+function FiltersSheet({
+  type,
+  status,
+  setStatus,
+  quizType,
+  setQuizType,
+  sort,
+  setSort,
+  courseOptions,
+  courseContext,
+  setCourse,
+  resultCount,
+  onReset,
+  onClose,
+}) {
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  const section = "mt-4 text-[11px] font-bold uppercase tracking-wide text-muted-foreground";
+
+  return (
+    <div className="md:hidden fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Filters">
+      <div aria-hidden="true" onClick={onClose} className="absolute inset-0 bg-black/70 animate-scrim-in" />
+      <section className="absolute inset-x-0 bottom-0 flex max-h-[85dvh] flex-col rounded-t-2xl border-t border-border bg-card px-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl shadow-black/60 animate-sheet-in-up">
+        <div className="shrink-0 pt-2">
+          <div aria-hidden="true" className="mx-auto h-1 w-10 rounded-full bg-muted-foreground/40" />
+          <div className="flex items-center justify-between gap-3 py-2.5">
+            <h2 className="text-base font-bold text-foreground">Filters</h2>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={onReset}
+                className="min-h-[36px] cursor-pointer rounded-lg px-2 text-sm font-semibold text-primary hover:bg-primary/10"
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close filters"
+                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X size={18} aria-hidden />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-1">
+          {courseOptions.length > 1 && (
+            <>
+              <p className={section} id="filter-course">Course</p>
+              <div role="group" aria-labelledby="filter-course" className="mt-2 flex flex-wrap gap-1.5">
+                {[{ key: "", label: "All" }, ...courseOptions.map((title) => ({ key: title, label: title }))].map((option) => (
+                  <button
+                    key={option.key || "all"}
+                    type="button"
+                    aria-pressed={courseContext === option.key}
+                    onClick={() => setCourse(option.key)}
+                    style={PILL}
+                    className={chipClass(courseContext === option.key)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          <p className={section} id="filter-status">Status</p>
+          <div role="group" aria-labelledby="filter-status" className="mt-2 flex flex-wrap gap-1.5">
+            {SUBMISSION_STATUS_FILTERS.map((option) => (
+              <button
+                key={option.key}
+                type="button"
+                aria-pressed={status === option.key}
+                onClick={() => setStatus(option.key)}
+                style={PILL}
+                className={chipClass(status === option.key)}
+              >
+                {chipLabel(option)}
+              </button>
+            ))}
+          </div>
+
+          {type === "quiz" && (
+            <>
+              <p className={section} id="filter-quiz-type">Quiz type</p>
+              <div role="group" aria-labelledby="filter-quiz-type" className="mt-2 flex flex-wrap gap-1.5">
+                {SUBMISSION_QUIZ_TYPE_FILTERS.map((option) => (
+                  <button
+                    key={option.key}
+                    type="button"
+                    aria-pressed={quizType === option.key}
+                    onClick={() => setQuizType(option.key)}
+                    style={PILL}
+                    className={chipClass(quizType === option.key)}
+                  >
+                    {chipLabel(option)}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          <p className={section} id="filter-sort">Sort by</p>
+          <div role="radiogroup" aria-labelledby="filter-sort" className="mt-1">
+            {SUBMISSION_SORTS.map((option) => {
+              const active = sort === option.key;
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => setSort(option.key)}
+                  className="flex min-h-[44px] w-full cursor-pointer items-center justify-between border-b border-border text-left text-sm text-foreground last:border-b-0"
+                >
+                  {option.label}
+                  <span
+                    aria-hidden
+                    className={`h-4 w-4 rounded-full border-2 ${active ? "border-[5px] border-primary" : "border-muted-foreground/50"}`}
+                  />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-3 inline-flex min-h-[44px] shrink-0 cursor-pointer items-center justify-center rounded-xl bg-primary text-sm font-bold text-primary-foreground"
+        >
+          Show {resultCount} {type === "quiz" ? (resultCount === 1 ? "quiz" : "quizzes") : resultCount === 1 ? "assignment" : "assignments"}
+        </button>
+      </section>
+    </div>
+  );
+}
 
 function SubmissionsSkeleton() {
   return (
@@ -127,6 +291,33 @@ function SubmissionsPageContent() {
     setQuery("");
   };
 
+  // Phones: the Filters sheet, its badge (filters in use, not sort or
+  // search) and the removable chips under the search row.
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const closeFilters = useCallback(() => setFiltersOpen(false), []);
+  const activeChips = [
+    courseContext && { key: "course", label: courseContext, clear: () => setCourse("") },
+    status !== "all" && {
+      key: "status",
+      label: SUBMISSION_STATUS_FILTERS.find((o) => o.key === status)?.label,
+      clear: () => setStatus("all"),
+    },
+    type === "quiz" && quizType !== "all" && {
+      key: "quizType",
+      label: SUBMISSION_QUIZ_TYPE_FILTERS.find((o) => o.key === quizType)?.label,
+      clear: () => setQuizType("all"),
+    },
+    sort !== "newest" && {
+      key: "sort",
+      label: SUBMISSION_SORTS.find((o) => o.key === sort)?.label,
+      clear: () => setSort("newest"),
+    },
+  ].filter(Boolean);
+  const activeFilterCount = activeChips.filter((chip) => chip.key !== "sort").length;
+  // Nothing to search on an empty tab (unless a course scope or a search
+  // emptied it — then the controls are how to get back).
+  const hideControlsOnPhone = typeCounts[type] === 0 && !courseContext && query.trim() === "";
+
   if (assignmentsQuery.isLoading || quizzesQuery.isLoading) return <SubmissionsSkeleton />;
 
   const failedSources = [
@@ -150,9 +341,19 @@ function SubmissionsPageContent() {
           <PageHeader
             title="Submissions"
             subtitle={
-              courseContext
-                ? `Your assignments and quizzes in ${courseContext} — what you submitted, what you scored, and every attempt.`
-                : "Every assignment and quiz across your courses — what you submitted, what you scored, and how many attempts you've used."
+              <>
+                {/* One line on a phone; the full sentence from md up. */}
+                <span className="md:hidden">
+                  {courseContext
+                    ? `Your assignments and quizzes in ${courseContext}.`
+                    : "Your assignments and quizzes, scores and attempts."}
+                </span>
+                <span className="hidden md:inline">
+                  {courseContext
+                    ? `Your assignments and quizzes in ${courseContext} — what you submitted, what you scored, and every attempt.`
+                    : "Every assignment and quiz across your courses — what you submitted, what you scored, and how many attempts you've used."}
+                </span>
+              </>
             }
           />
         </div>
@@ -181,7 +382,7 @@ function SubmissionsPageContent() {
               <div
                 role="group"
                 aria-label="Show"
-                className="inline-flex min-w-max rounded-xl border border-border bg-card p-1"
+                className="grid w-full grid-cols-2 rounded-xl border border-border bg-card p-1 md:inline-flex md:w-auto md:min-w-max"
               >
                 {SUBMISSION_TYPES.map((t) => {
                   const active = type === t.key;
@@ -191,7 +392,7 @@ function SubmissionsPageContent() {
                       type="button"
                       aria-pressed={active}
                       onClick={() => setType(t.key)}
-                      className={`inline-flex min-h-[40px] cursor-pointer items-center gap-2 rounded-lg px-4 text-sm font-semibold transition-colors ${
+                      className={`inline-flex min-h-[40px] cursor-pointer items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition-colors ${
                         active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
@@ -209,25 +410,48 @@ function SubmissionsPageContent() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <div className="relative sm:flex-1 lg:w-72 lg:flex-none">
-                <Search
-                  size={16}
-                  aria-hidden
-                  className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground"
-                />
-                <input
-                  type="search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search assignments and quizzes"
-                  aria-label="Search assignments and quizzes by name"
-                  // !pl/!pr: globals.css pads bare inputs from outside any
-                  // layer, which would otherwise slide text under the icon.
-                  className="h-11 w-full rounded-xl border border-border bg-card !pl-10 !pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
-                />
+            <div className={`flex flex-col gap-2 sm:flex-row sm:items-center ${hideControlsOnPhone ? "max-md:hidden" : ""}`}>
+              {/* Phones: search + one Filters button (the dropdowns live in
+                  the Filters sheet); md up: search + the dropdowns. */}
+              <div className="flex gap-2 sm:flex-1 lg:w-72 lg:flex-none">
+                <div className="relative min-w-0 flex-1">
+                  <Search
+                    size={16}
+                    aria-hidden
+                    className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  />
+                  <input
+                    type="search"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder={type === "quiz" ? "Search quizzes" : "Search assignments"}
+                    aria-label="Search assignments and quizzes by name"
+                    // !pl/!pr: globals.css pads bare inputs from outside any
+                    // layer, which would otherwise slide text under the icon.
+                    className="h-11 w-full rounded-xl border border-border bg-card !pl-10 !pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFiltersOpen(true)}
+                  aria-haspopup="dialog"
+                  aria-label={activeFilterCount ? `Filters, ${activeFilterCount} in use` : "Filters"}
+                  className="relative inline-flex h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-sm font-semibold text-foreground transition-colors hover:border-primary/40 md:hidden"
+                >
+                  <SlidersHorizontal size={16} aria-hidden />
+                  Filters
+                  {activeFilterCount > 0 && (
+                    <span
+                      aria-hidden
+                      style={PILL}
+                      className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center bg-primary px-1 text-[11px] font-bold text-primary-foreground"
+                    >
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </button>
               </div>
-              <div className="grid grid-cols-2 gap-2 sm:flex">
+              <div className="grid grid-cols-2 gap-2 sm:flex max-md:hidden">
                 {courseOptions.length > 1 && (
                   <select
                     value={courseContext}
@@ -283,7 +507,49 @@ function SubmissionsPageContent() {
                 </select>
               </div>
             </div>
+
+            {/* Phones: what is filtered, each removable in one tap. */}
+            {activeChips.length > 0 && !hideControlsOnPhone && (
+              <div className="flex flex-wrap gap-1.5 md:hidden">
+                {activeChips.map((chip) => (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    onClick={chip.clear}
+                    aria-label={`Remove filter: ${chip.label}`}
+                    style={PILL}
+                    className={chipClass(true)}
+                  >
+                    <span className="max-w-[12rem] truncate">{chip.label}</span>
+                    <X size={13} aria-hidden />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+
+          {filtersOpen && (
+            <FiltersSheet
+              type={type}
+              status={status}
+              setStatus={setStatus}
+              quizType={quizType}
+              setQuizType={setQuizType}
+              sort={sort}
+              setSort={setSort}
+              courseOptions={courseOptions}
+              courseContext={courseContext}
+              setCourse={setCourse}
+              resultCount={visible.length}
+              onReset={() => {
+                setStatus("all");
+                setQuizType("all");
+                setSort("newest");
+                if (courseContext) setCourse("");
+              }}
+              onClose={closeFilters}
+            />
+          )}
 
           {failedSources.length > 0 && (
             <p
@@ -315,26 +581,39 @@ function SubmissionsPageContent() {
           )}
 
           {typeCounts[type] === 0 ? (
-            <div className="rounded-2xl bg-card px-6 py-14 text-center shadow-sm">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                <Inbox size={22} aria-hidden />
-              </div>
-              <p className="mt-4 text-base font-semibold text-foreground">
-                {type === "quiz" ? "No quizzes submitted yet" : "No assignments submitted yet"}
-              </p>
-              <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-                {type === "quiz"
-                  ? "Quizzes you submit will appear here, with your score and every attempt."
-                  : "Assignments you submit will appear here, with your grade and feedback."}
-              </p>
-              <Link
-                href="/student/my-courses"
-                className="mt-5 inline-flex min-h-[44px] items-center gap-1.5 rounded-xl bg-primary/10 px-4 text-sm font-semibold text-primary transition-colors hover:bg-primary/15"
-              >
-                Go to my courses
-                <ArrowRight size={15} aria-hidden />
-              </Link>
-            </div>
+            (() => {
+              const emptyBody = (
+                <>
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <Inbox size={22} aria-hidden />
+                  </div>
+                  <p className="mt-4 text-base font-semibold text-foreground">
+                    {type === "quiz" ? "No quizzes submitted yet" : "No assignments submitted yet"}
+                  </p>
+                  <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+                    {type === "quiz"
+                      ? "Quizzes you submit will appear here, with your score and every attempt."
+                      : "Assignments you submit will appear here, with your grade and feedback."}
+                  </p>
+                  <Link
+                    href="/student/my-courses"
+                    className="mt-5 inline-flex min-h-[44px] items-center gap-1.5 rounded-xl bg-primary/10 px-4 text-sm font-semibold text-primary transition-colors hover:bg-primary/15"
+                  >
+                    Go to my courses
+                    <ArrowRight size={15} aria-hidden />
+                  </Link>
+                </>
+              );
+              // Phones: a light empty state with no card around it. md up:
+              // the card as before (globals.css styles .bg-card unlayered, so
+              // a max-md utility could not take its border off).
+              return (
+                <>
+                  <div className="px-6 py-10 text-center md:hidden">{emptyBody}</div>
+                  <div className="rounded-2xl bg-card px-6 py-14 text-center shadow-sm max-md:hidden">{emptyBody}</div>
+                </>
+              );
+            })()
           ) : visible.length === 0 ? (
             <div className="rounded-2xl bg-card px-6 py-14 text-center shadow-sm">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
@@ -353,7 +632,7 @@ function SubmissionsPageContent() {
               </button>
             </div>
           ) : (
-            <ul className="space-y-3" aria-label="Submissions">
+            <ul className="space-y-2 md:space-y-3" aria-label="Submissions">
               {visible.map((record) => (
                 <li key={record.key}>
                   <SubmissionListItem record={record} />

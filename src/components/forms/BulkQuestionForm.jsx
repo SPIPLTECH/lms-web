@@ -4,7 +4,9 @@ import { useState } from "react";
 import { FaPlus, FaTrash, FaCode, FaListUl, FaChevronDown, FaChevronUp } from "@/components/ui/reactIcons";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
-import Input from "@/components/ui/Input";
+import QuizTextEditor from "@/components/quiz/QuizTextEditor";
+import DuplicateOptionsWarning from "@/components/quiz/DuplicateOptionsWarning";
+import { quizTextSummary } from "@/lib/quizText";
 
 const EMPTY_QUESTION = () => ({
     question: "",
@@ -23,10 +25,13 @@ function QuestionBlock({ index, data, onChange, onRemove, canRemove }) {
     const update = (field, value) =>
         onChange(index, { ...data, [field]: value });
 
+    // The answer key is the option's text, so it follows that text as it
+    // is edited.
     const updateOption = (i, val) => {
         const opts = [...data.options];
+        const correct = data.correctAnswer && data.correctAnswer === opts[i] ? val : data.correctAnswer;
         opts[i] = val;
-        onChange(index, { ...data, options: opts });
+        onChange(index, { ...data, options: opts, correctAnswer: correct });
     };
 
     const addOption = () =>
@@ -55,7 +60,7 @@ function QuestionBlock({ index, data, onChange, onRemove, canRemove }) {
                         {index + 1}
                     </span>
                     <p className="max-w-md truncate text-sm text-foreground">
-                        {data.question.trim() || <span className="text-muted-foreground italic">Question {index + 1} — untitled</span>}
+                        {quizTextSummary(data.question).trim() || <span className="text-muted-foreground italic">Question {index + 1} — untitled</span>}
                     </p>
                 </div>
 
@@ -81,13 +86,18 @@ function QuestionBlock({ index, data, onChange, onRemove, canRemove }) {
             {!collapsed && (
                 <div className="space-y-5 border-t border-transparent px-5 pb-5 pt-4">
                     {/* Question text */}
-                    <Input
-                        label="Question *"
-                        value={data.question}
-                        onChange={(e) => update("question", e.target.value)}
-                        placeholder="Enter your question here…"
-                        required
-                    />
+                    <div className="space-y-1.5">
+                        <label className="text-sm text-foreground">Question *</label>
+                        <QuizTextEditor
+                            value={data.question}
+                            onChange={(text) => update("question", text)}
+                            minRows={1}
+                            placeholder="Enter your question here…"
+                            ariaLabel={`Question ${index + 1}`}
+                            required
+                            className="w-full rounded-lg border border-transparent bg-muted px-4 py-3 outline-none transition-all hover:border-border-strong focus:border-primary"
+                        />
+                    </div>
 
                     {/* Options */}
                     <div className="space-y-3">
@@ -105,45 +115,49 @@ function QuestionBlock({ index, data, onChange, onRemove, canRemove }) {
                         </div>
 
                         {data.options.map((opt, i) => (
-                            <div key={i} className="flex items-center gap-2">
-                                <span className="w-5 shrink-0 text-center text-xs font-bold text-muted-foreground">
+                            <div key={i} className="flex items-start gap-2">
+                                <span className="mt-3.5 w-5 shrink-0 text-center text-xs font-bold text-muted-foreground">
                                     {String.fromCharCode(65 + i)}.
                                 </span>
-                                <div className="flex-1">
-                                    <Input
-                                        value={opt}
-                                        onChange={(e) => updateOption(i, e.target.value)}
-                                        placeholder={`Option ${String.fromCharCode(65 + i)}`}
-                                    />
-                                </div>
+                                <QuizTextEditor
+                                    variant="option"
+                                    value={opt}
+                                    onChange={(text) => updateOption(i, text)}
+                                    placeholder={`Option ${String.fromCharCode(65 + i)}`}
+                                    ariaLabel={`Option ${String.fromCharCode(65 + i)}`}
+                                    className="w-full rounded-lg border border-transparent bg-muted px-4 py-3 outline-none transition-all hover:border-border-strong focus:border-primary"
+                                />
                                 {data.options.length > 2 && (
                                     <button
                                         type="button"
                                         onClick={() => removeOption(i)}
-                                        className="rounded-lg p-2 text-slate-600 transition hover:text-red-400"
+                                        className="mt-1.5 rounded-lg p-2 text-slate-600 transition hover:text-red-400"
                                     >
                                         <FaTrash size={12} />
                                     </button>
                                 )}
                             </div>
                         ))}
+                        <DuplicateOptionsWarning options={data.options} />
                     </div>
 
                     {/* Correct Answer + Marks + Difficulty */}
                     <div className="grid gap-4 sm:grid-cols-3">
                         <div>
                             <label className="mb-1.5 block text-sm font-medium text-foreground">Correct Answer *</label>
+                            {/* By position: an option's text can span lines (code),
+                                which a <select> value can't carry intact. */}
                             <select
-                                value={data.correctAnswer}
-                                onChange={(e) => update("correctAnswer", e.target.value)}
+                                value={data.options.indexOf(data.correctAnswer) >= 0 && data.correctAnswer ? String(data.options.indexOf(data.correctAnswer)) : ""}
+                                onChange={(e) => update("correctAnswer", e.target.value === "" ? "" : data.options[Number(e.target.value)])}
                                 required
                                 className="w-full rounded-xl border border-transparent bg-background px-4 py-3 text-foreground outline-none transition focus:border-primary"
                             >
                                 <option value="">Select Answer</option>
                                 {data.options.map((opt, i) =>
                                     opt ? (
-                                        <option key={i} value={opt}>
-                                            {String.fromCharCode(65 + i)}. {opt}
+                                        <option key={i} value={String(i)}>
+                                            {String.fromCharCode(65 + i)}. {quizTextSummary(opt)}
                                         </option>
                                     ) : null
                                 )}
@@ -178,12 +192,13 @@ function QuestionBlock({ index, data, onChange, onRemove, canRemove }) {
                     {/* Explanation */}
                     <div>
                         <label className="mb-1.5 block text-sm font-medium text-foreground">Explanation (optional)</label>
-                        <textarea
+                        <QuizTextEditor
                             value={data.explanation}
-                            onChange={(e) => update("explanation", e.target.value)}
+                            onChange={(text) => update("explanation", text)}
                             placeholder="Why is this the correct answer?"
-                            rows={2}
-                            className="w-full resize-none rounded-xl border border-transparent bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-primary"
+                            minRows={2}
+                            ariaLabel="Explanation"
+                            className="w-full rounded-xl border border-transparent bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-primary"
                         />
                     </div>
                 </div>

@@ -73,11 +73,11 @@ export function VideoCell({
     setUploadError(null);
     setIsUploading(true);
     try {
-      showToast(`Uploading ${file.name} to Vercel Blob...`, "info");
+      showToast(`Uploading ${file.name}...`, "info");
       const result = await uploadFileToVercelBlob(file);
       if (result && result.url) {
         setVideoUrl(result.url);
-        showToast("Video uploaded to Vercel Blob successfully!", "success");
+        showToast("Video uploaded successfully!", "success");
       } else {
         throw new Error("Invalid response from upload service");
       }
@@ -346,11 +346,11 @@ export function CreateVideoForm({ parent, order, onCreated, onCancel }: CreateCe
     setUploadError(null);
     setIsUploading(true);
     try {
-      showToast(`Uploading ${file.name} to Vercel Blob...`, "info");
+      showToast(`Uploading ${file.name}...`, "info");
       const result = await uploadFileToVercelBlob(file);
       if (result && result.url) {
         setVideoUrl(result.url);
-        showToast("Video uploaded to Vercel Blob successfully!", "success");
+        showToast("Video uploaded successfully!", "success");
       } else {
         throw new Error("Invalid response from upload service");
       }

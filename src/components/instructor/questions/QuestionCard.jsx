@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/reactIcons";
 
 import ActionMenu from "@/components/menus/ActionMenu";
+import { quizTextSummary } from "@/lib/quizText";
 
 export default function QuestionCard({
                                          question,
@@ -61,7 +62,7 @@ export default function QuestionCard({
 
                             <div className="flex-1">
                                 <h3 className="line-clamp-2 text-lg font-semibold text-foreground">
-                                    {question.question}
+                                    {quizTextSummary(question.question)}
                                 </h3>
 
                                 <p className="mt-3 text-sm text-muted-foreground">

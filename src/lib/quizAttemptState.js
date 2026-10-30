@@ -18,7 +18,7 @@ export const QUESTION_STATUS = {
 };
 
 /** An answer the student has actually given, as opposed to a cleared one. */
-export function hasAnswer(answer) {
+function hasAnswer(answer) {
     if (answer === undefined || answer === null || answer === "") return false;
     if (Array.isArray(answer)) return answer.length > 0;
     if (typeof answer === "object") return Object.keys(answer).length > 0;
@@ -34,7 +34,7 @@ export function hasAnswer(answer) {
  * server re-derives status from its own grading at submit, so the two must
  * agree or the navigator and the stored record would tell different stories.
  */
-export function resolveStatus({ answered, skipped, visited }) {
+function resolveStatus({ answered, skipped, visited }) {
     if (answered) return QUESTION_STATUS.ANSWERED;
     if (skipped) return QUESTION_STATUS.SKIPPED;
     if (visited) return QUESTION_STATUS.VISITED;
@@ -50,6 +50,10 @@ function blankState(questionId) {
         skipped: false,
         answered: false,
         hintViewed: false,
+        // A Self-Test answer the student has checked against the key. It is
+        // locked from then on: having seen the answer, changing it would
+        // only copy the key.
+        answerChecked: false,
         firstVisitedAt: null,
         lastVisitedAt: null,
         answeredAt: null,
@@ -127,6 +131,8 @@ export function setAnswer(state, questionId, answer, now = Date.now()) {
     if (!questionId) return state;
     const answered = hasAnswer(answer);
     const current = state[questionId] || blankState(questionId);
+    // A checked Self-Test answer is final.
+    if (current.answerChecked) return state;
 
     return patch(state, questionId, {
         answer: answered ? answer : null,
@@ -156,6 +162,17 @@ export function markSkipped(state, questionId, now = Date.now()) {
         lastVisitedAt: now,
         skippedAt: current.skippedAt ?? now,
     });
+}
+
+/**
+ * Records that the student checked this question's answer on a Self-Test,
+ * which locks it. Only an answered question can be checked.
+ */
+export function markAnswerChecked(state, questionId, now = Date.now()) {
+    if (!questionId) return state;
+    const current = state[questionId] || blankState(questionId);
+    if (!current.answered || current.answerChecked) return state;
+    return patch(state, questionId, { answerChecked: true, lastVisitedAt: now });
 }
 
 /** Records that the student revealed this question's hint. */
@@ -189,7 +206,15 @@ export function summarize(state = {}, questions = []) {
         skippedUnansweredCount: records.filter((r) => r.skipped && !r.answered).length,
         visitedCount: visited,
         notVisitedCount: questions.length - visited,
+        // Self-Test answers checked against the key. Every question checked
+        // is what ends a Self-Test — it then saves itself.
+        checkedCount: records.filter((r) => r.answerChecked).length,
     };
+}
+
+/** Whether every question in a Self-Test attempt has been checked. */
+export function allQuestionsChecked(state = {}, questions = []) {
+    return questions.length > 0 && questions.every((q) => state[q?.id]?.answerChecked === true);
 }
 
 /** The answers half of the submit payload: one entry per answered question. */

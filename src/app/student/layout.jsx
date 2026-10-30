@@ -6,9 +6,11 @@ import DashboardLayout from "@/components/layouts/DashboardLayout";
 import DashboardNavbar from "@/components/layouts/DashboardNavbar";
 import { useAuth } from "@/context/AuthContext";
 import { QaProvider } from "@/context/QaContext";
+import { StudentTourProvider } from "@/context/StudentTourContext";
 import Loader from "@/components/common/Loader";
-import StudentNavDrawer from "@/components/layouts/StudentNavDrawer";
-import { StudentNavDrawerProvider } from "@/context/StudentNavDrawerContext";
+import { StudentBottomTabs } from "@/components/layouts/StudentBottomBar";
+import { AiLauncherProvider } from "@/features/ai-assistant/context/AiLauncherContext";
+import { AiAssistantWidget } from "@/features/ai-assistant/components";
 import ContentAccessGuard from "@/components/student/learning/ContentAccessGuard";
 import { isCourseContentPath } from "@/lib/sessionErrors";
 import EvaluatorNotice from "@/components/evaluator/EvaluatorNotice";
@@ -50,6 +52,7 @@ export default function Layout({ children }) {
   }
 
   const isLearnPage = pathname?.includes("/student/learn/");
+  const isCodeItPage = pathname === "/student/code-it";
 
   // Pages that show course content follow the account's playback lease: while
   // another device of this account is playing, they show why instead.
@@ -57,79 +60,72 @@ export default function Layout({ children }) {
     <ContentAccessGuard enabled={isCourseContentPath(pathname)}>{children}</ContentAccessGuard>
   );
 
-  if (isLearnPage) {
-    // Same top bar as every other Student page, but the learn page still
-    // owns its own fixed-viewport, internally-scrolling layout below it
-    // (not DashboardLayout's Sidebar/padded <main>/ChatWidget — the learn
-    // page already renders its own ChatWidget).
-    return (
-      <QaProvider>
-        <StudentNavDrawerProvider>
-          <div className="h-screen flex flex-col overflow-hidden">
-            <DashboardNavbar role="STUDENT" title="Learning Workspace" />
-            <div className="flex-1 min-h-0">{content}</div>
-          </div>
-          <StudentNavDrawer />
-        </StudentNavDrawerProvider>
-      </QaProvider>
-    );
-  }
+  const evaluatorBanner =
+    evaluatorState === EVALUATOR_STATES.ACTIVE ? (
+      <div className="max-w-[1600px] mx-auto">
+        <EvaluatorNotice evaluator={user.evaluator} />
+      </div>
+    ) : null;
 
-  // My Courses fits the viewport from md up: the page itself doesn't scroll,
-  // only the Enrolled Courses grid does. Below md the cards are a horizontal
-  // slider, so the page keeps its normal document scroll there.
-  // Code-IT is a full-viewport workspace: from md up the editor and output
-  // stretch to the bottom of the screen and only their panes scroll.
-  if (pathname === "/student/code-it") {
-    return (
-      <QaProvider>
-        <StudentNavDrawerProvider>
-          <div className="min-h-screen md:h-screen flex flex-col md:overflow-hidden bg-background">
-            <DashboardNavbar role="STUDENT" title="Code-IT" />
-            <main className="flex-1 min-h-0 w-full flex flex-col px-3 py-3 sm:px-4">{content}</main>
-          </div>
-          <StudentNavDrawer />
-        </StudentNavDrawerProvider>
-      </QaProvider>
-    );
-  }
+  // Phones navigate with the bottom bar (Learning | Ask AI | Submissions).
+  // Not during a quiz attempt, where one stray tap shouldn't leave it. The
+  // fallback widget is what Ask AI opens on pages without their own widget;
+  // it has no launcher of its own, so wider screens are unchanged.
+  const bottomTabs = pathname?.startsWith("/student/attempt") ? null : (
+    <>
+      <StudentBottomTabs />
+      <AiAssistantWidget fallback />
+    </>
+  );
 
-  if (pathname === "/student/my-courses") {
-    return (
-      <QaProvider>
-        <StudentNavDrawerProvider>
-          <div className="min-h-screen md:h-screen flex flex-col md:overflow-hidden bg-background">
-            <DashboardNavbar role="STUDENT" title="Student Dashboard" />
-            <main className="flex-1 min-h-0 w-full max-w-[1728px] mx-auto flex flex-col p-3 sm:p-6">
-              {children}
-            </main>
-          </div>
-          <StudentNavDrawer />
-        </StudentNavDrawerProvider>
-      </QaProvider>
-    );
-  }
-
+  // Mounted at the root of the Student layout so moving between My Courses,
+  // the learning page, and Submissions keeps one unified provider and a running tour.
   return (
-    <QaProvider>
-      <StudentNavDrawerProvider>
-        <DashboardLayout
-          role="STUDENT"
-          title="Student Dashboard"
-          banner={
-            evaluatorState === EVALUATOR_STATES.ACTIVE ? (
-              <div className="max-w-[1600px] mx-auto">
-                <EvaluatorNotice evaluator={user.evaluator} />
+    <StudentTourProvider>
+      <QaProvider>
+        <AiLauncherProvider>
+          {isLearnPage ? (
+            // Same top bar as every other Student page, but the learn page still
+            // owns its own fixed-viewport, internally-scrolling layout below it
+            // (not DashboardLayout's Sidebar/padded <main>/ChatWidget — the learn
+            // page already renders its own ChatWidget).
+            // h-dvh, not h-screen: on a phone 100vh is the height with the browser's
+            // address bar hidden, so while the bar shows, the bottom of this shell
+            // (Previous/Next) sat behind it and under the fixed AI launcher. The
+            // dynamic viewport follows the bar; on desktop the two are the same.
+            // On phones the learn page renders its own bottom bar (Previous | Ask AI
+            // | Next) instead of the tabs.
+            <div className="h-dvh flex flex-col overflow-hidden">
+              <DashboardNavbar role="STUDENT" title="Learning Workspace" />
+              <div className="flex-1 min-h-0">{content}</div>
+            </div>
+          ) : isCodeItPage ? (
+            // Code-IT is a full-viewport workspace: from md up the editor and
+            // output stretch to the bottom of the screen and only their panes
+            // scroll.
+            <>
+              <div className="min-h-screen md:h-screen flex flex-col md:overflow-hidden bg-background">
+                <DashboardNavbar role="STUDENT" title="Code-IT" />
+                <main className="flex-1 min-h-0 w-full flex flex-col px-3 py-3 sm:px-4">{content}</main>
               </div>
-            ) : null
-          }
-        >
-          <div className="max-w-[1600px] mx-auto w-full flex flex-col flex-1 min-h-0">
-            {content}
-          </div>
-        </DashboardLayout>
-        <StudentNavDrawer />
-      </StudentNavDrawerProvider>
-    </QaProvider>
+              {bottomTabs}
+            </>
+          ) : (
+            <>
+              <DashboardLayout
+                role="STUDENT"
+                title="Student Dashboard"
+                banner={evaluatorBanner}
+              >
+                <div className="max-w-[1600px] mx-auto w-full flex flex-col flex-1 min-h-0">
+                  {content}
+                </div>
+              </DashboardLayout>
+              {bottomTabs}
+            </>
+          )}
+        </AiLauncherProvider>
+      </QaProvider>
+    </StudentTourProvider>
   );
 }

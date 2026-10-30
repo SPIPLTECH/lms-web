@@ -91,4 +91,3 @@ export function resolveExternalFile(inputUrl) {
   };
 }
 
-export default resolveExternalFile;

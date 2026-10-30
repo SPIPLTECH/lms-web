@@ -8,18 +8,24 @@
  */
 
 import { asSentence, textsToChunks } from "./textToSpeech.js";
-import { checkAnswerCorrectness } from "./quizAnswers.js";
+import { checkAnswerCorrectness, isCorrectOption } from "./quizAnswers.js";
+import { quizTextForSpeech } from "./quizText.js";
 
-export const optionText = (opt) => {
+const optionText = (opt) => {
   if (opt === null || opt === undefined) return "";
   if (typeof opt === "string") return opt;
   if (typeof opt === "object") return opt.optionText || opt.text || "";
   return String(opt);
 };
 
+// Quiz text as spoken: Markdown markers dropped, code blocks named rather
+// than read symbol by symbol (quizText.js).
+const spoken = (text) => quizTextForSpeech(text);
+const spokenOption = (opt) => spoken(optionText(opt));
+
 const letter = (index) => String.fromCharCode(65 + index);
 
-const listSentence = (items) => asSentence(items.map(optionText).filter(Boolean).join(", "));
+const listSentence = (items) => asSentence(items.map(spokenOption).filter(Boolean).join(", "));
 
 const QUESTION_INSTRUCTIONS = {
   MCQ_SINGLE: "Choose one answer.",
@@ -36,7 +42,7 @@ function hintTexts(question) {
   return list
     .map((h) => (typeof h === "string" ? h : h?.text || ""))
     .filter((h) => h && h.trim())
-    .map((h) => `Hint: ${asSentence(h)}`);
+    .map((h) => `Hint: ${asSentence(spoken(h))}`);
 }
 
 /**
@@ -66,13 +72,13 @@ export function buildQuestionSpeech({
   const texts = [];
 
   if (questionNumber && totalQuestions) texts.push(`Question ${questionNumber} of ${totalQuestions}.`);
-  texts.push(asSentence(question.question));
+  texts.push(asSentence(spoken(question.question)));
 
   if (readOptions) {
     if ((type === "MCQ_SINGLE" || type === "MCQ_MULTI") && options.length) {
       texts.push("Answer choices.");
       options.forEach((opt, i) => {
-        const text = optionText(opt);
+        const text = spokenOption(opt);
         if (text) texts.push(asSentence(`${letter(i)}. ${text}`));
       });
     } else if (type === "ARRANGE_TOKENS" && options.length) {
@@ -143,13 +149,13 @@ function parseOptions(options) {
  */
 export function buildAnswerReviewSpeech({ question, index, type, selectedOption, lang = "" }) {
   if (!question) return [];
-  const texts = [asSentence(`Question ${index + 1}. ${question.question}`)];
+  const texts = [asSentence(`Question ${index + 1}. ${spoken(question.question)}`)];
   const answered =
     selectedOption !== undefined &&
     selectedOption !== null &&
     selectedOption !== "" &&
     !(Array.isArray(selectedOption) && selectedOption.length === 0);
-  const isCorrect = checkAnswerCorrectness(type, selectedOption, question.correctAnswer);
+  const isCorrect = checkAnswerCorrectness(type, selectedOption, question.correctAnswer, question.options);
   const correct = question.correctAnswer;
 
   if (type === "MCQ_SINGLE" || type === "MCQ_MULTI") {
@@ -157,8 +163,8 @@ export function buildAnswerReviewSpeech({ question, index, type, selectedOption,
     const correctTexts = opts
       .filter((opt) =>
         type === "MCQ_SINGLE"
-          ? checkAnswerCorrectness("MCQ_SINGLE", optionText(opt), correct) || (typeof opt === "object" && opt?.isCorrect)
-          : Array.isArray(correct) && correct.includes(optionText(opt))
+          ? isCorrectOption(optionText(opt), correct, opts) || (typeof opt === "object" && opt?.isCorrect)
+          : Array.isArray(correct) && isCorrectOption(optionText(opt), correct, opts)
       )
       .map(optionText);
     if (answered) {
@@ -190,7 +196,7 @@ export function buildAnswerReviewSpeech({ question, index, type, selectedOption,
   }
 
   if (question.explanation && String(question.explanation).trim()) {
-    texts.push(`Explanation: ${asSentence(question.explanation)}`);
+    texts.push(`Explanation: ${asSentence(spoken(question.explanation))}`);
   }
 
   return textsToChunks(texts, lang);

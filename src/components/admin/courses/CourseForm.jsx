@@ -161,7 +161,7 @@ export default function CourseForm({
                             src={getDisplayUrl(formData.thumbnailUrl)}
                             alt={formData.title}
                             fill
-                            // Private blobs come through /api/blob-proxy?url=…; Next
+                            // Stored files come through /api/blob-proxy?url=…; Next
                             // refuses to optimize a local URL with a query string
                             // and throws, taking the whole edit page down.
                             unoptimized

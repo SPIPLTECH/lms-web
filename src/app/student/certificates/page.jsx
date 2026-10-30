@@ -1,17 +1,37 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Award, Search } from "lucide-react";
+import { Award, Lock, Search } from "lucide-react";
 
 import Loader from "@/components/common/Loader";
 import PageHeader from "@/components/layouts/PageHeader";
 import Card from "@/components/ui/Card";
+import EmptyState from "@/components/ui/EmptyState";
 import { useAuth } from "@/context/AuthContext";
 import useCertificates from "@/hooks/queries/student/useCertificates";
 import CertificateCard from "@/components/student/certificates/CertificateCard";
 import CertificateViewerModal from "@/components/student/certificates/CertificateViewerModal";
+import { CERTIFICATES_LOCKED } from "@/constants/features";
 
 export default function StudentCertificatesPage() {
+  // Locked: a notice only, and no certificates are requested.
+  if (CERTIFICATES_LOCKED) {
+    return (
+      <div className="space-y-8">
+        <PageHeader title="My Certificates" />
+        <EmptyState
+          icon={Lock}
+          title="Certificates are locked"
+          description="Course certificates are not available yet. They will appear here once they are enabled."
+        />
+      </div>
+    );
+  }
+
+  return <CertificatesList />;
+}
+
+function CertificatesList() {
   const { user } = useAuth();
   const { data: certificates = [], isLoading, isError } = useCertificates();
   

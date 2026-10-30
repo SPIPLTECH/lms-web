@@ -1704,7 +1704,7 @@ export default function CourseImportPage() {
           courseQuizzes: generatedDraft?.quizzes || [],
           activeLevel: "COURSE",
         }}
-        onApply={(generatedData, scope, contextData) => {
+        onApply={(generatedData, scope) => {
           if (scope === "COURSE") {
             const canonical = generatedData.canonicalJson || generatedData;
             prepareDraftAndNavigate(canonical);

@@ -19,7 +19,7 @@ import { Check, AlertCircle, Loader2 } from "lucide-react";
  * simply completes without going active today, and will light up on its own if
  * the importer ever starts emitting MAPPING.
  */
-export const ZIP_IMPORT_STAGES = [
+const ZIP_IMPORT_STAGES = [
   { key: "SELECTED", label: "Select package", busy: null },
   { key: "UPLOADED", label: "Upload", busy: "Sending the package to Orange Tree" },
   { key: "EXTRACTING", label: "Extract", busy: "Unpacking files from the archive" },

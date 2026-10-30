@@ -10,16 +10,6 @@ export const getLessons =
     return response.data;
   };
 
-export const getLessonById =
-  async (lessonId) => {
-    const response =
-      await api.get(
-        `/lessons/${lessonId}`
-      );
-
-    return response.data;
-  };
-
 export const createLesson =
   async (data) => {
     const response =
@@ -55,13 +45,3 @@ export const deleteLesson =
     return response.data;
   };
 
-export const reorderLessons =
-  async (moduleId, lessons) => {
-    const response =
-      await api.patch(
-        "/lessons/reorder",
-        { moduleId, lessons }
-      );
-
-    return response.data;
-  };

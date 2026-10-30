@@ -1,8 +1,8 @@
 import Cookies from "js-cookie";
 
 /**
- * Uploads a file to Vercel Blob storage via Next.js API route (/api/upload).
- * The server calls @vercel/blob's put() with public access, bypassing browser CORS restrictions.
+ * Uploads a file to the LMS's file storage (R2's private bucket) via the
+ * Next.js API route /api/upload, which writes it server-side.
  */
 export const uploadFileToBlob = async (file, options = {}) => {
   const token =

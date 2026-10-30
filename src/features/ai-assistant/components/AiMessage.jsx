@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, User } from "lucide-react";
+import { Sparkles, User } from "lucide-react";
 import { renderMarkdownToSafeHtml } from "@/lib/markdown";
 
 /**
@@ -21,7 +21,7 @@ export default function AiMessage({ role, content, isStreaming = false }) {
         }`}
         aria-hidden="true"
       >
-        {isAssistant ? <Bot className="h-4 w-4" /> : <User className="h-4 w-4" />}
+        {isAssistant ? <Sparkles className="h-4 w-4" /> : <User className="h-4 w-4" />}
       </div>
 
       <div
@@ -31,7 +31,12 @@ export default function AiMessage({ role, content, isStreaming = false }) {
             : "bg-primary text-primary-foreground rounded-tr-sm"
         }`}
       >
-        {isAssistant ? (
+        {isAssistant && isStreaming && (!content || content === "…") ? (
+          <div className="flex items-center gap-2 py-0.5 text-primary">
+            <Sparkles className="h-4 w-4 animate-spin text-primary" />
+            <span className="text-xs font-semibold text-muted-foreground animate-pulse">Thinking...</span>
+          </div>
+        ) : isAssistant ? (
           <div
             className="ai-prose break-words [&_code]:rounded [&_code]:bg-background/70 [&_code]:px-1 [&_code]:py-0.5 [&_p]:my-1.5 [&_ul]:my-1.5 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-1.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-background/80 [&_pre]:p-3 [&_h3]:mt-2 [&_h3]:font-semibold"
             dangerouslySetInnerHTML={{ __html: renderMarkdownToSafeHtml(content || "") }}
@@ -40,7 +45,7 @@ export default function AiMessage({ role, content, isStreaming = false }) {
           <span className="whitespace-pre-wrap break-words">{content}</span>
         )}
 
-        {isStreaming && (
+        {isStreaming && Boolean(content && content !== "…") && (
           <span className="ml-0.5 inline-block h-3.5 w-[2px] animate-pulse bg-current align-middle" />
         )}
       </div>
