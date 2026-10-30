@@ -105,6 +105,7 @@ export const QUERY_KEYS = {
     QUESTIONS: "questions",
     QUESTION: "question",
     QUIZ_RESULT: "quiz-result",
+    COURSE_TEST_REVIEW: "course-test-review",
     QUESTION_REPOSITORY: "question-repository",
 
     LESSON_NOTES: "lesson-notes",

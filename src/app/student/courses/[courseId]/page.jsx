@@ -11,6 +11,8 @@ import useCourse from "@/hooks/queries/student/useCourse";
 import useMyCourses from "@/hooks/queries/student/useMyCourses";
 import useTrackCourseAccess from "@/hooks/queries/student/useTrackCourseAccess";
 import useLearningSequence from "@/hooks/queries/student/useLearningSequence";
+import useCourseTestReview from "@/hooks/queries/student/useCourseTestReview";
+import CourseTestReviewCard from "@/components/student/test-review/CourseTestReviewCard";
 import { normalizeCourseHierarchy } from "@/lib/courseMapper";
 import { learnHref } from "@/lib/courseSlug";
 
@@ -57,6 +59,8 @@ export default function CourseDetailsPage({ params }) {
   const isEnrolled = myEnrollments.some((e) => (e.courseId || e.course?.id) === courseId);
 
   const trackAccessMutation = useTrackCourseAccess();
+  // Test-series courses only: progress toward, then the whole-course review.
+  const { data: testReview } = useCourseTestReview(courseId, { enabled: isEnrolled });
 
   useEffect(() => {
     if (!isEnrollmentsLoading && !isEnrolled) {
@@ -93,6 +97,7 @@ export default function CourseDetailsPage({ params }) {
   // the navbar.
   return (
     <div className="mx-auto w-full max-w-6xl pb-16 max-lg:px-2 md:-mt-10 animate-fade-in duration-300">
+      <CourseTestReviewCard review={testReview} className="mb-6" />
       <StudentCourseOverview
         course={course}
         progress={progressData}

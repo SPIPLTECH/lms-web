@@ -428,6 +428,8 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
                 resultHref={resultHref}
                 onNextContent={onNextContent}
                 speechLanguage={speechLanguage}
+                testReview={submissionResult?.testReview ?? null}
+                courseReview={submissionResult?.courseReview ?? null}
             />
         );
     }
