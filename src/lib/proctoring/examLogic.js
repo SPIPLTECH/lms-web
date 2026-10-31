@@ -35,7 +35,8 @@ export function isDevToolsShortcut(event) {
 export function classifyExamError(error) {
     const code = error?.response?.data?.code;
     if (code === "ATTEMPT_ENDED" || code === "TIME_EXPIRED") return "ENDED";
-    if (code === "TOKEN_SUPERSEDED" || code === "ATTEMPT_ACTIVE_ON_ANOTHER_DEVICE") return "SUPERSEDED";
+    // A token past its time gets the same way back: resuming issues a new one.
+    if (code === "TOKEN_SUPERSEDED" || code === "ATTEMPT_ACTIVE_ON_ANOTHER_DEVICE" || code === "MONITORING_TOKEN_INVALID") return "SUPERSEDED";
     if (code === "IDENTITY_RECHECK_REQUIRED") return "RECHECK";
     const status = error?.response?.status;
     if (status === 401 || status === 403 || status === 404 || status === 400 || status === 413 || status === 415) return "FATAL";

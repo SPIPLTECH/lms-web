@@ -23,6 +23,7 @@ check("F12 and Ctrl+Shift+I are developer tools", isDevToolsShortcut({ key: "F12
 // ---- what an error means ----
 check("an ended attempt ends the page", classifyExamError(http(409, "ATTEMPT_ENDED")) === "ENDED" && classifyExamError(http(409, "TIME_EXPIRED")) === "ENDED");
 check("another tab or device supersedes this one", classifyExamError(http(409, "TOKEN_SUPERSEDED")) === "SUPERSEDED" && classifyExamError(http(409, "ATTEMPT_ACTIVE_ON_ANOTHER_DEVICE")) === "SUPERSEDED");
+check("a token that no longer works offers a way back, not a dead end", classifyExamError(http(401, "MONITORING_TOKEN_INVALID")) === "SUPERSEDED");
 check("a recheck goes to the recheck screen", classifyExamError(http(409, "IDENTITY_RECHECK_REQUIRED")) === "RECHECK");
 check("a network failure retries", classifyExamError(new Error("Network Error")) === "RETRY" && classifyExamError(http(503)) === "RETRY" && classifyExamError(http(429)) === "RETRY");
 check("a refusal does not retry forever", classifyExamError(http(403)) === "FATAL" && classifyExamError(http(400)) === "FATAL");

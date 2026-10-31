@@ -162,6 +162,20 @@ export default function ExamRoom({ session, camera, monitoring, microphoneStatus
                 </Blocker>
             )}
 
+            {cameraOff && !timeUp && (
+                <Blocker
+                    icon={CameraOff}
+                    title="Your camera has stopped"
+                    action={
+                        <Button type="button" onClick={camera.requestCamera}>
+                            Reconnect camera
+                        </Button>
+                    }
+                >
+                    {camera.errorMessage || "This exam needs your camera."} Your timer keeps running, and your answers are safe. If you cannot get it back, contact your instructor.
+                </Blocker>
+            )}
+
             {!monitoring.isOnline && (
                 <p role="alert" className="flex items-center justify-center gap-2 bg-amber-500/15 px-4 py-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300">
                     <WifiOff className="h-4 w-4 shrink-0" aria-hidden />
@@ -174,16 +188,11 @@ export default function ExamRoom({ session, camera, monitoring, microphoneStatus
                     An answer is not saved yet. Trying again. Check your connection.
                 </p>
             )}
-            {camera.errorMessage && (
-                <div role="alert" className="flex items-center justify-center gap-3 bg-amber-500/15 px-4 py-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300">
+            {camera.errorMessage && !cameraOff && (
+                <p role="alert" className="flex items-center justify-center gap-2 bg-amber-500/15 px-4 py-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300">
                     <CameraOff className="h-4 w-4 shrink-0" aria-hidden />
-                    <span>{camera.errorMessage}</span>
-                    {cameraOff && (
-                        <button type="button" onClick={camera.requestCamera} className="underline">
-                            Reconnect camera
-                        </button>
-                    )}
-                </div>
+                    {camera.errorMessage}
+                </p>
             )}
             {timeUp && (
                 <p role="alert" className="bg-rose-600 px-4 py-1.5 text-center text-xs font-bold text-white">
