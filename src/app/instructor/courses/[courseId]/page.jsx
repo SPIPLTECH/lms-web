@@ -1546,6 +1546,8 @@ export default function CourseDetailsPage() {
             // Omitted when the caller didn't set it, so the schema default applies.
             ...(updatedQuizData.attempts !== undefined && { attempts: Number(updatedQuizData.attempts) }),
             isPublished: updatedQuizData.isPublished !== false,
+            // Only sent when ticked, so an unticked quiz's payload is unchanged.
+            ...(updatedQuizData.proctoringEnabled === true && { proctoringEnabled: true }),
             courseId,
             moduleId: composeModuleId || null,
             lessonId: composeLessonId || null,
@@ -1629,6 +1631,10 @@ export default function CourseDetailsPage() {
             timeLimit: updatedQuizData.timeLimit ?? null,
             ...(updatedQuizData.attempts !== undefined && { attempts: Number(updatedQuizData.attempts) }),
             isPublished: updatedQuizData.isPublished,
+            // Sent when it is or was ticked, so an unticked quiz's payload is unchanged.
+            ...((updatedQuizData.proctoringEnabled === true || selectedQuizState.proctoringEnabled === true) && {
+              proctoringEnabled: updatedQuizData.proctoringEnabled === true,
+            }),
             courseId,
             moduleId: composeModuleId || selectedQuizState.moduleId || null,
             lessonId: composeLessonId || selectedQuizState.lessonId || null,
@@ -1643,7 +1649,11 @@ export default function CourseDetailsPage() {
             const originalQuestionIds = (activeQuizFull?.quizQuestions || selectedQuizState.quizQuestions || [])
               .map((qq) => qq.question?.id || qq.questionId)
               .filter(Boolean);
-            await syncQuizQuestions(targetId, updatedQuizData.questions || [], originalQuestionIds);
+            // A proctored quiz a student has started: the server refuses question
+            // changes, and the editor below shows them as locked.
+            if (updatedQuiz.proctoringLocked !== true) {
+              await syncQuizQuestions(targetId, updatedQuizData.questions || [], originalQuestionIds);
+            }
           } catch (qErr) {
             console.error("Save Quiz Questions Error:", qErr);
             showToast(qErr?.response?.data?.message || "Quiz updated, but some questions failed to save.", "error");
@@ -2971,6 +2981,7 @@ export default function CourseDetailsPage() {
                 onSaveQuiz={handleSaveQuiz}
                 onCancel={handleCancelQuizEdit}
                 startEditing={quizStartEditing}
+                allowProctoring={!isDraftMode}
               />
             )}
 

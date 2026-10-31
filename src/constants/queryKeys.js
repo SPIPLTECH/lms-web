@@ -101,6 +101,7 @@ export const QUERY_KEYS = {
 
     QUIZZES: "quizzes",
     QUIZ: "quiz",
+    PROCTORING_CONFIG: "proctoring-config",
 
     QUESTIONS: "questions",
     QUESTION: "question",

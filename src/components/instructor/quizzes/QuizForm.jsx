@@ -6,6 +6,7 @@ import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import { useModules } from "@/hooks/queries/instructor/useModules";
 import { useInstructorCourses } from "@/hooks/queries/instructor/useInstructorCourses";
+import ProctoringToggle from "@/components/instructor/quizzes/ProctoringToggle";
 
 const QUIZ_TAG_OPTIONS = [
     { value: "SELF_TEST", label: "Self-Test — practice, never timed" },
@@ -30,6 +31,7 @@ const INITIAL_FORM = {
     startDate: "",
     dueDate: "",
     shuffleQuestions: false,
+    proctoringEnabled: false,
 };
 
 function formatDateForInput(isoStr) {
@@ -76,6 +78,7 @@ export default function QuizForm({
                 timeLimit,
                 // A Self-Test is stored as 0 (unlimited); the Final box starts at 1.
                 attempts: Number(initialValues.attempts) > 0 ? initialValues.attempts : 1,
+                proctoringEnabled: initialValues.proctoringEnabled === true,
                 startDate: formatDateForInput(initialValues.startDate || initialValues.availableFrom),
                 dueDate: formatDateForInput(initialValues.dueDate || initialValues.availableUntil),
             });
@@ -99,8 +102,8 @@ export default function QuizForm({
         setFormData((prev) => ({
             ...prev,
             quizTag,
-            // A Self-Test is never timed, so drop any limit as the tag changes.
-            ...(quizTag === "SELF_TEST" ? { timerEnabled: false, timeLimit: null } : {}),
+            // A Self-Test is never timed or proctored, so drop both as the tag changes.
+            ...(quizTag === "SELF_TEST" ? { timerEnabled: false, timeLimit: null, proctoringEnabled: false } : {}),
         }));
     };
 
@@ -117,6 +120,11 @@ export default function QuizForm({
             formData.quizTag === "FINAL" && formData.timerEnabled && Number(formData.timeLimit) > 0
                 ? Number(formData.timeLimit)
                 : null;
+
+        if (formData.proctoringEnabled && timeLimit === null) {
+            setTagError("A proctored quiz needs a time limit.");
+            return;
+        }
 
         const payload = {
             ...formData,
@@ -261,6 +269,7 @@ export default function QuizForm({
                                 <input
                                     type="checkbox"
                                     checked={formData.timerEnabled}
+                                    disabled={formData.proctoringEnabled}
                                     onChange={(e) =>
                                         setFormData((prev) => ({
                                             ...prev,
@@ -285,8 +294,23 @@ export default function QuizForm({
                                     min="1"
                                     value={formData.timeLimit ?? ""}
                                     onChange={handleChange}
+                                    disabled={initialValues?.proctoringLocked === true}
                                 />
                             )}
+
+                            <ProctoringToggle
+                                checked={formData.proctoringEnabled}
+                                locked={initialValues?.proctoringLocked === true}
+                                onChange={(ticked) =>
+                                    setFormData((prev) => ({
+                                        ...prev,
+                                        proctoringEnabled: ticked,
+                                        ...(ticked
+                                            ? { timerEnabled: true, timeLimit: Number(prev.timeLimit) > 0 ? prev.timeLimit : DEFAULT_TIME_LIMIT }
+                                            : {}),
+                                    }))
+                                }
+                            />
                         </div>
                     ) : (
                         <div />

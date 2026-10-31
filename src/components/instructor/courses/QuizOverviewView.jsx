@@ -22,6 +22,7 @@ import {
 
 import QuestionRepositoryPickerModal from "./QuestionRepositoryPickerModal";
 import QuizImportModal from "./QuizImportModal";
+import ProctoringToggle from "@/components/instructor/quizzes/ProctoringToggle";
 import Modal from "@/components/ui/Modal";
 import QuizRichText from "@/components/quiz/QuizRichText";
 import QuizTextEditor from "@/components/quiz/QuizTextEditor";
@@ -134,6 +135,7 @@ function quizFormFromQuiz(quiz) {
     // stored as 0, which becomes the Final default if the tag is flipped.
     attempts: Number(quiz.attempts) > 0 ? quiz.attempts : 1,
     isPublished: quiz.isPublished !== false,
+    proctoringEnabled: quiz.proctoringEnabled === true,
   };
 }
 
@@ -153,8 +155,11 @@ export function QuizOverviewView({
   onSaveQuiz,
   onCancel,
   startEditing = false,
+  // An imported draft has no saved quiz yet, and imports are never proctored.
+  allowProctoring = true,
 }) {
   const [isEditing, setIsEditing] = useState(startEditing || quizMode === "create" || quizMode === "edit");
+  const proctoringLocked = quiz?.proctoringLocked === true;
 
   // Whether this quiz hangs off something a student could be exempted from.
   // A course- or module-level quiz has no skip target, so the Qualifying Test
@@ -179,6 +184,7 @@ export function QuizOverviewView({
     passingScore: 70,
     attempts: 1,
     isPublished: true,
+    proctoringEnabled: false,
   });
 
   // Editable Questions Array
@@ -207,6 +213,7 @@ export function QuizOverviewView({
         passingScore: 70,
         attempts: 1,
         isPublished: true,
+        proctoringEnabled: false,
       });
       setQuestions([]);
       setCurrentQuestionIndex(0);
@@ -528,12 +535,19 @@ export function QuizOverviewView({
         ? Number(quizForm.timeLimit)
         : null;
 
+    const proctored = isTimedTag(quizForm.quizTag) && quizForm.proctoringEnabled === true;
+    if (proctored && effectiveTimeLimit === null) {
+      setError("A proctored quiz needs a time limit.");
+      return;
+    }
+
     const updatedQuiz = {
       ...quiz,
       title: quizForm.title.trim(),
       description: quizForm.description.trim(),
       quizTag: quizForm.quizTag,
       timeLimit: effectiveTimeLimit,
+      proctoringEnabled: proctored,
       passingScore: Number(quizForm.passingScore) || 0,
       // A Self-Test is always unlimited (0); a Final has at least one attempt.
       attempts: quizForm.quizTag === "SELF_TEST" ? 0 : Math.max(1, Math.round(Number(quizForm.attempts)) || 1),
@@ -594,6 +608,12 @@ export function QuizOverviewView({
               }`}
             >
               {QUIZ_TAG_LABELS[quizForm.quizTag]}
+            </span>
+          )}
+
+          {quizForm.proctoringEnabled && (
+            <span className="rounded px-2 py-0.5 text-[12px] font-bold uppercase tracking-wider border bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20">
+              Proctored
             </span>
           )}
 
@@ -921,9 +941,10 @@ export function QuizOverviewView({
                             quizTag: opt.value,
                             // Switching to Self-Test drops the timer here as
                             // well as server-side, so the form never shows a
-                            // limit the save will discard.
+                            // limit the save will discard. A Self-Test is
+                            // never proctored either.
                             ...(opt.value === "SELF_TEST"
-                              ? { timerEnabled: false, timeLimit: null }
+                              ? { timerEnabled: false, timeLimit: null, proctoringEnabled: false }
                               : {}),
                           }))
                         }
@@ -958,6 +979,7 @@ export function QuizOverviewView({
                     <input
                       type="checkbox"
                       checked={quizForm.timerEnabled}
+                      disabled={quizForm.proctoringEnabled || proctoringLocked}
                       onChange={(e) =>
                         setQuizForm((prev) => ({
                           ...prev,
@@ -978,11 +1000,28 @@ export function QuizOverviewView({
                         type="number"
                         min="1"
                         value={quizForm.timeLimit ?? ""}
+                        disabled={proctoringLocked}
                         onChange={(e) => setQuizForm((prev) => ({ ...prev, timeLimit: e.target.value }))}
                         className="w-24 rounded-xl border border-transparent bg-background px-2.5 py-1.5 text-sm text-foreground outline-none focus:border-emerald-500"
                       />
                       <span className="text-[12.5px] text-muted-foreground">minutes</span>
                     </div>
+                  )}
+
+                  {allowProctoring && (
+                    <ProctoringToggle
+                      checked={quizForm.proctoringEnabled}
+                      locked={proctoringLocked}
+                      onChange={(ticked) =>
+                        setQuizForm((prev) => ({
+                          ...prev,
+                          proctoringEnabled: ticked,
+                          ...(ticked
+                            ? { timerEnabled: true, timeLimit: Number(prev.timeLimit) > 0 ? prev.timeLimit : DEFAULT_TIME_LIMIT }
+                            : {}),
+                        }))
+                      }
+                    />
                   )}
                 </div>
               )}
@@ -1008,6 +1047,14 @@ export function QuizOverviewView({
             </div>
           </div>
 
+          {proctoringLocked && (
+            <p className="p-3 rounded-xl border border-border bg-background text-[13px] text-muted-foreground">
+              Questions are locked because a student has started this proctored quiz.
+            </p>
+          )}
+
+          {!proctoringLocked && (
+          <>
           {/* QUESTION NAVIGATION BAR (Top) */}
           <div className="p-3 rounded-xl bg-background/90 border border-border flex items-center justify-between gap-3 flex-wrap">
             {/* Left: Previous Button */}
@@ -1367,6 +1414,8 @@ export function QuizOverviewView({
                 Next <ChevronRight size={14} />
               </button>
             </div>
+          )}
+          </>
           )}
 
           {/* No Save/Cancel pair down here on purpose. It used to be repeated
