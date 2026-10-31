@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { Bold, Code, SquareCode } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Bold, Code, ImagePlus, Loader2, SquareCode } from "lucide-react";
 
 import QuizRichText from "@/components/quiz/QuizRichText";
 import { isRichQuizText, QUIZ_CODE_LANGUAGES } from "@/lib/quizText";
+import { uploadFileToBlob } from "@/services/blobUpload.service";
 
 const INDENT = "    ";
+
+const IMAGE_TYPES = ".jpg,.jpeg,.png,.webp,.gif";
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
 // Whether a position falls inside an open ``` block — where Tab indents
 // code instead of leaving the field.
@@ -18,9 +22,10 @@ const TOOL_BUTTON =
 /**
  * The text box for quiz question, option, explanation and hint text. Plain
  * text stays plain; the toolbar writes the little Markdown quiz text
- * understands (lib/quizText.js): **bold**, `code` and ``` code blocks with
- * a language, so a question can carry a coloured snippet. Once the text
- * holds any of it, a preview shows it exactly as the student will see it.
+ * understands (lib/quizText.js): **bold**, `code`, ``` code blocks with a
+ * language, so a question can carry a coloured snippet, and images, uploaded
+ * from here. Once the text holds any of it, a preview shows it exactly as the
+ * student will see it.
  *
  * Grows with its content. Inside a code block, Tab indents (4 spaces)
  * instead of moving on; Ctrl/⌘+B bolds the selection. `variant` "option"
@@ -41,8 +46,18 @@ export default function QuizTextEditor({
   className = "",
 }) {
   const textareaRef = useRef(null);
+  const imageInputRef = useRef(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [imageError, setImageError] = useState("");
   const text = value ?? "";
   const isOption = variant === "option";
+
+  // An upload ends long after its click: by then the author may have typed
+  // on, here or elsewhere in the form, so it must edit what is there now.
+  const latest = useRef({ text, onChange });
+  useEffect(() => {
+    latest.current = { text, onChange };
+  });
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -52,17 +67,18 @@ export default function QuizTextEditor({
   }, [text]);
 
   // Applies one edit to the current selection, then puts the caret (or the
-  // new selection) where the edit says.
+  // new selection) where the edit says. False when the edit doesn't fit.
   const edit = (build) => {
     const el = textareaRef.current;
-    if (!el) return;
-    const { next, selStart, selEnd } = build(text, el.selectionStart, el.selectionEnd);
-    if (maxLength && next.length > maxLength) return;
-    onChange(next);
+    if (!el) return false;
+    const { next, selStart, selEnd } = build(latest.current.text, el.selectionStart, el.selectionEnd);
+    if (maxLength && next.length > maxLength) return false;
+    latest.current.onChange(next);
     requestAnimationFrame(() => {
       el.focus();
       el.setSelectionRange(selStart, selEnd);
     });
+    return true;
   };
 
   const wrap = (marker, placeholderText) =>
@@ -88,6 +104,37 @@ export default function QuizTextEditor({
       };
     });
 
+  // On a line of its own after the selection, which stays as it is.
+  const insertImage = (url) =>
+    edit((current, _start, end) => {
+      const before = end > 0 && current[end - 1] !== "\n" ? "\n" : "";
+      const after = end < current.length && current[end] !== "\n" ? "\n" : "";
+      const image = `${before}![Image](${url})`;
+      const caret = end + image.length;
+      return { next: current.slice(0, end) + image + after + current.slice(end), selStart: caret, selEnd: caret };
+    });
+
+  const handleImageChosen = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (file.size > MAX_IMAGE_BYTES) {
+      setImageError("The image must be 10 MB or smaller.");
+      return;
+    }
+
+    setImageError("");
+    setIsUploading(true);
+    try {
+      const { url } = await uploadFileToBlob(file);
+      if (!insertImage(url)) setImageError("There is no room left in this text for the image.");
+    } catch (error) {
+      setImageError(error?.message || "The image could not be uploaded. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleKeyDown = (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "b") {
       event.preventDefault();
@@ -108,7 +155,7 @@ export default function QuizTextEditor({
   // doesn't push the line being clicked.
   const toolbar = (
     <div
-      className={`${isOption ? "hidden group-focus-within:flex" : "flex"} flex-wrap items-center gap-0.5`}
+      className={`${isOption && !isUploading ? "hidden group-focus-within:flex" : "flex"} flex-wrap items-center gap-0.5`}
       role="toolbar"
       aria-label="Formatting"
     >
@@ -138,6 +185,16 @@ export default function QuizTextEditor({
           <option value="plain">Plain text (no colours)</option>
         </select>
       </label>
+      <button
+        type="button"
+        className={`${TOOL_BUTTON} disabled:cursor-wait disabled:opacity-60`}
+        onClick={() => imageInputRef.current?.click()}
+        disabled={isUploading}
+        title="Insert an image (JPG, PNG, WebP or GIF, up to 10 MB)"
+      >
+        {isUploading ? <Loader2 size={13} className="animate-spin" aria-hidden /> : <ImagePlus size={13} aria-hidden />}
+        <span>{isUploading ? "Uploading…" : "Image"}</span>
+      </button>
     </div>
   );
 
@@ -160,6 +217,21 @@ export default function QuizTextEditor({
       />
 
       {isOption && toolbar}
+
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept={IMAGE_TYPES}
+        onChange={handleImageChosen}
+        className="hidden"
+        aria-label="Choose an image"
+      />
+
+      {imageError && (
+        <p className="text-xs font-medium text-destructive" role="alert">
+          {imageError}
+        </p>
+      )}
 
       {isRichQuizText(text) && (
         <div className="rounded-lg border border-dashed border-border bg-background/60 p-2.5">

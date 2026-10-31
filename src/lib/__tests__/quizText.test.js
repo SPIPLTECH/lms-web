@@ -7,6 +7,7 @@ import { buildQuestionSpeech } from "../quizSpeech.js";
 // lms-api/src/utils/choiceAnswer.js — how a code option is graded.
 const INSIDE = "```python\nfor i in range(3):\n    print(i)\n    print(\"done\")\n```";
 const OUTSIDE = "```python\nfor i in range(3):\n    print(i)\nprint(\"done\")\n```";
+const IMAGE = "![Image](https://files.example.com/content-uploads/chart.png)";
 
 function runTests() {
   const testCases = [
@@ -45,6 +46,21 @@ function runTests() {
       name: "a list row shows a code block as [code]",
       actual: quizTextSummary(`What does this print?\n${INSIDE}`),
       expected: "What does this print? [code]",
+    },
+    {
+      name: "an image makes it Markdown; a lone ! or [ does not",
+      actual: [isRichQuizText(IMAGE), isRichQuizText("Wow! See [1] (page 2)."), isRichQuizText("a![0] (b)")].join(),
+      expected: "true,false,false",
+    },
+    {
+      name: "read-aloud names an image instead of reading its address",
+      actual: quizTextForSpeech(`What does this chart show?\n${IMAGE}`),
+      expected: "What does this chart show? Image shown on screen.",
+    },
+    {
+      name: "a list row shows an image as [image]",
+      actual: quizTextSummary(`What does this chart show?\n${IMAGE}`),
+      expected: "What does this chart show? [image]",
     },
     {
       name: "a question's options are spoken without code symbols",
