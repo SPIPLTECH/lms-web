@@ -18,6 +18,7 @@ import useQuizResult from "@/hooks/queries/student/useQuizResult";
 import useTrackCourseAccess from "@/hooks/queries/student/useTrackCourseAccess";
 import useQuizAttemptTracker from "@/hooks/useQuizAttemptTracker";
 import { useToast } from "@/components/ui/ToastProvider";
+import { useConfirm } from "@/context/ConfirmContext";
 import { useStudentTour } from "@/context/StudentTourContext";
 import { checkAnswerCorrectness } from "@/lib/quizAnswers";
 import { allQuestionsChecked } from "@/lib/quizAttemptState";
@@ -245,6 +246,26 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
     // (React Strict Mode's double effect-invocation in dev) would otherwise
     // both slip past a state-based check in the same tick.
     const submitInFlightRef = useRef(false);
+
+    // Leaving a Self-Test drops its checked answers (forgetOnLeave above); only
+    // the finished attempt is ever saved. So exiting asks first when that would
+    // lose something: not before the first check, and not once the attempt has
+    // saved or is on its way to the server.
+    const confirm = useConfirm();
+    const handleExitPractice = async () => {
+        const wouldLoseAnswers =
+            Object.keys(checkedResults).length > 0 && !isSubmitted && !submitQuizMutation.isPending;
+        if (wouldLoseAnswers) {
+            const leave = await confirm({
+                title: "Exit this quiz?",
+                message: "Your checked answers won't be saved. Leave anyway?",
+                confirmText: "Exit quiz",
+                cancelText: "Keep going",
+            });
+            if (!leave) return;
+        }
+        onBack?.();
+    };
 
     // Dismissing the confirm modal clears the failure shown inside it, so the
     // next open starts clean rather than re-showing a stale error.
@@ -508,7 +529,8 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
             <div className="space-y-2 sm:space-y-3">
                 <QuizHeader
                     quiz={quiz}
-                    onBack={onBack}
+                    onBack={isPractice && onBack ? handleExitPractice : onBack}
+                    exitLabel={isPractice ? "Exit quiz" : null}
                     onTimeUp={handleTimeUp}
                     answeredCount={answeredQuestions}
                 />

@@ -9,7 +9,6 @@ import {
   MapPin,
   GraduationCap,
   Building,
-  ShieldCheck,
   Lock,
   Key,
   Check,
@@ -49,8 +48,8 @@ const GENDER_OPTIONS = [
 // Form state straight from the stored profile. Empty fields stay empty: a
 // sample value here would show as the student's own data, count towards
 // Profile Completion and be saved on the next "Save".
-const toFormData = (profile) => {
-  const student = profile.studentProfile || {};
+export const toFormData = (profile) => {
+  const student = profile?.studentProfile || {};
   let dobStr = "";
   if (student.dateOfBirth) {
     try {
@@ -61,12 +60,12 @@ const toFormData = (profile) => {
   }
 
   return {
-    name: profile.name || "",
-    phoneNumber: profile.phoneNumber || "",
-    address: profile.address || "",
+    name: profile?.name || "",
+    phoneNumber: profile?.phoneNumber || "",
+    address: profile?.address || "",
     education: student.education || "",
-    institution: student.institution || "",
-    graduationYear: student.graduationYear || "",
+    institution: student.institution ?? student.collegeName ?? "",
+    graduationYear: student.graduationYear != null ? String(student.graduationYear) : "",
     guardianName: student.guardianName || "",
     gender: student.gender || "",
     dateOfBirth: dobStr,
@@ -76,7 +75,10 @@ const toFormData = (profile) => {
 export default function DesktopEditProfileView({ profile, onRefresh }) {
   const updateProfileMutation = useUpdateProfile();
   const fileInputRef = useRef(null);
+  const heroRef = useRef(null);
+  const personalRef = useRef(null);
   const dobRef = useRef(null);
+  const educationRef = useRef(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -132,7 +134,7 @@ export default function DesktopEditProfileView({ profile, onRefresh }) {
     { label: "Email Address", key: "email", isFilled: !!profile?.email },
     { label: "Date of Birth", key: "dateOfBirth", isFilled: !!formData.dateOfBirth },
     { label: "Address", key: "address", isFilled: !!formData.address.trim() },
-    { label: "Education", key: "education", isFilled: !!formData.education },
+    { label: "Education", key: "education", isFilled: !!formData.education.trim() },
     { label: "Institution", key: "institution", isFilled: !!formData.institution.trim() },
     { label: "Profile Photo", key: "avatar", isFilled: !!(avatarPreview || profile?.avatar) },
   ];
@@ -194,20 +196,51 @@ export default function DesktopEditProfileView({ profile, onRefresh }) {
     }
   };
 
-  // Profile Form Save Handler
-  const handleSave = async (e) => {
-    if (e) e.preventDefault();
+  // Profile Form Save Handlers (section-scoped and full form)
+  const saveProfilePayload = async (payload, successMsg = "Profile changes saved successfully!") => {
     setSaveSuccessMsg("");
     setSaveErrorMsg("");
 
     try {
-      await updateProfileMutation.mutateAsync(formData);
-      setSaveSuccessMsg("Profile changes saved successfully!");
+      await updateProfileMutation.mutateAsync(payload);
+      setSaveSuccessMsg(successMsg);
       if (onRefresh) onRefresh();
       setTimeout(() => setSaveSuccessMsg(""), 4000);
     } catch (err) {
       setSaveErrorMsg(err?.response?.data?.message || "Failed to save profile changes.");
     }
+  };
+
+  const handleSavePersonal = async (e) => {
+    if (e) e.preventDefault();
+    await saveProfilePayload(
+      {
+        name: formData.name,
+        phoneNumber: formData.phoneNumber,
+        address: formData.address,
+        gender: formData.gender,
+        dateOfBirth: formData.dateOfBirth,
+      },
+      "Personal information saved successfully!"
+    );
+  };
+
+  const handleSaveEducation = async (e) => {
+    if (e) e.preventDefault();
+    await saveProfilePayload(
+      {
+        education: formData.education,
+        institution: formData.institution,
+        graduationYear: formData.graduationYear,
+        guardianName: formData.guardianName,
+      },
+      "Education details saved successfully!"
+    );
+  };
+
+  const handleSave = async (e) => {
+    if (e) e.preventDefault();
+    await saveProfilePayload(formData);
   };
 
   // Password Change Handler
@@ -273,7 +306,10 @@ export default function DesktopEditProfileView({ profile, onRefresh }) {
       />
 
       {/* 1. HERO PROFILE HEADER CARD */}
-      <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-[var(--card)] via-[var(--surface-muted)] to-[var(--card)] p-6 md:p-8 shadow-2xl">
+      <div
+        ref={heroRef}
+        className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-[var(--card)] via-[var(--surface-muted)] to-[var(--card)] p-6 md:p-8 shadow-2xl"
+      >
         {/* Ambient Glow */}
         <div className="absolute top-0 right-0 -mt-8 -mr-8 h-64 w-64 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
 
@@ -392,7 +428,10 @@ export default function DesktopEditProfileView({ profile, onRefresh }) {
         {/* LEFT COLUMN (70% = 7 cols on lg grid) */}
         <div className="lg:col-span-7 space-y-6">
           {/* A. PERSONAL INFORMATION CARD */}
-          <div className="rounded-2xl border border-border bg-background/70 p-6 md:p-7 shadow-xl space-y-6">
+          <div
+            ref={personalRef}
+            className="rounded-2xl border border-border bg-background/70 p-6 md:p-7 shadow-xl space-y-6"
+          >
             <div className="flex items-center justify-between border-b border-border/80 pb-4">
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center">
@@ -402,7 +441,7 @@ export default function DesktopEditProfileView({ profile, onRefresh }) {
               </div>
               <button
                 type="button"
-                onClick={handleSave}
+                onClick={handleSavePersonal}
                 disabled={updateProfileMutation.isPending}
                 className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-transparent hover:border-primary text-xs font-bold text-foreground hover:text-foreground transition cursor-pointer disabled:opacity-50"
               >
@@ -523,7 +562,10 @@ export default function DesktopEditProfileView({ profile, onRefresh }) {
           </div>
 
           {/* B. EDUCATION DETAILS CARD */}
-          <div className="rounded-2xl border border-border bg-background/70 p-6 md:p-7 shadow-xl space-y-6">
+          <div
+            ref={educationRef}
+            className="rounded-2xl border border-border bg-background/70 p-6 md:p-7 shadow-xl space-y-6"
+          >
             <div className="flex items-center justify-between border-b border-border/80 pb-4">
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center">
@@ -533,7 +575,7 @@ export default function DesktopEditProfileView({ profile, onRefresh }) {
               </div>
               <button
                 type="button"
-                onClick={handleSave}
+                onClick={handleSaveEducation}
                 disabled={updateProfileMutation.isPending}
                 className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-transparent hover:border-primary text-xs font-bold text-foreground hover:text-foreground transition cursor-pointer disabled:opacity-50"
               >
@@ -559,6 +601,11 @@ export default function DesktopEditProfileView({ profile, onRefresh }) {
                     <option value="" className="bg-background text-foreground">
                       Select education degree
                     </option>
+                    {formData.education && !EDUCATION_OPTIONS.includes(formData.education) && (
+                      <option value={formData.education} className="bg-background text-foreground">
+                        {formData.education}
+                      </option>
+                    )}
                     {EDUCATION_OPTIONS.map((edu) => (
                       <option key={edu} value={edu} className="bg-background text-foreground">
                         {edu}
@@ -724,17 +771,27 @@ export default function DesktopEditProfileView({ profile, onRefresh }) {
             </div>
 
             {/* Action Button */}
-            <button
-              type="button"
-              onClick={() => {
-                if (dobRef.current) {
-                  dobRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-                }
-              }}
-              className="w-full py-2.5 rounded-xl border border-primary/40 text-primary hover:bg-primary/10 font-bold text-xs transition cursor-pointer"
-            >
-              Complete Missing Fields
-            </button>
+            {completionPercentage < 100 && (
+              <button
+                type="button"
+                onClick={() => {
+                  const firstMissing = checkList.find((item) => !item.isFilled);
+                  if (!firstMissing) return;
+                  if (firstMissing.key === "dateOfBirth") {
+                    dobRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  } else if (firstMissing.key === "education" || firstMissing.key === "institution") {
+                    educationRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  } else if (firstMissing.key === "avatar") {
+                    heroRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  } else {
+                    personalRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }
+                }}
+                className="w-full py-2.5 rounded-xl border border-primary/40 text-primary hover:bg-primary/10 font-bold text-xs transition cursor-pointer"
+              >
+                Complete Missing Fields
+              </button>
+            )}
           </div>
 
 
