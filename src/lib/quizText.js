@@ -1,10 +1,10 @@
 /**
  * Quiz text (question, options, explanation, hint) is plain text unless its
  * author wrote Markdown into it. Only text with inline `code`, a ``` code
- * block or **bold** is treated as Markdown: that is what the quiz editor's
- * toolbar writes, and what imported code questions already use. Anything
- * else renders exactly as it always has. Over 5,000 existing questions use
- * `___` blanks, `a < b`, `2 * 3` and lone `#` options, which Markdown would
+ * block, **bold** or an ![image](url) is treated as Markdown: that is what the
+ * quiz editor's toolbar writes, and what imported code questions already use.
+ * Anything else renders exactly as it always has. Over 5,000 existing questions
+ * use `___` blanks, `a < b`, `2 * 3` and lone `#` options, which Markdown would
  * otherwise turn into rules, tags, italics and headings.
  *
  * Pure (no DOM), so read-aloud (quizSpeech.js) and tests can use it. The
@@ -13,7 +13,7 @@
 
 import { Lexer } from "marked";
 
-const RICH_MARKERS = /`|\*\*/;
+const RICH_MARKERS = /`|\*\*|!\[[^\]\n]*\]\(/;
 
 export function isRichQuizText(text) {
   return typeof text === "string" && RICH_MARKERS.test(text);
@@ -63,19 +63,24 @@ export function quizCodeLanguageLabel(lang) {
 
 const lexer = () => new Lexer({ gfm: true, breaks: true });
 
-const spokenCode = (lang) => {
-  const label = quizCodeLanguageLabel(lang);
-  return ` ${label ? `${label} code` : "Code"} shown on screen. `;
+const SPOKEN = {
+  code: (lang) => {
+    const label = quizCodeLanguageLabel(lang);
+    return ` ${label ? `${label} code` : "Code"} shown on screen. `;
+  },
+  image: " Image shown on screen. ",
 };
 
-const summaryCode = () => " [code] ";
+const SUMMARY = { code: () => " [code] ", image: " [image] " };
 
-function plainTokens(tokens = [], codeBlock) {
+function plainTokens(tokens = [], say) {
   return tokens
     .map((token) => {
       switch (token.type) {
         case "code":
-          return codeBlock(token.lang);
+          return say.code(token.lang);
+        case "image":
+          return say.image;
         case "codespan":
         case "escape":
         case "html":
@@ -86,33 +91,34 @@ function plainTokens(tokens = [], codeBlock) {
         case "hr":
           return " ";
         case "list":
-          return ` ${token.items.map((item) => plainTokens(item.tokens, codeBlock).trim()).join(". ")}. `;
+          return ` ${token.items.map((item) => plainTokens(item.tokens, say).trim()).join(". ")}. `;
         default:
-          return token.tokens ? ` ${plainTokens(token.tokens, codeBlock)} ` : token.text || "";
+          return token.tokens ? ` ${plainTokens(token.tokens, say)} ` : token.text || "";
       }
     })
     .join("");
 }
 
-const flatten = (text, codeBlock) =>
-  plainTokens(lexer().lex(text), codeBlock).replace(/\s+/g, " ").replace(/\s+([.,;:!?])/g, "$1").trim();
+const flatten = (text, say) =>
+  plainTokens(lexer().lex(text), say).replace(/\s+/g, " ").replace(/\s+([.,;:!?])/g, "$1").trim();
 
 /**
  * What read-aloud says for a piece of quiz text: plain text as it is;
- * Markdown without its markers, and each code block as "Python code shown
- * on screen" rather than every bracket and colon in it.
+ * Markdown without its markers, each code block as "Python code shown on
+ * screen" rather than every bracket and colon in it, and each image as
+ * "Image shown on screen" rather than its address.
  */
 export function quizTextForSpeech(text) {
   if (!isRichQuizText(text)) return text ?? "";
-  return flatten(text, spokenCode);
+  return flatten(text, SPOKEN);
 }
 
 /**
  * Quiz text on one line, for lists, dropdowns and clamped previews that
- * can't hold a code cell: Markdown markers dropped, each code block shown
- * as "[code]".
+ * can't hold a code cell or an image: Markdown markers dropped, each code
+ * block shown as "[code]" and each image as "[image]".
  */
 export function quizTextSummary(text) {
   if (!isRichQuizText(text)) return text ?? "";
-  return flatten(text, summaryCode);
+  return flatten(text, SUMMARY);
 }
