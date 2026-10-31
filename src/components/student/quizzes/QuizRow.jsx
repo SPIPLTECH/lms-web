@@ -28,6 +28,7 @@ export default function QuizRow({
                 <div>
                     <h3 className="font-semibold text-foreground">
                         {quiz.title}
+                        {quiz.proctoringEnabled && <span className="ml-1.5 inline-flex items-center rounded-md border border-primary/30 bg-primary/10 px-1.5 py-0.5 align-middle text-[10px] font-bold uppercase tracking-wider text-primary">Proctored</span>}
                     </h3>
 
                     <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">

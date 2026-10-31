@@ -51,6 +51,12 @@ export default function Layout({ children }) {
     return null; // Let the useEffect redirect
   }
 
+  // A proctored exam is its own full page: no navigation to wander off through, and
+  // none of the widgets, tours or shortcuts of the rest of the student area.
+  if (pathname?.startsWith("/student/proctored")) {
+    return <div className="min-h-dvh bg-background text-foreground">{children}</div>;
+  }
+
   const isLearnPage = pathname?.includes("/student/learn/");
 
   // Pages that show course content follow the account's playback lease: while

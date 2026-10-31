@@ -87,7 +87,7 @@ function readStoredProgress(storageKey, questions) {
  * quiz UI. The attempt screen reads `questionStates` for the navigator and
  * calls `buildSubmitPayload()` when the student submits.
  */
-export default function useQuizAttemptTracker({ quizId, questions, attemptsUsed = 0, active = true, forgetOnLeave = false }) {
+export default function useQuizAttemptTracker({ quizId, questions, attemptsUsed = 0, active = true, forgetOnLeave = false, serverAnswers = null }) {
     const [questionStates, setQuestionStates] = useState(() => createAttemptState(questions));
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
@@ -113,7 +113,14 @@ export default function useQuizAttemptTracker({ quizId, questions, attemptsUsed 
         if (!active || hydrated || !quizId || questions.length === 0) return;
 
         const stored = readStoredProgress(storageKey, questions);
-        const base = stored?.questionStates ?? createAttemptState(questions);
+        let base = stored?.questionStates ?? createAttemptState(questions);
+        // A proctored exam's answers live on the server, so another device or a cleared
+        // browser gets them back. Anything newer in this browser's own record stands.
+        for (const row of serverAnswers || []) {
+            if (row.answer !== null && row.answer !== undefined && !base[row.questionId]?.answered) {
+                base = setAnswerIn(base, row.questionId, row.answer);
+            }
+        }
 
         // The first question is open the moment the attempt starts, so it is
         // VISITED from the outset rather than only once the student navigates.
@@ -121,7 +128,7 @@ export default function useQuizAttemptTracker({ quizId, questions, attemptsUsed 
         setQuestionStates(markVisited(base, questions[startIndex]?.id));
         setCurrentQuestionIndex(startIndex);
         setHydratedKey(storageKey);
-    }, [active, hydrated, quizId, questions, storageKey]);
+    }, [active, hydrated, quizId, questions, storageKey, serverAnswers]);
 
     // A quiz edited between visits (or an attempt restored against a changed
     // question set) must not leave records for questions that are gone, or

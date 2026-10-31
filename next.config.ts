@@ -50,11 +50,19 @@ const SECURITY_HEADERS = [
         : []),
 ];
 
+// The one route allowed to use the camera and microphone: the proctored exam. It must be
+// entered with a full page load, because the browser keeps a page's first policy.
+const PROCTORED_EXAM_PERMISSIONS = "camera=(self), microphone=(self), fullscreen=(self), geolocation=(), display-capture=()";
+
 const nextConfig: NextConfig = {
     allowedDevOrigins: PRIVATE_LAN_DEV_ORIGINS,
     poweredByHeader: false,
     async headers() {
-        return [{ source: "/:path*", headers: SECURITY_HEADERS }];
+        return [
+            { source: "/:path*", headers: SECURITY_HEADERS },
+            // Later entries override earlier ones for the same header.
+            { source: "/student/proctored/:path*", headers: [{ key: "Permissions-Policy", value: PROCTORED_EXAM_PERMISSIONS }] },
+        ];
     },
     images: {
         remotePatterns: [
