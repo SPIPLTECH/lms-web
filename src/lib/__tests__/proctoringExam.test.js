@@ -1,4 +1,23 @@
-import { answerFingerprint, answerRetryDelay, changedQuestionIds, classifyExamError, formatSavedAnswer, isDevToolsShortcut, isLeaveShortcut, isScreenshotShortcut, localDeadlineMs, refusalMessage, toSavePayload } from "../proctoring/examLogic.js";
+import {
+    DISCRETE_WARNING_DISMISS_MS,
+    MIN_WARNING_DISPLAY_MS,
+    RESOLVED_WARNING_DISMISS_MS,
+    answerFingerprint,
+    answerRetryDelay,
+    changedQuestionIds,
+    classifyExamError,
+    formatSavedAnswer,
+    isDevToolsShortcut,
+    isLeaveShortcut,
+    isScreenshotShortcut,
+    localDeadlineMs,
+    openWarningBanner,
+    reconcileServerAnswers,
+    refusalMessage,
+    shouldDismissWarningBanner,
+    syncWarningBannerConditions,
+    toSavePayload,
+} from "../proctoring/examLogic.js";
 import { VoiceActivityDetector, crossingsPerSecond, frameLevelDb } from "../proctoring/voiceActivity.js";
 
 /**
@@ -14,7 +33,14 @@ const http = (status, code) => ({ response: { status, data: { code } } });
 
 // ---- shortcuts ----
 check("Alt+Tab, the Windows key, Esc and Ctrl+W count as leaving", [{ key: "Tab", altKey: true }, { key: "Meta" }, { key: "Escape" }, { key: "w", ctrlKey: true }].every(isLeaveShortcut));
-check("ordinary typing does not", ![{ key: "a" }, { key: "Tab" }, { key: "Enter" }, { key: "w" }].some(isLeaveShortcut));
+check("back/reload shortcuts (Alt+ArrowLeft, BrowserBack, F5, Ctrl+R) count as leaving", [
+    { key: "ArrowLeft", altKey: true },
+    { key: "ArrowRight", altKey: true },
+    { key: "BrowserBack" },
+    { key: "F5" },
+    { key: "r", ctrlKey: true },
+].every(isLeaveShortcut));
+check("ordinary typing does not", ![{ key: "a" }, { key: "Tab" }, { key: "Enter" }, { key: "w" }, { key: "r" }, { key: "ArrowLeft" }].some(isLeaveShortcut));
 check("PrintScreen and the snipping shortcut are screenshots", Boolean(isScreenshotShortcut({ key: "PrintScreen" })) && Boolean(isScreenshotShortcut({ key: "S", shiftKey: true, metaKey: true })));
 check("Ctrl+P is treated as a screenshot, Ctrl+Shift+P is not", Boolean(isScreenshotShortcut({ key: "p", ctrlKey: true })) && !isScreenshotShortcut({ key: "p", ctrlKey: true, shiftKey: true }));
 check("a plain letter is not a screenshot", !isScreenshotShortcut({ key: "s" }));
@@ -85,5 +111,59 @@ check("a short sound is not", run([...repeat(quiet, 15), ...repeat(speech, 5), .
 check("mains hum is not speech", run([...repeat(quiet, 15), ...repeat(tone(30, 0.2), 25)]).length === 0);
 check("constant background noise is learned as the room", run(repeat(speech, 40)).length === 0);
 check("the cooldown holds a second report back", run([...repeat(quiet, 15), ...repeat(speech, 25), ...repeat(quiet, 10), ...repeat(speech, 25)]).length === 1);
+
+// ---- warning banner lifecycle (dismissal vs violation resolution) ----
+check("a continuous warning stays pinned while its condition remains active", (() => {
+    const t0 = 10_000;
+    let banner = openWarningBanner({ message: "Face missing", eventType: "FACE_NOT_DETECTED", currentWarnings: 1, maxWarnings: 3 }, t0);
+    banner = syncWarningBannerConditions(banner, ["FACE_NOT_DETECTED"], t0 + 20_000);
+    return banner.continuous && banner.dismissAt === null && !shouldDismissWarningBanner(banner, t0 + 60_000);
+})());
+check("a continuous warning schedules dismissal only after the condition resolves, respecting minimum display time", (() => {
+    const t0 = 10_000;
+    let banner = openWarningBanner({ message: "Phone detected", eventType: "PROHIBITED_OBJECT_DETECTED", currentWarnings: 2, maxWarnings: 3 }, t0);
+    // Resolves after 1s -> must wait until at least t0 + MIN_WARNING_DISPLAY_MS (6s)
+    banner = syncWarningBannerConditions(banner, [], t0 + 1_000);
+    const minFloorRespected = banner.dismissAt === t0 + MIN_WARNING_DISPLAY_MS && !shouldDismissWarningBanner(banner, t0 + 5_500) && shouldDismissWarningBanner(banner, t0 + MIN_WARNING_DISPLAY_MS);
+    // Resolves after 8s -> dismisses at resolve + RESOLVED_WARNING_DISMISS_MS (12s)
+    let banner2 = openWarningBanner({ message: "Looking away", eventType: "HEAD_POSE_AWAY", currentWarnings: 1, maxWarnings: 3 }, t0);
+    banner2 = syncWarningBannerConditions(banner2, [], t0 + 8_000);
+    const postResolveRespected = banner2.dismissAt === t0 + 8_000 + RESOLVED_WARNING_DISMISS_MS;
+    // Re-activating before dismissal re-pins the banner
+    banner2 = syncWarningBannerConditions(banner2, ["HEAD_POSE_AWAY"], t0 + 9_000);
+    return minFloorRespected && postResolveRespected && banner2.dismissAt === null && banner2.resolvedAt === null;
+})());
+check("a discrete warning auto-dismisses after DISCRETE_WARNING_DISMISS_MS", (() => {
+    const t0 = 5_000;
+    const banner = openWarningBanner({ message: "Tab hidden", eventType: "TAB_HIDDEN", currentWarnings: 1, maxWarnings: 3 }, t0);
+    return !banner.continuous && !shouldDismissWarningBanner(banner, t0 + DISCRETE_WARNING_DISMISS_MS - 1) && shouldDismissWarningBanner(banner, t0 + DISCRETE_WARNING_DISMISS_MS);
+})());
+
+// ---- timestamp-aware server answer reconciliation ----
+check("empty local state restores answers, skipped, visited and hintViewed from server rows", (() => {
+    const base = {
+        q1: { questionId: "q1", answer: null, answered: false, skipped: false, visited: false, hintViewed: false, status: "NOT_VISITED", firstVisitedAt: null, lastVisitedAt: null, answeredAt: null, skippedAt: null },
+        q2: { questionId: "q2", answer: null, answered: false, skipped: false, visited: false, hintViewed: false, status: "NOT_VISITED", firstVisitedAt: null, lastVisitedAt: null, answeredAt: null, skippedAt: null },
+    };
+    const reconciled = reconcileServerAnswers(base, [
+        { questionId: "q1", answer: "B", savedAt: "2026-10-31T10:05:00.000Z", state: { visited: true, hintViewed: true, answeredAt: "2026-10-31T10:05:00.000Z" } },
+        { questionId: "q2", answer: null, savedAt: "2026-10-31T10:06:00.000Z", state: { visited: true, skipped: true, skippedAt: "2026-10-31T10:06:00.000Z" } },
+    ]);
+    return reconciled.q1.answer === "B" && reconciled.q1.status === "ANSWERED" && reconciled.q1.hintViewed === true && reconciled.q2.skipped === true && reconciled.q2.status === "SKIPPED";
+})());
+check("newer local pre-refresh answer beats older server answer, while newer server answer from another device beats stale local cache", (() => {
+    const tOld = Date.parse("2026-10-31T10:00:00.000Z");
+    const tMid = Date.parse("2026-10-31T10:02:00.000Z");
+    const tNew = Date.parse("2026-10-31T10:04:00.000Z");
+    const base = {
+        qLocalNewer: { questionId: "qLocalNewer", answer: "LocalChoice", answered: true, skipped: false, visited: true, hintViewed: false, status: "ANSWERED", answeredAt: tNew, lastVisitedAt: tNew },
+        qServerNewer: { questionId: "qServerNewer", answer: "StaleLocal", answered: true, skipped: false, visited: true, hintViewed: false, status: "ANSWERED", answeredAt: tOld, lastVisitedAt: tOld },
+    };
+    const reconciled = reconcileServerAnswers(base, [
+        { questionId: "qLocalNewer", answer: "OldServer", savedAt: new Date(tMid).toISOString(), state: { answeredAt: new Date(tMid).toISOString() } },
+        { questionId: "qServerNewer", answer: "FreshFromOtherDevice", savedAt: new Date(tNew).toISOString(), state: { answeredAt: new Date(tNew).toISOString() } },
+    ]);
+    return reconciled.qLocalNewer.answer === "LocalChoice" && reconciled.qServerNewer.answer === "FreshFromOtherDevice";
+})());
 
 if (failed > 0) process.exit(1);

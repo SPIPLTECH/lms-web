@@ -3,7 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { enterExamLock } from "@/lib/proctoring/examLock";
-import { classifyExamError, isDevToolsShortcut, isLeaveShortcut, isScreenshotShortcut } from "@/lib/proctoring/examLogic";
+import {
+    CONTINUOUS_WARNING_TYPES,
+    classifyExamError,
+    isDevToolsShortcut,
+    isLeaveShortcut,
+    isScreenshotShortcut,
+    openWarningBanner,
+    shouldDismissWarningBanner,
+    syncWarningBannerConditions,
+} from "@/lib/proctoring/examLogic";
 import { sendExamEvent, sendExamHeartbeat } from "@/services/proctoring.service";
 
 /** Focus must be away this long before it counts: permission prompts and OS toasts flicker focus. */
@@ -18,20 +27,104 @@ const isTyping = (target) => target?.tagName === "INPUT" || target?.tagName === 
  * warnings; the server decides what they mean. Severity is the server's, so none is sent here.
  */
 export default function useBrowserMonitoring({ token, active, initialWarnings = 0, maxWarnings: initialMax = 3, onEnded, onSuperseded, onIntervalChange }) {
-    const [warnings, setWarnings] = useState(initialWarnings);
-    const [maxWarnings, setMaxWarnings] = useState(initialMax);
-    const [activeWarningMessage, setActiveWarningMessage] = useState(null);
+    const safeInitialMax = initialMax > 0 ? initialMax : 3;
+    const [warnings, setWarnings] = useState(() => Math.min(Math.max(0, initialWarnings), safeInitialMax));
+    const [maxWarnings, setMaxWarnings] = useState(safeInitialMax);
+    const [warningBanner, setWarningBanner] = useState(null);
     const [isFullscreen, setIsFullscreen] = useState(() => typeof document !== "undefined" && Boolean(document.fullscreenElement));
     const [isWindowFocused, setIsWindowFocused] = useState(() => (typeof document === "undefined" ? true : !document.hidden && document.hasFocus()));
     const [isOnline, setIsOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
 
     const tokenRef = useRef(token);
     tokenRef.current = token;
+    const maxWarningsRef = useRef(safeInitialMax);
+    const serverConditionsRef = useRef([]);
+    const clientConditionsRef = useRef(new Set());
     const handlers = useRef({});
     handlers.current = { onEnded, onSuperseded, onIntervalChange };
     const lastEventRef = useRef({});
     const lastScreenshotRef = useRef(0);
     const blurTimerRef = useRef(null);
+
+    useEffect(() => {
+        const resolvedMax = initialMax > 0 ? initialMax : 3;
+        maxWarningsRef.current = resolvedMax;
+        setMaxWarnings(resolvedMax);
+        setWarnings(Math.min(Math.max(0, initialWarnings), resolvedMax));
+    }, [initialWarnings, initialMax]);
+
+    const getEffectiveConditions = useCallback(
+        () => [...new Set([...serverConditionsRef.current, ...clientConditionsRef.current])],
+        []
+    );
+
+    const syncCounts = useCallback((current, max) => {
+        const resolvedMax = typeof max === "number" && max > 0 ? max : maxWarningsRef.current;
+        if (typeof max === "number" && max > 0) {
+            maxWarningsRef.current = max;
+            setMaxWarnings(max);
+        }
+        if (typeof current === "number") {
+            setWarnings(Math.min(Math.max(0, current), resolvedMax));
+        }
+    }, []);
+
+    const showBanner = useCallback(
+        (notice, fallbackEventType = null) => {
+            if (!notice?.message) return;
+            const eventType = notice.eventType ?? fallbackEventType ?? null;
+            const now = Date.now();
+            if (eventType === "CAMERA_INTERRUPTED" || eventType === "CAMERA_DENIED") {
+                clientConditionsRef.current.add(eventType);
+            } else if (eventType && CONTINUOUS_WARNING_TYPES.has(eventType) && !serverConditionsRef.current.includes(eventType)) {
+                serverConditionsRef.current = [...serverConditionsRef.current, eventType];
+            }
+            const effective = getEffectiveConditions();
+            setWarningBanner(() => {
+                const opened = openWarningBanner(
+                    {
+                        message: notice.message,
+                        eventType,
+                        currentWarnings: notice.currentWarnings,
+                        maxWarnings: notice.maxWarnings,
+                    },
+                    now
+                );
+                return syncWarningBannerConditions(opened, effective, now);
+            });
+        },
+        [getEffectiveConditions]
+    );
+
+    const syncActiveConditions = useCallback(
+        (conditions) => {
+            if (!Array.isArray(conditions)) return;
+            serverConditionsRef.current = conditions;
+            const effective = getEffectiveConditions();
+            setWarningBanner((current) => syncWarningBannerConditions(current, effective, Date.now()));
+        },
+        [getEffectiveConditions]
+    );
+
+    const resolveCondition = useCallback(
+        (eventType) => {
+            if (!eventType) return;
+            clientConditionsRef.current.delete(eventType);
+            serverConditionsRef.current = serverConditionsRef.current.filter((item) => item !== eventType);
+            const effective = getEffectiveConditions();
+            setWarningBanner((current) => syncWarningBannerConditions(current, effective, Date.now()));
+        },
+        [getEffectiveConditions]
+    );
+
+    useEffect(() => {
+        if (!warningBanner || warningBanner.dismissAt === null) return undefined;
+        const delay = Math.max(0, warningBanner.dismissAt - Date.now());
+        const timer = setTimeout(() => {
+            setWarningBanner((current) => (shouldDismissWarningBanner(current, Date.now()) ? null : current));
+        }, delay + 25);
+        return () => clearTimeout(timer);
+    }, [warningBanner]);
 
     const handleFailure = useCallback((error) => {
         const kind = classifyExamError(error);
@@ -40,15 +133,17 @@ export default function useBrowserMonitoring({ token, active, initialWarnings = 
     }, []);
 
     /** A decision the server made in the background: shows the warning, and leaves if it ended the exam. */
-    const applyServerNotice = useCallback((notice) => {
-        if (!notice) return;
-        if (notice.warningIssued && notice.message) {
-            if (typeof notice.currentWarnings === "number") setWarnings(notice.currentWarnings);
-            if (typeof notice.maxWarnings === "number") setMaxWarnings(notice.maxWarnings);
-            setActiveWarningMessage(notice.message);
-        }
-        if (notice.terminated) handlers.current.onEnded?.();
-    }, []);
+    const applyServerNotice = useCallback(
+        (notice) => {
+            if (!notice) return;
+            syncCounts(notice.currentWarnings, notice.maxWarnings);
+            if ((notice.warningIssued || notice.terminated) && notice.message) {
+                showBanner(notice, notice.eventType ?? null);
+            }
+            if (notice.terminated) handlers.current.onEnded?.();
+        },
+        [showBanner, syncCounts]
+    );
 
     const reportEvent = useCallback(
         async (eventType, metadata) => {
@@ -60,16 +155,17 @@ export default function useBrowserMonitoring({ token, active, initialWarnings = 
                 const response = await sendExamEvent(tokenRef.current, { eventType, metadata, clientTimestamp: new Date().toISOString() });
                 const policy = response?.policyResult;
                 if (policy) {
-                    setWarnings(policy.currentWarnings);
-                    setMaxWarnings(policy.maxWarnings);
-                    if (policy.warningIssued && policy.message) setActiveWarningMessage(policy.message);
+                    syncCounts(policy.currentWarnings, policy.maxWarnings);
+                    if ((policy.warningIssued || policy.terminated) && policy.message) {
+                        showBanner(policy, policy.eventType ?? eventType);
+                    }
                     if (policy.terminated) handlers.current.onEnded?.();
                 }
             } catch (error) {
                 handleFailure(error);
             }
         },
-        [handleFailure]
+        [handleFailure, showBanner, syncCounts]
     );
 
     useEffect(() => {
@@ -77,6 +173,7 @@ export default function useBrowserMonitoring({ token, active, initialWarnings = 
         const ping = async () => {
             try {
                 const response = await sendExamHeartbeat(tokenRef.current);
+                if (Array.isArray(response?.activeConditions)) syncActiveConditions(response.activeConditions);
                 if (response?.proctoring) applyServerNotice(response.proctoring);
                 if (typeof response?.nextIntervalSeconds === "number") handlers.current.onIntervalChange?.(response.nextIntervalSeconds);
             } catch (error) {
@@ -86,7 +183,7 @@ export default function useBrowserMonitoring({ token, active, initialWarnings = 
         ping();
         const timer = setInterval(ping, HEARTBEAT_MS);
         return () => clearInterval(timer);
-    }, [active, applyServerNotice, handleFailure]);
+    }, [active, applyServerNotice, handleFailure, syncActiveConditions]);
 
     // Screen sharing is refused for the length of the exam.
     useEffect(() => {
@@ -224,11 +321,24 @@ export default function useBrowserMonitoring({ token, active, initialWarnings = 
         return state;
     }, []);
 
+    const clearWarningMessage = useCallback(() => {
+        setWarningBanner((current) => {
+            if (!current) return null;
+            if (current.continuous && current.resolvedAt === null) return current;
+            return null;
+        });
+    }, []);
+
+    const canDismissWarning = Boolean(warningBanner && (!warningBanner.continuous || warningBanner.resolvedAt !== null));
+
     return {
         warnings,
         maxWarnings,
-        activeWarningMessage,
-        clearWarningMessage: () => setActiveWarningMessage(null),
+        activeWarningMessage: warningBanner?.message ?? null,
+        canDismissWarning,
+        clearWarningMessage,
+        syncActiveConditions,
+        resolveCondition,
         isFullscreen,
         isWindowFocused,
         isOnline,

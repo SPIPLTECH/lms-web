@@ -25,7 +25,7 @@ function cameraErrorMessage(error) {
  * one frame per server-set interval, plus a re-check when the server asks for one. Everything in
  * the background is silent. A message appears only when the student has to do something.
  */
-export default function useWebcamCapture({ token, capturing = false, intervalSeconds = DEFAULT_INTERVAL_SECONDS, onResult, onEnded, onSuperseded, onRecheckRequired, onCameraLost }) {
+export default function useWebcamCapture({ token, capturing = false, intervalSeconds = DEFAULT_INTERVAL_SECONDS, onResult, onEnded, onSuperseded, onRecheckRequired, onCameraLost, onCameraReady }) {
     const [cameraStatus, setCameraStatus] = useState("IDLE");
     const [errorMessage, setErrorMessage] = useState(null);
 
@@ -38,8 +38,9 @@ export default function useWebcamCapture({ token, capturing = false, intervalSec
     const failingSinceRef = useRef(null);
     const shownErrorRef = useRef(false);
     const recheckTimerRef = useRef(null);
+    const lastCaptureAtRef = useRef(0);
     const handlers = useRef({});
-    handlers.current = { onResult, onEnded, onSuperseded, onRecheckRequired, onCameraLost };
+    handlers.current = { onResult, onEnded, onSuperseded, onRecheckRequired, onCameraLost, onCameraReady };
 
     useEffect(() => {
         tokenRef.current = token;
@@ -82,6 +83,7 @@ export default function useWebcamCapture({ token, capturing = false, intervalSec
                 videoRef.current.play().catch(() => {});
             }
             setCameraStatus("READY");
+            handlers.current.onCameraReady?.();
             return true;
         } catch (error) {
             setCameraStatus(error?.name === "NotAllowedError" || error?.name === "PermissionDeniedError" ? "DENIED" : "ERROR");
@@ -126,7 +128,9 @@ export default function useWebcamCapture({ token, capturing = false, intervalSec
                     if (foreground) throw new Error("Your camera image is not ready yet. Please wait a moment and try again.");
                     throw Object.assign(new Error("frame unavailable"), { frameUnavailable: true });
                 }
+                lastCaptureAtRef.current = Date.now();
                 const result = await uploadExamFrame(tokenRef.current, { type, blob: frame.blob, frameId: newFrameId(), capturedAt: frame.capturedAt });
+                lastCaptureAtRef.current = Date.now();
                 failingSinceRef.current = null;
                 if (shownErrorRef.current) {
                     shownErrorRef.current = false;
@@ -182,11 +186,18 @@ export default function useWebcamCapture({ token, capturing = false, intervalSec
         let cancelled = false;
         let timer = null;
         const next = () => {
+            const targetMs = Math.max(1, intervalRef.current) * 1000;
+            const elapsedMs = lastCaptureAtRef.current ? Date.now() - lastCaptureAtRef.current : 0;
+            const delayMs = elapsedMs > 0 && elapsedMs < targetMs ? Math.max(1500, targetMs - elapsedMs) : targetMs;
             timer = setTimeout(async () => {
                 if (cancelled || stoppedRef.current) return;
+                if (Date.now() - lastCaptureAtRef.current < 1200) {
+                    next();
+                    return;
+                }
                 await capture("PERIODIC_SNAPSHOT");
                 if (!cancelled && !stoppedRef.current) next();
-            }, Math.max(1, intervalRef.current) * 1000);
+            }, delayMs);
         };
         // The first frame goes at once, so monitoring is known to work from the start.
         capture("PERIODIC_SNAPSHOT").finally(() => {

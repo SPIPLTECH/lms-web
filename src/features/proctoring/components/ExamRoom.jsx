@@ -38,12 +38,47 @@ export default function ExamRoom({ session, camera, monitoring, microphoneStatus
     const state = attempt.data;
     const questions = state?.questions ?? EMPTY;
     const [showSubmitModal, setShowSubmitModal] = useState(false);
+    const [showLeaveModal, setShowLeaveModal] = useState(false);
+    const [idleGraceElapsed, setIdleGraceElapsed] = useState(false);
     const [submitError, setSubmitError] = useState("");
     const [timeUp, setTimeUp] = useState(false);
     const [restoring, setRestoring] = useState(false);
     const submit = useSubmitProctoredAttempt(session.quizId);
     const submittingRef = useRef(false);
     const skipFlushRef = useRef(false);
+    const allowLeaveRef = useRef(false);
+
+    useEffect(() => {
+        if (camera.cameraStatus !== "IDLE" || idleGraceElapsed) return undefined;
+        const timer = setTimeout(() => setIdleGraceElapsed(true), 2500);
+        return () => clearTimeout(timer);
+    }, [camera.cameraStatus, idleGraceElapsed]);
+
+    useEffect(() => {
+        if (timeUp || typeof window === "undefined") return undefined;
+        const onBeforeUnload = (event) => {
+            if (allowLeaveRef.current) return;
+            event.preventDefault();
+            event.returnValue = "";
+        };
+        window.addEventListener("beforeunload", onBeforeUnload);
+        return () => window.removeEventListener("beforeunload", onBeforeUnload);
+    }, [timeUp]);
+
+    useEffect(() => {
+        if (timeUp || typeof window === "undefined") return undefined;
+        const guardState = { proctoredExamGuard: session.attemptId };
+        if (!window.history.state?.proctoredExamGuard) {
+            window.history.pushState(guardState, "", window.location.href);
+        }
+        const onPopState = () => {
+            if (allowLeaveRef.current) return;
+            window.history.pushState(guardState, "", window.location.href);
+            setShowLeaveModal(true);
+        };
+        window.addEventListener("popstate", onPopState);
+        return () => window.removeEventListener("popstate", onPopState);
+    }, [timeUp, session.attemptId]);
 
     const tracker = useQuizAttemptTracker({
         // Scoped to this attempt, so another attempt at the quiz never inherits it.
@@ -79,11 +114,13 @@ export default function ExamRoom({ session, camera, monitoring, microphoneStatus
                 }
             }
             await submit.mutateAsync(session.attemptId);
+            allowLeaveRef.current = true;
             tracker.clearStoredProgress();
             onEnded();
         } catch (error) {
             const kind = classifyExamError(error);
             if (kind === "ENDED") {
+                allowLeaveRef.current = true;
                 tracker.clearStoredProgress();
                 onEnded();
             } else if (kind === "SUPERSEDED") {
@@ -139,10 +176,40 @@ export default function ExamRoom({ session, camera, monitoring, microphoneStatus
 
     const quiz = { id: session.quizId, title: state.quiz?.title, quizTag: state.quiz?.quizTag, questions, timeLimit: state.durationMinutes };
     const fixedDeadline = localDeadlineMs(state.deadlineAt, state.serverNow, attempt.dataUpdatedAt);
-    const cameraOff = camera.cameraStatus !== "READY" && camera.cameraStatus !== "REQUESTING";
+    const cameraBootstrapping = camera.cameraStatus === "IDLE" && !idleGraceElapsed;
+    const cameraOff = camera.cameraStatus !== "READY" && camera.cameraStatus !== "REQUESTING" && !cameraBootstrapping;
+    const cappedWarnings = Math.min(monitoring.warnings, monitoring.maxWarnings);
+    const isFinalWarningStanding = monitoring.maxWarnings > 1 && cappedWarnings === monitoring.maxWarnings - 1;
 
     return (
         <div className="flex h-dvh select-none flex-col overflow-hidden print:hidden [&_input]:select-text [&_textarea]:select-text" onDragStart={(event) => event.preventDefault()}>
+            {showLeaveModal && !timeUp && (
+                <div role="dialog" aria-modal="true" aria-label="Stay in your proctored exam?" className="fixed inset-0 z-[70] flex items-center justify-center bg-background/85 p-6 backdrop-blur-sm">
+                    <div className="flex w-full max-w-md flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-xl">
+                        <ShieldAlert className="h-8 w-8 text-amber-500" aria-hidden />
+                        <h2 className="text-lg font-semibold text-foreground">Stay in your proctored exam?</h2>
+                        <p className="text-sm text-muted-foreground">
+                            Leaving this page does not pause your exam timer, and navigation away is recorded for instructor review. Stay here to continue answering, or submit your exam if you are finished.
+                        </p>
+                        <div className="mt-1 flex w-full flex-col gap-2 sm:flex-row">
+                            <Button type="button" onClick={() => setShowLeaveModal(false)} className="flex-1">
+                                Stay in exam
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                    setShowLeaveModal(false);
+                                    setShowSubmitModal(true);
+                                }}
+                                className="flex-1"
+                            >
+                                Review &amp; submit
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
             {isFullscreenSupported() && !monitoring.isFullscreen && !timeUp && (
                 <Blocker
                     icon={Maximize}
@@ -203,14 +270,27 @@ export default function ExamRoom({ session, camera, monitoring, microphoneStatus
                 <div role="alert" className="flex items-center justify-center gap-3 bg-rose-500/15 px-4 py-1.5 text-sm font-semibold text-rose-700 dark:text-rose-300">
                     <ShieldAlert className="h-4 w-4 shrink-0" aria-hidden />
                     <span>{monitoring.activeWarningMessage}</span>
-                    <button type="button" onClick={monitoring.clearWarningMessage} aria-label="Dismiss warning" className="rounded p-0.5 hover:bg-rose-500/20">
-                        <X className="h-4 w-4" aria-hidden />
-                    </button>
+                    {monitoring.canDismissWarning ? (
+                        <button type="button" onClick={monitoring.clearWarningMessage} aria-label="Dismiss warning" className="rounded p-0.5 hover:bg-rose-500/20">
+                            <X className="h-4 w-4" aria-hidden />
+                        </button>
+                    ) : (
+                        <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">Ongoing</span>
+                    )}
                 </div>
             )}
 
             <main className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2 sm:gap-3 sm:p-3">
                 <div className="mx-auto flex w-full max-w-5xl flex-col gap-2 sm:gap-3">
+                    {cappedWarnings > 0 && (
+                        <div className="flex items-center justify-end">
+                            <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${isFinalWarningStanding ? "border-rose-500/35 bg-rose-500/10 text-rose-700 dark:text-rose-300" : "border-amber-500/35 bg-amber-500/10 text-amber-800 dark:text-amber-300"}`}>
+                                <ShieldAlert className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                                Warnings: {cappedWarnings} / {monitoring.maxWarnings}
+                                {isFinalWarningStanding ? " · Final warning" : ""}
+                            </span>
+                        </div>
+                    )}
                     <QuizHeader quiz={quiz} hideBack fixedDeadline={fixedDeadline} onTimeUp={handleTimeUp} answeredCount={tracker.summary.answeredCount} />
                     <QuestionCard
                         question={tracker.currentQuestion}

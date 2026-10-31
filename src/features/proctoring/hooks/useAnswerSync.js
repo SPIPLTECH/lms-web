@@ -79,6 +79,15 @@ export default function useAnswerSync({ attemptId, questionStates, serverAnswers
     );
     sendRef.current = send;
 
+    // Keep client revision counters at least as high as the latest server-persisted revision.
+    useEffect(() => {
+        for (const row of serverAnswers || []) {
+            if (typeof row?.revision === "number") {
+                revisions.current[row.questionId] = Math.max(revisions.current[row.questionId] ?? 0, row.revision);
+            }
+        }
+    }, [serverAnswers]);
+
     // What the server already has does not need sending again after a refresh.
     const seeded = useRef(false);
     useEffect(() => {
@@ -86,7 +95,9 @@ export default function useAnswerSync({ attemptId, questionStates, serverAnswers
         seeded.current = true;
         for (const row of serverAnswers || []) {
             const record = questionStates[row.questionId];
-            if (record && JSON.stringify(record.answer ?? null) === JSON.stringify(row.answer ?? null)) lastSent.current[row.questionId] = answerFingerprint(record);
+            const sameAnswer = record && JSON.stringify(record.answer ?? null) === JSON.stringify(row.answer ?? null);
+            const sameSkip = record && Boolean(record.skipped) === Boolean(row.state?.skipped);
+            if (sameAnswer && sameSkip) lastSent.current[row.questionId] = answerFingerprint(record);
         }
     }, [enabled, questionStates, serverAnswers]);
 
@@ -100,10 +111,19 @@ export default function useAnswerSync({ attemptId, questionStates, serverAnswers
 
     useEffect(() => {
         const resend = () => changedQuestionIds(latest.current, lastSent.current).forEach((questionId) => sendRef.current(questionId));
+        const flushOnPageHide = () => {
+            if (closed.current) return;
+            changedQuestionIds(latest.current, lastSent.current).forEach((questionId) => {
+                clearTimeout(timers.current[questionId]);
+                sendRef.current(questionId);
+            });
+        };
         window.addEventListener("online", resend);
+        window.addEventListener("pagehide", flushOnPageHide);
         const pending = timers.current;
         return () => {
             window.removeEventListener("online", resend);
+            window.removeEventListener("pagehide", flushOnPageHide);
             Object.values(pending).forEach(clearTimeout);
         };
     }, []);

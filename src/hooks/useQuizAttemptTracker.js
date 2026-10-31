@@ -14,6 +14,7 @@ import {
     toAnswersPayload,
     toQuestionStatesPayload,
 } from "@/lib/quizAttemptState";
+import { reconcileServerAnswers } from "@/lib/proctoring/examLogic";
 
 /**
  * One sessionStorage key per quiz attempt — same scoping convention as
@@ -115,11 +116,9 @@ export default function useQuizAttemptTracker({ quizId, questions, attemptsUsed 
         const stored = readStoredProgress(storageKey, questions);
         let base = stored?.questionStates ?? createAttemptState(questions);
         // A proctored exam's answers live on the server, so another device or a cleared
-        // browser gets them back. Anything newer in this browser's own record stands.
-        for (const row of serverAnswers || []) {
-            if (row.answer !== null && row.answer !== undefined && !base[row.questionId]?.answered) {
-                base = setAnswerIn(base, row.questionId, row.answer);
-            }
+        // browser gets them back. Timestamp-aware reconciliation preserves newer edits.
+        if (serverAnswers) {
+            base = reconcileServerAnswers(base, serverAnswers);
         }
 
         // The first question is open the moment the attempt starts, so it is

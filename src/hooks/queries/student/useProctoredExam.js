@@ -19,6 +19,7 @@ export function useProctoredQuizStatus(quizId, options = {}) {
         queryFn: () => getProctoredQuizStatus(quizId),
         enabled: Boolean(quizId),
         refetchOnWindowFocus: false,
+        refetchOnMount: "always",
         retry: false,
         staleTime: 0,
         ...options,
@@ -60,7 +61,17 @@ export function useCreateProctoringAppeal(attemptId) {
 
 export const useCreateProctoredAttempt = (quizId) => useMutation({ mutationFn: (consent) => createProctoredAttempt(quizId, consent) });
 
-export const useResumeProctoredAttempt = () => useMutation({ mutationFn: resumeProctoredAttempt });
+export function useResumeProctoredAttempt() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: resumeProctoredAttempt,
+        onSuccess: (data) => {
+            if (data?.attemptId) {
+                queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.PROCTORED_ATTEMPT, data.attemptId] });
+            }
+        },
+    });
+}
 
 export const useStartProctoredAttempt = () => useMutation({ mutationFn: startProctoredAttempt });
 

@@ -20,6 +20,7 @@ export const FLAG_REASON_LABELS = {
 export const TERMINATION_RULE_LABELS = {
     CONFIRMED_PROHIBITED_OBJECT: "A phone stayed in view",
     PERSISTENT_MULTIPLE_FACES: "A second person stayed in view",
+    WARNING_LIMIT_REACHED: "Reached the maximum warning limit",
 };
 
 export const flagReasonLabel = (reason) => FLAG_REASON_LABELS[reason] ?? String(reason || "").replace(/_/g, " ").toLowerCase();

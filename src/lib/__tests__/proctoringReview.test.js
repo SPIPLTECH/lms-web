@@ -15,7 +15,7 @@ check("only Accept can go without a reason", !needsDecisionNote("ACCEPT") && ["U
 const SERVER_FLAGS = ["SINGLE_HIGH_CONFIDENCE_OBJECT", "PERSISTENT_IDENTITY_MISMATCH", "PERSISTENT_ABSENCE", "CORRELATED_CRITICAL_VIOLATION", "WARNING_LIMIT_REACHED", "AI_UNAVAILABLE", "UPLOADS_STOPPED", "CAMERA_LOST", "FRAMES_ARRIVING_LATE", "IDENTITY_RECHECK_FAILED", "IDENTITY_RECHECK_UNVERIFIED"];
 check("every flag the server raises has plain words", SERVER_FLAGS.every((reason) => Boolean(FLAG_REASON_LABELS[reason])));
 check("an unknown flag still reads as words", flagReasonLabel("SOME_NEW_REASON") === "some new reason");
-check("the two rules that can end an exam have words", Boolean(TERMINATION_RULE_LABELS.CONFIRMED_PROHIBITED_OBJECT && TERMINATION_RULE_LABELS.PERSISTENT_MULTIPLE_FACES));
+check("the three rules that can end an exam have words", Boolean(TERMINATION_RULE_LABELS.CONFIRMED_PROHIBITED_OBJECT && TERMINATION_RULE_LABELS.PERSISTENT_MULTIPLE_FACES && TERMINATION_RULE_LABELS.WARNING_LIMIT_REACHED));
 check("only outcomes that need saying get a label on the result page", OUTCOME_LABELS.SCORED === undefined && OUTCOME_LABELS.ENDED_BY_PROCTORING === "Ended by proctoring" && OUTCOME_LABELS.UNDER_REVIEW === "Under review");
 check("events read as words", eventLabel("FULLSCREEN_EXIT") === "Left fullscreen" && eventLabel("SOME_NEW_EVENT") === "some new event");
 

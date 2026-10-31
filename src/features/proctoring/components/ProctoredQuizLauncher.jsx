@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { Camera, Clock, ListChecks, MonitorSmartphone, ShieldCheck } from "lucide-react";
 
 import Loader from "@/components/common/Loader";
@@ -22,7 +23,15 @@ function Fact({ icon: Icon, children }) {
  * browser keeps the permissions of the page it first loaded.
  */
 export default function ProctoredQuizLauncher({ quiz, onBack, resultReturnTo }) {
-    const { data: status, isLoading, isError } = useProctoredQuizStatus(quiz.id);
+    const { data: status, isLoading, isError, refetch } = useProctoredQuizStatus(quiz.id);
+
+    useEffect(() => {
+        const onPageShow = (event) => {
+            if (event.persisted) refetch();
+        };
+        window.addEventListener("pageshow", onPageShow);
+        return () => window.removeEventListener("pageshow", onPageShow);
+    }, [refetch]);
 
     const open = () => {
         const query = resultReturnTo ? `?from=${encodeURIComponent(resultReturnTo)}` : "";

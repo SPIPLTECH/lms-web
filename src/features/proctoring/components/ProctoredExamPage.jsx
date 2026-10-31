@@ -44,7 +44,15 @@ function ExamSession({ status, session, setSession, create, onLeave, onEnded, on
     const markSuperseded = useCallback(() => setSuperseded(true), []);
     const markRecheck = useCallback(() => setSession((current) => ({ ...current, identityRecheckRequired: true })), [setSession]);
 
-    const monitoring = useBrowserMonitoring({ token, active: running, onEnded, onSuperseded: markSuperseded, onIntervalChange: setIntervalSeconds });
+    const monitoring = useBrowserMonitoring({
+        token,
+        active: running,
+        initialWarnings: session?.warningCount ?? 0,
+        maxWarnings: session?.maxWarnings ?? 3,
+        onEnded,
+        onSuperseded: markSuperseded,
+        onIntervalChange: setIntervalSeconds,
+    });
 
     const monitoringRef = useRef(monitoring);
     monitoringRef.current = monitoring;
@@ -56,12 +64,21 @@ function ExamSession({ status, session, setSession, create, onLeave, onEnded, on
         token,
         capturing: running,
         intervalSeconds,
-        onResult: (result) => monitoringRef.current.applyServerNotice(result?.proctoring),
+        onResult: (result) => {
+            if (Array.isArray(result?.activeConditions)) {
+                monitoringRef.current.syncActiveConditions(result.activeConditions);
+            }
+            monitoringRef.current.applyServerNotice(result?.proctoring);
+        },
         onEnded,
         onSuperseded: markSuperseded,
         onRecheckRequired: markRecheck,
         onCameraLost: (reason) => {
             if (runningRef.current) monitoringRef.current.reportEvent("CAMERA_INTERRUPTED", { reason });
+        },
+        onCameraReady: () => {
+            monitoringRef.current.resolveCondition("CAMERA_INTERRUPTED");
+            monitoringRef.current.resolveCondition("CAMERA_DENIED");
         },
     });
 
@@ -141,13 +158,15 @@ function ExamSession({ status, session, setSession, create, onLeave, onEnded, on
  * refresh gets a new one, which is also what stops another tab.
  */
 export default function ProctoredExamPage({ quizId, returnTo }) {
-    const { data: status, isLoading, isError, error } = useProctoredQuizStatus(quizId);
+    const { data: status, isLoading, isError, error, refetch } = useProctoredQuizStatus(quizId);
     const create = useCreateProctoredAttempt(quizId);
     const resume = useResumeProctoredAttempt();
+    const resumeMutate = resume.mutate;
+    const resumeReset = resume.reset;
     const [session, setSession] = useState(null);
     const [endedAttemptId, setEndedAttemptId] = useState(null);
     const [viewingLast, setViewingLast] = useState(false);
-    const resumed = useRef(false);
+    const resumed = useRef(null);
     const sessionRef = useRef(session);
     sessionRef.current = session;
 
@@ -155,15 +174,27 @@ export default function ProctoredExamPage({ quizId, returnTo }) {
     const lastAttemptId = status?.lastAttempt?.id;
 
     useEffect(() => {
-        if (!openAttemptId || session || resumed.current) return;
-        resumed.current = true;
-        resume.mutate(openAttemptId, {
+        const onPageShow = (event) => {
+            if (event.persisted) refetch();
+        };
+        window.addEventListener("pageshow", onPageShow);
+        return () => window.removeEventListener("pageshow", onPageShow);
+    }, [refetch]);
+
+    useEffect(() => {
+        if (!openAttemptId || session || endedAttemptId || resumed.current === openAttemptId) return;
+        resumed.current = openAttemptId;
+        resumeMutate(openAttemptId, {
             onSuccess: setSession,
             onError: (failure) => {
-                if (classifyExamError(failure) === "ENDED") setEndedAttemptId(openAttemptId);
+                if (classifyExamError(failure) === "ENDED") {
+                    setEndedAttemptId(openAttemptId);
+                } else {
+                    resumed.current = null;
+                }
             },
         });
-    }, [openAttemptId, session, resume]);
+    }, [openAttemptId, session, endedAttemptId, resumeMutate]);
 
     const leave = useCallback(
         (result) => {
@@ -180,10 +211,16 @@ export default function ProctoredExamPage({ quizId, returnTo }) {
         setSession(null);
     }, [openAttemptId]);
 
+    const retryOpen = useCallback(() => {
+        resumed.current = null;
+        resumeReset();
+        refetch();
+    }, [resumeReset, refetch]);
+
     if (endedAttemptId) return <ExamEndedView attemptId={endedAttemptId} onLeave={leave} />;
     if (viewingLast && lastAttemptId) return <ExamEndedView attemptId={lastAttemptId} onLeave={() => setViewingLast(false)} leaveLabel="Back" />;
 
-    if (isLoading || (openAttemptId && !session && !resume.isError)) {
+    if (isLoading || (openAttemptId && !session && !endedAttemptId && !resume.isError)) {
         return (
             <div className="flex min-h-dvh items-center justify-center">
                 <Loader />
@@ -195,7 +232,7 @@ export default function ProctoredExamPage({ quizId, returnTo }) {
         const problem = error ?? resume.error;
         const message = problem?.response?.data?.message;
         return (
-            <Notice title="This exam could not be opened" actions={<><Button type="button" onClick={() => window.location.reload()}>Try again</Button><Button type="button" variant="outline" onClick={() => leave(null)}>Go back</Button></>}>
+            <Notice title="This exam could not be opened" actions={<><Button type="button" onClick={retryOpen}>Try again</Button><Button type="button" variant="outline" onClick={() => leave(null)}>Go back</Button></>}>
                 {message || "Please check your connection and try again."}
             </Notice>
         );

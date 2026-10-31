@@ -150,8 +150,8 @@ export default function ExamEndedView({ attemptId, onLeave, leaveLabel = "Back t
                         )}
                         {!terminated && !underReview && !result.decision && <p className="rounded-lg border border-border bg-background/60 p-2.5 text-xs text-muted-foreground">Your saved answers were marked against the quiz.</p>}
                         <div className="grid grid-cols-3 gap-2">
-                            <Tile label="Warnings">{result.warningCount}</Tile>
-                            <Tile label="Events recorded">{result.violations.length}</Tile>
+                            <Tile label="Warnings">{result.warningCount} / {result.maxWarnings ?? 3}</Tile>
+                            <Tile label="Violations recorded">{result.violationCount ?? result.violations.length}</Tile>
                             <Tile label="Answers saved">{savedCount} of {result.answers.length}</Tile>
                         </div>
                     </Section>

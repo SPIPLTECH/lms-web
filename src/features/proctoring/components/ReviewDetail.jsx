@@ -202,7 +202,9 @@ export default function ReviewDetail({ attemptId, listPath, canDeleteEvidence = 
                             <Fact label="Ended">{when(attempt.endedAt)}</Fact>
                             <Fact label="Identity check">{attempt.identityNotes ?? attempt.identityCheck}</Fact>
                             <Fact label="Identity matching">{attempt.identityMatching ? "On" : "Off"}</Fact>
-                            <Fact label="Warnings">{attempt.warningCount}</Fact>
+                            <Fact label="Standing">{terminated ? "Terminated by proctoring" : attempt.isFlagged ? "Flagged for review" : "Completed — no concerns"}</Fact>
+                            <Fact label="Warnings">{attempt.warningCount} / {attempt.maxWarnings ?? 3}</Fact>
+                            <Fact label="Violations recorded">{attempt.violationCount ?? events.length}</Fact>
                             <Fact label="Longest gap">{attempt.longestGapSeconds != null ? `${attempt.longestGapSeconds}s` : "-"}</Fact>
                             <Fact label="Photos sent / checked">{attempt.framesReceived} / {attempt.framesAnalysed}</Fact>
                             <Fact label="Consent">{consent ? `${consent.wordingVersion}, ${when(consent.acceptedAt)}` : "-"}</Fact>

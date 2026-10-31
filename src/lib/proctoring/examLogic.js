@@ -10,9 +10,9 @@
  */
 export function isLeaveShortcut(event) {
     const key = String(event.key || "").toLowerCase();
-    if (key === "escape" || key === "meta" || key === "os") return true;
-    if (event.altKey && (key === "tab" || key === "f4" || key === "escape")) return true;
-    if ((event.ctrlKey || event.metaKey) && (key === "tab" || key === "w" || key === "t" || key === "n")) return true;
+    if (key === "escape" || key === "meta" || key === "os" || key === "browserback" || key === "browserforward" || key === "f5") return true;
+    if (event.altKey && (key === "tab" || key === "f4" || key === "escape" || key === "arrowleft" || key === "arrowright")) return true;
+    if ((event.ctrlKey || event.metaKey) && (key === "tab" || key === "w" || key === "t" || key === "n" || key === "r")) return true;
     return Boolean(event.metaKey && (key === "tab" || key === "d" || key === "m"));
 }
 
@@ -101,3 +101,119 @@ const REFUSALS = {
 };
 
 export const refusalMessage = (reason) => REFUSALS[reason] ?? null;
+
+/**
+ * Stateful violations whose banner must remain visible while the condition is ongoing,
+ * and auto-dismiss only after the condition resolves.
+ */
+export const CONTINUOUS_WARNING_TYPES = new Set([
+    "FACE_NOT_DETECTED",
+    "MULTIPLE_FACES_DETECTED",
+    "HEAD_POSE_AWAY",
+    "PROHIBITED_OBJECT_DETECTED",
+    "IDENTITY_MISMATCH_DETECTED",
+    "CAMERA_INTERRUPTED",
+    "CAMERA_DENIED",
+]);
+
+export const DISCRETE_WARNING_DISMISS_MS = 10_000;
+export const RESOLVED_WARNING_DISMISS_MS = 4_000;
+export const MIN_WARNING_DISPLAY_MS = 6_000;
+
+export function openWarningBanner({ message, eventType = null, currentWarnings = null, maxWarnings = null }, now = Date.now()) {
+    if (!message) return null;
+    const continuous = Boolean(eventType && CONTINUOUS_WARNING_TYPES.has(eventType));
+    return {
+        message,
+        eventType,
+        continuous,
+        shownAt: now,
+        resolvedAt: continuous ? null : now,
+        dismissAt: continuous ? null : now + DISCRETE_WARNING_DISMISS_MS,
+        currentWarnings,
+        maxWarnings,
+    };
+}
+
+export function syncWarningBannerConditions(banner, activeConditions = [], now = Date.now()) {
+    if (!banner || !banner.continuous || !Array.isArray(activeConditions)) return banner;
+    const stillActive = banner.eventType ? activeConditions.includes(banner.eventType) : false;
+    if (stillActive) {
+        if (banner.resolvedAt === null && banner.dismissAt === null) return banner;
+        return { ...banner, resolvedAt: null, dismissAt: null };
+    }
+    if (banner.resolvedAt !== null && banner.dismissAt !== null) return banner;
+    const dismissAt = Math.max(banner.shownAt + MIN_WARNING_DISPLAY_MS, now + RESOLVED_WARNING_DISMISS_MS);
+    return { ...banner, resolvedAt: now, dismissAt };
+}
+
+export function shouldDismissWarningBanner(banner, now = Date.now()) {
+    if (!banner) return false;
+    return banner.dismissAt !== null && now >= banner.dismissAt;
+}
+
+const toEpochMs = (value) => {
+    if (!value) return 0;
+    const ms = typeof value === "number" ? value : Date.parse(value);
+    return Number.isFinite(ms) ? ms : 0;
+};
+
+const hasAnswerValue = (answer) => {
+    if (answer === undefined || answer === null || answer === "") return false;
+    if (Array.isArray(answer)) return answer.length > 0;
+    if (typeof answer === "object") return Object.keys(answer).length > 0;
+    return true;
+};
+
+/**
+ * Timestamp-aware reconciliation between sessionStorage questionStates and server-persisted
+ * ProctoredAnswer rows. Newer edits win regardless of whether they came from a pre-refresh
+ * local interaction or another device, and skipped/visited/hint flags are preserved.
+ */
+export function reconcileServerAnswers(base = {}, serverAnswers = []) {
+    if (!Array.isArray(serverAnswers) || serverAnswers.length === 0) return base;
+    const next = { ...base };
+    for (const row of serverAnswers) {
+        const qid = row?.questionId;
+        if (!qid || !next[qid]) continue;
+        const local = next[qid];
+        const serverState = row.state && typeof row.state === "object" ? row.state : {};
+        const serverSavedMs = Math.max(
+            toEpochMs(row.savedAt),
+            toEpochMs(serverState.answeredAt),
+            toEpochMs(serverState.skippedAt),
+            toEpochMs(serverState.lastVisitedAt)
+        );
+        const localUpdatedMs = Math.max(
+            toEpochMs(local.answeredAt),
+            toEpochMs(local.skippedAt),
+            toEpochMs(local.lastVisitedAt)
+        );
+        const localUntouched = !local.visited && !local.answered && !local.skipped;
+        const preferServer = localUntouched || serverSavedMs > localUpdatedMs;
+
+        if (preferServer) {
+            const answered = hasAnswerValue(row.answer);
+            const skipped = Boolean(serverState.skipped || local.skipped);
+            const visited = Boolean(answered || skipped || serverState.visited || local.visited);
+            const hintViewed = Boolean(serverState.hintViewed || local.hintViewed);
+            const status = answered ? "ANSWERED" : skipped ? "SKIPPED" : visited ? "VISITED" : "NOT_VISITED";
+            next[qid] = {
+                ...local,
+                answer: answered ? row.answer : null,
+                answered,
+                skipped,
+                visited,
+                hintViewed,
+                status,
+                firstVisitedAt: toEpochMs(serverState.firstVisitedAt) || local.firstVisitedAt || (visited ? serverSavedMs || Date.now() : null),
+                lastVisitedAt: toEpochMs(serverState.lastVisitedAt) || local.lastVisitedAt || (visited ? serverSavedMs || Date.now() : null),
+                answeredAt: answered ? toEpochMs(serverState.answeredAt) || serverSavedMs || Date.now() : null,
+                skippedAt: skipped ? toEpochMs(serverState.skippedAt) || local.skippedAt || serverSavedMs || null : null,
+            };
+        } else if (serverState.hintViewed && !local.hintViewed) {
+            next[qid] = { ...local, hintViewed: true };
+        }
+    }
+    return next;
+}
