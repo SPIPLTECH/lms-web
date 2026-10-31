@@ -29,6 +29,18 @@ export const submitProctoredAttempt = (attemptId) => api.post(`/proctoring/attem
 
 export const getProctoredAttemptResult = (attemptId) => api.get(`/proctoring/attempts/${attemptId}/result`).then(dataOf);
 
+export const createProctoringAppeal = (attemptId, reason) => api.post(`/proctoring/attempts/${attemptId}/review-requests`, { reason }).then(dataOf);
+
+// ---- Reviews: the instructor's own courses, or everything for an admin ----
+
+export const listProctoringReviews = (params) => api.get("/proctoring/reviews", { params }).then(dataOf);
+
+export const getProctoringReview = (attemptId) => api.get(`/proctoring/reviews/${attemptId}`).then(dataOf);
+
+export const decideProctoringReview = (attemptId, payload) => api.post(`/proctoring/reviews/${attemptId}/decision`, payload).then(dataOf);
+
+export const deleteAttemptEvidence = (attemptId, reason) => api.delete(`/proctoring/attempts/${attemptId}/evidence`, { data: { reason } }).then(dataOf);
+
 /** A kept image, fetched with the student's or staff member's own sign-in. Never a public URL. */
 export const fetchEvidenceImage = (evidenceId) => api.get(`/proctoring/evidence/${evidenceId}/file`, { responseType: "blob" }).then(({ data }) => data);
 

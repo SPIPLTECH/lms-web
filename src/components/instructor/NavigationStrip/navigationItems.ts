@@ -3,6 +3,7 @@ import {
   ClipboardList,
   Database,
   HelpCircle,
+  ShieldCheck,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -37,4 +38,6 @@ export const PRIMARY_NAV_ITEMS: NavItem[] = [
   { label: "Question Repository", href: "/instructor/questions", icon: Database, primaryOnMobile: true },
   { label: "Q&A", href: "/instructor/qa", icon: HelpCircle, primaryOnMobile: true },
   { label: "Students", href: "/instructor/students", icon: Users, primaryOnMobile: true },
+  // Hidden by NavigationStrip while proctoring is off.
+  { label: "Proctoring", href: "/instructor/proctoring", icon: ShieldCheck },
 ];

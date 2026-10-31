@@ -1,5 +1,6 @@
 "use client";
 
+import { OUTCOME_LABELS } from "@/lib/proctoring/reviewLabels";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -260,6 +261,16 @@ function QuizResultPageContent() {
           </Link>
         )}
       </div>
+
+      {submission.proctoring && OUTCOME_LABELS[submission.proctoring.outcome] && (
+        <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
+          <span className="font-semibold">{OUTCOME_LABELS[submission.proctoring.outcome]}.</span>{" "}
+          {/* A full page load: only the exam page may use the camera, so it keeps its own policy. */}
+          <a href={`/student/proctored/${quizId}`} className="font-semibold underline underline-offset-2">
+            See what happened
+          </a>
+        </p>
+      )}
 
       {submission.isLatestAttempt === false && (
         <p className="rounded-xl bg-sky-500/10 px-4 py-3 text-sm text-sky-800 dark:text-sky-300">

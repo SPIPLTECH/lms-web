@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import {
+    createProctoringAppeal,
     createProctoredAttempt,
     getProctoredAttempt,
     getProctoredAttemptResult,
@@ -45,6 +46,15 @@ export function useProctoredAttemptResult(attemptId) {
         enabled: Boolean(attemptId),
         refetchOnWindowFocus: false,
         retry: 2,
+    });
+}
+
+/** Asking for a decision to be looked at again, once per decision. */
+export function useCreateProctoringAppeal(attemptId) {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (reason) => createProctoringAppeal(attemptId, reason),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.PROCTORED_ATTEMPT_RESULT, attemptId] }),
     });
 }
 

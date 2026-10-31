@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Activity, AlertTriangle, Award, CheckCircle2, ClipboardList, Eye, FileText, ImageIcon, ShieldAlert, ShieldCheck } from "lucide-react";
+import { useState } from "react";
+import { Activity, AlertTriangle, Award, CheckCircle2, ClipboardList, FileText, Gavel, ShieldAlert, ShieldCheck } from "lucide-react";
 
 import Loader from "@/components/common/Loader";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
-import { useProctoredAttemptResult } from "@/hooks/queries/student/useProctoredExam";
+import EvidenceThumbnail from "@/features/proctoring/components/EvidenceThumbnail";
+import { useCreateProctoringAppeal, useProctoredAttemptResult } from "@/hooks/queries/student/useProctoredExam";
 import { formatSavedAnswer } from "@/lib/proctoring/examLogic";
-import { fetchEvidenceImage } from "@/services/proctoring.service";
+import { DECISION_FOR_STUDENT } from "@/lib/proctoring/reviewLabels";
 
 const HOW_IT_ENDED = { STUDENT: "Submitted by you", TIME: "Time ran out", PROCTORING: "Ended by proctoring" };
 const IDENTITY = { FACE_CHECK_PASSED: "Face check passed (automated)", FACE_CHECK_FAILED: "Face check failed", NOT_ANALYSED: "Not analysed", PENDING: "Not analysed" };
@@ -37,45 +38,40 @@ function Tile({ label, children, large = false }) {
     );
 }
 
-/** Loads a kept photo with the student's own sign-in, only when it scrolls into a mounted row. */
-function EvidenceThumbnail({ evidenceId, explanation, capturedAt, onOpen }) {
-    const [url, setUrl] = useState(null);
-    const [failed, setFailed] = useState(false);
+/** A decision, and the student's one chance to ask for another look at it. */
+function DecisionPanel({ attemptId, decision }) {
+    const appeal = useCreateProctoringAppeal(attemptId);
+    const [open, setOpen] = useState(false);
+    const [reason, setReason] = useState("");
 
-    useEffect(() => {
-        let cancelled = false;
-        let created = null;
-        fetchEvidenceImage(evidenceId)
-            .then((blob) => {
-                if (cancelled) return;
-                created = URL.createObjectURL(blob);
-                setUrl(created);
-            })
-            .catch(() => !cancelled && setFailed(true));
-        return () => {
-            cancelled = true;
-            if (created) URL.revokeObjectURL(created);
-        };
-    }, [evidenceId]);
-
-    if (failed) {
-        return (
-            <span className="flex h-12 w-16 flex-col items-center justify-center rounded-lg border border-border bg-background/60 text-[9px] text-muted-foreground">
-                <ImageIcon className="h-3.5 w-3.5" aria-hidden />
-                Unavailable
-            </span>
-        );
-    }
-    if (!url) return <span className="block h-12 w-16 animate-pulse rounded-lg border border-border bg-background/60" aria-label="Loading photo" />;
     return (
-        <button type="button" onClick={() => onOpen({ url, explanation, capturedAt })} aria-label={`View photo: ${explanation}`} className="group relative block h-12 w-16 overflow-hidden rounded-lg border border-border hover:border-primary">
-            {/* A blob of a private image: next/image cannot optimise it, and must not try to. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={url} alt="" className="h-full w-full object-cover" />
-            <span className="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 transition group-hover:opacity-100">
-                <Eye className="h-4 w-4" aria-hidden />
-            </span>
-        </button>
+        <Section icon={Gavel} title="Your instructor's decision">
+            <p className="text-sm font-medium text-foreground">{DECISION_FOR_STUDENT[decision.decision]}</p>
+            {decision.note && <p className="whitespace-pre-line rounded-lg border border-border bg-background/60 p-2.5 text-sm text-foreground">{decision.note}</p>}
+            {decision.appealPending && <p className="text-sm text-amber-800 dark:text-amber-300">You asked for this to be looked at again. Your instructor will reply.</p>}
+            {decision.canAppeal && !open && (
+                <div className="flex flex-col gap-1">
+                    <Button type="button" variant="outline" onClick={() => setOpen(true)}>Ask for this to be looked at again</Button>
+                    <p className="text-[11px] text-muted-foreground">You can ask once, until {new Date(decision.appealUntil).toLocaleDateString()}.</p>
+                </div>
+            )}
+            {decision.canAppeal && open && (
+                <form
+                    className="flex flex-col gap-2"
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        appeal.mutate(reason.trim());
+                    }}
+                >
+                    <label className="flex flex-col gap-1 text-xs font-medium text-foreground">
+                        What should your instructor look at again?
+                        <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={3} maxLength={2000} className="rounded-lg border border-border bg-background p-2 text-sm font-normal text-foreground outline-none focus:border-primary/50" />
+                    </label>
+                    {appeal.isError && <p role="alert" className="text-xs text-rose-600">{appeal.error?.response?.data?.message || "Your request could not be sent. Please try again."}</p>}
+                    <Button type="submit" disabled={reason.trim().length < 5 || appeal.isPending} loading={appeal.isPending}>Send request</Button>
+                </form>
+            )}
+        </Section>
     );
 }
 
@@ -107,6 +103,8 @@ export default function ExamEndedView({ attemptId, onLeave, leaveLabel = "Back t
 
     const terminated = result.outcome === "ENDED_BY_PROCTORING";
     const underReview = result.outcome === "UNDER_REVIEW";
+    const voided = result.outcome === "VOIDED";
+    const retake = result.outcome === "RETAKE_ALLOWED" || result.decision?.decision === "RETAKE";
     const passed = result.passed && !terminated;
     const activeTab = tab ?? (result.violations.length > 0 ? "violations" : "answers");
     const savedCount = result.answers.filter((answer) => answer.saved).length;
@@ -118,7 +116,7 @@ export default function ExamEndedView({ attemptId, onLeave, leaveLabel = "Back t
                 <div className="min-w-0">
                     <h1 className={`flex items-center gap-2 text-base font-bold ${terminated ? "text-rose-600 dark:text-rose-400" : "text-foreground"}`}>
                         <HeadingIcon className="h-4 w-4 shrink-0" aria-hidden />
-                        {terminated ? "Ended by proctoring" : passed ? "Exam passed" : "Exam completed"}
+                        {terminated ? "Ended by proctoring" : voided ? "Attempt voided" : passed ? "Exam passed" : "Exam completed"}
                         {underReview && <span className="rounded-full border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[11px] font-bold text-amber-800 dark:text-amber-300">Under review</span>}
                     </h1>
                     {result.endedAt && <p className="text-xs text-muted-foreground">Ended at {time(result.endedAt)} on {new Date(result.endedAt).toLocaleDateString()}</p>}
@@ -137,9 +135,11 @@ export default function ExamEndedView({ attemptId, onLeave, leaveLabel = "Back t
                                 <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-rose-600 dark:text-rose-400" aria-hidden />
                                 <div>
                                     <p className="text-sm font-medium text-rose-700 dark:text-rose-300">{result.reason}</p>
-                                    <p className="mt-1 text-xs text-muted-foreground">
-                                        This attempt has been used and does not count as a pass. Your instructor will review it and decide whether to uphold it or allow a retake. A person makes that decision.
-                                    </p>
+                                    {!result.decision && (
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            This attempt has been used and does not count as a pass. Your instructor will review it and decide whether to uphold it or allow a retake. A person makes that decision.
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -148,13 +148,15 @@ export default function ExamEndedView({ attemptId, onLeave, leaveLabel = "Back t
                                 Your score stands for now. Your instructor will review this attempt, and a person makes any decision about it.
                             </p>
                         )}
-                        {!terminated && !underReview && <p className="rounded-lg border border-border bg-background/60 p-2.5 text-xs text-muted-foreground">Your saved answers were marked against the quiz.</p>}
+                        {!terminated && !underReview && !result.decision && <p className="rounded-lg border border-border bg-background/60 p-2.5 text-xs text-muted-foreground">Your saved answers were marked against the quiz.</p>}
                         <div className="grid grid-cols-3 gap-2">
                             <Tile label="Warnings">{result.warningCount}</Tile>
                             <Tile label="Events recorded">{result.violations.length}</Tile>
                             <Tile label="Answers saved">{savedCount} of {result.answers.length}</Tile>
                         </div>
                     </Section>
+
+                    {result.decision && <DecisionPanel attemptId={result.attemptId} decision={result.decision} />}
 
                     <Section icon={Award} title="Result">
                         <div className="grid grid-cols-3 gap-2">
@@ -253,7 +255,12 @@ export default function ExamEndedView({ attemptId, onLeave, leaveLabel = "Back t
                 </section>
             </div>
 
-            <Button type="button" onClick={() => onLeave(result)} className="w-full">{leaveLabel}</Button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+                {retake && !result.decision?.appealPending && (
+                    <Button type="button" onClick={() => window.location.reload()} className="flex-1">Start your retake</Button>
+                )}
+                <Button type="button" variant={retake ? "outline" : "primary"} onClick={() => onLeave(result)} className="flex-1">{leaveLabel}</Button>
+            </div>
 
             <Modal open={Boolean(preview)} onClose={() => setPreview(null)} title="Photo from your exam" size="lg">
                 {preview && (

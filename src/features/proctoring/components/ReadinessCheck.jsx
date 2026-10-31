@@ -25,7 +25,7 @@ function Step({ done, label }) {
  * screen. The server checks each step again, so this page only guides. A refused microphone does
  * not stop the student, and a failed face check does. Also used for the identity check on another device.
  */
-export default function ReadinessCheck({ status, session, camera, recheck = false, onCreate, creating, onStart, starting, onRecheckPassed, onBack, onEnded }) {
+export default function ReadinessCheck({ status, session, camera, recheck = false, onCreate, creating, onStart, starting, onRecheckPassed, onBack, onEnded, onViewLast }) {
     const [agreed, setAgreed] = useState(false);
     const [microphone, setMicrophone] = useState("UNKNOWN");
     const [photoPassed, setPhotoPassed] = useState(session?.identityCheck === "FACE_CHECK_PASSED");
@@ -136,6 +136,11 @@ export default function ReadinessCheck({ status, session, camera, recheck = fals
                                     <span>I have read this notice and agree to be monitored during this exam.</span>
                                 </label>
                                 <p className="text-xs text-muted-foreground">If you cannot use a webcam or do not agree, do not continue. Contact your instructor. No attempt is used.</p>
+                                {onViewLast && (
+                                    <button type="button" onClick={onViewLast} className="w-fit text-xs font-semibold text-primary underline underline-offset-2">
+                                        See your last attempt and your instructor&apos;s decision
+                                    </button>
+                                )}
                                 <div className="flex flex-col gap-2 sm:flex-row">
                                     <Button type="button" onClick={handleAgree} disabled={!agreed || creating} loading={creating} className="flex-1">
                                         Agree and continue

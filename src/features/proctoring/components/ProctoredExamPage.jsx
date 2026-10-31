@@ -30,7 +30,7 @@ function Notice({ icon: Icon = ShieldAlert, title, children, actions }) {
 }
 
 /** The session's camera and monitoring, kept here so they carry across the screens below. */
-function ExamSession({ status, session, setSession, create, onLeave, onEnded }) {
+function ExamSession({ status, session, setSession, create, onLeave, onEnded, onViewLast }) {
     const start = useStartProctoredAttempt();
     const resume = useResumeProctoredAttempt();
     const [superseded, setSuperseded] = useState(false);
@@ -130,6 +130,7 @@ function ExamSession({ status, session, setSession, create, onLeave, onEnded }) 
             starting={start.isPending}
             onBack={onLeave}
             onEnded={onEnded}
+            onViewLast={onViewLast}
         />
     );
 }
@@ -145,6 +146,7 @@ export default function ProctoredExamPage({ quizId, returnTo }) {
     const resume = useResumeProctoredAttempt();
     const [session, setSession] = useState(null);
     const [endedAttemptId, setEndedAttemptId] = useState(null);
+    const [viewingLast, setViewingLast] = useState(false);
     const resumed = useRef(false);
     const sessionRef = useRef(session);
     sessionRef.current = session;
@@ -179,6 +181,7 @@ export default function ProctoredExamPage({ quizId, returnTo }) {
     }, [openAttemptId]);
 
     if (endedAttemptId) return <ExamEndedView attemptId={endedAttemptId} onLeave={leave} />;
+    if (viewingLast && lastAttemptId) return <ExamEndedView attemptId={lastAttemptId} onLeave={() => setViewingLast(false)} leaveLabel="Back" />;
 
     if (isLoading || (openAttemptId && !session && !resume.isError)) {
         return (
@@ -216,5 +219,5 @@ export default function ProctoredExamPage({ quizId, returnTo }) {
         }
     }
 
-    return <ExamSession status={status} session={session} setSession={setSession} create={create} onLeave={() => leave(null)} onEnded={handleEnded} />;
+    return <ExamSession status={status} session={session} setSession={setSession} create={create} onLeave={() => leave(null)} onEnded={handleEnded} onViewLast={lastAttemptId ? () => setViewingLast(true) : null} />;
 }
