@@ -12,11 +12,12 @@ import QuestionCard from "@/components/student/attempt/QuestionCard";
 import QuizNavigation, { QuestionPalette, isLargeQuiz } from "@/components/student/attempt/QuizNavigation";
 import QuizSubmitModal from "@/components/student/attempt/QuizSubmitModal";
 import QuizResultSummary from "@/components/student/attempt/QuizResultSummary";
+import QuizStartScreen from "@/components/student/attempt/QuizStartScreen";
 import useQuiz from "@/hooks/queries/student/useQuiz";
 import useSubmitQuiz from "@/hooks/queries/student/useSubmitQuiz";
 import useQuizResult from "@/hooks/queries/student/useQuizResult";
 import useTrackCourseAccess from "@/hooks/queries/student/useTrackCourseAccess";
-import useQuizAttemptTracker from "@/hooks/useQuizAttemptTracker";
+import useQuizAttemptTracker, { getQuizAttemptStorageKey } from "@/hooks/useQuizAttemptTracker";
 import { useToast } from "@/components/ui/ToastProvider";
 import { useConfirm } from "@/context/ConfirmContext";
 import { useStudentTour } from "@/context/StudentTourContext";
@@ -178,11 +179,44 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
     // allowance is now part of the gate and autoReattempt cannot override it.
     const showCompletedCard = !isPractice && hasPriorAttempt && (!reattempting || !canTakeAnother);
 
+    // A Final Quiz opens on a start screen, so its time isn't running before
+    // the student has seen what they are starting. An attempt already under
+    // way in this tab (a refresh: its timer or progress is stored) resumes
+    // straight away, its clock still running.
+    const [startPressed, setStartPressed] = useState(false);
+    const attemptAlreadyStarted = useMemo(() => {
+        if (!quiz?.id || typeof window === "undefined") return false;
+        const used = quiz.attemptStatus?.attemptsUsed ?? 0;
+        try {
+            return [getQuizTimerStorageKey(quiz.id, used), getQuizAttemptStorageKey(quiz.id, used)].some(
+                (key) => window.sessionStorage.getItem(key) !== null
+            );
+        } catch {
+            return false;
+        }
+    }, [quiz?.id, quiz?.attemptStatus?.attemptsUsed]);
+    const showStartScreen =
+        quiz?.quizTag === "FINAL" &&
+        !isPractice &&
+        !autoReattempt &&
+        !isSubmitted &&
+        !showCompletedCard &&
+        !startPressed &&
+        !attemptAlreadyStarted;
+
+    const handleStartQuiz = () => {
+        if (tour.active) {
+            showToast?.("Paused during the tour. You can start this quiz when the tour ends.", "info");
+            return;
+        }
+        setStartPressed(true);
+    };
+
     // Whether an attempt is actually being taken right now, as opposed to the
     // "already completed" card or the post-submit summary being shown over the
     // quiz. The tracker tracks and persists nothing outside that window — see
     // useQuizAttemptTracker.
-    const isAttemptActive = Boolean(quiz) && !isSubmitted && !showCompletedCard;
+    const isAttemptActive = Boolean(quiz) && !isSubmitted && !showCompletedCard && !showStartScreen;
 
     // Question-level state for this attempt: answer, status, visited/skipped/
     // hint history per question, plus which question is open and the
@@ -233,10 +267,10 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
     const practiceRight = practiceMarked.filter(Boolean).length;
 
     useEffect(() => {
-        if (quiz && startedAtRef.current === null) {
+        if (isAttemptActive && startedAtRef.current === null) {
             startedAtRef.current = Date.now();
         }
-    }, [quiz]);
+    }, [isAttemptActive]);
 
     const submitQuizMutation =
         useSubmitQuiz();
@@ -522,6 +556,10 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
                 </div>
             </div>
         );
+    }
+
+    if (showStartScreen) {
+        return <QuizStartScreen quiz={quiz} onStart={handleStartQuiz} onBack={onBack} />;
     }
 
     return (
