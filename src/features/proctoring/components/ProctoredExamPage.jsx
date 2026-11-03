@@ -44,6 +44,7 @@ function ExamSession({ status, session, setSession, create, onLeave, onEnded, on
     const markSuperseded = useCallback(() => setSuperseded(true), []);
     const markRecheck = useCallback(() => setSession((current) => ({ ...current, identityRecheckRequired: true })), [setSession]);
 
+    const cameraRef = useRef(null);
     const monitoring = useBrowserMonitoring({
         token,
         active: running,
@@ -52,6 +53,8 @@ function ExamSession({ status, session, setSession, create, onLeave, onEnded, on
         onEnded,
         onSuperseded: markSuperseded,
         onIntervalChange: setIntervalSeconds,
+        onRecheck: (delayMs) => cameraRef.current?.scheduleRecheck(delayMs),
+        onFullscreenExit: () => cameraRef.current?.captureIncident(),
     });
 
     const monitoringRef = useRef(monitoring);
@@ -81,6 +84,7 @@ function ExamSession({ status, session, setSession, create, onLeave, onEnded, on
             monitoringRef.current.resolveCondition("CAMERA_DENIED");
         },
     });
+    cameraRef.current = camera;
 
     const voice = useVoiceActivity({
         enabled: running,
@@ -143,7 +147,7 @@ function ExamSession({ status, session, setSession, create, onLeave, onEnded, on
             camera={camera}
             onCreate={async (consent) => setSession(await create.mutateAsync(consent))}
             creating={create.isPending}
-            onStart={async () => setSession(await start.mutateAsync(session.attemptId))}
+            onStart={async (readiness) => setSession(await start.mutateAsync({ attemptId: session.attemptId, readiness }))}
             starting={start.isPending}
             onBack={onLeave}
             onEnded={onEnded}
@@ -153,7 +157,7 @@ function ExamSession({ status, session, setSession, create, onLeave, onEnded, on
 }
 
 /**
- * /student/proctored/[quizId]. Works out where this student stands from the server, including after
+ * /student/proctored/[exam]. Works out where this student stands from the server, including after
  * a refresh, and shows the matching screen. The monitoring token lives only in this page's memory: a
  * refresh gets a new one, which is also what stops another tab.
  */
@@ -207,7 +211,8 @@ export default function ProctoredExamPage({ quizId, returnTo }) {
 
     const handleEnded = useCallback(() => {
         releaseExamLock();
-        setEndedAttemptId(sessionRef.current?.attemptId ?? openAttemptId ?? null);
+        // Several things can report the end, and the session is gone after the first.
+        setEndedAttemptId((current) => current ?? sessionRef.current?.attemptId ?? openAttemptId ?? null);
         setSession(null);
     }, [openAttemptId]);
 
@@ -217,7 +222,7 @@ export default function ProctoredExamPage({ quizId, returnTo }) {
         refetch();
     }, [resumeReset, refetch]);
 
-    if (endedAttemptId) return <ExamEndedView attemptId={endedAttemptId} onLeave={leave} />;
+    if (endedAttemptId) return <ExamEndedView attemptId={endedAttemptId} onLeave={leave} justEnded />;
     if (viewingLast && lastAttemptId) return <ExamEndedView attemptId={lastAttemptId} onLeave={() => setViewingLast(false)} leaveLabel="Back" />;
 
     if (isLoading || (openAttemptId && !session && !endedAttemptId && !resume.isError)) {

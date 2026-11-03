@@ -2,12 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { classifyExamError } from "@/lib/proctoring/examLogic";
+import { classifyExamError, nextCaptureSlot } from "@/lib/proctoring/examLogic";
 import { uploadExamFrame } from "@/services/proctoring.service";
 
 /** Background captures retry on their own. The student hears only about a problem that lasts. */
 const BACKGROUND_ERROR_AFTER_MS = 15_000;
 const DEFAULT_INTERVAL_SECONDS = 5;
+const JPEG_QUALITY = 0.85;
+/** A frame due while another is uploading waits for it, briefly, rather than being lost. */
+const BUSY_RETRY_MS = 250;
+const BUSY_RETRIES = 8;
 
 const newFrameId = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
 
@@ -38,7 +42,8 @@ export default function useWebcamCapture({ token, capturing = false, intervalSec
     const failingSinceRef = useRef(null);
     const shownErrorRef = useRef(false);
     const recheckTimerRef = useRef(null);
-    const lastCaptureAtRef = useRef(0);
+    const busyTimerRef = useRef(null);
+    const canvasRef = useRef(null);
     const handlers = useRef({});
     handlers.current = { onResult, onEnded, onSuperseded, onRecheckRequired, onCameraLost, onCameraReady };
 
@@ -96,25 +101,37 @@ export default function useWebcamCapture({ token, capturing = false, intervalSec
     const stopCamera = useCallback(() => {
         stoppedRef.current = true;
         if (recheckTimerRef.current) clearTimeout(recheckTimerRef.current);
+        if (busyTimerRef.current) clearTimeout(busyTimerRef.current);
         streamRef.current?.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
         if (videoRef.current) videoRef.current.srcObject = null;
         setCameraStatus("IDLE");
     }, []);
 
+    /** Whether frames can really be taken now, checked again at the moment Start is pressed. */
+    const isLive = useCallback(() => {
+        const [track] = streamRef.current?.getVideoTracks() ?? [];
+        return track?.readyState === "live" && (videoRef.current?.readyState ?? 0) >= 2;
+    }, []);
+
+    /** One canvas for the whole exam. An offscreen one encodes at once; a page canvas's toBlob waits for idle time. */
     const grabFrame = useCallback(async () => {
         const video = videoRef.current;
         if (!video || video.readyState < 2) return null;
-        const canvas = document.createElement("canvas");
-        canvas.width = video.videoWidth || 640;
-        canvas.height = video.videoHeight || 480;
+        const width = video.videoWidth || 640;
+        const height = video.videoHeight || 480;
+        if (!canvasRef.current || canvasRef.current.width !== width || canvasRef.current.height !== height) {
+            canvasRef.current = typeof OffscreenCanvas === "undefined" ? Object.assign(document.createElement("canvas"), { width, height }) : new OffscreenCanvas(width, height);
+        }
+        const canvas = canvasRef.current;
         const context = canvas.getContext("2d");
         if (!context) return null;
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        context.drawImage(video, 0, 0, width, height);
         const capturedAt = new Date().toISOString();
-        return new Promise((resolve) => {
-            canvas.toBlob((blob) => resolve(blob ? { blob, capturedAt } : null), "image/jpeg", 0.85);
-        });
+        const blob = canvas.convertToBlob
+            ? await canvas.convertToBlob({ type: "image/jpeg", quality: JPEG_QUALITY })
+            : await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY));
+        return blob ? { blob, capturedAt } : null;
     }, []);
 
     /** Takes and sends one frame. A student-initiated photo throws its failure; background ones never do. */
@@ -128,9 +145,7 @@ export default function useWebcamCapture({ token, capturing = false, intervalSec
                     if (foreground) throw new Error("Your camera image is not ready yet. Please wait a moment and try again.");
                     throw Object.assign(new Error("frame unavailable"), { frameUnavailable: true });
                 }
-                lastCaptureAtRef.current = Date.now();
                 const result = await uploadExamFrame(tokenRef.current, { type, blob: frame.blob, frameId: newFrameId(), capturedAt: frame.capturedAt });
-                lastCaptureAtRef.current = Date.now();
                 failingSinceRef.current = null;
                 if (shownErrorRef.current) {
                     shownErrorRef.current = false;
@@ -138,13 +153,6 @@ export default function useWebcamCapture({ token, capturing = false, intervalSec
                 }
                 if (typeof result?.nextIntervalSeconds === "number") intervalRef.current = result.nextIntervalSeconds;
                 handlers.current.onResult?.(result);
-                const recheck = result?.proctoring?.recheckInMs;
-                if (recheck && !recheckTimerRef.current) {
-                    recheckTimerRef.current = setTimeout(() => {
-                        recheckTimerRef.current = null;
-                        capture("INCIDENT_SNAPSHOT");
-                    }, recheck);
-                }
                 return result;
             } catch (error) {
                 const kind = classifyExamError(error);
@@ -179,41 +187,63 @@ export default function useWebcamCapture({ token, capturing = false, intervalSec
         [grabFrame]
     );
 
-    // One loop, one frame per interval. The server can lengthen the interval under load.
+    /** Never two uploads at once, and a frame due during one goes straight after it. */
+    const captureWhenFree = useCallback(
+        (type, retries = BUSY_RETRIES) => {
+            if (stoppedRef.current) return;
+            if (!uploadingRef.current) {
+                capture(type);
+                return;
+            }
+            if (retries > 0) busyTimerRef.current = setTimeout(() => captureWhenFree(type, retries - 1), BUSY_RETRY_MS);
+        },
+        [capture]
+    );
+
+    /** The server asked for another look at something suspicious. */
+    const scheduleRecheck = useCallback(
+        (delayMs) => {
+            if (!delayMs || recheckTimerRef.current) return;
+            recheckTimerRef.current = setTimeout(() => {
+                recheckTimerRef.current = null;
+                captureWhenFree("INCIDENT_SNAPSHOT");
+            }, delayMs);
+        },
+        [captureWhenFree]
+    );
+
+    /** Something just happened that needs a photo of the moment. */
+    const captureIncident = useCallback(() => captureWhenFree("INCIDENT_SNAPSHOT"), [captureWhenFree]);
+
+    // One frame per interval, on a fixed grid. Nothing waits for an upload, so what one costs never
+    // moves the next or holds up the page. The server can lengthen the interval under load.
     useEffect(() => {
         if (!capturing || cameraStatus !== "READY") return undefined;
         stoppedRef.current = false;
         let cancelled = false;
         let timer = null;
-        const next = () => {
-            const targetMs = Math.max(1, intervalRef.current) * 1000;
-            const elapsedMs = lastCaptureAtRef.current ? Date.now() - lastCaptureAtRef.current : 0;
-            const delayMs = elapsedMs > 0 && elapsedMs < targetMs ? Math.max(1500, targetMs - elapsedMs) : targetMs;
-            timer = setTimeout(async () => {
-                if (cancelled || stoppedRef.current) return;
-                if (Date.now() - lastCaptureAtRef.current < 1200) {
-                    next();
-                    return;
-                }
-                await capture("PERIODIC_SNAPSHOT");
-                if (!cancelled && !stoppedRef.current) next();
-            }, delayMs);
+        let slot = Date.now();
+        const tick = () => {
+            if (cancelled || stoppedRef.current) return;
+            captureWhenFree("PERIODIC_SNAPSHOT");
+            const next = nextCaptureSlot(slot, Math.max(1, intervalRef.current) * 1000, Date.now());
+            slot = next.slot;
+            timer = setTimeout(tick, next.delayMs);
         };
         // The first frame goes at once, so monitoring is known to work from the start.
-        capture("PERIODIC_SNAPSHOT").finally(() => {
-            if (!cancelled && !stoppedRef.current) next();
-        });
+        tick();
         return () => {
             cancelled = true;
             if (timer) clearTimeout(timer);
         };
-    }, [capturing, cameraStatus, capture]);
+    }, [capturing, cameraStatus, captureWhenFree]);
 
     useEffect(() => () => {
         if (recheckTimerRef.current) clearTimeout(recheckTimerRef.current);
+        if (busyTimerRef.current) clearTimeout(busyTimerRef.current);
         streamRef.current?.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
     }, []);
 
-    return { attachVideo, cameraStatus, errorMessage, requestCamera, stopCamera, capture };
+    return { attachVideo, cameraStatus, errorMessage, requestCamera, stopCamera, capture, captureIncident, scheduleRecheck, isLive };
 }

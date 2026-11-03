@@ -54,7 +54,80 @@ const EVENT_LABELS = {
     AUTO_TERMINATION_ENFORCED: "Exam ended by proctoring",
 };
 
+const LOCK_WORDS = { active: "Keyboard lock on", pending: "Keyboard lock not confirmed", refused: "Keyboard lock not available", unsupported: "Keyboard lock not available", off: "Keyboard lock off" };
+
+/**
+ * How a student left fullscreen, as far as the browser could tell. Under Keyboard Lock Esc reaches
+ * the page, so an exit with no Esc came another way, most likely the browser's own exit button.
+ */
+export function fullscreenExitDetail(metadata) {
+    const parts = [];
+    if (typeof metadata?.escHeldMs === "number") parts.push(`Esc held for ${(metadata.escHeldMs / 1000).toFixed(1)} s`);
+    else if (metadata?.keyboardLock === "active") parts.push("Not through Esc, most likely the browser's exit button");
+    if (LOCK_WORDS[metadata?.keyboardLock]) parts.push(LOCK_WORDS[metadata.keyboardLock]);
+    return parts.length > 0 ? parts.join(" · ") : null;
+}
+
 export const eventLabel = (eventType) => EVENT_LABELS[eventType] ?? String(eventType || "").replace(/_/g, " ").toLowerCase();
+
+/** The one line under an event that a reviewer needs: how fullscreen was left, or how sure the AI was. */
+export function eventNote(event) {
+    if (event.eventType === "FULLSCREEN_EXIT") return fullscreenExitDetail(event.metadata);
+    if (typeof event.metadata?.signalConfidence === "number") return `Confidence ${Math.round(event.metadata.signalConfidence * 100)}%`;
+    return null;
+}
+
+/** What the review banner says about how the attempt ended. */
+export function reviewOutcome(attempt) {
+    if (attempt.status === "TERMINATED") {
+        const rule = TERMINATION_RULE_LABELS[attempt.terminationRule];
+        const count = attempt.terminationRule === "WARNING_LIMIT_REACHED" ? ` (${attempt.warningCount} / ${attempt.maxWarnings ?? 3})` : "";
+        return { kind: "PROCTORING", title: "Ended by proctoring", detail: rule ? `${rule}${count}` : attempt.terminationReason || "" };
+    }
+    if (attempt.isFlagged) {
+        const [first, ...rest] = attempt.flags ?? [];
+        const detail = first ? `${flagReasonLabel(first.reason)}${rest.length > 0 ? `, and ${rest.length} more` : ""}` : "";
+        return { kind: "FLAGGED", title: "Flagged for review", detail };
+    }
+    return { kind: "CLEAR", title: "No concerns", detail: "Nothing was flagged during this exam." };
+}
+
+const ENDING_EVENT = "AUTO_TERMINATION_ENFORCED";
+/** Returning, and the server's own summaries: they explain nothing on their own. */
+const QUIET_EVENTS = new Set(["FULLSCREEN_ENTER", "TAB_VISIBLE", "WINDOW_FOCUS", "ATTEMPT_FLAGGED", "AI_CORRELATED_ALERT"]);
+
+/**
+ * The review's warning cards, in the shape the Exam Ended page's cards take: each warning with its
+ * number and first held photo, the ending on its own, and everything else folded away. An exam that
+ * ended with no warning (a sustained phone, say) shows its last moments that have photos instead.
+ */
+export function reviewWarnings(events = [], evidence = [], { terminated = false } = {}) {
+    const byFrame = new Map(evidence.map((row) => [row.frameId, row]));
+    let warningNumber = 0;
+    const toCard = (event) => {
+        const photo = (event.metadata?.evidenceIds ?? []).map((id) => byFrame.get(id)).find(Boolean) ?? null;
+        return {
+            id: event.id,
+            eventType: event.eventType,
+            timestamp: event.timestamp,
+            warningNumber: event.warningIssued ? (warningNumber += 1) : null,
+            explanation: eventLabel(event.eventType),
+            note: eventNote(event),
+            evidenceId: photo?.id ?? null,
+            evidenceCapturedAt: photo?.receivedAt ?? null,
+        };
+    };
+    const cards = events.filter((event) => event.eventType !== ENDING_EVENT && !QUIET_EVENTS.has(event.eventType)).map(toCard);
+    const ending = events.find((event) => event.eventType === ENDING_EVENT);
+    const warnings = cards.filter((card) => card.warningNumber);
+    const recordedOnly = cards.filter((card) => !card.warningNumber);
+    const featured = warnings.length > 0 ? warnings : terminated ? recordedOnly.filter((card) => card.evidenceId).slice(-3) : [];
+    return {
+        featured,
+        endingEvent: ending ? { id: ending.id, timestamp: ending.timestamp, explanation: eventLabel(ending.eventType) } : null,
+        others: recordedOnly.filter((card) => !featured.includes(card)),
+    };
+}
 
 export const DECISION_OPTIONS = {
     UPHOLD: { label: "Uphold", help: "The ending stands. The attempt is used, is not a pass, and the quiz counts as finished." },

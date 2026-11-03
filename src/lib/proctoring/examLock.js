@@ -9,11 +9,45 @@
  * exam is hidden until fullscreen returns.
  */
 
+/** A lock request that never answers must not hold up an exam that is about to start. */
+const LOCK_WAIT_MS = 1500;
+
+let state = { keyboardLock: "off", released: false };
+
+/** keyboardLock: off, active, pending, refused or unsupported. Goes on the record of every exit. */
+export const examLockState = () => state;
+
+const setKeyboardLock = (keyboardLock) => {
+    state = { ...state, keyboardLock };
+    return keyboardLock;
+};
+
 export const isFullscreenSupported = () =>
     typeof document !== "undefined" && Boolean(document.fullscreenEnabled && document.documentElement.requestFullscreen);
 
+async function lockKeyboard(lockWaitMs) {
+    if (!navigator.keyboard?.lock) return setKeyboardLock("unsupported");
+    setKeyboardLock("pending");
+    const request = navigator.keyboard.lock().then(
+        () => {
+            if (!state.released) setKeyboardLock("active");
+        },
+        () => {
+            if (!state.released) setKeyboardLock("refused");
+        }
+    );
+    let timer;
+    const gaveUp = new Promise((resolve) => {
+        timer = setTimeout(resolve, lockWaitMs);
+    });
+    await Promise.race([request, gaveUp]);
+    clearTimeout(timer);
+    return state.keyboardLock;
+}
+
 /** Call from a click handler. Never throws. */
-export async function enterExamLock() {
+export async function enterExamLock({ lockWaitMs = LOCK_WAIT_MS } = {}) {
+    state = { ...state, released: false };
     let fullscreen = Boolean(document.fullscreenElement);
     if (!fullscreen && isFullscreenSupported()) {
         try {
@@ -23,20 +57,19 @@ export async function enterExamLock() {
             fullscreen = false;
         }
     }
-    let keyboardLocked = false;
-    if (fullscreen && navigator.keyboard?.lock) {
-        try {
-            await navigator.keyboard.lock();
-            keyboardLocked = true;
-        } catch {
-            keyboardLocked = false;
-        }
-    }
-    return { fullscreen, keyboardLocked };
+    if (fullscreen) await lockKeyboard(lockWaitMs);
+    return { fullscreen, keyboardLocked: state.keyboardLock === "active" };
+}
+
+/** Back in fullscreen, or back in focus, with no lock in place: asks again. Never throws. */
+export async function relockExamKeyboard({ lockWaitMs = LOCK_WAIT_MS } = {}) {
+    if (state.released || state.keyboardLock === "active" || state.keyboardLock === "pending" || !document.fullscreenElement) return state.keyboardLock;
+    return lockKeyboard(lockWaitMs);
 }
 
 /** Releases the keyboard and leaves fullscreen. Never throws. */
 export function releaseExamLock() {
+    state = { keyboardLock: "off", released: true };
     try {
         navigator.keyboard?.unlock?.();
     } catch {

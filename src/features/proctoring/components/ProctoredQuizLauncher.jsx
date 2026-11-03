@@ -6,6 +6,7 @@ import { Camera, Clock, ListChecks, MonitorSmartphone, ShieldCheck } from "lucid
 import Loader from "@/components/common/Loader";
 import Button from "@/components/ui/Button";
 import { useProctoredQuizStatus } from "@/hooks/queries/student/useProctoredExam";
+import { openProctoredExam } from "@/lib/proctoring/examAddress";
 import { refusalMessage } from "@/lib/proctoring/examLogic";
 
 function Fact({ icon: Icon, children }) {
@@ -33,13 +34,7 @@ export default function ProctoredQuizLauncher({ quiz, onBack, resultReturnTo }) 
         return () => window.removeEventListener("pageshow", onPageShow);
     }, [refetch]);
 
-    const open = () => {
-        const query = resultReturnTo ? `?from=${encodeURIComponent(resultReturnTo)}` : "";
-        // A full page load on purpose: only this page gets camera permission, and the browser
-        // keeps the policy of the page it first loaded, so client-side navigation would not get it.
-        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-        window.location.assign(`/student/proctored/${quiz.id}${query}`);
-    };
+    const open = () => openProctoredExam({ quizId: quiz.id, returnTo: resultReturnTo });
 
     if (isLoading) return <Loader />;
 

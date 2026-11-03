@@ -20,6 +20,7 @@ import SubmissionStatusBadge from "@/components/student/submissions/SubmissionSt
 import ListenButton from "@/components/student/tts/ListenButton";
 import { buildResultOverviewSpeech } from "@/lib/quizSpeech";
 import { formatDate, formatDuration, formatTime } from "@/features/student/constants/submissionsConfig";
+import { openProctoredExam } from "@/lib/proctoring/examAddress";
 
 const SUBMISSIONS_HREF = "/student/assignments?type=quiz";
 
@@ -265,10 +266,9 @@ function QuizResultPageContent() {
       {submission.proctoring && OUTCOME_LABELS[submission.proctoring.outcome] && (
         <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
           <span className="font-semibold">{OUTCOME_LABELS[submission.proctoring.outcome]}.</span>{" "}
-          {/* A full page load: only the exam page may use the camera, so it keeps its own policy. */}
-          <a href={`/student/proctored/${quizId}`} className="font-semibold underline underline-offset-2">
+          <button type="button" onClick={() => openProctoredExam({ quizId })} className="font-semibold underline underline-offset-2">
             See what happened
-          </a>
+          </button>
         </p>
       )}
 

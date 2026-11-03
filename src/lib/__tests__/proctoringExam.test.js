@@ -9,6 +9,7 @@ import {
     formatSavedAnswer,
     isDevToolsShortcut,
     isLeaveShortcut,
+    isNearFullscreenExit,
     isScreenshotShortcut,
     localDeadlineMs,
     openWarningBanner,
@@ -45,6 +46,11 @@ check("PrintScreen and the snipping shortcut are screenshots", Boolean(isScreens
 check("Ctrl+P is treated as a screenshot, Ctrl+Shift+P is not", Boolean(isScreenshotShortcut({ key: "p", ctrlKey: true })) && !isScreenshotShortcut({ key: "p", ctrlKey: true, shiftKey: true }));
 check("a plain letter is not a screenshot", !isScreenshotShortcut({ key: "s" }));
 check("F12 and Ctrl+Shift+I are developer tools", isDevToolsShortcut({ key: "F12" }) && isDevToolsShortcut({ key: "I", ctrlKey: true, shiftKey: true }));
+
+// ---- the browser's own fullscreen exit button ----
+check("the pointer at the top edge is near the browser's exit button", [0, 8, 15].every((clientY) => isNearFullscreenExit({ clientY })));
+check("the pointer anywhere lower is not", ![16, 120, 700].some((clientY) => isNearFullscreenExit({ clientY })));
+check("a touch or missing position is not", !isNearFullscreenExit({}) && !isNearFullscreenExit(null));
 
 // ---- what an error means ----
 check("an ended attempt ends the page", classifyExamError(http(409, "ATTEMPT_ENDED")) === "ENDED" && classifyExamError(http(409, "TIME_EXPIRED")) === "ENDED");

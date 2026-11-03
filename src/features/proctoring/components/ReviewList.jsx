@@ -7,6 +7,7 @@ import { MicOff } from "lucide-react";
 import DataTable from "@/components/ui/DataTable";
 import Pagination from "@/components/ui/Pagination";
 import { useProctoringReviews } from "@/hooks/queries/instructor/useProctoringReviews";
+import { openProctoringReview } from "@/lib/proctoring/reviewAddress";
 import { DECISION_DONE, flagReasonLabel } from "@/lib/proctoring/reviewLabels";
 
 const TABS = [
@@ -125,7 +126,7 @@ export default function ReviewList({ basePath, title = "Proctored exams" }) {
                     isLoading={isLoading}
                     skeletonRows={5}
                     emptyLabel={state === "PENDING" ? "Nothing is waiting for a decision." : "No attempts to show."}
-                    onRowClick={(row) => router.push(`${basePath}/${row.attemptId}`)}
+                    onRowClick={(row) => openProctoringReview({ attemptId: row.attemptId, quizTitle: row.quizTitle, listPath: basePath }, { go: router.push })}
                 />
             )}
 

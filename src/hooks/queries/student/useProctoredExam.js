@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { resultRetryDelay, shouldRetryResult } from "@/lib/proctoring/examLogic";
 import {
     createProctoringAppeal,
     createProctoredAttempt,
@@ -46,7 +47,8 @@ export function useProctoredAttemptResult(attemptId) {
         queryFn: () => getProctoredAttemptResult(attemptId),
         enabled: Boolean(attemptId),
         refetchOnWindowFocus: false,
-        retry: 2,
+        retry: shouldRetryResult,
+        retryDelay: resultRetryDelay,
     });
 }
 
@@ -59,12 +61,15 @@ export function useCreateProctoringAppeal(attemptId) {
     });
 }
 
-export const useCreateProctoredAttempt = (quizId) => useMutation({ mutationFn: (consent) => createProctoredAttempt(quizId, consent) });
+// The exam page holds what these return, and is left by a full page load, so the app-wide refresh
+// after a write would only repeat its slowest reads while a student waits.
+export const useCreateProctoredAttempt = (quizId) => useMutation({ mutationFn: (consent) => createProctoredAttempt(quizId, consent), meta: { refreshAll: false } });
 
 export function useResumeProctoredAttempt() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: resumeProctoredAttempt,
+        meta: { refreshAll: false },
         onSuccess: (data) => {
             if (data?.attemptId) {
                 queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.PROCTORED_ATTEMPT, data.attemptId] });
@@ -73,17 +78,19 @@ export function useResumeProctoredAttempt() {
     });
 }
 
-export const useStartProctoredAttempt = () => useMutation({ mutationFn: startProctoredAttempt });
+export const useStartProctoredAttempt = () => useMutation({ mutationFn: ({ attemptId, readiness }) => startProctoredAttempt(attemptId, readiness), meta: { refreshAll: false } });
 
 /** Finishing changes what the quiz and result screens should say, so they read again. */
 export function useSubmitProctoredAttempt(quizId) {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: submitProctoredAttempt,
+        meta: { refreshAll: false },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.QUIZ, quizId] });
             queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.QUIZ_RESULT, quizId] });
-            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.PROCTORED_QUIZ_STATUS, quizId] });
+            // Nothing on the exam page reads it again, and it is one of the slowest calls here.
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.PROCTORED_QUIZ_STATUS, quizId], refetchType: "none" });
         },
     });
 }

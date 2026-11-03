@@ -55,6 +55,8 @@ const SECURITY_HEADERS = [
 const PROCTORED_EXAM_PERMISSIONS = "camera=(self), microphone=(self), fullscreen=(self), geolocation=(), display-capture=()";
 
 const nextConfig: NextConfig = {
+    // Lets a second copy run for local browser tests without touching the dev server's .next.
+    ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
     allowedDevOrigins: PRIVATE_LAN_DEV_ORIGINS,
     poweredByHeader: false,
     async headers() {

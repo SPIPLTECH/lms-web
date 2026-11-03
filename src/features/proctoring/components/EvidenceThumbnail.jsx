@@ -1,18 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Eye, ImageIcon } from "lucide-react";
 
 import { fetchEvidenceImage } from "@/services/proctoring.service";
 
 /**
  * Loads a kept image with the viewer's own sign-in, through the authorised route. Staff views are
- * audited by the server. `onOpen` receives a blob URL for the lightbox.
+ * audited by the server. `onOpen` receives a blob URL for the lightbox. `sizeClassName` replaces the
+ * fixed sizes, and `onLoaded` hands the URL to a parent that shows the photo elsewhere too.
  */
-export default function EvidenceThumbnail({ evidenceId, explanation, capturedAt, onOpen, large = false }) {
+export default function EvidenceThumbnail({ evidenceId, explanation, capturedAt, onOpen, large = false, sizeClassName = null, onLoaded = null }) {
     const [url, setUrl] = useState(null);
     const [failed, setFailed] = useState(false);
-    const size = large ? "h-24 w-32" : "h-12 w-16";
+    const size = sizeClassName ?? (large ? "h-24 w-32" : "h-12 w-16");
+    const onLoadedRef = useRef(onLoaded);
+    onLoadedRef.current = onLoaded;
 
     useEffect(() => {
         let cancelled = false;
@@ -22,6 +25,7 @@ export default function EvidenceThumbnail({ evidenceId, explanation, capturedAt,
                 if (cancelled) return;
                 created = URL.createObjectURL(blob);
                 setUrl(created);
+                onLoadedRef.current?.(evidenceId, created);
             })
             .catch(() => !cancelled && setFailed(true));
         return () => {

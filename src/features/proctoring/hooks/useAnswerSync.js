@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { answerFingerprint, answerRetryDelay, changedQuestionIds, classifyExamError, toSavePayload } from "@/lib/proctoring/examLogic";
+import { answerFingerprint, answerRetryDelay, changedQuestionIds, classifyExamError, isVisitOnlyChange, toSavePayload } from "@/lib/proctoring/examLogic";
 import { saveProctoredAnswer } from "@/services/proctoring.service";
 
 const FLUSH_POLL_MS = 200;
+/** A question looked at often gets its answer a moment later, and one save then does for both. */
+const VISIT_SAVE_DELAY_MS = 2000;
 
 /**
  * Saves answers to the server as they change, so a refresh or another device gets them back.
@@ -104,7 +106,17 @@ export default function useAnswerSync({ attemptId, questionStates, serverAnswers
     useEffect(() => {
         if (!enabled || closed.current || !seeded.current) return;
         changedQuestionIds(questionStates, lastSent.current).forEach((questionId) => {
-            if (!failures.current[questionId]) sendRef.current(questionId);
+            if (failures.current[questionId]) return;
+            if (isVisitOnlyChange(questionStates[questionId])) {
+                timers.current[questionId] ??= setTimeout(() => {
+                    timers.current[questionId] = null;
+                    sendRef.current(questionId);
+                }, VISIT_SAVE_DELAY_MS);
+                return;
+            }
+            clearTimeout(timers.current[questionId]);
+            timers.current[questionId] = null;
+            sendRef.current(questionId);
         });
         refreshUnsaved();
     }, [enabled, questionStates, refreshUnsaved]);

@@ -19,7 +19,7 @@ export const createProctoredAttempt = (quizId, consent) => api.post(`/proctoring
 
 export const resumeProctoredAttempt = (attemptId) => api.post(`/proctoring/attempts/${attemptId}/resume`).then(dataOf);
 
-export const startProctoredAttempt = (attemptId) => api.post(`/proctoring/attempts/${attemptId}/start`).then(dataOf);
+export const startProctoredAttempt = (attemptId, readiness) => api.post(`/proctoring/attempts/${attemptId}/start`, readiness ? { readiness } : undefined).then(dataOf);
 
 export const getProctoredAttempt = (attemptId) => api.get(`/proctoring/attempts/${attemptId}`).then(dataOf);
 
@@ -49,6 +49,9 @@ export const fetchEvidenceImage = (evidenceId) => api.get(`/proctoring/evidence/
 
 const monitorApi = axios.create({ timeout: 15000 });
 
+/** Longer than the server holds a request for notices, which is 25 s. */
+const NOTICE_WAIT_MS = 40000;
+
 const monitored = (token) => ({ baseURL: getApiOrigin(), headers: { "X-Proctoring-Token": token } });
 
 export function uploadExamFrame(token, { type, blob, frameId, capturedAt }) {
@@ -61,5 +64,9 @@ export function uploadExamFrame(token, { type, blob, frameId, capturedAt }) {
 }
 
 export const sendExamEvent = (token, event) => monitorApi.post("/proctoring/monitor/events", event, monitored(token)).then(dataOf);
+
+/** Waits on the server for the next warning or decision. With no cursor, answers at once with where things stand. */
+export const pollExamNotices = (token, after, signal) =>
+    monitorApi.get("/proctoring/monitor/notices", { ...monitored(token), params: after === undefined ? {} : { after }, signal, timeout: NOTICE_WAIT_MS }).then(dataOf);
 
 export const sendExamHeartbeat = (token, body = {}) => monitorApi.post("/proctoring/monitor/heartbeat", body, monitored(token)).then(dataOf);

@@ -220,13 +220,22 @@ export default function ExamRoom({ session, camera, monitoring, microphoneStatus
                         </Button>
                     }
                 >
-                    This exam runs in fullscreen, and leaving it is recorded. Your timer keeps running.
+                    This exam runs in fullscreen, and leaving it is recorded. Your timer keeps running. Click anywhere or press a key to go back.
+                    {monitoring.activeWarningMessage && <strong role="alert" className="mt-2 block font-semibold text-rose-700 dark:text-rose-300">{monitoring.activeWarningMessage}</strong>}
                 </Blocker>
             )}
             {monitoring.isFullscreen && !monitoring.isWindowFocused && !timeUp && (
                 <Blocker icon={ShieldAlert} title="Return to the exam" action={<Button type="button" onClick={() => window.focus()}>Return to the exam</Button>}>
                     The exam is hidden while this window is not in focus, and leaving it is recorded.
                 </Blocker>
+            )}
+
+            {monitoring.nearFullscreenExit && monitoring.isFullscreen && monitoring.isWindowFocused && !timeUp && (
+                // Over the page, not part of it, and never in the way of a click.
+                <p role="alert" className="pointer-events-none fixed inset-x-0 top-0 z-50 flex items-center justify-center gap-2 bg-rose-600 px-4 py-2 text-center text-sm font-semibold text-white shadow-lg">
+                    <ShieldAlert className="h-4 w-4 shrink-0" aria-hidden />
+                    Do not leave fullscreen. Leaving is recorded and counts as a warning. Move your pointer back to the exam.
+                </p>
             )}
 
             {cameraOff && !timeUp && (
@@ -281,7 +290,7 @@ export default function ExamRoom({ session, camera, monitoring, microphoneStatus
             )}
 
             <main className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2 sm:gap-3 sm:p-3">
-                <div className="mx-auto flex w-full max-w-5xl flex-col gap-2 sm:gap-3">
+                <div className="m-auto flex w-full max-w-5xl flex-col gap-2 sm:gap-3">
                     {cappedWarnings > 0 && (
                         <div className="flex items-center justify-end">
                             <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${isFinalWarningStanding ? "border-rose-500/35 bg-rose-500/10 text-rose-700 dark:text-rose-300" : "border-amber-500/35 bg-amber-500/10 text-amber-800 dark:text-amber-300"}`}>

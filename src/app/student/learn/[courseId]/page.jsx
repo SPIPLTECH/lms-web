@@ -55,8 +55,9 @@ const LEVEL_LABELS = {
 };
 
 // How long without input before the Course Map and the Learning Workspace
-// header hide (the idle layout effect in LearnPage).
-const IDLE_AFTER_MS = 2500;
+// header hide (the idle layout effect in LearnPage). 30 s, so they stay while
+// the student reads them; 2.5 s folded them away mid-read.
+const IDLE_AFTER_MS = 30_000;
 
 /** Every container node (Course, Module, … Concept) of the learning-sequence tree, by id. */
 function indexContainers(tree) {
@@ -430,7 +431,7 @@ export default function LearnPage() {
   }, [courseMapOpen]);
 
   // IDLE LAYOUT — inactivity auto-hide on desktop (xl+).
-  // After IDLE_AFTER_MS (2.5s) without input, the Course Map rail and Learning Workspace
+  // After IDLE_AFTER_MS (30s) without input, the Course Map rail and Learning Workspace
   // header hide to maximize content focus.
   //
   // Idle behavior rules:

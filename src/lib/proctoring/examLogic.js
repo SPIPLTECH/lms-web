@@ -31,6 +31,13 @@ export function isDevToolsShortcut(event) {
     return event.key === "F12" || Boolean((event.ctrlKey || event.metaKey) && event.shiftKey && (key === "i" || key === "j" || key === "c"));
 }
 
+/**
+ * Chrome and Edge show their own exit button when the pointer reaches the top of the screen in
+ * fullscreen. No page can hide it, so the student is warned on the way there instead.
+ */
+const FULLSCREEN_EXIT_EDGE_PX = 15;
+export const isNearFullscreenExit = (event) => typeof event?.clientY === "number" && event.clientY <= FULLSCREEN_EXIT_EDGE_PX;
+
 /** What a failed monitoring or answer request means for the exam page. */
 export function classifyExamError(error) {
     const code = error?.response?.data?.code;
@@ -42,6 +49,53 @@ export function classifyExamError(error) {
     if (status === 401 || status === 403 || status === 404 || status === 400 || status === 413 || status === 415) return "FATAL";
     return "RETRY";
 }
+
+/**
+ * When the next frame goes, from when the last one was due. Frames sit on a fixed grid, so what
+ * one frame cost never delays the next, and a tab that stalled skips ahead instead of catching up.
+ */
+export function nextCaptureSlot(slot, intervalMs, now) {
+    let next = slot + intervalMs;
+    while (next <= now) next += intervalMs;
+    return { slot: next, delayMs: next - now };
+}
+
+export const SCREEN_CAPTURE_MESSAGE = "A screen capture is running in this browser. Stop it, then press Start exam again.";
+
+/** What has to be true at the moment Start is pressed, with what to tell the student if it is not. */
+export function startReadinessProblem({ cameraLive, captureSessions, recordingClosedConfirmed }) {
+    if (captureSessions > 0) return SCREEN_CAPTURE_MESSAGE;
+    if (!cameraLive) return "Your camera has stopped. Turn it back on, then press Start exam again.";
+    if (!recordingClosedConfirmed) return "Please confirm that you have closed any screen recording or sharing.";
+    return null;
+}
+
+/** How this attempt ended, in the student's words. A termination's reason is the server's own. */
+export function describeExamEnding(result) {
+    const { outcome, endedBy, reason, passed } = result;
+    if (outcome === "ENDED_BY_PROCTORING" || endedBy === "PROCTORING") {
+        return { kind: "PROCTORING", title: "Exam ended by proctoring", how: "Automatically terminated", detail: reason || "Monitoring ended this exam." };
+    }
+    if (outcome === "VOIDED") return { kind: "OTHER", title: "Attempt voided", how: "Voided by your instructor", detail: "This attempt does not count." };
+    if (endedBy === "TIME") return { kind: "TIME", title: "Time expired", how: "Time ran out", detail: "The time limit was reached, so your saved answers were submitted." };
+    if (endedBy === "STUDENT") return { kind: "STUDENT", title: passed ? "Exam passed" : "Exam completed", how: "Submitted by you", detail: "You submitted this exam, and your saved answers were marked." };
+    return { kind: "OTHER", title: "Exam ended", how: "Attempt closed", detail: reason || "This attempt has closed." };
+}
+
+const RESULT_NOT_READY_TRIES = 40;
+const RESULT_NOT_READY_DELAY_MS = 750;
+
+const resultNotReady = (error) => error?.response?.data?.code === "ATTEMPT_NOT_ENDED";
+
+/** After a termination the student is told at once, and the record catches up a moment later. */
+export const shouldRetryResult = (failures, error) => failures < (resultNotReady(error) ? RESULT_NOT_READY_TRIES : 2);
+
+export const resultRetryDelay = (failures, error) => (resultNotReady(error) ? RESULT_NOT_READY_DELAY_MS : Math.min(1000 * 2 ** failures, 8000));
+
+export const noticeRetryDelay = (failures) => Math.min(1000 * 2 ** failures, 15000);
+
+/** A question looked at and not yet answered can wait for the answer, which usually follows. */
+export const isVisitOnlyChange = (record) => !record?.answered && !record?.skipped && !record?.hintViewed;
 
 const ANSWER_RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 15000];
 
