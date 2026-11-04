@@ -940,10 +940,10 @@ MANUAL_CASES = [
          expected="Start is off with a capture the page can see or with the recording switch off; failures are explained and can be retried; one request per start. A capture outside the page is not detected, and that is reported as a limit.",
          ref="scripts/proctoring-e2e/readiness-check.mjs"),
     dict(id="TC-UI-PROC-004", component="src/features/proctoring/hooks/useWebcamCapture.js", type="E2E",
-         scenario="Monitoring performance: warning latency, 5 s capture grid, upload time, answer responsiveness, termination",
+         scenario="Monitoring performance: warning latency, 3 s capture grid, upload time, answer responsiveness, termination",
          pre="Isolated local stack: web :3055, API :5055, real AI, disposable database behind a ~100 ms delay; real Chrome, simulated camera",
          steps="node scripts/proctoring-e2e/measure.mjs --label=after; flow-timing.mjs --label=after",
-         expected="Warning within 1-2 s of the confirming frame, frames 5 s apart with no drift, uploads not held for the AI, no answer lag, exam closed at once on termination.",
+         expected="Warning within 1-2 s of the confirming frame, frames 3 s apart (the default since 2026-11-04) with no drift, uploads not held for the AI, no answer lag, exam closed at once on termination.",
          ref="scripts/proctoring-e2e/measure.mjs"),
     dict(id="TC-UI-PROC-005", component="src/features/proctoring/components/ReviewDetail.jsx", type="E2E",
          scenario="Whole path: answers saved, Esc held, three warnings end the exam; student result, instructor and admin review with photos",
@@ -987,6 +987,12 @@ MANUAL_CASES = [
          steps="1. Open the page: Why it ended opens first\n2. Open Overview\n3. Open Timeline\n4. Measure page, tab-panel and decision-column overflow\n5. Resize to 390x800",
          expected="Banner says Ended by proctoring with the rule and count and Awaiting your decision; 3 numbered warning cards with their notes; the ending as one line; other events folded; decision form always visible; no page or panel scroll at 1366x657 on Overview and Why it ended; at 390 wide an ordinary page with no sideways overflow.",
          ref="src/features/proctoring/components/ReviewDetail.jsx"),
+    dict(id="TC-UI-PROC-012", component="src/components/instructor/quizzes/ProctoringToggle.jsx", type="UI – Browser",
+         scenario="Instructor switches proctoring off and on again on a Final quiz a student has already started",
+         pre="Local web :3000 with every :5000 API request redirected to a local API :5055 on the disposable database (sockets blocked); seeded fake INSTRUCTOR; proctored Final quiz with one SUBMITTED proctored attempt",
+         steps="1. Course Composer: open the quiz, Edit Quiz\n2. Untick Enable proctoring, Save Changes\n3. Edit Quiz again\n4. Tick it again, Save Changes, Edit Quiz",
+         expected="1. Checkbox shown and changeable, note that tag, time limit and questions stay fixed while on\n2. Note changes to what switching off does; PUT /quizzes/:id 200 with proctoringEnabled false; no question requests\n3. Unticked, no lock notes, time limit and questions editable\n4. PUT 200 with proctoringEnabled true; lock notes back",
+         ref="backend quizLock.service.js resolveUpdate; test/proctoring-checkbox.test.js 'switching it off and on'"),
 ]
 
 

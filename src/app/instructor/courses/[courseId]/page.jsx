@@ -1650,8 +1650,9 @@ export default function CourseDetailsPage() {
               .map((qq) => qq.question?.id || qq.questionId)
               .filter(Boolean);
             // A proctored quiz a student has started: the server refuses question
-            // changes, and the editor below shows them as locked.
-            if (updatedQuiz.proctoringLocked !== true) {
+            // changes, and the editor shows them as locked. That holds for the save
+            // that switches proctoring off too, since the editor was hidden for it.
+            if (activeQuizFull?.proctoringLocked !== true && updatedQuiz.proctoringLocked !== true) {
               await syncQuizQuestions(targetId, updatedQuizData.questions || [], originalQuestionIds);
             }
           } catch (qErr) {

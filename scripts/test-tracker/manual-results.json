@@ -790,6 +790,16 @@
       "actual": "Banner: Ended by proctoring, Reached the maximum warning limit (3 / 3), Awaiting your decision, quiz, course, time range and student. Why it ended opened first: 3 numbered warning cards (Face did not match, Confidence 81%; Left fullscreen x2, 'Not through Esc, most likely the browser's exit button · Keyboard lock on'), the ending as one line, 4 other events folded. Overview: score ring 40%, 4/10 Not passed, warnings 3/3 Limit reached, monitoring, why it is here, the attempt. Timeline: warned rows and the ending highlighted, scrolls inside its panel. After trimming padding: page overflow 0, Why it ended panel overflow 0 (was 45 px, then 10 px), decision column overflow 0, sideways 0. At 390x800 it scrolls as a page with no sideways overflow. Not covered: photos themselves (the preview had no signed-in API, so thumbnails showed Unavailable), the decided and appeal states, the admin delete button, dark theme.",
       "evidence": "test-evidence/browser/TC-UI-PROC-011/review-warnings.png (before the padding fix), review-overview.png, review-timeline.png",
       "failure_details": ""
+    },
+    {
+      "id": "TC-UI-PROC-012",
+      "status": "PASS",
+      "executed_at": "2026-11-04T10:50:00",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "Local web http://localhost:3000 (working tree, branch Pawan); every http://localhost:5000 request redirected by Playwright to a local API :5055 on the disposable database lms_proctoring_local; socket.io blocked. Seeded fake instructor (stamp 53243c), quiz cmw1nwbhh0009ue1ghs8hkyse with one SUBMITTED proctored attempt.",
+      "actual": "Edit Quiz showed the checkbox ticked and changeable, with the note 'A student has started this quiz, so its tag, time limit and questions stay fixed while proctoring is on...' and 'Questions are locked... Switch proctoring off and save to change them.' Unticked: note changed to 'Proctoring switches off when you save...'. Save: PUT /quizzes/cmw1nwbhh0009ue1ghs8hkyse 200, proctoringEnabled false; local API log shows the PUT and 0 PUT /questions; local DB row proctoringEnabled false. Edit Quiz again: unticked, 0 lock notes, time limit input enabled. Ticked again and saved: PUT 200, proctoringEnabled true; lock note and questions-locked message back (1 each).",
+      "evidence": "test-evidence/browser/TC-UI-PROC-012/locked-on.png, unticked.png, off-saved.png; local API request log",
+      "failure_details": ""
     }
   ]
 }

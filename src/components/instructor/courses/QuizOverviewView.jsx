@@ -1049,7 +1049,7 @@ export function QuizOverviewView({
 
           {proctoringLocked && (
             <p className="p-3 rounded-xl border border-border bg-background text-[13px] text-muted-foreground">
-              Questions are locked because a student has started this proctored quiz.
+              Questions are locked because a student has started this proctored quiz. Switch proctoring off and save to change them.
             </p>
           )}
 
