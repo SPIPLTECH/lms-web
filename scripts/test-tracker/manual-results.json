@@ -800,6 +800,16 @@
       "actual": "Edit Quiz showed the checkbox ticked and changeable, with the note 'A student has started this quiz, so its tag, time limit and questions stay fixed while proctoring is on...' and 'Questions are locked... Switch proctoring off and save to change them.' Unticked: note changed to 'Proctoring switches off when you save...'. Save: PUT /quizzes/cmw1nwbhh0009ue1ghs8hkyse 200, proctoringEnabled false; local API log shows the PUT and 0 PUT /questions; local DB row proctoringEnabled false. Edit Quiz again: unticked, 0 lock notes, time limit input enabled. Ticked again and saved: PUT 200, proctoringEnabled true; lock note and questions-locked message back (1 each).",
       "evidence": "test-evidence/browser/TC-UI-PROC-012/locked-on.png, unticked.png, off-saved.png; local API request log",
       "failure_details": ""
+    },
+    {
+      "id": "TC-UI-INS-003",
+      "status": "PASS",
+      "executed_at": "2026-11-04T11:45:00",
+      "executed_by": "Claude via Playwright MCP + curl",
+      "environment": "Local web http://localhost:3000 (working tree, branch Pawan); every http://localhost:5000 request redirected by Playwright to a local API :5055 on the disposable database lms_proctoring_local; socket.io blocked. Seeded fake instructor 53243c owning course cmw1nwbh30003ue1gh95oozek; second fake instructor a2dbd5 owning cmw1pzha30003ueicr5evso7n.",
+      "actual": "Own PUBLISHED course header: buttons [Unpublish, Edit], no Restore/Archive. Unpublish -> confirm modal 'Unpublish Course?' -> POST /courses/:id/unpublish 200, header DRAFT, buttons [Publish, Edit]. Publish -> POST /courses/:id/publish 200, header PUBLISHED, buttons [Unpublish, Edit]. With the same instructor's token: POST publish and unpublish on the other instructor's course -> 403 'Forbidden: you do not own this resource'; PATCH /courses/<own>/status ARCHIVED -> 403; control: POST publish on own course -> 200.",
+      "evidence": "test-evidence/browser/TC-UI-INS-003/pub-1-published.png, pub-3-draft.png, pub-4-published.png; curl status codes",
+      "failure_details": ""
     }
   ]
 }

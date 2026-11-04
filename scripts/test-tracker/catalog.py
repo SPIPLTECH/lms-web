@@ -128,12 +128,24 @@ def check_price_consumers_gate_on_is_priced():
     return ("PASS", f"All {len(consumers)} getPriceInfo() consumers gate on isPriced.", probe)
 
 
-def check_instructor_has_no_publish_controls():
-    hits = _grep(["src/components/instructor", "src/app/instructor"],
-                 r"""role\s*===\s*["']INSTRUCTOR["'].*on(Publish|Unpublish|Archive)Click|on(Publish|Unpublish)Click=\{""")
-    if hits:
-        return ("FAIL", "Instructor course UI still wires Publish/Unpublish controls.", _fmt_hits(hits))
-    return ("PASS", "No Publish/Unpublish control is rendered for or wired by instructor UI.", "grep: 0 matches")
+def check_instructor_publish_controls():
+    # Owner decision 2026-11-04: a course's instructor publishes and unpublishes it; archive and
+    # restore stay admin-only. The backend's ownership check is what enforces "own course".
+    view = _read("src/components/instructor/courses/CourseOverviewView.jsx")
+    problems = []
+    if not re.search(r"isAuthor\s*&&\s*isDraft\s*&&\s*onPublishClick", view):
+        problems.append("Publish is not offered to the course's author on a DRAFT course")
+    if not re.search(r"isAuthor\s*&&\s*isPublished\s*&&\s*onUnpublishClick", view):
+        problems.append("Unpublish is not offered to the course's author on a PUBLISHED course")
+    if not re.search(r"""role\s*===\s*["']ADMIN["']\s*&&\s*isArchived\s*&&\s*onRestoreClick""", view):
+        problems.append("Restore to Draft is not limited to ADMIN")
+    archive = _grep(["src/components/instructor", "src/app/instructor"], r"onArchiveClick|archiveCourse\(")
+    if archive:
+        problems.append("instructor UI wires an Archive control: " + _fmt_hits(archive))
+    if problems:
+        return ("FAIL", "Instructor publication controls do not match the rule.", "; ".join(problems))
+    return ("PASS", "Publish (DRAFT) and Unpublish (PUBLISHED) shown to the course's author; Restore ADMIN-only; no Archive control in instructor UI.",
+            "CourseOverviewView.jsx gates + grep onArchiveClick|archiveCourse( in instructor UI: 0 matches")
 
 
 def check_instructor_has_no_pricing_controls():
@@ -325,10 +337,10 @@ CODE_CHECKS = [
          scenario="Every getPriceInfo() consumer gates on isPriced so a course with no Store is never shown as FREE",
          expected="All files calling getPriceInfo() read isPriced; missing Store => 'Pricing unavailable', no Enroll Free",
          ref="src/lib/pricing.js getPriceInfo (isFree is true when store is null; isPriced is false)"),
-    dict(id="TC-CL-006", component="src/components/instructor/courses/CourseOverviewView.jsx", fn=check_instructor_has_no_publish_controls,
-         scenario="RBAC: instructor course UI renders no Publish / Unpublish controls",
-         expected="No role==='INSTRUCTOR' publish/unpublish button and no onPublishClick/onUnpublishClick wiring in instructor UI",
-         ref="CLAUDE.md §8 INSTRUCTOR MUST NOT publish/unpublish"),
+    dict(id="TC-CL-006", component="src/components/instructor/courses/CourseOverviewView.jsx", fn=check_instructor_publish_controls,
+         scenario="RBAC: the course's instructor gets Publish / Unpublish; Restore and Archive stay admin-only (owner decision 2026-11-04)",
+         expected="Publish on a DRAFT and Unpublish on a PUBLISHED course for the author (instructor or admin); Restore gated on ADMIN; no Archive control in instructor UI",
+         ref="CLAUDE.md §8 INSTRUCTOR; backend course.routes.js publish/unpublish (verifyCourseOwnership)"),
     dict(id="TC-CL-007", component="src/app/instructor/courses/edit/[courseId]/page.jsx", fn=check_instructor_has_no_pricing_controls,
          scenario="RBAC: instructor pages/components contain no price, discount or Store pricing controls",
          expected="0 price/discount/isFree references in src/app/instructor and src/components/instructor",
@@ -599,10 +611,10 @@ MANUAL_CASES = [
          pre=f"{_ENV}; INSTRUCTOR. {_RO}", steps="1. Type a title fragment\n2. Type a nonsense string",
          expected="List narrows; nonsense shows empty state", ref="src/app/instructor/courses/page.jsx"),
     dict(id="TC-UI-INS-003", component="src/components/instructor/courses/CourseOverviewView.jsx", type="UI – Browser",
-         scenario="RBAC: instructor course detail shows no Publish / Unpublish control",
-         pre=f"{_ENV}; INSTRUCTOR; a DRAFT and a PUBLISHED course. {_RO} Do not click.",
-         steps="1. Open /instructor/courses/<id> for a PUBLISHED course\n2. Inspect header actions\n3. Repeat for a DRAFT course",
-         expected="No Publish or Unpublish button visible", ref="CLAUDE.md §8; code check TC-CL-006"),
+         scenario="RBAC: instructor publishes and unpublishes their own course from the course page (owner decision 2026-11-04)",
+         pre="Disposable local database only (publishing writes and notifies enrolled students); INSTRUCTOR who owns a DRAFT course; a course owned by another instructor.",
+         steps="1. Open /instructor/courses/<own DRAFT id>; click Publish\n2. Click Unpublish, confirm\n3. Check there is no Restore or Archive button\n4. POST /courses/<other instructor's course>/publish with this instructor's token",
+         expected="1. Course becomes PUBLISHED; Unpublish replaces Publish\n2. Back to DRAFT\n3. Neither shown\n4. 403", ref="CLAUDE.md §8; code check TC-CL-006"),
     dict(id="TC-UI-INS-004", component="src/app/instructor/courses/edit/[courseId]/page.jsx", type="UI – Browser",
          scenario="RBAC: instructor course create/edit forms have no price or discount fields",
          pre=f"{_ENV}; INSTRUCTOR. {_RO} Do not save.",
@@ -1013,7 +1025,7 @@ PURPOSE_OVERRIDES = {
     "src/app/admin/courses/[courseId]/page.jsx": "Route /admin/courses/[courseId]. Admin course review page (no Store pricing management yet — DEF-003).",
     "src/components/student/store/StoreCourseCard.jsx": "Student Store course card: price badge, Enroll Free for free courses, Buy → course details for paid ones.",
     "src/components/student/store/CoursePreviewModal.jsx": "Student Store preview modal: course summary with price badge and Enroll Free / Buy action.",
-    "src/components/instructor/courses/CourseOverviewView.jsx": "Instructor course header/overview: stats, Save, Publish/Unpublish/Restore actions (publish actions violate RBAC — DEF-001).",
+    "src/components/instructor/courses/CourseOverviewView.jsx": "Instructor course header/overview: stats, Save, Publish/Unpublish for the course's author, Restore for admins.",
     "src/components/dashboard/RecommendedCourseCard.jsx": "Recommendation card with 'View Course' link to /student/courses/<id> (no checkout).",
     "src/components/courses/FeaturedCourseCard.jsx": "Landing/catalogue featured course card with Store price or 'Pricing unavailable' and VIEW COURSE.",
     "scripts/ui-smoke.mjs": "Playwright responsive smoke test against a stubbed API: reports horizontal overflow, small tap targets and console errors per viewport.",

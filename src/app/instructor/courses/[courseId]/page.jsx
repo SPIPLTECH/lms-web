@@ -2953,8 +2953,9 @@ export default function CourseDetailsPage() {
                 isDraftMode={isDraftMode}
                 contentAutoOpenSignal={courseContentAutoOpenSignal}
                 onContentAutoOpenConsumed={() => setCourseContentAutoOpenSignal(0)}
-                onPublishClick={handleConfirmPublish}
-                onUnpublishClick={handleOpenUnpublishModal}
+                // An unsaved import draft has no course on the server to publish yet.
+                onPublishClick={isDraftMode ? undefined : handleConfirmPublish}
+                onUnpublishClick={isDraftMode ? undefined : handleOpenUnpublishModal}
                 onRestoreClick={handleConfirmRestoreCourse}
                 hasUnsavedChanges={hasUnsavedChanges}
                 onSaveCourse={handleSaveCourse}
