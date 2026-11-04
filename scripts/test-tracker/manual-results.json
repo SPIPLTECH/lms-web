@@ -810,6 +810,16 @@
       "actual": "Own PUBLISHED course header: buttons [Unpublish, Edit], no Restore/Archive. Unpublish -> confirm modal 'Unpublish Course?' -> POST /courses/:id/unpublish 200, header DRAFT, buttons [Publish, Edit]. Publish -> POST /courses/:id/publish 200, header PUBLISHED, buttons [Unpublish, Edit]. With the same instructor's token: POST publish and unpublish on the other instructor's course -> 403 'Forbidden: you do not own this resource'; PATCH /courses/<own>/status ARCHIVED -> 403; control: POST publish on own course -> 200.",
       "evidence": "test-evidence/browser/TC-UI-INS-003/pub-1-published.png, pub-3-draft.png, pub-4-published.png; curl status codes",
       "failure_details": ""
+    },
+    {
+      "id": "TC-UI-PROC-013",
+      "status": "PASS",
+      "executed_at": "2026-11-04T12:10:00",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "Local web http://localhost:3000 (working tree, branch Pawan); every http://localhost:5000 request redirected to a local API :5055 on the disposable database lms_proctoring_local; seeded fake student a2dbd5, quiz cmw1pzhad0009ueics1l5zv6d.",
+      "actual": "Before the fix: side column squeezed to a 34-47 px button (98 px tall) at 1920x1080, 1440x900 and 768x1024, because the video (sized by height) took the whole row. After (clean reload, no injected styles): video 478x359, 437x328, 361x271, 350x263 - ratio 1.33 and inside its cell at all 8 desktop sizes; button 320x44, one line, 14 px, label 'Turn on camera & mic'; no page scroll. At 390x844 (phone, layout unchanged) video 332x285 (1.17) as before.",
+      "evidence": "test-evidence/browser/TC-UI-PROC-013/fixed-1440-light.png, fixed-1440-dark.png; measured boxes per viewport",
+      "failure_details": ""
     }
   ]
 }

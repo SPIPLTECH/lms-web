@@ -299,9 +299,10 @@ export default function ReadinessCheck({ status, session, camera, recheck = fals
                     </DeviceRow>
                 )}
                 {!stepDone.devices && (
-                    <Button type="button" onClick={handleEnableDevices} disabled={!consented || requesting} loading={requesting} className="mt-1 inline-flex items-center justify-center gap-2">
-                        <Camera className="h-4 w-4" aria-hidden />
-                        {recheck ? "Turn on camera" : cameraReady ? "Check microphone" : "Turn on camera and microphone"}
+                    // Sized like the device rows above it, and short enough for one line in this narrow column.
+                    <Button type="button" onClick={handleEnableDevices} disabled={!consented || requesting} loading={requesting} className="mt-1 inline-flex w-full items-center justify-center gap-2 text-sm">
+                        <Camera className="h-4 w-4 shrink-0" aria-hidden />
+                        {recheck ? "Turn on camera" : cameraReady ? "Check microphone" : "Turn on camera & mic"}
                     </Button>
                 )}
             </div>
@@ -331,13 +332,13 @@ export default function ReadinessCheck({ status, session, camera, recheck = fals
                     </ul>
                 )}
                 {cameraReady ? (
-                    <Button type="button" variant={photoPassed && !recheck ? "outline" : "primary"} onClick={handleTakePhoto} disabled={photoBusy || !microphoneChecked} loading={photoBusy} className="inline-flex items-center justify-center gap-2">
-                        <Camera className="h-4 w-4" aria-hidden />
+                    <Button type="button" variant={photoPassed && !recheck ? "outline" : "primary"} onClick={handleTakePhoto} disabled={photoBusy || !microphoneChecked} loading={photoBusy} className="inline-flex w-full items-center justify-center gap-2 text-sm">
+                        <Camera className="h-4 w-4 shrink-0" aria-hidden />
                         {photoPassed && !recheck ? "Retake photo" : "Take photo"}
                     </Button>
                 ) : (
-                    <Button type="button" onClick={handleEnableDevices} disabled={camera.cameraStatus === "REQUESTING"} loading={camera.cameraStatus === "REQUESTING"} className="inline-flex items-center justify-center gap-2">
-                        <Camera className="h-4 w-4" aria-hidden /> Turn camera back on
+                    <Button type="button" onClick={handleEnableDevices} disabled={camera.cameraStatus === "REQUESTING"} loading={camera.cameraStatus === "REQUESTING"} className="inline-flex w-full items-center justify-center gap-2 text-sm">
+                        <Camera className="h-4 w-4 shrink-0" aria-hidden /> Turn camera back on
                     </Button>
                 )}
             </div>
@@ -434,9 +435,12 @@ export default function ReadinessCheck({ status, session, camera, recheck = fals
                     <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>
                 </div>
 
-                <div className={`grid min-h-0 flex-1 gap-4 ${showCamera ? "md:grid-cols-[auto_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)]" : ""}`}>
+                {/* From md up the side column keeps 17-20rem, and the video is as large as its cell allows at 4:3:
+                    the grid is a size container, so its width is capped at the row's height x 4/3. Sized by height
+                    alone, the video took the whole width on tall screens and squeezed the side column to ~50 px. */}
+                <div className={`grid min-h-0 flex-1 gap-4 ${showCamera ? "md:grid-cols-[minmax(0,1fr)_minmax(17rem,20rem)] md:grid-rows-[minmax(0,1fr)] md:[container-type:size]" : ""}`}>
                     {/* One video for every step, so the stream and the Start check stay live. */}
-                    <div className={showCamera ? "relative mx-auto aspect-[4/3] h-full max-h-[48dvh] min-h-40 max-w-full overflow-hidden rounded-xl border border-border bg-black md:max-h-none" : "pointer-events-none fixed -left-[9999px] top-0 h-24 w-32 opacity-0"} aria-hidden={!showCamera}>
+                    <div className={showCamera ? "relative mx-auto aspect-[4/3] h-full max-h-[48dvh] min-h-40 max-w-full overflow-hidden rounded-xl border border-border bg-black md:h-auto md:max-h-none md:w-[min(100%,calc(100cqh*4/3))] md:self-start" : "pointer-events-none fixed -left-[9999px] top-0 h-24 w-32 opacity-0"} aria-hidden={!showCamera}>
                         <video ref={camera.attachVideo} muted playsInline autoPlay aria-label="Your camera" className="h-full w-full object-cover" />
                         {showCamera && cameraReady && (
                             <span className="absolute left-2.5 top-2.5 flex items-center gap-1.5 rounded-md bg-black/60 px-2 py-0.5 text-[11px] font-bold text-white">

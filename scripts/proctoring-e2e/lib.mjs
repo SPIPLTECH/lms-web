@@ -150,7 +150,7 @@ export async function enterExam(page, quizId, { start = true } = {}) {
   await page.goto(`${WEB}/student/proctored/${quizId}`, { waitUntil: "domcontentloaded", timeout: 120000 });
   await page.getByRole("checkbox", { name: /I have read this notice/i }).check({ timeout: 60000 });
   await page.getByRole("button", { name: "Agree and continue" }).click();
-  await page.getByRole("button", { name: /Turn on camera and microphone/i }).click({ timeout: 30000 });
+  await page.getByRole("button", { name: /Turn on camera (&|and) mic/i }).click({ timeout: 30000 });
   await page.getByRole("button", { name: "Continue", exact: true }).click({ timeout: 30000 });
   // The first frames of a stream can be blank, and a real student would simply try again.
   const retake = page.getByRole("button", { name: "Retake photo" });

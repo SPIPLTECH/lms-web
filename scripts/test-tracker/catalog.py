@@ -978,7 +978,7 @@ MANUAL_CASES = [
     dict(id="TC-UI-PROC-008", component="src/features/proctoring/components/ReadinessCheck.jsx", type="UI – Browser",
          scenario="Readiness page as a 4-step wizard (Notice, Camera & mic, Identity photo, Final check) with no page scroll",
          pre=f"{_ENV}; a temporary preview route rendering the component with a stubbed camera and session (removed after the check); Chrome 1366x657 (a 768-high laptop less browser bars), light theme",
-         steps="1. Notice: tick the agreement, Agree and continue\n2. Turn on camera and microphone, Continue\n3. Take photo, wait for Face check passed, Continue\n4. Turn on the recording switch\n5. Measure page and card overflow at each step",
+         steps="1. Notice: tick the agreement, Agree and continue\n2. Turn on camera & mic, Continue\n3. Take photo, wait for Face check passed, Continue\n4. Turn on the recording switch\n5. Measure page and card overflow at each step",
          expected="One step open at a time with a step bar; Continue only when the step is done; full notice in a pop-up; Start exam locked until every step is done; no page or card scroll at 1366x657 on any step.",
          ref="src/features/proctoring/components/ReadinessCheck.jsx"),
     dict(id="TC-UI-PROC-009", component="src/features/proctoring/components/ExamEndedView.jsx", type="UI – Browser",
@@ -1005,6 +1005,12 @@ MANUAL_CASES = [
          steps="1. Course Composer: open the quiz, Edit Quiz\n2. Untick Enable proctoring, Save Changes\n3. Edit Quiz again\n4. Tick it again, Save Changes, Edit Quiz",
          expected="1. Checkbox shown and changeable, note that tag, time limit and questions stay fixed while on\n2. Note changes to what switching off does; PUT /quizzes/:id 200 with proctoringEnabled false; no question requests\n3. Unticked, no lock notes, time limit and questions editable\n4. PUT 200 with proctoringEnabled true; lock notes back",
          ref="backend quizLock.service.js resolveUpdate; test/proctoring-checkbox.test.js 'switching it off and on'"),
+    dict(id="TC-UI-PROC-013", component="src/features/proctoring/components/ReadinessCheck.jsx", type="UI – Browser",
+         scenario="Readiness 'Camera & mic' step: side column and its button keep their width at every desktop size; video stays 4:3",
+         pre="Local web :3000 with every :5000 API request redirected to a local API :5055 on the disposable database (sockets blocked); seeded fake STUDENT with a proctored quiz and no attempt used",
+         steps="1. Open /student/proctored/<quizId>, tick the notice, Agree and continue\n2. Measure the video box and the 'Turn on camera & mic' button at 1920x1080, 1440x900, 1366x657, 1280x720, 1024x768, 900x700, 800x600, 768x1024\n3. Look at it in light and dark",
+         expected="Video exactly 4:3 and inside its cell at every size; side column 17-20rem; button one line (44 px tall), 14 px text like the device rows; no page scroll.",
+         ref="src/features/proctoring/components/ReadinessCheck.jsx (grid size container)"),
 ]
 
 

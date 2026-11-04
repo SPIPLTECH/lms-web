@@ -50,7 +50,7 @@ check("a refresh returns to the same exam, at the same address", new URL(page.ur
 
 await page.getByRole("checkbox", { name: /I have read this notice/i }).check();
 await page.getByRole("button", { name: "Agree and continue" }).click();
-await page.getByRole("button", { name: /Turn on camera and microphone/i }).click({ timeout: 30000 });
+await page.getByRole("button", { name: /Turn on camera (&|and) mic/i }).click({ timeout: 30000 });
 await page.getByRole("button", { name: "Continue", exact: true }).click({ timeout: 30000 });
 const retake = page.getByRole("button", { name: "Retake photo" });
 for (let tries = 0; tries < 6; tries += 1) {

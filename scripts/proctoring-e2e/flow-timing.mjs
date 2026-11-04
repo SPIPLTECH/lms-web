@@ -42,10 +42,10 @@ for (let run = 0; run < RUNS; run += 1) {
   await page.getByRole("checkbox", { name: /I have read this notice/i }).check();
   await step("agree and continue", async () => {
     await page.getByRole("button", { name: "Agree and continue" }).click();
-    await page.getByRole("button", { name: /Turn on camera and microphone/i }).waitFor({ timeout: 30000 });
+    await page.getByRole("button", { name: /Turn on camera (&|and) mic/i }).waitFor({ timeout: 30000 });
   });
   await step("camera on", async () => {
-    await page.getByRole("button", { name: /Turn on camera and microphone/i }).click();
+    await page.getByRole("button", { name: /Turn on camera (&|and) mic/i }).click();
     await page.getByRole("button", { name: "Continue", exact: true }).click({ timeout: 30000 });
     await page.getByRole("button", { name: "Take photo", exact: true }).waitFor({ timeout: 30000 });
   });
