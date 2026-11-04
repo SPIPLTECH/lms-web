@@ -820,6 +820,16 @@
       "actual": "Before the fix: side column squeezed to a 34-47 px button (98 px tall) at 1920x1080, 1440x900 and 768x1024, because the video (sized by height) took the whole row. After (clean reload, no injected styles): video 478x359, 437x328, 361x271, 350x263 - ratio 1.33 and inside its cell at all 8 desktop sizes; button 320x44, one line, 14 px, label 'Turn on camera & mic'; no page scroll. At 390x844 (phone, layout unchanged) video 332x285 (1.17) as before.",
       "evidence": "test-evidence/browser/TC-UI-PROC-013/fixed-1440-light.png, fixed-1440-dark.png; measured boxes per viewport",
       "failure_details": ""
+    },
+    {
+      "id": "TC-UI-PROC-014",
+      "status": "PASS",
+      "executed_at": "2026-11-04T14:54:00",
+      "executed_by": "Claude via a Playwright script (scratchpad speed-check.mjs, using scripts/proctoring-e2e/lib.mjs)",
+      "environment": "Headless Chrome 156; web http://localhost:3000 (working tree, branch Pawan); :5000 API calls redirected to local API :5055 (lms_proctoring_local), real local AI on :8028; simulated camera from public-domain fixtures; capture every 3 s, re-check 1 s.",
+      "actual": "Different person (fixture face_raja_chari after face_victor_glover): amber early message after 1083 ms, warning after 2220 ms from the camera change. Covered camera (blank frame), 8 s later: early message after 2793 ms, warning after 5046 ms. Warning count on screen 2. No request to :5000 left unredirected. For comparison, the real exam of 2026-11-04 12:07 IST showed nothing until the warnings, 4.5 s and ~7 s after the server first saw each problem.",
+      "evidence": "Script output (timings above); backend tests proctoring-rules 'the exam of 2026-11-04 12:07 IST, replayed' and proctoring-realtime 'postponed, not dropped'",
+      "failure_details": ""
     }
   ]
 }

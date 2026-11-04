@@ -174,6 +174,24 @@ export const DISCRETE_WARNING_DISMISS_MS = 10_000;
 export const RESOLVED_WARNING_DISMISS_MS = 4_000;
 export const MIN_WARNING_DISPLAY_MS = 6_000;
 
+/**
+ * Said the moment the newest photo shows a problem, before the server has confirmed it as a
+ * warning, in order of importance. A glance away is left out: it is too common to nag about.
+ */
+const EARLY_NOTICES = [
+    ["PROHIBITED_OBJECT_DETECTED", "A phone or other item is in view. Put it away now, or it counts as a warning."],
+    ["MULTIPLE_FACES_DETECTED", "Someone else is in view. Only you may be in front of the camera, or it counts as a warning."],
+    ["IDENTITY_MISMATCH_DETECTED", "The person on camera does not look like your identity photo. Only you may take this exam, or it counts as a warning."],
+    ["FACE_NOT_DETECTED", "We can't see your face. Stay in front of your camera, or it counts as a warning."],
+];
+
+/** The early notice for the server's current conditions, leaving out the one already shown as a warning. */
+export function earlyNotice(activeConditions, shownAsWarning = null) {
+    if (!Array.isArray(activeConditions)) return null;
+    const found = EARLY_NOTICES.find(([eventType]) => eventType !== shownAsWarning && activeConditions.includes(eventType));
+    return found ? { eventType: found[0], message: found[1] } : null;
+}
+
 export function openWarningBanner({ message, eventType = null, currentWarnings = null, maxWarnings = null }, now = Date.now()) {
     if (!message) return null;
     const continuous = Boolean(eventType && CONTINUOUS_WARNING_TYPES.has(eventType));

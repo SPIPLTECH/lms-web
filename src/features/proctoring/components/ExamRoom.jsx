@@ -288,6 +288,13 @@ export default function ExamRoom({ session, camera, monitoring, microphoneStatus
                     )}
                 </div>
             )}
+            {/* The moment a photo shows a problem, before it is confirmed as a warning. */}
+            {monitoring.earlyNoticeMessage && !timeUp && (
+                <p role="alert" className="flex items-center justify-center gap-2 bg-amber-500/15 px-4 py-1.5 text-center text-sm font-semibold text-amber-800 dark:text-amber-300">
+                    <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+                    {monitoring.earlyNoticeMessage}
+                </p>
+            )}
 
             <main className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2 sm:gap-3 sm:p-3">
                 <div className="m-auto flex w-full max-w-5xl flex-col gap-2 sm:gap-3">

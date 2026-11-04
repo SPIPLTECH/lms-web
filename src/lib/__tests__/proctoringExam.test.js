@@ -6,6 +6,7 @@ import {
     answerRetryDelay,
     changedQuestionIds,
     classifyExamError,
+    earlyNotice,
     formatSavedAnswer,
     isDevToolsShortcut,
     isLeaveShortcut,
@@ -117,6 +118,18 @@ check("a short sound is not", run([...repeat(quiet, 15), ...repeat(speech, 5), .
 check("mains hum is not speech", run([...repeat(quiet, 15), ...repeat(tone(30, 0.2), 25)]).length === 0);
 check("constant background noise is learned as the room", run(repeat(speech, 40)).length === 0);
 check("the cooldown holds a second report back", run([...repeat(quiet, 15), ...repeat(speech, 25), ...repeat(quiet, 10), ...repeat(speech, 25)]).length === 1);
+
+// ---- early notice: the first photo that shows a problem, before it counts as a warning ----
+check("no problem in the newest photo shows nothing", earlyNotice([]) === null && earlyNotice(undefined) === null);
+check("a covered camera is told at once, in plain words, and it is not a warning yet", (() => {
+    const notice = earlyNotice(["FACE_NOT_DETECTED"]);
+    return notice?.eventType === "FACE_NOT_DETECTED" && /face/i.test(notice.message) && /warning/i.test(notice.message);
+})());
+check("a phone is said before anything else in the same photo", earlyNotice(["FACE_NOT_DETECTED", "PROHIBITED_OBJECT_DETECTED"])?.eventType === "PROHIBITED_OBJECT_DETECTED");
+check("someone else in front of the camera is said", earlyNotice(["IDENTITY_MISMATCH_DETECTED"])?.eventType === "IDENTITY_MISMATCH_DETECTED");
+check("a glance away is not nagged about", earlyNotice(["HEAD_POSE_AWAY"]) === null);
+check("a problem already shown as a warning is not said twice", earlyNotice(["FACE_NOT_DETECTED"], "FACE_NOT_DETECTED") === null
+    && earlyNotice(["FACE_NOT_DETECTED", "MULTIPLE_FACES_DETECTED"], "FACE_NOT_DETECTED")?.eventType === "MULTIPLE_FACES_DETECTED");
 
 // ---- warning banner lifecycle (dismissal vs violation resolution) ----
 check("a continuous warning stays pinned while its condition remains active", (() => {

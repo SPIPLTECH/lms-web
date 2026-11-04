@@ -1011,6 +1011,12 @@ MANUAL_CASES = [
          steps="1. Open /student/proctored/<quizId>, tick the notice, Agree and continue\n2. Measure the video box and the 'Turn on camera & mic' button at 1920x1080, 1440x900, 1366x657, 1280x720, 1024x768, 900x700, 800x600, 768x1024\n3. Look at it in light and dark",
          expected="Video exactly 4:3 and inside its cell at every size; side column 17-20rem; button one line (44 px tall), 14 px text like the device rows; no page scroll.",
          ref="src/features/proctoring/components/ReadinessCheck.jsx (grid size container)"),
+    dict(id="TC-UI-PROC-014", component="src/features/proctoring/components/ExamRoom.jsx", type="E2E",
+         scenario="Speed of response in a running exam: early message on the first photo that shows a problem, warning once confirmed (different person, covered camera)",
+         pre="Headless Chrome, simulated camera from public-domain fixture photos (scripts/proctoring-e2e/lib.mjs); web :3000 with every :5000 API request redirected to a local API :5055 on the disposable database; real local AI",
+         steps="1. Enter an exam as a seeded student with the identity photo passed\n2. Switch the camera to another person; time the amber early message and the counted warning\n3. Back to the student for 8 s, then switch to a blank (covered) camera; time both again",
+         expected="Early message within one capture interval plus about a second; warning about a second after the first photo for a different person, about 2 s after it for a covered camera; never two warnings within 5 s.",
+         ref="backend rules.js runFrames / identity threshold; monitor.service.js warningOwed; examLogic.js earlyNotice"),
 ]
 
 

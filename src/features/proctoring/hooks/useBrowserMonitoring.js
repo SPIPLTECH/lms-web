@@ -6,6 +6,7 @@ import { enterExamLock, examLockState, relockExamKeyboard } from "@/lib/proctori
 import {
     CONTINUOUS_WARNING_TYPES,
     classifyExamError,
+    earlyNotice,
     isDevToolsShortcut,
     isLeaveShortcut,
     isNearFullscreenExit,
@@ -36,6 +37,8 @@ export default function useBrowserMonitoring({ token, active, initialWarnings = 
     const [warnings, setWarnings] = useState(() => Math.min(Math.max(0, initialWarnings), safeInitialMax));
     const [maxWarnings, setMaxWarnings] = useState(safeInitialMax);
     const [warningBanner, setWarningBanner] = useState(null);
+    // What the server's newest photo shows, so the student hears of it before it is a warning.
+    const [serverConditions, setServerConditions] = useState([]);
     const [isFullscreen, setIsFullscreen] = useState(() => typeof document !== "undefined" && Boolean(document.fullscreenElement));
     const [isWindowFocused, setIsWindowFocused] = useState(() => (typeof document === "undefined" ? true : !document.hidden && document.hasFocus()));
     const [isOnline, setIsOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
@@ -108,6 +111,7 @@ export default function useBrowserMonitoring({ token, active, initialWarnings = 
         (conditions) => {
             if (!Array.isArray(conditions)) return;
             serverConditionsRef.current = conditions;
+            setServerConditions(conditions);
             const effective = getEffectiveConditions();
             setWarningBanner((current) => syncWarningBannerConditions(current, effective, Date.now()));
         },
@@ -119,6 +123,7 @@ export default function useBrowserMonitoring({ token, active, initialWarnings = 
             if (!eventType) return;
             clientConditionsRef.current.delete(eventType);
             serverConditionsRef.current = serverConditionsRef.current.filter((item) => item !== eventType);
+            setServerConditions(serverConditionsRef.current);
             const effective = getEffectiveConditions();
             setWarningBanner((current) => syncWarningBannerConditions(current, effective, Date.now()));
         },
@@ -422,11 +427,14 @@ export default function useBrowserMonitoring({ token, active, initialWarnings = 
     }, []);
 
     const canDismissWarning = Boolean(warningBanner && (!warningBanner.continuous || warningBanner.resolvedAt !== null));
+    const early = active ? earlyNotice(serverConditions, warningBanner?.eventType ?? null) : null;
 
     return {
         warnings,
         maxWarnings,
         activeWarningMessage: warningBanner?.message ?? null,
+        // Not a warning: the newest photo shows a problem the server has not confirmed yet.
+        earlyNoticeMessage: early?.message ?? null,
         canDismissWarning,
         clearWarningMessage,
         syncActiveConditions,
