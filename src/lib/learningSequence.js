@@ -5,6 +5,24 @@
  */
 
 /**
+ * A quiz the student has to attempt to get past. A quiz in a lesson/topic they
+ * qualified out of is already complete with no attempt, so it does not count:
+ * they may open it, but it must not hold them there.
+ */
+export function quizAwaitsAttempt(step) {
+  return step?.kind === "QUIZ" && !step.attempted && !step.completed;
+}
+
+/**
+ * A quiz done with but not passed: a Final failed on its last attempt. Needs
+ * an actual attempt, since a quiz skipped by qualifying is complete and has
+ * no passing attempt either, but was never failed.
+ */
+export function quizNotPassed(step) {
+  return step?.kind === "QUIZ" && Boolean(step.completed) && Boolean(step.attempted) && step.passed === false;
+}
+
+/**
  * Marks the steps whose Content rows were all just visited. Returns the same
  * object when nothing changes (so React Query keeps its reference), otherwise
  * a copy — the input is never mutated.
