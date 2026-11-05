@@ -789,7 +789,7 @@ export function QuizOverviewView({
 
                   {/* Question Text */}
                   <div className="text-base font-semibold text-foreground leading-relaxed pt-1">
-                    <QuizRichText text={q.question} />
+                    <QuizRichText text={q.question} preserveLines />
                   </div>
 
                   {/* Options List with Correct Answer Highlight */}
