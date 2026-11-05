@@ -1,6 +1,5 @@
 /**
- * Student certificates are not offered yet. While true, /student/certificates
- * shows a locked notice (and loads nothing) and the student profile has no
- * Certificates button. Set to false to bring both back.
+ * Student certificates feature toggle.
+ * Set to false to enable full student certificates viewing and downloading.
  */
-export const CERTIFICATES_LOCKED = true;
+export const CERTIFICATES_LOCKED = false;

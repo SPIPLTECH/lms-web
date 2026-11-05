@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, BookOpen, Check, ChevronDown, ChevronRight, Lock, Play } from "lucide-react";
+import { ArrowRight, BookOpen, Check, ChevronDown, ChevronRight, Lock, Play, Award, MessageSquare, CheckCircle } from "lucide-react";
+import Link from "next/link";
 
 import { getDisplayUrl } from "@/lib/blob";
 
@@ -211,6 +212,31 @@ export default function StudentCourseOverview({ course, progress, sequence, hasP
                 aria-hidden="true"
               />
             </button>
+
+            {isComplete && (
+              <div className="space-y-2.5 pt-3 border-t border-border">
+                <div className="flex items-center gap-2 text-xs font-bold text-emerald-400">
+                  <CheckCircle size={15} />
+                  <span>Curriculum 100% Completed!</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Link
+                    href={`/student/feedback?courseId=${course.id}`}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-card border border-border hover:border-primary/50 text-foreground text-xs font-semibold transition"
+                  >
+                    <MessageSquare size={13} className="text-primary" />
+                    Feedback
+                  </Link>
+                  <Link
+                    href="/student/certificates"
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-card border border-border hover:border-primary/50 text-foreground text-xs font-semibold transition"
+                  >
+                    <Award size={13} className="text-primary" />
+                    Certificate
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </aside>

@@ -1033,6 +1033,7 @@ export default function CourseDetailsPage() {
         level: course.level || "Beginner",
         thumbnailUrl: course.thumbnailUrl || "",
         duration: course.duration || "",
+        accessDurationDays: course.accessDurationDays ?? null,
         audience: course.audience || "",
         author: course.author || course.creator?.name || "",
       });
@@ -2693,6 +2694,19 @@ export default function CourseDetailsPage() {
     }
   };
 
+  const handleSaveCertificateSettings = async (settingsData) => {
+    try {
+      await updateCourseMutation.mutateAsync({
+        courseId,
+        courseData: settingsData,
+      });
+      showToast("Certificate template & memo saved successfully!", "success", "Saved");
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || "Failed to save certificate template";
+      showToast(msg, "error");
+    }
+  };
+
   if (effectiveLoading) {
     return (
       <div className="flex justify-center py-32">
@@ -2960,6 +2974,8 @@ export default function CourseDetailsPage() {
                 hasUnsavedChanges={hasUnsavedChanges}
                 onSaveCourse={handleSaveCourse}
                 isSavingCourse={isDraftMode ? isSavingDraft : updateCourseMutation.isPending}
+                onSaveCertificateSettings={handleSaveCertificateSettings}
+                isSavingCertificateSettings={updateCourseMutation.isPending}
               />
             )}
 

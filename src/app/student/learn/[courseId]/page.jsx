@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -108,6 +109,7 @@ export default function LearnPage() {
     data: sequence,
     isPending: isSequencePending,
     isError: isSequenceError,
+    error: sequenceError,
     isFetching: isSequenceFetching,
     refetch: refetchSequence,
   } = useLearningSequence(courseId, { withPath: true });
@@ -721,6 +723,42 @@ export default function LearnPage() {
 
   if (isEnrollmentsLoading || !isEnrolled || isSequencePending || !stateRestored) {
     return <Loader />;
+  }
+
+  const currentEnrollment = (myEnrollments || []).find((e) => (e.courseId || e.course?.id) === courseId);
+  const isExpired =
+    sequenceError?.response?.data?.code === "ENROLLMENT_EXPIRED" ||
+    sequenceError?.code === "ENROLLMENT_EXPIRED" ||
+    (currentEnrollment?.expiresAt && new Date(currentEnrollment.expiresAt).getTime() <= Date.now());
+
+  if (isExpired) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center p-6">
+        <Card className="max-w-md w-full p-6 text-center space-y-4 border-amber-500/30 bg-card">
+          <div className="mx-auto w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500">
+            <Lock size={24} />
+          </div>
+          <h2 className="text-xl font-bold text-foreground">Course Access Expired</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Your access period for this course (including the 1-month grace window) has ended. Your completed progress and certificates have been safely preserved.
+          </p>
+          <div className="pt-2 flex justify-center gap-3">
+            <button
+              onClick={() => router.push("/student/my-courses")}
+              className="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition"
+            >
+              Back to My Courses
+            </button>
+            <Link
+              href="/student/certificates"
+              className="inline-flex items-center justify-center px-4 py-2 rounded-xl border border-border bg-card text-foreground font-semibold text-sm hover:bg-muted transition"
+            >
+              View My Certificates
+            </Link>
+          </div>
+        </Card>
+      </div>
+    );
   }
 
   if (isSequenceError || !sequence) {

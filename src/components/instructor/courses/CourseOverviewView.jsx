@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Archive, ChevronRight } from "lucide-react";
 import { UploadButton } from "@/components/instructor/courses/UploadButton";
 import { LessonComposerPanel } from "@/components/instructor/LessonComposer/LessonComposerPanel";
+import CertificateSettingsView from "@/components/instructor/courses/CertificateSettingsView";
+import CourseFeedbackView from "@/components/instructor/courses/CourseFeedbackView";
 
 export function CourseOverviewView({
   course,
@@ -30,6 +32,8 @@ export function CourseOverviewView({
   hasUnsavedChanges = false,
   onSaveCourse,
   isSavingCourse = false,
+  onSaveCertificateSettings,
+  isSavingCertificateSettings = false,
   // Opt-in, student course-details only. Below lg that page composes its own
   // hero and overview sections, so this view contributes only the module list
   // there, restyled as a scannable mobile list. Off by default: Instructor
@@ -241,15 +245,70 @@ export function CourseOverviewView({
                     onChange={(e) => setCourseForm({ ...courseForm, category: e.target.value })}
                   />
                 </div>
-                <div className="form-group">
-                  <label className="cell-field-label block text-[12px] font-black uppercase text-muted-foreground mb-1">Duration Limit</label>
-                  <input
-                    type="text"
-                    className="cell-input w-full bg-background border border-border rounded-xl px-3 py-2 text-sm font-bold text-foreground outline-none focus:border-primary"
-                    id="courseDurationInput"
-                    value={courseForm.duration || ""}
-                    onChange={(e) => setCourseForm({ ...courseForm, duration: e.target.value })}
-                  />
+                <div className="form-group col-span-1 sm:col-span-2">
+                  <label className="cell-field-label block text-[12px] font-black uppercase text-muted-foreground mb-1">
+                    Course Access Duration (+1 Month Grace)
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      max="3650"
+                      placeholder="e.g. 30 (or empty for unlimited)"
+                      className="cell-input w-1/2 bg-background border border-border rounded-xl px-3 py-2 text-sm font-bold text-foreground outline-none focus:border-primary"
+                      id="courseDurationDaysInput"
+                      value={courseForm.accessDurationDays ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setCourseForm({
+                          ...courseForm,
+                          accessDurationDays: val === "" ? null : Math.max(1, parseInt(val, 10)),
+                        });
+                      }}
+                    />
+                    <select
+                      className="cell-input w-1/2 bg-background border border-border rounded-xl px-3 py-2 text-sm font-bold text-foreground outline-none focus:border-primary"
+                      value={
+                        !courseForm.accessDurationDays
+                          ? "unlimited"
+                          : courseForm.accessDurationDays === 30
+                          ? "30"
+                          : courseForm.accessDurationDays === 90
+                          ? "90"
+                          : courseForm.accessDurationDays === 180
+                          ? "180"
+                          : courseForm.accessDurationDays === 365
+                          ? "365"
+                          : "custom"
+                      }
+                      onChange={(e) => {
+                        const preset = e.target.value;
+                        if (preset === "unlimited") {
+                          setCourseForm({ ...courseForm, accessDurationDays: null });
+                        } else if (preset === "30") {
+                          setCourseForm({ ...courseForm, accessDurationDays: 30 });
+                        } else if (preset === "90") {
+                          setCourseForm({ ...courseForm, accessDurationDays: 90 });
+                        } else if (preset === "180") {
+                          setCourseForm({ ...courseForm, accessDurationDays: 180 });
+                        } else if (preset === "365") {
+                          setCourseForm({ ...courseForm, accessDurationDays: 365 });
+                        }
+                      }}
+                    >
+                      <option value="unlimited">Self-Paced / Unlimited Lifetime</option>
+                      <option value="30">1 Month (30 Days)</option>
+                      <option value="90">3 Months (90 Days)</option>
+                      <option value="180">6 Months (180 Days)</option>
+                      <option value="365">1 Year (365 Days)</option>
+                      <option value="custom">Custom Days (enter on left)</option>
+                    </select>
+                  </div>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    {!courseForm.accessDurationDays
+                      ? "Students get lifetime access."
+                      : `Students get ${courseForm.accessDurationDays} days + 1 extra calendar month grace period from enrollment date.`}
+                  </p>
                 </div>
               </div>
 
@@ -328,7 +387,7 @@ export function CourseOverviewView({
                 <div><strong className="text-muted-foreground">Author:</strong> {course?.creator?.name || "LMS Architect"}</div>
                 <div><strong className="text-muted-foreground">Category:</strong> {course?.category || "Software Development"}</div>
                 <div><strong className="text-muted-foreground">Audience:</strong> {course?.audience || "Developers"}</div>
-                <div><strong className="text-muted-foreground">Duration:</strong> {course?.duration || "Self-Paced"}</div>
+                <div><strong className="text-muted-foreground">Access Duration:</strong> {course?.accessDurationDays ? `${course.accessDurationDays} Days (+ 1 mo grace)` : "Self-Paced"}</div>
               </div>
 
               {/* Course-Level Content Cells */}
@@ -479,6 +538,25 @@ export function CourseOverviewView({
                   })}
                 </div>
               </div>
+
+              {/* Certificate Template & Settings (Instructor & Admin only) */}
+              {isAuthor && !isDraftMode && (
+                <div className="pt-4 border-t border-border/80">
+                  <CertificateSettingsView
+                    course={course}
+                    onSave={onSaveCertificateSettings}
+                    isSaving={isSavingCertificateSettings}
+                    role={role}
+                  />
+                </div>
+              )}
+
+              {/* Course Feedback Dashboard (Instructor & Admin only) */}
+              {isAuthor && !isDraftMode && (
+                <div className="pt-4 border-t border-border/80">
+                  <CourseFeedbackView courseId={course?.id} />
+                </div>
+              )}
             </div>
           )}
         </div>

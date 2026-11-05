@@ -2,13 +2,16 @@
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Search,
-  AlertTriangle, ArrowLeft, Loader2
+  AlertTriangle, ArrowLeft, Loader2,
+  Download, Award, Edit3, PlusCircle, CheckCircle
 } from 'lucide-react';
 
 import { useStudents } from '@/hooks/queries/instructor/useStudents';
 import { useInstructorCourses } from '@/hooks/queries/instructor/useInstructorCourses';
+import { createCertificate, downloadCertificatePdf } from '@/services/certificate.service';
 
 function StudentsDirectoryContent() {
   const searchParams = useSearchParams();
@@ -22,6 +25,19 @@ function StudentsDirectoryContent() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [courseFilter, setCourseFilter] = useState('All');
   const [activeTab, setActiveTab] = useState('Progress'); // Progress | Assignments | Certificates
+
+  const queryClient = useQueryClient();
+  const [certModalOpen, setCertModalOpen] = useState(false);
+  const [certFormData, setCertFormData] = useState({
+    courseId: '',
+    grade: '',
+    score: '',
+    performanceDescription: '',
+    instructorRemarks: '',
+  });
+  const [savingCert, setSavingCert] = useState(false);
+  const [certError, setCertError] = useState('');
+  const [downloadingCertId, setDownloadingCertId] = useState(null);
 
   const selectedCourse = courseFilter === 'All' ? null : courses.find((c) => c.id === courseFilter);
   // The filter should only offer courses students can actually be viewed
@@ -92,6 +108,68 @@ function StudentsDirectoryContent() {
   const handleBackToList = () => {
     setSelectedStudentId(null);
     router.replace('/instructor/students');
+  };
+
+  const handleOpenCertModal = (cert = null) => {
+    setCertError('');
+    if (cert) {
+      setCertFormData({
+        courseId: cert.courseId || (selectedStudent?.courses?.[0]?.id || ''),
+        grade: cert.grade || '',
+        score: cert.score !== undefined && cert.score !== null ? String(cert.score) : '',
+        performanceDescription: cert.performanceDescription || '',
+        instructorRemarks: cert.instructorRemarks || '',
+      });
+    } else {
+      const completedCourse = selectedStudent?.courses?.find((c) => c.completed) || selectedStudent?.courses?.[0];
+      setCertFormData({
+        courseId: completedCourse?.id || '',
+        grade: 'A',
+        score: '95',
+        performanceDescription: 'Completed with Distinction',
+        instructorRemarks: 'Demonstrated outstanding dedication and mastery of course objectives.',
+      });
+    }
+    setCertModalOpen(true);
+  };
+
+  const handleSaveCertificate = async (e) => {
+    e.preventDefault();
+    if (!certFormData.courseId) {
+      setCertError('Please select a course.');
+      return;
+    }
+    setSavingCert(true);
+    setCertError('');
+    try {
+      await createCertificate({
+        courseId: certFormData.courseId,
+        studentId: selectedStudent.id,
+        grade: certFormData.grade || null,
+        score: certFormData.score ? parseInt(certFormData.score, 10) : null,
+        performanceDescription: certFormData.performanceDescription || null,
+        instructorRemarks: certFormData.instructorRemarks || null,
+        brandingName: 'Course Ranger',
+        brandingPoweredBy: 'Course Powered By SPIPL',
+      });
+      await queryClient.invalidateQueries({ queryKey: ['students'] });
+      setCertModalOpen(false);
+    } catch (err) {
+      setCertError(err.response?.data?.message || err.message || 'Failed to save certificate');
+    } finally {
+      setSavingCert(false);
+    }
+  };
+
+  const handleDownloadCert = async (cert) => {
+    setDownloadingCertId(cert.id);
+    try {
+      await downloadCertificatePdf(cert.id, `certificate-${cert.code || cert.id}.pdf`);
+    } catch (err) {
+      console.error('Failed to download certificate PDF:', err);
+    } finally {
+      setDownloadingCertId(null);
+    }
   };
 
   if (isLoading) {
@@ -165,12 +243,51 @@ function StudentsDirectoryContent() {
                 <p className="text-foreground font-semibold mt-0.5 truncate">{selectedStudent.email}</p>
               </div>
               <div>
-                <p className="text-[9px] text-muted-foreground font-black uppercase tracking-wider">Enrolled Course</p>
-                <p className="text-foreground font-semibold mt-0.5">{selectedStudent.course}</p>
-              </div>
-              <div>
                 <p className="text-[9px] text-muted-foreground font-black uppercase tracking-wider">Member Since</p>
                 <p className="text-muted-foreground font-semibold mt-0.5">{selectedStudent.joinedDate}</p>
+              </div>
+
+              {/* Enrolled Courses & Access Validity */}
+              <div className="pt-2 border-t border-border/60">
+                <p className="text-[9px] text-muted-foreground font-black uppercase tracking-wider mb-2">Enrolled Courses & Validity</p>
+                <div className="space-y-2">
+                  {(selectedStudent.courses || []).map((c) => {
+                    const cp = selectedStudent.courseProgress?.[c.id];
+                    const enrolledAt = cp?.enrolledAt || c.enrolledAt;
+                    const expiresAt = cp?.expiresAt || c.expiresAt;
+                    const isExpired = cp?.isExpired ?? c.isExpired ?? false;
+                    const remainingDays = cp?.remainingDays ?? c.remainingDays;
+
+                    return (
+                      <div key={c.id} className="p-2.5 rounded-xl bg-white/[0.02] border border-border/60 space-y-1">
+                        <p className="font-bold text-foreground text-[11px] leading-tight">{c.title}</p>
+                        {enrolledAt && (
+                          <p className="text-[9.5px] text-muted-foreground">
+                            Enrolled: <span className="text-slate-300 font-medium">{new Date(enrolledAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                          </p>
+                        )}
+                        <div className="pt-0.5">
+                          {expiresAt ? (
+                            isExpired ? (
+                              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20">
+                                <span>Expired on {new Date(expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                                <span>Expires {new Date(expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                {remainingDays != null && <span>({remainingDays}d remaining)</span>}
+                              </span>
+                            )
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[9px] font-bold text-slate-400 bg-slate-500/10 px-2 py-0.5 rounded-full border border-slate-500/20">
+                              <span>Lifetime / Unlimited</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
@@ -288,34 +405,218 @@ function StudentsDirectoryContent() {
               )}
 
               {activeTab === 'Certificates' && (
-                <div className="space-y-3">
-                  <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest font-mono mb-2">Issued Certificates</h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest font-mono">Issued Certificates</h3>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">Manage and customize course completion credentials for this student.</p>
+                    </div>
+                    <button
+                      onClick={() => handleOpenCertModal()}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-slate-950 font-bold text-xs hover:bg-orange-600 transition shadow-sm cursor-pointer"
+                    >
+                      <PlusCircle size={13} />
+                      Issue / Customize Certificate
+                    </button>
+                  </div>
+
                   <div className="space-y-3">
                     {selectedStudent.certificates.length === 0 ? (
                       <div className="py-12 border border-dashed border-border rounded-xl text-center flex flex-col items-center justify-center">
                         <span className="text-2xl mb-1.5">📜</span>
                         <p className="text-xs font-black text-muted-foreground">No Certificates Issued Yet</p>
-                        <p className="text-[9.5px] text-muted-foreground max-w-[200px] mt-1 leading-normal">
-                          Student has not yet completed the full course path requirements to generate a certificate.
+                        <p className="text-[10px] text-muted-foreground max-w-[240px] mt-1 leading-normal">
+                          Student has not yet received a certificate. Click "Issue / Customize Certificate" once course requirements are completed.
                         </p>
                       </div>
                     ) : (
                       selectedStudent.certificates.map((cert) => (
-                        <div key={cert.id} className="p-3.5 bg-white/[0.01] border border-white/5 rounded-xl flex justify-between items-center text-xs">
-                          <div>
-                            <p className="font-extrabold text-slate-250">{cert.title}</p>
-                            <p className="text-[9px] text-slate-550 mt-1 font-semibold">Credential ID: {cert.code}</p>
+                        <div key={cert.id} className="p-4 bg-white/[0.01] border border-border/60 hover:border-border rounded-xl flex flex-col sm:flex-row justify-between sm:items-center gap-3 text-xs">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <Award size={15} className="text-primary" />
+                              <p className="font-extrabold text-foreground">{cert.title}</p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+                              <span className="font-mono font-semibold">ID: {cert.code}</span>
+                              <span>•</span>
+                              <span>Issued: {cert.date}</span>
+                              {cert.grade && (
+                                <>
+                                  <span>•</span>
+                                  <span className="font-bold text-primary">Grade: {cert.grade}</span>
+                                </>
+                              )}
+                              {cert.score !== null && cert.score !== undefined && (
+                                <>
+                                  <span>•</span>
+                                  <span className="font-bold text-foreground">Score: {cert.score}%</span>
+                                </>
+                              )}
+                            </div>
+                            {cert.performanceDescription && (
+                              <p className="text-[10px] text-muted-foreground italic mt-0.5">
+                                Performance: "{cert.performanceDescription}"
+                              </p>
+                            )}
+                            {cert.instructorRemarks && (
+                              <p className="text-[10px] text-slate-400 mt-0.5">
+                                Remarks: {cert.instructorRemarks}
+                              </p>
+                            )}
                           </div>
-                          <div className="text-right shrink-0 ml-4">
-                            <span className="text-[8.5px] font-black px-2 py-0.5 rounded bg-primary/10 text-orange-450 border border-primary/20">
-                              Issued
-                            </span>
-                            <p className="text-[9.5px] text-muted-foreground mt-1 font-bold">{cert.date}</p>
+
+                          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                            <button
+                              onClick={() => handleOpenCertModal(cert)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border/80 bg-background hover:bg-muted text-foreground text-[11px] font-semibold transition cursor-pointer"
+                            >
+                              <Edit3 size={11} />
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDownloadCert(cert)}
+                              disabled={downloadingCertId === cert.id}
+                              className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-primary hover:bg-orange-600 text-slate-950 text-[11px] font-bold transition shadow-sm disabled:opacity-50 cursor-pointer"
+                            >
+                              {downloadingCertId === cert.id ? (
+                                <Loader2 size={11} className="animate-spin" />
+                              ) : (
+                                <Download size={11} />
+                              )}
+                              Download PDF
+                            </button>
                           </div>
                         </div>
                       ))
                     )}
                   </div>
+
+                  {/* Certificate Customization Modal */}
+                  {certModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-150">
+                      <div className="relative w-full max-w-lg bg-card border border-border rounded-2xl p-6 shadow-2xl space-y-4">
+                        <div className="flex items-center justify-between border-b border-border pb-3">
+                          <h4 className="text-sm font-black text-foreground flex items-center gap-2">
+                            <Award size={16} className="text-primary" />
+                            Issue / Customize Certificate
+                          </h4>
+                          <button
+                            type="button"
+                            onClick={() => setCertModalOpen(false)}
+                            className="text-muted-foreground hover:text-foreground text-xs font-bold"
+                          >
+                            ✕
+                          </button>
+                        </div>
+
+                        {certError && (
+                          <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-xs">
+                            {certError}
+                          </div>
+                        )}
+
+                        <form onSubmit={handleSaveCertificate} className="space-y-3.5 text-xs">
+                          <div>
+                            <label className="block text-[11px] font-bold text-muted-foreground mb-1 uppercase tracking-wider">
+                              Course *
+                            </label>
+                            <select
+                              value={certFormData.courseId}
+                              onChange={(e) => setCertFormData((prev) => ({ ...prev, courseId: e.target.value }))}
+                              className="w-full bg-background border border-border rounded-xl px-3 py-2 text-foreground outline-none focus:border-primary"
+                              required
+                            >
+                              <option value="">Select a course</option>
+                              {(selectedStudent.courses || []).map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.title} {c.completed ? '(Completed)' : `(${c.progressPercent || 0}% progress)`}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-[11px] font-bold text-muted-foreground mb-1 uppercase tracking-wider">
+                                Grade (e.g. A+, 95%)
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="A+"
+                                value={certFormData.grade}
+                                onChange={(e) => setCertFormData((prev) => ({ ...prev, grade: e.target.value }))}
+                                className="w-full bg-background border border-border rounded-xl px-3 py-2 text-foreground outline-none focus:border-primary"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-bold text-muted-foreground mb-1 uppercase tracking-wider">
+                                Score % (Numeric)
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                placeholder="95"
+                                value={certFormData.score}
+                                onChange={(e) => setCertFormData((prev) => ({ ...prev, score: e.target.value }))}
+                                className="w-full bg-background border border-border rounded-xl px-3 py-2 text-foreground outline-none focus:border-primary"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-muted-foreground mb-1 uppercase tracking-wider">
+                              Performance Description
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="e.g. Completed with Distinction"
+                              value={certFormData.performanceDescription}
+                              onChange={(e) => setCertFormData((prev) => ({ ...prev, performanceDescription: e.target.value }))}
+                              className="w-full bg-background border border-border rounded-xl px-3 py-2 text-foreground outline-none focus:border-primary"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-muted-foreground mb-1 uppercase tracking-wider">
+                              Instructor Remarks / Memo
+                            </label>
+                            <textarea
+                              rows={3}
+                              placeholder="e.g. Demonstrated exceptional problem-solving and full mastery of curriculum."
+                              value={certFormData.instructorRemarks}
+                              onChange={(e) => setCertFormData((prev) => ({ ...prev, instructorRemarks: e.target.value }))}
+                              className="w-full bg-background border border-border rounded-xl px-3 py-2 text-foreground outline-none focus:border-primary"
+                            />
+                          </div>
+
+                          <div className="p-3 bg-muted/40 rounded-xl space-y-1 text-[10px] text-muted-foreground">
+                            <p><span className="font-bold">Branding:</span> Course Ranger</p>
+                            <p><span className="font-bold">Attribution:</span> Course Powered By SPIPL</p>
+                          </div>
+
+                          <div className="flex justify-end gap-2 pt-2 border-t border-border">
+                            <button
+                              type="button"
+                              onClick={() => setCertModalOpen(false)}
+                              className="px-4 py-2 rounded-xl border border-border bg-background hover:bg-muted text-foreground text-xs font-semibold cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="submit"
+                              disabled={savingCert}
+                              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary hover:bg-orange-600 text-slate-950 text-xs font-bold shadow-sm transition disabled:opacity-50 cursor-pointer"
+                            >
+                              {savingCert && <Loader2 size={12} className="animate-spin" />}
+                              Issue / Update Certificate
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -413,10 +714,30 @@ function StudentsDirectoryContent() {
                           student's first enrollment — otherwise a row matched on BGMI
                           would display some unrelated course title. */}
                       <td className="py-4 text-slate-350 font-semibold">
-                        {selectedCourse ? selectedCourse.title : student.course}
-                        {!selectedCourse && (student.courses?.length || 0) > 1 && (
-                          <span className="text-muted-foreground font-medium"> +{student.courses.length - 1}</span>
-                        )}
+                        <div>
+                          {selectedCourse ? selectedCourse.title : student.course}
+                          {!selectedCourse && (student.courses?.length || 0) > 1 && (
+                            <span className="text-muted-foreground font-medium"> +{student.courses.length - 1}</span>
+                          )}
+                        </div>
+                        {(() => {
+                          const activeCourseProgress = selectedCourse ? student.courseProgress?.[selectedCourse.id] : null;
+                          const courseWithExpiry = activeCourseProgress || (student.courses || []).find((c) => c.expiresAt) || student.courses?.[0];
+                          if (!courseWithExpiry || !courseWithExpiry.expiresAt) return null;
+                          return (
+                            <div className="flex items-center gap-1.5 mt-1 text-[9.5px]">
+                              {courseWithExpiry.isExpired ? (
+                                <span className="text-red-400 font-bold bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20">
+                                  Expired
+                                </span>
+                              ) : (
+                                <span className="text-amber-400 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                                  {courseWithExpiry.remainingDays != null ? `${courseWithExpiry.remainingDays}d left` : 'Active'}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="py-4 text-center">
                         <span className={`text-[7.5px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider inline-block ${

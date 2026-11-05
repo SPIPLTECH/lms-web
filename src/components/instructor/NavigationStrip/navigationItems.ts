@@ -20,6 +20,7 @@ export interface NavItem {
   href?: string;
   icon: LucideIcon;
   primaryOnMobile?: boolean;
+  matches?: string[];
   // Student onboarding tour target (data-tour) — see StudentTour.
   tourId?: string;
   children?: NavSubItem[];

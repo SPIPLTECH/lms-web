@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect } from "react";
+import { use, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpen } from "lucide-react";
 
@@ -12,7 +12,12 @@ import useMyCourses from "@/hooks/queries/student/useMyCourses";
 import useTrackCourseAccess from "@/hooks/queries/student/useTrackCourseAccess";
 import useLearningSequence from "@/hooks/queries/student/useLearningSequence";
 import { normalizeCourseHierarchy } from "@/lib/courseMapper";
-import { learnHref } from "@/lib/courseSlug";
+import {
+  learnHref,
+  courseOverviewHref,
+  looksLikeCourseId,
+  resolveCourseKey,
+} from "@/lib/courseSlug";
 
 // Every LESSON node of a learning-sequence tree.
 function sequenceLessons(node, out = []) {
@@ -31,8 +36,18 @@ function sequenceLessons(node, out = []) {
  * from cache rather than a second round trip.
  */
 export default function CourseDetailsPage({ params }) {
-  const { courseId } = use(params);
+  const { courseId: courseKey } = use(params);
   const router = useRouter();
+
+  // Enrollments list for the student — used to resolve readable slugs and check authorization
+  const { data: myEnrollments = [], isLoading: isEnrollmentsLoading } = useMyCourses();
+
+  // Either form resolves to the cuid id among the student's own enrollments; an
+  // id-shaped key is used at once, so an id link does not wait for the list.
+  const courseId = useMemo(
+    () => resolveCourseKey(courseKey, myEnrollments) || (looksLikeCourseId(courseKey) ? courseKey : null),
+    [courseKey, myEnrollments]
+  );
 
   const { data: rawCourse, isLoading, isError } = useCourse(courseId);
   const course = normalizeCourseHierarchy(rawCourse);
@@ -53,8 +68,7 @@ export default function CourseDetailsPage({ params }) {
   // could otherwise reach the course just by typing the URL. Enrollment
   // happens on the main Orange Tree site, so a non-enrolled visitor is sent
   // back to their own courses.
-  const { data: myEnrollments = [], isLoading: isEnrollmentsLoading } = useMyCourses();
-  const isEnrolled = myEnrollments.some((e) => (e.courseId || e.course?.id) === courseId);
+  const isEnrolled = Boolean(courseId && myEnrollments.some((e) => (e.courseId || e.course?.id) === courseId));
 
   const trackAccessMutation = useTrackCourseAccess();
 
@@ -65,6 +79,23 @@ export default function CourseDetailsPage({ params }) {
       trackAccessMutation.mutate(courseId);
     }
   }, [isEnrollmentsLoading, isEnrolled, courseId, router]);
+
+  // Mirror address bar to readable slug without reloading if visited with an ID
+  const overviewPath = useMemo(() => {
+    if (!courseId) return null;
+    const enrollment = myEnrollments.find((e) => (e.courseId || e.course?.id) === courseId);
+    const title = enrollment?.course?.title ?? course?.title;
+    return courseOverviewHref({ id: courseId, title }, myEnrollments);
+  }, [courseId, myEnrollments, course?.title]);
+
+  useEffect(() => {
+    if (overviewPath && typeof window !== "undefined") {
+      const current = window.location.pathname;
+      if (current !== overviewPath && looksLikeCourseId(courseKey)) {
+        window.history.replaceState(window.history.state, "", overviewPath);
+      }
+    }
+  }, [overviewPath, courseKey]);
 
   if (isLoading || isEnrollmentsLoading || !isEnrolled) {
     return <Loader />;

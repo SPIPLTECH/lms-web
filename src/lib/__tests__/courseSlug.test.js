@@ -6,6 +6,8 @@ import {
   isLearnPathFor,
   learnHref,
   learnHrefForId,
+  courseOverviewHref,
+  courseOverviewHrefForId,
   learnKeyFromPath,
   looksLikeCourseId,
   resolveCourseKey,
@@ -34,6 +36,13 @@ function runTests() {
         learnHref({ id: A, title: "CDAC C-CAT Course - Section A" }, ENROLLMENTS) ===
           "/student/learn/cdac-c-cat-course-section-a" &&
         learnHrefForId(B, ENROLLMENTS, "item=x") === "/student/learn/cdac-c-cat-course-section-b?item=x",
+    },
+    {
+      name: "the course overview link uses the readable key, never the id",
+      run: () =>
+        courseOverviewHref({ id: B, title: "CDAC C-CAT Course Section B" }, ENROLLMENTS) ===
+          "/student/courses/cdac-c-cat-course-section-b" &&
+        courseOverviewHrefForId(A, ENROLLMENTS) === "/student/courses/cdac-c-cat-course-section-a",
     },
     {
       name: "a readable key and an old id link both resolve to the course id",
