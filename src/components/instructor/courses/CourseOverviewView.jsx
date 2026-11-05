@@ -108,7 +108,7 @@ export function CourseOverviewView({
               </button>
             )}
 
-            {role === "ADMIN" && isDraft && onPublishClick && (
+            {isAuthor && isDraft && onPublishClick && (
               <button
                 type="button"
                 className="btn shrink-0 rounded-xl bg-primary hover:bg-orange-600 active:scale-95 text-slate-950 font-black text-sm px-3.5 py-1.5 transition shadow-md cursor-pointer"
@@ -118,7 +118,7 @@ export function CourseOverviewView({
               </button>
             )}
 
-            {role === "ADMIN" && isPublished && onUnpublishClick && (
+            {isAuthor && isPublished && onUnpublishClick && (
               <button
                 type="button"
                 className="btn shrink-0 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 font-bold text-sm px-3.5 py-1.5 transition cursor-pointer"

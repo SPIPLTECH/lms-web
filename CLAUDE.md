@@ -357,9 +357,8 @@ Responsible for:
 - Discount pricing
 - Store pricing
 - Reviewing courses
-- Publishing courses
-- Unpublishing courses
-- Archiving courses
+- Publishing / unpublishing any course
+- Archiving and restoring courses
 
 Current known gap:
 
@@ -383,6 +382,7 @@ Responsible for:
 - Managing content items
 - Managing quizzes
 - Managing course metadata
+- Publishing / unpublishing owned courses
 
 Instructor MUST NOT:
 
@@ -391,9 +391,8 @@ Instructor MUST NOT:
 - Set discounts
 - Change discounts
 - Modify Store pricing
-- Publish courses
-- Unpublish courses
-- Archive courses
+- Publish or unpublish courses they do not own
+- Archive or restore courses
 
 Current known gap:
 
