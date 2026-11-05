@@ -18,12 +18,10 @@ import { consumeLoginReason, signInErrorMessage } from "@/lib/sessionErrors";
 import { subscribeSignedIn } from "@/lib/authBroadcast";
 import { hasSignedInBefore, subscribeReturningUser } from "@/lib/returningUser";
 
-// The server can't see this browser's storage, so it renders a blank heading
-// (null) rather than a guess that would flash to the other text.
-const HEADINGS = {
-  returning: { title: "Welcome Back", description: "Sign in to continue your learning journey." },
-  new: { title: "Sign In", description: "Sign in to start your learning journey." },
-  unknown: { title: " ", description: " " },
+const SUBTITLES = {
+  returning: "Sign in to continue your learning journey.",
+  new: "Sign in to start your learning journey.",
+  unknown: "\u00a0",
 };
 
 export default function LoginPage() {
@@ -31,7 +29,7 @@ export default function LoginPage() {
   const { login, googleLogin, user, loading: authLoading } = useAuth();
 
   const signedInBefore = useSyncExternalStore(subscribeReturningUser, hasSignedInBefore, () => null);
-  const heading = HEADINGS[signedInBefore === null ? "unknown" : signedInBefore ? "returning" : "new"];
+  const subtitle = SUBTITLES[signedInBefore === null ? "unknown" : signedInBefore ? "returning" : "new"];
 
   useEffect(() => {
     console.log("[LOGIN] page mounted");
@@ -166,8 +164,8 @@ export default function LoginPage() {
       <AuthCard>
         <AuthHeader
           icon={<HiOutlineLockClosed className="text-4xl text-primary" />}
-          title={heading.title}
-          description={heading.description}
+          title="Sign In"
+          description={subtitle}
         />
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-5" noValidate>
