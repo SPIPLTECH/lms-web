@@ -26,6 +26,7 @@ import { changePassword } from "@/services/auth.service";
 import { getNewPasswordError } from "@/lib/passwordPolicy";
 import PasswordRequirements from "@/components/auth/PasswordRequirements";
 import { CERTIFICATES_LOCKED } from "@/constants/features";
+import useStudentFeatureAccess from "@/hooks/queries/student/useStudentFeatureAccess";
 
 function InfoRow({ icon: Icon, label, value, onClick }) {
   const content = (
@@ -95,6 +96,9 @@ export default function MobileProfileView({ profile, onEdit }) {
   const router = useRouter();
   const student = profile?.studentProfile || {};
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  // No Certificates for an SSC Class 10-only student (lib/studentFeatures.js).
+  const { showCertificates } = useStudentFeatureAccess();
+  const certificatesHidden = CERTIFICATES_LOCKED || !showCertificates;
 
   const joinedDate = profile?.createdAt
     ? new Date(profile.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
@@ -159,10 +163,10 @@ export default function MobileProfileView({ profile, onEdit }) {
         </div>
 
         {/* Quick Actions */}
-        <div className={`grid gap-2 mt-3.5 ${CERTIFICATES_LOCKED ? "grid-cols-2" : "grid-cols-3"}`}>
+        <div className={`grid gap-2 mt-3.5 ${certificatesHidden ? "grid-cols-2" : "grid-cols-3"}`}>
           <QuickActionButton onClick={onEdit} icon={Edit} label="Edit Profile" />
           <QuickActionButton onClick={() => setShowPasswordModal(true)} icon={KeyRound} label="Change Password" />
-          {!CERTIFICATES_LOCKED && (
+          {!certificatesHidden && (
             <QuickActionButton href="/student/certificates" icon={Award} label="Certificates" />
           )}
         </div>

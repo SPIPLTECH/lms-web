@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+import useStudentFeatureAccess from "@/hooks/queries/student/useStudentFeatureAccess";
+
 const TABS = [
   { id: "overview", label: "Overview", href: "/student/reports" },
   { id: "quiz", label: "Quiz", href: "/student/quizzes" },
@@ -15,6 +17,12 @@ const TABS = [
 export default function ReportsTabStrip() {
   const pathname = usePathname();
   const scrollerRef = useRef(null);
+  // Assignment and Certificates drop out for an SSC Class 10-only student
+  // (lib/studentFeatures.js).
+  const { showSubmissions, showCertificates } = useStudentFeatureAccess();
+  const tabs = TABS.filter(
+    (tab) => (showSubmissions || tab.id !== "assignment") && (showCertificates || tab.id !== "certificates")
+  );
 
   const isTabActive = (tab) =>
     tab.id === "overview" ? pathname === tab.href : pathname?.startsWith(tab.href);
@@ -38,7 +46,7 @@ export default function ReportsTabStrip() {
         ref={scrollerRef}
         className="flex items-center gap-5 overflow-x-auto scrollbar-none scroll-smooth"
       >
-        {TABS.map((tab) => {
+        {tabs.map((tab) => {
           const isActive = isTabActive(tab);
           return (
             <Link

@@ -7,9 +7,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import useMyCourses from "@/hooks/queries/student/useMyCourses";
 import useCompleteOnboarding from "@/hooks/queries/student/useCompleteOnboarding";
-import StudentTour, { TOUR_STEPS } from "@/components/student/onboarding/StudentTour";
+import StudentTour, { TOUR_CHECKLIST, TOUR_STEPS } from "@/components/student/onboarding/StudentTour";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { isLearnPathFor, learnHrefForId } from "@/lib/courseSlug";
+import { isBoardPaperOnlyStudent } from "@/lib/studentFeatures";
 import { getLearningSequence } from "@/services/progress.service";
 import { getStudentState } from "@/services/student.service";
 import {
@@ -26,6 +27,7 @@ const INACTIVE = {
   stepKey: null,
   canStart: false,
   seen: {},
+  checklist: TOUR_CHECKLIST,
   lessonMeta: null,
   updateLessonMeta: () => {},
   start: () => {},
@@ -55,6 +57,23 @@ export function StudentTourProvider({ children }) {
   const queryClient = useQueryClient();
   const { data: enrollments = [] } = useMyCourses();
   const completeOnboarding = useCompleteOnboarding();
+  // An SSC Class 10-only student has no Submissions (lib/studentFeatures.js):
+  // the tour skips that step and the checklist leaves it out.
+  const hideSubmissions = isBoardPaperOnlyStudent(enrollments);
+  const checklist = useMemo(
+    () => (hideSubmissions ? TOUR_CHECKLIST.filter((item) => item.key !== "subs") : TOUR_CHECKLIST),
+    [hideSubmissions]
+  );
+  // The step `from` moves to in direction `dir` (+1 / -1), past any step this
+  // student does not get.
+  const stepFrom = useCallback(
+    (from, dir) => {
+      let i = from;
+      while (hideSubmissions && TOUR_STEPS[i]?.route === "submissions") i += dir;
+      return Math.min(Math.max(i, 0), TOUR_STEPS.length - 1);
+    },
+    [hideSubmissions]
+  );
 
   const courseId = useMemo(
     () => resolveTourCourseId(pathname, enrollments),
@@ -290,6 +309,7 @@ export function StudentTourProvider({ children }) {
       stepKey: index === null ? null : TOUR_STEPS[index].key,
       canStart: Boolean(courseId),
       seen,
+      checklist,
       lessonMeta,
       updateLessonMeta,
       start,
@@ -298,7 +318,7 @@ export function StudentTourProvider({ children }) {
       finish,
       signal,
     }),
-    [index, courseId, seen, lessonMeta, updateLessonMeta, start, close, skip, finish, signal]
+    [index, courseId, seen, checklist, lessonMeta, updateLessonMeta, start, close, skip, finish, signal]
   );
 
   return (
@@ -309,10 +329,11 @@ export function StudentTourProvider({ children }) {
           index={index}
           signals={signals}
           seen={seen}
+          checklist={checklist}
           lessonMeta={lessonMeta}
           isNavigating={isNavigating}
-          onNext={() => goTo(Math.min(index + 1, TOUR_STEPS.length - 1))}
-          onBack={() => goTo(Math.max(index - 1, 1))}
+          onNext={() => goTo(stepFrom(Math.min(index + 1, TOUR_STEPS.length - 1), 1))}
+          onBack={() => goTo(stepFrom(Math.max(index - 1, 1), -1))}
           onClose={close}
           onSkip={skip}
           onFinish={finish}

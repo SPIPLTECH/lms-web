@@ -35,6 +35,7 @@ import useLearningSequence from "@/hooks/queries/student/useLearningSequence";
 import usePlaybackLease from "@/hooks/queries/student/usePlaybackLease";
 import useQuizResult from "@/hooks/queries/student/useQuizResult";
 import useMyCourses from "@/hooks/queries/student/useMyCourses";
+import useStudentFeatureAccess from "@/hooks/queries/student/useStudentFeatureAccess";
 import useTrackCourseAccess from "@/hooks/queries/student/useTrackCourseAccess";
 import useLearningStateSync from "@/hooks/queries/student/useLearningStateSync";
 import useMediaQuery from "@/hooks/useMediaQuery";
@@ -80,6 +81,8 @@ export default function LearnPage() {
   // (lib/courseSlug.js) or, in an older link, by its id.
   const { courseId: courseKey } = useParams();
   const router = useRouter();
+  // No certificate link for an SSC Class 10-only student (lib/studentFeatures.js).
+  const { showCertificates } = useStudentFeatureAccess();
   // Evaluator accounts have every step open (backend learningSequence
   // `unlockAll`), so there is nothing for them to mark complete.
   const { user } = useAuth();
@@ -835,12 +838,14 @@ export default function LearnPage() {
             >
               Back to My Courses
             </button>
-            <Link
-              href="/student/certificates"
-              className="inline-flex items-center justify-center px-4 py-2 rounded-xl border border-border bg-card text-foreground font-semibold text-sm hover:bg-muted transition"
-            >
-              View My Certificates
-            </Link>
+            {showCertificates && (
+              <Link
+                href="/student/certificates"
+                className="inline-flex items-center justify-center px-4 py-2 rounded-xl border border-border bg-card text-foreground font-semibold text-sm hover:bg-muted transition"
+              >
+                View My Certificates
+              </Link>
+            )}
           </div>
         </Card>
       </div>

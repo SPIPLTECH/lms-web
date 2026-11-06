@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Bell, BookOpen, CheckCheck, CheckSquare, ChevronDown, MessageSquare, Trash2 } from "lucide-react";
 
+import useStudentFeatureAccess from "@/hooks/queries/student/useStudentFeatureAccess";
+
 /** Helper to return type icon and color styles for notification items */
 function getNotificationMeta(type) {
   switch (type?.toLowerCase()) {
@@ -175,6 +177,8 @@ export function NotificationsMenu({ notifications = [], unreadCount = 0, onMarkA
 export function ProfileMenu({ user, onLogout, profileHref = "/student/profile", onTakeTour = null }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+  const isStudentMenu = Boolean(profileHref?.startsWith("/student"));
+  const { showCertificates } = useStudentFeatureAccess({ enabled: isStudentMenu });
 
   useEffect(() => {
     if (!open) return;
@@ -233,7 +237,7 @@ export function ProfileMenu({ user, onLogout, profileHref = "/student/profile", 
               My Profile
             </Link>
           )}
-          {profileHref?.startsWith("/student") && (
+          {isStudentMenu && showCertificates && (
             <Link
               href="/student/certificates"
               role="menuitem"

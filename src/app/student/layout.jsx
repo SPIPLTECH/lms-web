@@ -16,6 +16,9 @@ import { isCourseContentPath } from "@/lib/sessionErrors";
 import EvaluatorNotice from "@/components/evaluator/EvaluatorNotice";
 import useEvaluatorState from "@/hooks/useEvaluatorState";
 import { EVALUATOR_STATES, EVALUATOR_ACCESS_PATH } from "@/lib/evaluatorAccess";
+import useStudentFeatureAccess from "@/hooks/queries/student/useStudentFeatureAccess";
+
+const isUnderPath = (pathname, base) => pathname === base || Boolean(pathname?.startsWith(`${base}/`));
 
 export default function Layout({ children }) {
   const router = useRouter();
@@ -39,7 +42,18 @@ export default function Layout({ children }) {
     }
   }, [user, loading, router, evaluatorBlocked]);
 
-  if (loading || evaluatorBlocked) {
+  // An SSC Class 10-only student gets no Submissions or Certificates
+  // (lib/studentFeatures.js): their links are hidden, and a typed URL goes
+  // back to My Courses.
+  const { showSubmissions, showCertificates } = useStudentFeatureAccess({ enabled: user?.role === "STUDENT" });
+  const featureBlocked =
+    (!showSubmissions && isUnderPath(pathname, "/student/assignments")) ||
+    (!showCertificates && isUnderPath(pathname, "/student/certificates"));
+  useEffect(() => {
+    if (featureBlocked) router.replace("/student/my-courses");
+  }, [featureBlocked, router]);
+
+  if (loading || evaluatorBlocked || featureBlocked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
         <Loader />

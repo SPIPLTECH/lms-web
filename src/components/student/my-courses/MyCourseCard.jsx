@@ -6,6 +6,7 @@ import { BookOpen, User, Eye, ArrowRight, Award } from "lucide-react";
 import { getDisplayUrl } from "@/lib/blob";
 import { learnHref, courseOverviewHref } from "@/lib/courseSlug";
 import useMyCourses from "@/hooks/queries/student/useMyCourses";
+import useStudentFeatureAccess from "@/hooks/queries/student/useStudentFeatureAccess";
 
 // Same status-pill colors as the Instructor course card
 // (@/components/courses/CourseGridCard) — Not Started stays neutral, every
@@ -28,6 +29,8 @@ export default function MyCourseCard({ enrollment, course: rawCourse }) {
   const router = useRouter();
   // Cached already on every page that shows course cards.
   const { data: myEnrollments = [] } = useMyCourses();
+  // No Certificate button for an SSC Class 10-only student (lib/studentFeatures.js).
+  const { showCertificates } = useStudentFeatureAccess();
   const course = enrollment?.course || rawCourse;
 
   if (!course) return null;
@@ -179,7 +182,7 @@ export default function MyCourseCard({ enrollment, course: rawCourse }) {
             View Course
           </button>
 
-          {isComplete && (
+          {isComplete && showCertificates && (
             <button
               onClick={goTo("/student/certificates")}
               aria-label="View Certificate"

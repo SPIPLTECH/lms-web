@@ -22,8 +22,11 @@ export default function GettingStartedChecklist() {
 
   if (!needsOnboarding(user) || !tour.canStart) return null;
 
-  const done = TOUR_CHECKLIST.filter((item) => tour.seen[item.key]).length;
-  const total = TOUR_CHECKLIST.length;
+  // The tour's checklist for this student (no Submissions for an SSC Class
+  // 10-only student).
+  const checklist = tour.checklist || TOUR_CHECKLIST;
+  const done = checklist.filter((item) => tour.seen[item.key]).length;
+  const total = checklist.length;
   const circumference = 2 * Math.PI * 15;
 
   return (
@@ -59,7 +62,7 @@ export default function GettingStartedChecklist() {
 
       {open && (
         <ul className="grid gap-0.5 border-t border-border p-1.5 md:grid-cols-2">
-          {TOUR_CHECKLIST.map((item) => {
+          {checklist.map((item) => {
             const seen = Boolean(tour.seen[item.key]);
             return (
               <li key={item.key}>

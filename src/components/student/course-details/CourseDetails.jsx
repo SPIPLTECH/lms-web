@@ -4,6 +4,8 @@ import { useState } from "react";
 import { ArrowRight, Award, BookOpen, CheckCircle, ChevronDown, Map as MapIcon, MessageSquare, Play } from "lucide-react";
 import Link from "next/link";
 
+import useStudentFeatureAccess from "@/hooks/queries/student/useStudentFeatureAccess";
+
 import { getDisplayUrl } from "@/lib/blob";
 
 /**
@@ -23,6 +25,7 @@ import { getDisplayUrl } from "@/lib/blob";
  */
 export default function CourseDetails({ course, actionLabel, hasNoContent, isComplete = false, onOpenMap, onContinue }) {
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(false);
+  const { showCertificates } = useStudentFeatureAccess();
 
   const modules = course.modules || [];
   const lessons = modules.flatMap((m) => m.lessons || []);
@@ -137,7 +140,7 @@ export default function CourseDetails({ course, actionLabel, hasNoContent, isCom
                   <CheckCircle size={15} />
                   <span>Curriculum 100% Completed!</span>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className={`grid gap-2 ${showCertificates ? "grid-cols-2" : "grid-cols-1"}`}>
                   <Link
                     href={`/student/feedback?courseId=${course.id}`}
                     className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-card border border-border hover:border-primary/50 text-foreground text-xs font-semibold transition"
@@ -145,13 +148,15 @@ export default function CourseDetails({ course, actionLabel, hasNoContent, isCom
                     <MessageSquare size={13} className="text-primary" />
                     Feedback
                   </Link>
-                  <Link
-                    href="/student/certificates"
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-card border border-border hover:border-primary/50 text-foreground text-xs font-semibold transition"
-                  >
-                    <Award size={13} className="text-primary" />
-                    Certificate
-                  </Link>
+                  {showCertificates && (
+                    <Link
+                      href="/student/certificates"
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-card border border-border hover:border-primary/50 text-foreground text-xs font-semibold transition"
+                    >
+                      <Award size={13} className="text-primary" />
+                      Certificate
+                    </Link>
+                  )}
                 </div>
               </div>
             )}

@@ -18,9 +18,11 @@ import {
   Upload,
   Trash2,
   Save,
+  Award,
 } from "lucide-react";
 import DatePicker from "@/components/ui/DatePicker";
 import useUpdateProfile from "@/hooks/queries/student/useUpdateProfile";
+import useStudentFeatureAccess from "@/hooks/queries/student/useStudentFeatureAccess";
 import { changePassword } from "@/services/auth.service";
 import { getNewPasswordError } from "@/lib/passwordPolicy";
 import PasswordRequirements from "@/components/auth/PasswordRequirements";
@@ -75,6 +77,8 @@ export const toFormData = (profile) => {
 
 export default function DesktopEditProfileView({ profile, onRefresh }) {
   const updateProfileMutation = useUpdateProfile();
+  // No Certificates for an SSC Class 10-only student (lib/studentFeatures.js).
+  const { showCertificates } = useStudentFeatureAccess();
   const fileInputRef = useRef(null);
   const heroRef = useRef(null);
   const personalRef = useRef(null);
@@ -420,13 +424,15 @@ export default function DesktopEditProfileView({ profile, onRefresh }) {
               <span>Change Password</span>
             </button>
 
-            <Link
-              href="/student/certificates"
-              className="flex items-center justify-center gap-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 font-bold text-xs px-5 py-2.5 transition active:scale-95 cursor-pointer"
-            >
-              <Award size={14} />
-              <span>My Certificates</span>
-            </Link>
+            {showCertificates && (
+              <Link
+                href="/student/certificates"
+                className="flex items-center justify-center gap-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 font-bold text-xs px-5 py-2.5 transition active:scale-95 cursor-pointer"
+              >
+                <Award size={14} />
+                <span>My Certificates</span>
+              </Link>
+            )}
 
           </div>
         </div>

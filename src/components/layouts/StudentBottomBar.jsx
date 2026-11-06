@@ -6,6 +6,16 @@ import { usePathname } from "next/navigation";
 import AiAssistantButton from "@/features/ai-assistant/components/AiAssistantButton";
 import { useAiLauncher } from "@/features/ai-assistant/context/AiLauncherContext";
 import { PRIMARY_NAV_ITEMS } from "@/components/student/NavigationStrip/navigationItems";
+import useStudentFeatureAccess from "@/hooks/queries/student/useStudentFeatureAccess";
+
+// The phone tabs: Learning and, unless this student gets no Submissions
+// (an SSC Class 10-only student, lib/studentFeatures.js), Submissions. A
+// hidden tab leaves its column empty so Ask AI stays centred.
+function usePrimaryTabs() {
+  const { showSubmissions } = useStudentFeatureAccess();
+  const [learningItem, submissionsItem] = PRIMARY_NAV_ITEMS.filter((item) => item.primaryOnMobile);
+  return [learningItem, showSubmissions ? submissionsItem : null];
+}
 
 // The Student phone navigation (below sm; the hamburger drawer it replaces
 // was phones-only too).
@@ -31,7 +41,7 @@ export default function StudentBottomBar({
 }) {
   const launcher = useAiLauncher();
   const pathname = usePathname();
-  const [learningItem, submissionsItem] = PRIMARY_NAV_ITEMS.filter((item) => item.primaryOnMobile);
+  const [learningItem, submissionsItem] = usePrimaryTabs();
 
   const resolvedInnerLeft =
     innerLeft ??
@@ -149,7 +159,7 @@ function isTabActive(pathname, item) {
 // (its own Previous/Next bar) and a quiz attempt.
 export function StudentBottomTabs() {
   const pathname = usePathname();
-  const [leftItem, rightItem] = PRIMARY_NAV_ITEMS.filter((item) => item.primaryOnMobile);
+  const [leftItem, rightItem] = usePrimaryTabs();
   const tab = (item) =>
     item && <BottomBarItem href={item.href} icon={item.icon} label={item.label} active={isTabActive(pathname, item)} tourId={item.tourId} />;
 

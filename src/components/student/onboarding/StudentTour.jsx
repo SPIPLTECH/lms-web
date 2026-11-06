@@ -35,6 +35,9 @@ export default function StudentTour({
   index,
   signals,
   seen,
+  // The checklist this student gets (StudentTourContext drops Submissions for
+  // an SSC Class 10-only student).
+  checklist = TOUR_CHECKLIST,
   lessonMeta = null,
   isNavigating = false,
   onNext,
@@ -169,7 +172,7 @@ export default function StudentTour({
                 : "That's the whole rhythm: open the next step, finish it, move on. Replay this tour any time from your profile menu."}
             </p>
             <ul className="mt-4 grid gap-1.5 text-left">
-              {TOUR_CHECKLIST.map((item, i) => {
+              {checklist.map((item, i) => {
                 const done = !hello && seen[item.key];
                 return (
                   <li key={item.key} className="flex items-center gap-2.5 rounded-xl border border-border px-3 py-2 text-sm text-foreground">

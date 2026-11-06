@@ -16,8 +16,12 @@ import useQuizzes from "@/hooks/queries/student/useQuizzes";
 import useAssignments from "@/hooks/queries/student/useAssignments";
 import useCertificates from "@/hooks/queries/student/useCertificates";
 import { normalizeAssignmentStatus } from "@/features/student/constants/assignmentsConfig";
+import useStudentFeatureAccess from "@/hooks/queries/student/useStudentFeatureAccess";
 
 export default function StudentReportsPage() {
+  // No Assignment or Certificate summary for an SSC Class 10-only student
+  // (lib/studentFeatures.js).
+  const { showSubmissions, showCertificates } = useStudentFeatureAccess();
   const [selectedCourseId, setSelectedCourseId] = useState("all");
   const [timeRange, setTimeRange] = useState("All Time");
 
@@ -106,36 +110,40 @@ export default function StudentReportsPage() {
               }
             />
 
-            <ReportSummaryCard
-              icon={ClipboardList}
-              title="Assignment Summary"
-              href="/student/assignments"
-              primaryText={
-                assignmentsLoading
-                  ? "Loading assignments…"
-                  : filteredAssignments.length === 0
-                    ? "No assignments yet."
-                    : `${assignmentBuckets.Pending} Pending • ${assignmentBuckets.Graded} Graded`
-              }
-              secondaryText={
-                !assignmentsLoading && filteredAssignments.length > 0
-                  ? `${filteredAssignments.length} Total`
-                  : undefined
-              }
-            />
+            {showSubmissions && (
+              <ReportSummaryCard
+                icon={ClipboardList}
+                title="Assignment Summary"
+                href="/student/assignments"
+                primaryText={
+                  assignmentsLoading
+                    ? "Loading assignments…"
+                    : filteredAssignments.length === 0
+                      ? "No assignments yet."
+                      : `${assignmentBuckets.Pending} Pending • ${assignmentBuckets.Graded} Graded`
+                }
+                secondaryText={
+                  !assignmentsLoading && filteredAssignments.length > 0
+                    ? `${filteredAssignments.length} Total`
+                    : undefined
+                }
+              />
+            )}
 
-            <ReportSummaryCard
-              icon={Medal}
-              title="Certificate Summary"
-              href="/student/certificates"
-              primaryText={
-                certificatesLoading
-                  ? "Loading certificates…"
-                  : filteredCertificates.length === 0
-                    ? "No certificates earned yet."
-                    : `${filteredCertificates.length} Certificate${filteredCertificates.length > 1 ? "s" : ""} Earned`
-              }
-            />
+            {showCertificates && (
+              <ReportSummaryCard
+                icon={Medal}
+                title="Certificate Summary"
+                href="/student/certificates"
+                primaryText={
+                  certificatesLoading
+                    ? "Loading certificates…"
+                    : filteredCertificates.length === 0
+                      ? "No certificates earned yet."
+                      : `${filteredCertificates.length} Certificate${filteredCertificates.length > 1 ? "s" : ""} Earned`
+                }
+              />
+            )}
           </div>
         </>
       )}

@@ -22,6 +22,7 @@ import PageHeader from "@/components/layouts/PageHeader";
 import Card from "@/components/ui/Card";
 import useCourse from "@/hooks/queries/student/useCourse";
 import useMyCourses from "@/hooks/queries/student/useMyCourses";
+import useStudentFeatureAccess from "@/hooks/queries/student/useStudentFeatureAccess";
 import { useMyFeedback, useSubmitFeedback } from "@/hooks/queries/student/useFeedback";
 
 function StarRatingInput({ label, value, onChange, description, required = false }) {
@@ -226,6 +227,8 @@ function CourseFeedbackList({ enrollments = [], isLoading }) {
 
 function FeedbackPageContent() {
   const router = useRouter();
+  // No certificate links for an SSC Class 10-only student (lib/studentFeatures.js).
+  const { showCertificates } = useStudentFeatureAccess();
   const searchParams = useSearchParams();
   const courseId = searchParams.get("courseId");
 
@@ -367,12 +370,14 @@ function FeedbackPageContent() {
           )}
 
           <div className="pt-2 flex flex-col sm:flex-row gap-3">
-            <Link
-              href="/student/certificates"
-              className="inline-flex items-center justify-center flex-1 px-5 py-3 rounded-2xl bg-primary hover:bg-orange-600 text-slate-950 font-bold text-xs uppercase tracking-wider transition shadow-sm"
-            >
-              View My Certificates
-            </Link>
+            {showCertificates && (
+              <Link
+                href="/student/certificates"
+                className="inline-flex items-center justify-center flex-1 px-5 py-3 rounded-2xl bg-primary hover:bg-orange-600 text-slate-950 font-bold text-xs uppercase tracking-wider transition shadow-sm"
+              >
+                View My Certificates
+              </Link>
+            )}
             <Link
               href={`/student/learn/${courseId}`}
               className="inline-flex items-center justify-center flex-1 px-5 py-3 rounded-2xl border border-border bg-card hover:bg-muted text-foreground font-bold text-xs uppercase tracking-wider transition"
@@ -446,12 +451,14 @@ function FeedbackPageContent() {
             Thank you for sharing your thoughtful evaluation. Your input helps our instructors continually refine and elevate the learning experience.
           </p>
           <div className="pt-4 flex justify-center gap-3">
-            <Link
-              href={`/student/certificates`}
-              className="px-5 py-2.5 bg-primary hover:bg-orange-600 text-slate-950 font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-sm"
-            >
-              View My Certificates
-            </Link>
+            {showCertificates && (
+              <Link
+                href={`/student/certificates`}
+                className="px-5 py-2.5 bg-primary hover:bg-orange-600 text-slate-950 font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-sm"
+              >
+                View My Certificates
+              </Link>
+            )}
             <Link
               href="/student/my-courses"
               className="px-5 py-2.5 border border-border bg-card hover:bg-muted text-foreground font-bold text-xs uppercase tracking-wider rounded-xl transition"
