@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   HelpCircle,
   Clock,
@@ -93,6 +93,14 @@ function withOptionExplanations(q) {
     }),
   };
 }
+
+// The editor's list in the shape it is saved in.
+const asSavedQuestions = (list) =>
+  list.map((q, idx) => ({
+    ...withOptionExplanations(q),
+    order: idx + 1,
+    marks: Number(q.marks) || 1,
+  }));
 
 // A quiz's tag is independent of its scope/level: Lesson + Self-Test and
 // Lesson + Final Quiz are both valid. Self-Test is never timed.
@@ -197,6 +205,9 @@ export function QuizOverviewView({
 
   // Editable Questions Array
   const [questions, setQuestions] = useState([]);
+  // The list as it was loaded, so a save only re-sends the questions that
+  // changed (lib/quizQuestionSync.js).
+  const loadedQuestionsRef = useRef([]);
   const [error, setError] = useState("");
   const [showRepoPicker, setShowRepoPicker] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -224,6 +235,7 @@ export function QuizOverviewView({
         proctoringEnabled: false,
       });
       setQuestions([]);
+      loadedQuestionsRef.current = [];
       setCurrentQuestionIndex(0);
     } else if (startEditing || quizMode === "edit") {
       setIsEditing(true);
@@ -266,6 +278,7 @@ export function QuizOverviewView({
       }));
 
       setQuestions(normalized);
+      loadedQuestionsRef.current = normalized;
       setCurrentQuestionIndex(0);
     }
   }, [quiz, quizMode]);
@@ -590,17 +603,14 @@ export function QuizOverviewView({
       // A Self-Test is always unlimited (0); a Final has at least one attempt.
       attempts: quizForm.quizTag === "SELF_TEST" ? 0 : Math.max(1, Math.round(Number(quizForm.attempts)) || 1),
       isPublished: quizForm.isPublished,
-      questions: questions.map((q, idx) => ({
-        ...withOptionExplanations(q),
-        order: idx + 1,
-        marks: Number(q.marks) || 1,
-      })),
+      questions: asSavedQuestions(questions),
     };
 
     setIsSaving(true);
     let saved;
     try {
-      saved = await onSaveQuiz?.(updatedQuiz);
+      // Same transform on both sides, so an untouched question compares equal.
+      saved = await onSaveQuiz?.(updatedQuiz, { loadedQuestions: asSavedQuestions(loadedQuestionsRef.current) });
     } finally {
       setIsSaving(false);
     }
