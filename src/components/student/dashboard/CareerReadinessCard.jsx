@@ -22,7 +22,7 @@ const LEVEL_TONES = {
 };
 
 export default function CareerReadinessCard() {
-    const { data, isLoading, isError } = useCareer();
+    const { data } = useCareer();
     const { data: roles } = useCareerRoles();
     const setGoal = useSetCareerGoal();
     // The choice shows at once; readiness for it takes a few seconds to
@@ -30,8 +30,10 @@ export default function CareerReadinessCard() {
     // role until the response arrived.
     const [chosenRole, setChosenRole] = useState(null);
 
-    if (isError) return null;
-    const goal = data?.goal;
+    // Nothing until the career state has loaded: no loading frame, so a
+    // request that ends in an error never flashes an empty card.
+    if (!data) return null;
+    const goal = data.goal;
 
     const chooseRole = (roleKey) => {
         if (!roleKey) return;
@@ -45,8 +47,6 @@ export default function CareerReadinessCard() {
                 <Briefcase size={14} className="text-primary" aria-hidden />
                 <h3 className="text-h3 text-foreground">Career readiness</h3>
             </div>
-
-            {isLoading && <div className="h-20 rounded-xl bg-muted/50 animate-pulse" />}
 
             {data && (
                 <>

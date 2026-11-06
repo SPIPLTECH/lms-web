@@ -20,8 +20,10 @@ const formatDate = (value) =>
 const weekday = (isoDate) => new Date(`${isoDate}T00:00:00.000Z`).toLocaleDateString(undefined, { weekday: "short", timeZone: "UTC" });
 
 export default function StudyPlanCard({ courseId, courseTitle }) {
-    const { data: plan, isLoading, isError } = useStudyPlan(courseId);
-    if (!courseId || isError || (!isLoading && !plan)) return null;
+    const { data: plan } = useStudyPlan(courseId);
+    // Nothing until there is a plan: no loading frame, so a request that ends
+    // in an error or an empty plan never flashes an empty card.
+    if (!courseId || !plan) return null;
 
     const today = plan?.days?.[0];
 
@@ -34,8 +36,6 @@ export default function StudyPlanCard({ courseId, courseTitle }) {
                     {courseTitle && <p className="truncate text-[11px] text-muted-foreground">{courseTitle}</p>}
                 </div>
             </div>
-
-            {isLoading && <div className="h-24 rounded-xl bg-muted/50 animate-pulse" />}
 
             {plan && plan.remainingSteps === 0 && (
                 <p className="text-sm text-muted-foreground">Everything in this course is complete — nice work.</p>
