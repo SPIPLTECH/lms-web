@@ -1,10 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { BookOpen, User, Eye, ArrowRight } from "lucide-react";
+import { BookOpen, User, Eye, ArrowRight, Award } from "lucide-react";
 
 import { getDisplayUrl } from "@/lib/blob";
-import { learnHref } from "@/lib/courseSlug";
+import { learnHref, courseOverviewHref } from "@/lib/courseSlug";
 import useMyCourses from "@/hooks/queries/student/useMyCourses";
 
 // Same status-pill colors as the Instructor course card
@@ -16,6 +16,7 @@ const STATUS_STYLE = {
   Enrolled: { label: "Enrolled", dot: "bg-sky-400" },
   "In Progress": { label: "In Progress", dot: "bg-amber-400" },
   Completed: { label: "Completed", dot: "bg-emerald-400" },
+  Expired: { label: "Expired", dot: "bg-red-500" },
 };
 
 /** My Courses grid card for students — same banner/badge/meta/footer layout
@@ -47,15 +48,21 @@ export default function MyCourseCard({ enrollment, course: rawCourse }) {
     100,
     Math.max(0, Math.round(enrollment?.progressPercent ?? enrollment?.progress ?? 0))
   );
+  const isExpired = Boolean(
+    enrollment?.isExpired ||
+    (enrollment?.expiresAt && new Date(enrollment.expiresAt).getTime() <= Date.now())
+  );
   const isComplete = isEnrolled && tracksProgress && progress >= 100;
   const status = isEnrolled
-    ? isComplete
-      ? "Completed"
-      : tracksProgress && progress > 0
-        ? "In Progress"
-        : "Enrolled"
+    ? isExpired
+      ? "Expired"
+      : isComplete
+        ? "Completed"
+        : tracksProgress && progress > 0
+          ? "In Progress"
+          : "Enrolled"
     : "Not Started";
-  const statusStyle = STATUS_STYLE[status];
+  const statusStyle = STATUS_STYLE[status] || STATUS_STYLE["Not Started"];
 
   const instructorName = course.creator?.name;
 
@@ -63,11 +70,11 @@ export default function MyCourseCard({ enrollment, course: rawCourse }) {
   const continueLabel = isComplete ? "Review" : tracksProgress ? (hasStarted ? "Continue Learning" : "Start Learning") : "Open Course";
   const continueShortLabel = isComplete ? "Review" : tracksProgress ? (hasStarted ? "Continue" : "Start") : "Open";
 
-  // The learn page is addressed by the course's readable key, not its id.
+  // The learn and course overview pages are addressed by the course's readable key, not its id.
   const learnDestination = learnHref(course, myEnrollments);
-  const detailsDestination = `/student/courses/${course.id}`;
+  const detailsDestination = courseOverviewHref(course, myEnrollments);
   const feedbackDestination = `/student/feedback?courseId=${course.id}`;
-  const primaryDestination = isEnrolled ? learnDestination : detailsDestination;
+  const primaryDestination = isEnrolled && !isExpired ? learnDestination : detailsDestination;
 
   const goTo = (path) => (e) => {
     e.stopPropagation();
@@ -146,16 +153,21 @@ export default function MyCourseCard({ enrollment, course: rawCourse }) {
           <span className="rounded-full bg-primary/10 px-2 py-[3px] text-[10px] font-bold text-primary">
             {course.level || "Beginner"}
           </span>
+          {isEnrolled && isExpired && (
+            <span className="rounded-full bg-red-500/10 px-2 py-[3px] text-[10px] font-bold text-red-400">
+              Access Expired
+            </span>
+          )}
+          {isEnrolled && !isExpired && enrollment?.expiresAt && (
+            <span className="rounded-full bg-amber-500/10 px-2 py-[3px] text-[10px] font-bold text-amber-500">
+              {enrollment.remainingDays !== undefined && enrollment.remainingDays !== null
+                ? `${enrollment.remainingDays}d left`
+                : `Expires ${new Date(enrollment.expiresAt).toLocaleDateString()}`}
+            </span>
+          )}
         </div>
 
-        {/* Two peer actions on one row at every width: a neutral outline for
-            details, a primary-tinted one for resuming. Below md the card rides
-            in a px-[6%] snap carousel, which leaves only ~216px for this row at
-            320px — 26px short of the two full labels, so they used to wrap and
-            the pair stopped looking like a pair. The resume label therefore
-            drops to its short form under 360px, which lets nowrap apply at
-            every width. Touch height is raised below md as well: py-1 with
-            11px text is a ~23px target, well under the 44px minimum. */}
+        {/* Two peer actions on one row at every width */}
         <div className="mt-auto pt-3 border-t border-border flex items-stretch gap-1.5">
           <button
             onClick={goTo(detailsDestination)}
@@ -167,17 +179,40 @@ export default function MyCourseCard({ enrollment, course: rawCourse }) {
             View Course
           </button>
 
-          {isEnrolled && (
+          {isComplete && (
             <button
-              onClick={goTo(isComplete ? feedbackDestination : learnDestination)}
-              aria-label={continueLabel}
-              title={continueLabel}
-              className="inline-flex flex-auto items-center justify-center gap-1 whitespace-nowrap rounded-md border border-primary/40 bg-transparent px-2 py-2 min-h-[40px] md:py-1 md:min-h-0 text-[11px] font-bold text-primary hover:bg-primary/10 hover:border-primary/60 transition"
+              onClick={goTo("/student/certificates")}
+              aria-label="View Certificate"
+              title="View your official completion certificate"
+              className="inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 min-h-[40px] md:py-1 md:min-h-0 text-[11px] font-bold text-amber-400 hover:bg-amber-500/20 transition cursor-pointer"
             >
-              <span className="max-[359px]:hidden">{continueLabel}</span>
-              <span className="hidden max-[359px]:inline">{continueShortLabel}</span>
-              <ArrowRight size={13} aria-hidden="true" />
+              <Award size={12} aria-hidden="true" />
+              <span>Certificate</span>
             </button>
+          )}
+
+          {isEnrolled && (
+            isExpired ? (
+              <button
+                disabled
+                aria-label="Access Expired"
+                title="Your course access duration + 1 month has ended"
+                className="inline-flex flex-auto items-center justify-center gap-1 whitespace-nowrap rounded-md border border-red-500/30 bg-red-500/10 px-2 py-2 min-h-[40px] md:py-1 md:min-h-0 text-[11px] font-bold text-red-400 cursor-not-allowed opacity-80"
+              >
+                <span>Access Expired</span>
+              </button>
+            ) : (
+              <button
+                onClick={goTo(isComplete ? feedbackDestination : learnDestination)}
+                aria-label={continueLabel}
+                title={continueLabel}
+                className="inline-flex flex-auto items-center justify-center gap-1 whitespace-nowrap rounded-md border border-primary/40 bg-transparent px-2 py-2 min-h-[40px] md:py-1 md:min-h-0 text-[11px] font-bold text-primary hover:bg-primary/10 hover:border-primary/60 transition"
+              >
+                <span className="max-[359px]:hidden">{continueLabel}</span>
+                <span className="hidden max-[359px]:inline">{continueShortLabel}</span>
+                <ArrowRight size={13} aria-hidden="true" />
+              </button>
+            )
           )}
         </div>
       </div>

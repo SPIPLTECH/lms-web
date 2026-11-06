@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, BookOpen, ChevronDown, Map as MapIcon, Play } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, Award, BookOpen, CheckCircle, ChevronDown, Map as MapIcon, MessageSquare, Play } from "lucide-react";
 
 import { getDisplayUrl } from "@/lib/blob";
 
@@ -16,10 +17,11 @@ import { getDisplayUrl } from "@/lib/blob";
  * @param {object} props.course          normalized course (normalizeCourseHierarchy)
  * @param {string} props.actionLabel     the Continue button's words
  * @param {boolean} props.hasNoContent   nothing to open yet (Continue disabled)
+ * @param {boolean} props.isComplete     every step done: offers Feedback and Certificate
  * @param {() => void} props.onOpenMap   opens the course map
  * @param {() => void} props.onContinue  opens the player at the resume step
  */
-export default function CourseDetails({ course, actionLabel, hasNoContent, onOpenMap, onContinue }) {
+export default function CourseDetails({ course, actionLabel, hasNoContent, isComplete, onOpenMap, onContinue }) {
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(false);
 
   const modules = course.modules || [];
@@ -128,6 +130,31 @@ export default function CourseDetails({ course, actionLabel, hasNoContent, onOpe
               <Play size={14} className="shrink-0 fill-current" aria-hidden="true" />
               {actionLabel}
             </button>
+
+            {isComplete && (
+              <div className="space-y-2.5 border-t border-border pt-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-primary">
+                  <CheckCircle size={15} aria-hidden="true" />
+                  <span>Curriculum 100% Completed!</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Link
+                    href={`/student/feedback?courseId=${course.id}`}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground transition hover:border-primary/50"
+                  >
+                    <MessageSquare size={13} className="text-primary" aria-hidden="true" />
+                    Feedback
+                  </Link>
+                  <Link
+                    href="/student/certificates"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground transition hover:border-primary/50"
+                  >
+                    <Award size={13} className="text-primary" aria-hidden="true" />
+                    Certificate
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </aside>

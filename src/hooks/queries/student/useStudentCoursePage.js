@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 
 import useCourse from "@/hooks/queries/student/useCourse";
@@ -8,7 +8,7 @@ import useMyCourses from "@/hooks/queries/student/useMyCourses";
 import useTrackCourseAccess from "@/hooks/queries/student/useTrackCourseAccess";
 import useLearningSequence from "@/hooks/queries/student/useLearningSequence";
 import { normalizeCourseHierarchy } from "@/lib/courseMapper";
-import { learnHref } from "@/lib/courseSlug";
+import { courseOverviewHref, learnHref, looksLikeCourseId, resolveCourseKey } from "@/lib/courseSlug";
 
 /**
  * What both student course pages — the details page and its course map —
@@ -23,18 +23,27 @@ import { learnHref } from "@/lib/courseSlug";
  * The learning sequence shares its query key with the player, so opening the
  * player afterwards is served from cache rather than a second round trip.
  *
- * @returns {{ status: "loading"|"error"|"ready", course, sequence, isEnrolled,
+ * @param {string} courseKey the route's key: a course id or a readable slug
+ * @returns {{ status: "loading"|"error"|"ready", course, courseId: string|null,
+ *   sequence, isEnrolled, isComplete: boolean, overviewPath: string|null,
  *   learnPath: string|null, actionLabel: string, hasNoContent: boolean }}
  */
-export default function useStudentCoursePage(courseId) {
+export default function useStudentCoursePage(courseKey) {
   const router = useRouter();
+
+  const { data: myEnrollments = [], isLoading: isEnrollmentsLoading } = useMyCourses();
+  // Either form resolves to the cuid id among the student's own enrollments; an
+  // id-shaped key is used at once, so an id link does not wait for the list.
+  const courseId = useMemo(
+    () => resolveCourseKey(courseKey, myEnrollments) || (looksLikeCourseId(courseKey) ? courseKey : null),
+    [courseKey, myEnrollments]
+  );
 
   const { data: rawCourse, isLoading, isError } = useCourse(courseId);
   const course = normalizeCourseHierarchy(rawCourse);
   const { data: sequence } = useLearningSequence(courseId);
 
-  const { data: myEnrollments = [], isLoading: isEnrollmentsLoading } = useMyCourses();
-  const isEnrolled = myEnrollments.some((e) => (e.courseId || e.course?.id) === courseId);
+  const isEnrolled = Boolean(courseId && myEnrollments.some((e) => (e.courseId || e.course?.id) === courseId));
 
   const trackAccessMutation = useTrackCourseAccess();
   useEffect(() => {
@@ -69,6 +78,7 @@ export default function useStudentCoursePage(courseId) {
   const status = isLoading || isEnrollmentsLoading || !isEnrolled ? "loading" : isError || !course ? "error" : "ready";
   // The learn page is addressed by the course's readable key, not its id.
   const learnPath = course ? learnHref({ id: courseId, title: course.title }, myEnrollments) : null;
+  const overviewPath = course ? courseOverviewHref({ id: courseId, title: course.title }, myEnrollments) : null;
 
-  return { status, course, sequence, isEnrolled, learnPath, actionLabel, hasNoContent };
+  return { status, course, courseId, sequence, isEnrolled, isComplete, overviewPath, learnPath, actionLabel, hasNoContent };
 }

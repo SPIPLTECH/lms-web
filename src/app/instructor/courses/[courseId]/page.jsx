@@ -39,6 +39,7 @@ import {
   removeQuestionFromQuiz as removeQuestionFromQuizService,
   importQuestionsToQuiz as importQuestionsToQuizService,
 } from "@/services/questionRepository.service";
+import { planQuizQuestionSync, runQuizQuestionSync } from "@/lib/quizQuestionSync";
 
 import { CourseComposerHeader } from "@/components/instructor/courses/CourseComposerHeader";
 import { CourseComposerSidebar } from "@/components/instructor/courses/CourseComposerSidebar";
@@ -1033,6 +1034,7 @@ export default function CourseDetailsPage() {
         level: course.level || "Beginner",
         thumbnailUrl: course.thumbnailUrl || "",
         duration: course.duration || "",
+        accessDurationDays: course.accessDurationDays ?? null,
         audience: course.audience || "",
         author: course.author || course.creator?.name || "",
       });
@@ -1317,56 +1319,38 @@ export default function CourseDetailsPage() {
   // aren't Content rows, they're real Question-repository entities linked to
   // the quiz via QuizQuestion, so saving the quiz metadata alone (the plain
   // createQuizService/updateQuizService calls below) never persisted them.
-  // This maps that local question shape onto what /questions/bulk and
-  // /questions/:id expect.
-  const mapQuestionForApi = (q) => ({
-    question: q.question,
-    questionType: q.questionType,
-    options: q.options,
-    correctAnswer: q.correctAnswer,
-    explanation: q.explanation,
-    marks: Number(q.marks) || 1,
-    difficulty: q.difficulty,
-  });
+  // lib/quizQuestionSync.js diffs the editor's list against what the quiz had
+  // and sends only the difference: new rows are bulk-created, repository picks
+  // attached, edited rows updated, dropped rows unlinked. A question that
+  // matches its loaded snapshot (loadedQuestions) is not re-sent.
+  const syncQuizQuestions = (quizId, currentQuestions, originalQuestionIds, loadedQuestions) =>
+    runQuizQuestionSync(
+      quizId,
+      planQuizQuestionSync({ currentQuestions, originalQuestionIds, loadedQuestions }),
+      {
+        bulkCreate: bulkCreateQuestionsService,
+        attach: importQuestionsToQuizService,
+        update: updateRepositoryQuestion,
+        remove: removeQuestionFromQuizService,
+      }
+    );
 
-  // Diffs the editor's current question list against what the quiz actually
-  // had before this save (empty for a brand-new quiz): new rows (no id, or a
-  // locally-generated "draft-que-" id) get bulk-created and attached; rows
-  // that already existed get their fields updated in place; anything that
-  // existed before but isn't in the current list anymore gets unlinked.
-  const syncQuizQuestions = async (quizId, currentQuestions, originalQuestionIds) => {
-    const isNew = (q) => !q.id || String(q.id).startsWith("draft-");
-    const originalIdSet = new Set((originalQuestionIds || []).map(String));
-
-    const newQuestions = (currentQuestions || []).filter(isNew);
-    const existingQuestions = (currentQuestions || []).filter((q) => !isNew(q));
-    // A repository question picked via "From Repository" already has a real
-    // id but wasn't linked to this quiz before this save — attach it as-is
-    // rather than overwriting its (possibly shared, used-elsewhere) content.
-    // Only a question that was already this quiz's own gets its edits saved.
-    const alreadyLinkedQuestions = existingQuestions.filter((q) => originalIdSet.has(String(q.id)));
-    const newlyAttachedQuestionIds = existingQuestions
-      .filter((q) => !originalIdSet.has(String(q.id)))
-      .map((q) => q.id);
-
-    const keptIds = new Set(existingQuestions.map((q) => String(q.id)));
-    const removedIds = (originalQuestionIds || []).filter((id) => !keptIds.has(String(id)));
-
-    if (newQuestions.length > 0) {
-      await bulkCreateQuestionsService(quizId, newQuestions.map(mapQuestionForApi));
-    }
-    if (newlyAttachedQuestionIds.length > 0) {
-      await importQuestionsToQuizService(quizId, newlyAttachedQuestionIds);
-    }
-    for (const q of alreadyLinkedQuestions) {
-      await updateRepositoryQuestion(q.id, mapQuestionForApi(q));
-    }
-    for (const id of removedIds) {
-      await removeQuestionFromQuizService(quizId, id);
-    }
+  // What a quiz save changes is refetched before the save finishes; the rest
+  // of the cache is only marked stale, so unrelated queries don't hold it up.
+  const QUIZ_SAVE_KEYS = [QUERY_KEYS.COURSE, QUERY_KEYS.MODULES, QUERY_KEYS.QUIZ, QUERY_KEYS.QUIZZES];
+  // `quiz` is the quiz just fetched after the save, or null if that fetch failed.
+  const refreshAfterQuizSave = async (quiz, quizId) => {
+    if (quiz) queryClient.setQueryData([QUERY_KEYS.QUIZ, quizId], quiz);
+    queryClient.invalidateQueries({ predicate: (q) => !QUIZ_SAVE_KEYS.includes(q.queryKey[0]) });
+    await Promise.all([
+      quiz ? null : queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.QUIZ, quizId] }),
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.COURSE] }),
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.MODULES, courseId] }),
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.QUIZZES] }),
+    ]);
   };
 
-  const handleSaveQuiz = async (updatedQuizData, { topicScopeOnly = false } = {}) => {
+  const handleSaveQuiz = async (updatedQuizData, { topicScopeOnly = false, loadedQuestions } = {}) => {
     if (isDraftMode) {
       let createdQuiz;
       if (quizMode === "create" || !selectedQuizState) {
@@ -1546,6 +1530,8 @@ export default function CourseDetailsPage() {
             // Omitted when the caller didn't set it, so the schema default applies.
             ...(updatedQuizData.attempts !== undefined && { attempts: Number(updatedQuizData.attempts) }),
             isPublished: updatedQuizData.isPublished !== false,
+            // Only sent when ticked, so an unticked quiz's payload is unchanged.
+            ...(updatedQuizData.proctoringEnabled === true && { proctoringEnabled: true }),
             courseId,
             moduleId: composeModuleId || null,
             lessonId: composeLessonId || null,
@@ -1583,16 +1569,15 @@ export default function CourseDetailsPage() {
           );
 
           let freshQuiz = resQuiz;
+          let fetchedQuiz = null;
           try {
-            freshQuiz = await getQuizByIdService(resQuiz.id);
-            queryClient.setQueryData([QUERY_KEYS.QUIZ, resQuiz.id], freshQuiz);
+            fetchedQuiz = freshQuiz = await getQuizByIdService(resQuiz.id);
           } catch {
             freshQuiz = { ...resQuiz, questions: updatedQuizData.questions || [] };
           }
 
-          // Refetches everything on screen (course, tree, quiz lists) and marks
-          // the rest stale — the service call skips the global mutation refresh.
-          await queryClient.invalidateQueries();
+          // The service call skips the global mutation refresh.
+          await refreshAfterQuizSave(fetchedQuiz, resQuiz.id);
 
           showToast(
             !topicScopeOnly && composeConceptId
@@ -1629,6 +1614,10 @@ export default function CourseDetailsPage() {
             timeLimit: updatedQuizData.timeLimit ?? null,
             ...(updatedQuizData.attempts !== undefined && { attempts: Number(updatedQuizData.attempts) }),
             isPublished: updatedQuizData.isPublished,
+            // Sent when it is or was ticked, so an unticked quiz's payload is unchanged.
+            ...((updatedQuizData.proctoringEnabled === true || selectedQuizState.proctoringEnabled === true) && {
+              proctoringEnabled: updatedQuizData.proctoringEnabled === true,
+            }),
             courseId,
             moduleId: composeModuleId || selectedQuizState.moduleId || null,
             lessonId: composeLessonId || selectedQuizState.lessonId || null,
@@ -1643,20 +1632,26 @@ export default function CourseDetailsPage() {
             const originalQuestionIds = (activeQuizFull?.quizQuestions || selectedQuizState.quizQuestions || [])
               .map((qq) => qq.question?.id || qq.questionId)
               .filter(Boolean);
-            await syncQuizQuestions(targetId, updatedQuizData.questions || [], originalQuestionIds);
+            // A proctored quiz a student has started: the server refuses question
+            // changes, and the editor shows them as locked. That holds for the save
+            // that switches proctoring off too, since the editor was hidden for it.
+            if (activeQuizFull?.proctoringLocked !== true && updatedQuiz.proctoringLocked !== true) {
+              await syncQuizQuestions(targetId, updatedQuizData.questions || [], originalQuestionIds, loadedQuestions);
+            }
           } catch (qErr) {
             console.error("Save Quiz Questions Error:", qErr);
             showToast(qErr?.response?.data?.message || "Quiz updated, but some questions failed to save.", "error");
           }
 
           let freshQuiz = updatedQuiz;
+          let fetchedQuiz = null;
           try {
-            freshQuiz = await getQuizByIdService(targetId);
+            fetchedQuiz = freshQuiz = await getQuizByIdService(targetId);
           } catch {
             freshQuiz = updatedQuiz;
           }
 
-          await queryClient.invalidateQueries();
+          await refreshAfterQuizSave(fetchedQuiz, targetId);
 
           showToast("Quiz updated successfully!", "success");
           setSelectedQuizState(freshQuiz);
@@ -2682,6 +2677,19 @@ export default function CourseDetailsPage() {
     }
   };
 
+  const handleSaveCertificateSettings = async (settingsData) => {
+    try {
+      await updateCourseMutation.mutateAsync({
+        courseId,
+        courseData: settingsData,
+      });
+      showToast("Certificate template & memo saved successfully!", "success", "Saved");
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || "Failed to save certificate template";
+      showToast(msg, "error");
+    }
+  };
+
   if (effectiveLoading) {
     return (
       <div className="flex justify-center py-32">
@@ -2942,12 +2950,15 @@ export default function CourseDetailsPage() {
                 isDraftMode={isDraftMode}
                 contentAutoOpenSignal={courseContentAutoOpenSignal}
                 onContentAutoOpenConsumed={() => setCourseContentAutoOpenSignal(0)}
-                onPublishClick={handleConfirmPublish}
-                onUnpublishClick={handleOpenUnpublishModal}
+                // An unsaved import draft has no course on the server to publish yet.
+                onPublishClick={isDraftMode ? undefined : handleConfirmPublish}
+                onUnpublishClick={isDraftMode ? undefined : handleOpenUnpublishModal}
                 onRestoreClick={handleConfirmRestoreCourse}
                 hasUnsavedChanges={hasUnsavedChanges}
                 onSaveCourse={handleSaveCourse}
                 isSavingCourse={isDraftMode ? isSavingDraft : updateCourseMutation.isPending}
+                onSaveCertificateSettings={handleSaveCertificateSettings}
+                isSavingCertificateSettings={updateCourseMutation.isPending}
               />
             )}
 
@@ -2971,6 +2982,7 @@ export default function CourseDetailsPage() {
                 onSaveQuiz={handleSaveQuiz}
                 onCancel={handleCancelQuizEdit}
                 startEditing={quizStartEditing}
+                allowProctoring={!isDraftMode}
               />
             )}
 

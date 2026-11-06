@@ -42,6 +42,9 @@ export default function EnrollmentTable({
                         <th className="px-6 py-4 font-medium">
                             Enrolled On
                         </th>
+                        <th className="px-6 py-4 font-medium">
+                            Status / Expiry
+                        </th>
                         <th className="px-6 py-4 text-right font-medium">
                             Actions
                         </th>
@@ -157,11 +160,26 @@ export default function EnrollmentTable({
                                         Enrolled
                                     </p>
 
-                                    <span className="text-foreground">
-                    {new Date(
-                        enrollment.enrolledAt
-                    ).toLocaleDateString()}
-                  </span>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="text-foreground">
+                                            {new Date(
+                                                enrollment.enrolledAt
+                                            ).toLocaleDateString()}
+                                        </span>
+                                        {enrollment.isExpired || (enrollment.expiresAt && new Date(enrollment.expiresAt) <= new Date()) ? (
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-400">
+                                                Expired
+                                            </span>
+                                        ) : enrollment.expiresAt ? (
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400">
+                                                Expires {new Date(enrollment.expiresAt).toLocaleDateString()}
+                                            </span>
+                                        ) : (
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">
+                                                Lifetime
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>

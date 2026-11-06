@@ -740,6 +740,96 @@
       "actual": "Pagination, 10 per page: page 1 shows questions 1-10 (Previous disabled), Next -> 11-20 and the review heading scrolls to 80px (under the sticky navbar), Next -> 21-30 (Next disabled); pager text 'Page n of 3 / Questions a-b of 30'. Skipped filter -> page 1 of 2, questions 15-24 of 16. Wrong (2) -> no pager. Pager buttons 44px tall. No page errors.",
       "evidence": "test-evidence/browser/TC-UI-STU-022/paging-390-p3.png, paging-1440-p3.png",
       "failure_details": ""
+    },
+    {
+      "id": "TC-UI-PROC-008",
+      "status": "PASS",
+      "executed_at": "2026-11-03T10:55:00",
+      "executed_by": "Claude via Playwright (MCP browser)",
+      "environment": "http://localhost:3000 (npm run dev, local working tree), temporary route /dev-preview-proctoring with a stubbed camera and session, deleted afterwards. Chrome 1366x657, light theme.",
+      "actual": "Step bar 1-4; Agree and continue only after ticking; camera step showed Camera working and the microphone result (Not available on the preview route, which lacks the exam page's microphone permission header); Continue enabled only when the step was done; Take photo -> Checking your photo -> Face check passed with a solid outline; final step: Start exam locked until the recording switch was on, then enabled. Page overflow 0 and card overflow 0 on all four steps. Camera-on and dark theme not captured for this case.",
+      "evidence": "test-evidence/browser/TC-UI-PROC-008/readiness-1.png, readiness-2.png, readiness-3.png, readiness-4.png",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-PROC-009",
+      "status": "PASS",
+      "executed_at": "2026-11-03T10:55:00",
+      "executed_by": "Claude via Playwright (MCP browser)",
+      "environment": "http://localhost:3000 (npm run dev, local working tree), temporary route /dev-preview-proctoring with a stubbed result and stubbed photos (Playwright routes), deleted afterwards. Chrome 1366x657 and 1600x709, light and dark.",
+      "actual": "Overview: score ring 0%, 0 / 150, Not passed; warnings 3 / 3 Limit reached; answers bar; What happens next with review in progress; Ask for another look locked. Why it ended: 3 photo cards (warnings 1-3, one with No photo), ending as one line, '3 other events were recorded but did not count as warnings' folded and expanding to text only. Photo viewer: Warning n of 3 title, arrows. Answers: 50-question grid, selected question shows the answer. Back to the course in the tab bar. Page overflow 0 on Overview and Why it ended at 1366x657.",
+      "evidence": "test-evidence/browser/TC-UI-PROC-009/ended-1.png, ended-2.png, ended-3.png, ended-4.png, dark-ended-overview.png, dark-ended-why.png, dark-ended-zoom.png",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-PROC-001",
+      "status": "BLOCKED",
+      "executed_at": "2026-11-03T10:55:00",
+      "executed_by": "Claude via Playwright (MCP browser)",
+      "environment": "-",
+      "actual": "-",
+      "evidence": "",
+      "failure_details": "Not run. The script was updated for the redesigned screen, but it needs the isolated stack (web :3055, API :5055, disposable database), which was not running; starting it creates the disposable database with Prisma, and the owner's standing rule is to run no Prisma commands. The new layout was checked instead in TC-UI-PROC-008/009 with stubbed data."
+    },
+    {
+      "id": "TC-UI-PROC-003",
+      "status": "BLOCKED",
+      "executed_at": "2026-11-03T10:55:00",
+      "executed_by": "Claude via Playwright (MCP browser)",
+      "environment": "-",
+      "actual": "-",
+      "evidence": "",
+      "failure_details": "Not run. The script was updated for the redesigned screen, but it needs the isolated stack (web :3055, API :5055, disposable database), which was not running; starting it creates the disposable database with Prisma, and the owner's standing rule is to run no Prisma commands. The new layout was checked instead in TC-UI-PROC-008/009 with stubbed data."
+    },
+    {
+      "id": "TC-UI-PROC-011",
+      "status": "PASS",
+      "executed_at": "2026-11-03T16:40:00",
+      "executed_by": "Claude via Playwright (MCP browser)",
+      "environment": "http://localhost:3000 (npm run dev, local working tree), temporary route /preview-proctoring-review with a seeded review and a 61 px navbar stand-in, deleted afterwards. Chrome 1366x657 and 390x800, light theme.",
+      "actual": "Banner: Ended by proctoring, Reached the maximum warning limit (3 / 3), Awaiting your decision, quiz, course, time range and student. Why it ended opened first: 3 numbered warning cards (Face did not match, Confidence 81%; Left fullscreen x2, 'Not through Esc, most likely the browser's exit button · Keyboard lock on'), the ending as one line, 4 other events folded. Overview: score ring 40%, 4/10 Not passed, warnings 3/3 Limit reached, monitoring, why it is here, the attempt. Timeline: warned rows and the ending highlighted, scrolls inside its panel. After trimming padding: page overflow 0, Why it ended panel overflow 0 (was 45 px, then 10 px), decision column overflow 0, sideways 0. At 390x800 it scrolls as a page with no sideways overflow. Not covered: photos themselves (the preview had no signed-in API, so thumbnails showed Unavailable), the decided and appeal states, the admin delete button, dark theme.",
+      "evidence": "test-evidence/browser/TC-UI-PROC-011/review-warnings.png (before the padding fix), review-overview.png, review-timeline.png",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-PROC-012",
+      "status": "PASS",
+      "executed_at": "2026-11-04T10:50:00",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "Local web http://localhost:3000 (working tree, branch Pawan); every http://localhost:5000 request redirected by Playwright to a local API :5055 on the disposable database lms_proctoring_local; socket.io blocked. Seeded fake instructor (stamp 53243c), quiz cmw1nwbhh0009ue1ghs8hkyse with one SUBMITTED proctored attempt.",
+      "actual": "Edit Quiz showed the checkbox ticked and changeable, with the note 'A student has started this quiz, so its tag, time limit and questions stay fixed while proctoring is on...' and 'Questions are locked... Switch proctoring off and save to change them.' Unticked: note changed to 'Proctoring switches off when you save...'. Save: PUT /quizzes/cmw1nwbhh0009ue1ghs8hkyse 200, proctoringEnabled false; local API log shows the PUT and 0 PUT /questions; local DB row proctoringEnabled false. Edit Quiz again: unticked, 0 lock notes, time limit input enabled. Ticked again and saved: PUT 200, proctoringEnabled true; lock note and questions-locked message back (1 each).",
+      "evidence": "test-evidence/browser/TC-UI-PROC-012/locked-on.png, unticked.png, off-saved.png; local API request log",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-INS-003",
+      "status": "PASS",
+      "executed_at": "2026-11-04T11:45:00",
+      "executed_by": "Claude via Playwright MCP + curl",
+      "environment": "Local web http://localhost:3000 (working tree, branch Pawan); every http://localhost:5000 request redirected by Playwright to a local API :5055 on the disposable database lms_proctoring_local; socket.io blocked. Seeded fake instructor 53243c owning course cmw1nwbh30003ue1gh95oozek; second fake instructor a2dbd5 owning cmw1pzha30003ueicr5evso7n.",
+      "actual": "Own PUBLISHED course header: buttons [Unpublish, Edit], no Restore/Archive. Unpublish -> confirm modal 'Unpublish Course?' -> POST /courses/:id/unpublish 200, header DRAFT, buttons [Publish, Edit]. Publish -> POST /courses/:id/publish 200, header PUBLISHED, buttons [Unpublish, Edit]. With the same instructor's token: POST publish and unpublish on the other instructor's course -> 403 'Forbidden: you do not own this resource'; PATCH /courses/<own>/status ARCHIVED -> 403; control: POST publish on own course -> 200.",
+      "evidence": "test-evidence/browser/TC-UI-INS-003/pub-1-published.png, pub-3-draft.png, pub-4-published.png; curl status codes",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-PROC-013",
+      "status": "PASS",
+      "executed_at": "2026-11-04T12:10:00",
+      "executed_by": "Claude via Playwright MCP",
+      "environment": "Local web http://localhost:3000 (working tree, branch Pawan); every http://localhost:5000 request redirected to a local API :5055 on the disposable database lms_proctoring_local; seeded fake student a2dbd5, quiz cmw1pzhad0009ueics1l5zv6d.",
+      "actual": "Before the fix: side column squeezed to a 34-47 px button (98 px tall) at 1920x1080, 1440x900 and 768x1024, because the video (sized by height) took the whole row. After (clean reload, no injected styles): video 478x359, 437x328, 361x271, 350x263 - ratio 1.33 and inside its cell at all 8 desktop sizes; button 320x44, one line, 14 px, label 'Turn on camera & mic'; no page scroll. At 390x844 (phone, layout unchanged) video 332x285 (1.17) as before.",
+      "evidence": "test-evidence/browser/TC-UI-PROC-013/fixed-1440-light.png, fixed-1440-dark.png; measured boxes per viewport",
+      "failure_details": ""
+    },
+    {
+      "id": "TC-UI-PROC-014",
+      "status": "PASS",
+      "executed_at": "2026-11-04T14:54:00",
+      "executed_by": "Claude via a Playwright script (scratchpad speed-check.mjs, using scripts/proctoring-e2e/lib.mjs)",
+      "environment": "Headless Chrome 156; web http://localhost:3000 (working tree, branch Pawan); :5000 API calls redirected to local API :5055 (lms_proctoring_local), real local AI on :8028; simulated camera from public-domain fixtures; capture every 3 s, re-check 1 s.",
+      "actual": "Different person (fixture face_raja_chari after face_victor_glover): amber early message after 1083 ms, warning after 2220 ms from the camera change. Covered camera (blank frame), 8 s later: early message after 2793 ms, warning after 5046 ms. Warning count on screen 2. No request to :5000 left unredirected. For comparison, the real exam of 2026-11-04 12:07 IST showed nothing until the warnings, 4.5 s and ~7 s after the server first saw each problem.",
+      "evidence": "Script output (timings above); backend tests proctoring-rules 'the exam of 2026-11-04 12:07 IST, replayed' and proctoring-realtime 'postponed, not dropped'",
+      "failure_details": ""
     }
   ]
 }

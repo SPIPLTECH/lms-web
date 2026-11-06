@@ -17,6 +17,7 @@ import { getAssignments } from "@/services/assignment.service";
 import { getNotes } from "@/services/note.service";
 import { getStudents } from "@/services/student.service";
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { courseOverviewHref } from "@/lib/courseSlug";
 
 const RESULTS_PER_CATEGORY = 4;
 
@@ -126,7 +127,7 @@ export default function GlobalSearch({ role = "student" }) {
         results: studentCourses
           .filter((c) => matches(c.title, c.category))
           .slice(0, RESULTS_PER_CATEGORY)
-          .map((c) => ({ id: c.id, title: c.title, subtitle: c.category || "Course", href: `/student/courses/${c.id}` })),
+          .map((c) => ({ id: c.id, title: c.title, subtitle: c.category || "Course", href: courseOverviewHref(c, studentCourses) })),
       },
       {
         id: "assignments",

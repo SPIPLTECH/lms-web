@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -59,8 +60,9 @@ const LEVEL_LABELS = {
 };
 
 // How long without input before the Course Map and the Learning Workspace
-// header hide (the idle layout effect in LearnPage).
-const IDLE_AFTER_MS = 2500;
+// header hide (the idle layout effect in LearnPage). 30 s, so they stay while
+// the student reads them; 2.5 s folded them away mid-read.
+const IDLE_AFTER_MS = 30_000;
 
 /** Every container node (Course, Module, … Concept) of the learning-sequence tree, by id. */
 function indexContainers(tree) {
@@ -111,6 +113,7 @@ export default function LearnPage() {
     data: sequence,
     isPending: isSequencePending,
     isError: isSequenceError,
+    error: sequenceError,
     isFetching: isSequenceFetching,
     refetch: refetchSequence,
   } = useLearningSequence(courseId, { withPath: true });
@@ -514,7 +517,7 @@ export default function LearnPage() {
   }, [courseMapOpen]);
 
   // IDLE LAYOUT — inactivity auto-hide on desktop (xl+).
-  // After IDLE_AFTER_MS (2.5s) without input, the Course Map rail and Learning Workspace
+  // After IDLE_AFTER_MS (30s) without input, the Course Map rail and Learning Workspace
   // header hide to maximize content focus.
   //
   // Idle behavior rules:
@@ -808,6 +811,42 @@ export default function LearnPage() {
     return <Loader />;
   }
 
+  const currentEnrollment = (myEnrollments || []).find((e) => (e.courseId || e.course?.id) === courseId);
+  const isExpired =
+    sequenceError?.response?.data?.code === "ENROLLMENT_EXPIRED" ||
+    sequenceError?.code === "ENROLLMENT_EXPIRED" ||
+    (currentEnrollment?.expiresAt && new Date(currentEnrollment.expiresAt).getTime() <= Date.now());
+
+  if (isExpired) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center p-6">
+        <Card className="max-w-md w-full p-6 text-center space-y-4 border-amber-500/30 bg-card">
+          <div className="mx-auto w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500">
+            <Lock size={24} />
+          </div>
+          <h2 className="text-xl font-bold text-foreground">Course Access Expired</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Your access period for this course (including the 1-month grace window) has ended. Your completed progress and certificates have been safely preserved.
+          </p>
+          <div className="pt-2 flex justify-center gap-3">
+            <button
+              onClick={() => router.push("/student/my-courses")}
+              className="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition"
+            >
+              Back to My Courses
+            </button>
+            <Link
+              href="/student/certificates"
+              className="inline-flex items-center justify-center px-4 py-2 rounded-xl border border-border bg-card text-foreground font-semibold text-sm hover:bg-muted transition"
+            >
+              View My Certificates
+            </Link>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   if (isSequenceError || !sequence) {
     return <Card className="text-foreground">Course not found.</Card>;
   }
@@ -930,6 +969,12 @@ export default function LearnPage() {
     aspect: "overflow-hidden max-xl:flex-none",
     form: "overflow-y-auto overscroll-contain",
   };
+  // Quiz wrapper. The proctored-exam card (ProctoredQuizLauncher) is the only
+  // thing on screen, so it is centred in the frame; every other quiz state keeps
+  // the ordinary block flow. min-h-full (not h-full) lets a tall card grow and
+  // scroll instead of being clipped at the top by justify-center.
+  const QUIZ_WRAPPER_CLASSES =
+    "p-2.5 sm:p-5 has-[[data-proctored-launcher]]:flex has-[[data-proctored-launcher]]:min-h-full has-[[data-proctored-launcher]]:flex-col has-[[data-proctored-launcher]]:justify-center";
 
   // NEXT QUIZ (10th course, on an Ideal answer): on to the next question of
   // the same type in this topic, never another type; after the type's last
@@ -1371,7 +1416,7 @@ export default function LearnPage() {
                       />
                     </div>
                   ) : qualifyingAttempt ? (
-                    <div className="p-2.5 sm:p-5">
+                    <div className={QUIZ_WRAPPER_CLASSES}>
                       <QuizExperience
                         key={`qualifying:${qualifyingAttempt.quiz.id}:${qualifyingRunId}`}
                         quizId={qualifyingAttempt.quiz.id}
@@ -1420,7 +1465,7 @@ export default function LearnPage() {
                       />
                     </div>
                   ) : isQuizStep ? (
-                    <div data-tour="complete" className="p-2.5 sm:p-5">
+                    <div data-tour="complete" className={QUIZ_WRAPPER_CLASSES}>
                       <QuizExperience
                         key={step.quizId}
                         quizId={step.quizId}

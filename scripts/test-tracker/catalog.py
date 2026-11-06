@@ -128,12 +128,24 @@ def check_price_consumers_gate_on_is_priced():
     return ("PASS", f"All {len(consumers)} getPriceInfo() consumers gate on isPriced.", probe)
 
 
-def check_instructor_has_no_publish_controls():
-    hits = _grep(["src/components/instructor", "src/app/instructor"],
-                 r"""role\s*===\s*["']INSTRUCTOR["'].*on(Publish|Unpublish|Archive)Click|on(Publish|Unpublish)Click=\{""")
-    if hits:
-        return ("FAIL", "Instructor course UI still wires Publish/Unpublish controls.", _fmt_hits(hits))
-    return ("PASS", "No Publish/Unpublish control is rendered for or wired by instructor UI.", "grep: 0 matches")
+def check_instructor_publish_controls():
+    # Owner decision 2026-11-04: a course's instructor publishes and unpublishes it; archive and
+    # restore stay admin-only. The backend's ownership check is what enforces "own course".
+    view = _read("src/components/instructor/courses/CourseOverviewView.jsx")
+    problems = []
+    if not re.search(r"isAuthor\s*&&\s*isDraft\s*&&\s*onPublishClick", view):
+        problems.append("Publish is not offered to the course's author on a DRAFT course")
+    if not re.search(r"isAuthor\s*&&\s*isPublished\s*&&\s*onUnpublishClick", view):
+        problems.append("Unpublish is not offered to the course's author on a PUBLISHED course")
+    if not re.search(r"""role\s*===\s*["']ADMIN["']\s*&&\s*isArchived\s*&&\s*onRestoreClick""", view):
+        problems.append("Restore to Draft is not limited to ADMIN")
+    archive = _grep(["src/components/instructor", "src/app/instructor"], r"onArchiveClick|archiveCourse\(")
+    if archive:
+        problems.append("instructor UI wires an Archive control: " + _fmt_hits(archive))
+    if problems:
+        return ("FAIL", "Instructor publication controls do not match the rule.", "; ".join(problems))
+    return ("PASS", "Publish (DRAFT) and Unpublish (PUBLISHED) shown to the course's author; Restore ADMIN-only; no Archive control in instructor UI.",
+            "CourseOverviewView.jsx gates + grep onArchiveClick|archiveCourse( in instructor UI: 0 matches")
 
 
 def check_instructor_has_no_pricing_controls():
@@ -325,10 +337,10 @@ CODE_CHECKS = [
          scenario="Every getPriceInfo() consumer gates on isPriced so a course with no Store is never shown as FREE",
          expected="All files calling getPriceInfo() read isPriced; missing Store => 'Pricing unavailable', no Enroll Free",
          ref="src/lib/pricing.js getPriceInfo (isFree is true when store is null; isPriced is false)"),
-    dict(id="TC-CL-006", component="src/components/instructor/courses/CourseOverviewView.jsx", fn=check_instructor_has_no_publish_controls,
-         scenario="RBAC: instructor course UI renders no Publish / Unpublish controls",
-         expected="No role==='INSTRUCTOR' publish/unpublish button and no onPublishClick/onUnpublishClick wiring in instructor UI",
-         ref="CLAUDE.md §8 INSTRUCTOR MUST NOT publish/unpublish"),
+    dict(id="TC-CL-006", component="src/components/instructor/courses/CourseOverviewView.jsx", fn=check_instructor_publish_controls,
+         scenario="RBAC: the course's instructor gets Publish / Unpublish; Restore and Archive stay admin-only (owner decision 2026-11-04)",
+         expected="Publish on a DRAFT and Unpublish on a PUBLISHED course for the author (instructor or admin); Restore gated on ADMIN; no Archive control in instructor UI",
+         ref="CLAUDE.md §8 INSTRUCTOR; backend course.routes.js publish/unpublish (verifyCourseOwnership)"),
     dict(id="TC-CL-007", component="src/app/instructor/courses/edit/[courseId]/page.jsx", fn=check_instructor_has_no_pricing_controls,
          scenario="RBAC: instructor pages/components contain no price, discount or Store pricing controls",
          expected="0 price/discount/isFree references in src/app/instructor and src/components/instructor",
@@ -599,10 +611,10 @@ MANUAL_CASES = [
          pre=f"{_ENV}; INSTRUCTOR. {_RO}", steps="1. Type a title fragment\n2. Type a nonsense string",
          expected="List narrows; nonsense shows empty state", ref="src/app/instructor/courses/page.jsx"),
     dict(id="TC-UI-INS-003", component="src/components/instructor/courses/CourseOverviewView.jsx", type="UI – Browser",
-         scenario="RBAC: instructor course detail shows no Publish / Unpublish control",
-         pre=f"{_ENV}; INSTRUCTOR; a DRAFT and a PUBLISHED course. {_RO} Do not click.",
-         steps="1. Open /instructor/courses/<id> for a PUBLISHED course\n2. Inspect header actions\n3. Repeat for a DRAFT course",
-         expected="No Publish or Unpublish button visible", ref="CLAUDE.md §8; code check TC-CL-006"),
+         scenario="RBAC: instructor publishes and unpublishes their own course from the course page (owner decision 2026-11-04)",
+         pre="Disposable local database only (publishing writes and notifies enrolled students); INSTRUCTOR who owns a DRAFT course; a course owned by another instructor.",
+         steps="1. Open /instructor/courses/<own DRAFT id>; click Publish\n2. Click Unpublish, confirm\n3. Check there is no Restore or Archive button\n4. POST /courses/<other instructor's course>/publish with this instructor's token",
+         expected="1. Course becomes PUBLISHED; Unpublish replaces Publish\n2. Back to DRAFT\n3. Neither shown\n4. 403", ref="CLAUDE.md §8; code check TC-CL-006"),
     dict(id="TC-UI-INS-004", component="src/app/instructor/courses/edit/[courseId]/page.jsx", type="UI – Browser",
          scenario="RBAC: instructor course create/edit forms have no price or discount fields",
          pre=f"{_ENV}; INSTRUCTOR. {_RO} Do not save.",
@@ -700,8 +712,8 @@ MANUAL_CASES = [
     dict(id="TC-UI-STU-015", component="src/app/student/learn/[courseId]/page.jsx", type="UI – Browser",
          scenario="Mobile Course Map sheet stays open while the student reads it; desktop idle-hide unchanged",
          pre=f"{_ENV}; enrolled STUDENT; viewport below 1280px (phone) and a desktop window (1280px+).",
-         steps="1. Phone width: open the lesson, tap the hamburger, then do not touch the screen for 10 s\n2. Pick an item; also try ✕ and the backdrop\n3. Desktop: leave the mouse still for 3+ s, then move it",
-         expected="1. The sheet stays open\n2. Each closes it\n3. Rail and workspace header hide after ~2.5 s and return on movement",
+         steps="1. Phone width: open the lesson, tap the hamburger, then do not touch the screen for 10 s\n2. Pick an item; also try ✕ and the backdrop\n3. Desktop: leave the mouse still for 10 s, then for 30+ s, then move it",
+         expected="1. The sheet stays open\n2. Each closes it\n3. Rail and workspace header still shown at 10 s, hidden after ~30 s, and back on movement",
          ref="learn page IDLE LAYOUT effect (no setCourseMapOpen there)"),
     dict(id="TC-UI-STU-016", component="src/components/student/learning/LearnSidePanel.jsx", type="UI – Browser",
          scenario="Mobile Learning tools sheet: Ask instructor / Sticky notes as tabs in a bottom sheet",
@@ -921,6 +933,90 @@ MANUAL_CASES = [
          steps="1. Open /student/learn/<courseId> with DevTools → Network\n2. Select learning-sequence, learning-path, start, status\n3. Check Timing → Server Timing and the response headers\n4. Compare with the [timing] lines in the backend terminal",
          expected="Every API response has Server-Timing (total/db/app); learning-sequence carries Content-Encoding br or gzip; app time of learning-sequence and start is small (no multi-second gap between total and db); status shows 1 query",
          ref="backend utils/requestTiming.js; progressRollup.js; playback.service.js getStatus"),
+    dict(id="TC-UI-PROC-001", component="src/features/proctoring/components/ExamEndedView.jsx", type="E2E",
+         scenario="Exam-ended report (Overview / Why it ended / Answers tabs): centred, no page scroll, photo cards for warnings only, four kinds of ending, six screen sizes",
+         pre="Isolated local stack: web :3055, API :5055, real AI, disposable database behind a ~100 ms delay; real Chrome, simulated camera",
+         steps="node scripts/proctoring-e2e/layout-check.mjs",
+         expected="No page scroll at 1280x720 and above on Overview or the warnings tab, equal gaps above and below, one photo card per warning (at most 3) with every other event folded, exact termination reason shown, no sideways overflow at 390 wide.",
+         ref="scripts/proctoring-e2e/layout-check.mjs"),
+    dict(id="TC-UI-PROC-002", component="src/features/proctoring/hooks/useBrowserMonitoring.js", type="E2E",
+         scenario="Esc and fullscreen: short press, held press, detection, one warning, photo, restore, with a control where Keyboard Lock is refused",
+         pre="Isolated local stack: web :3055, API :5055, real AI, disposable database behind a ~100 ms delay; real Chrome, simulated camera",
+         steps="node scripts/proctoring-e2e/esc-check.mjs (key sent through the DevTools protocol, not a physical keyboard)",
+         expected="Lock on: short Esc stays. Held Esc exits and is detected, recorded once, warned once, photographed and restored on the next gesture.",
+         ref="scripts/proctoring-e2e/esc-check.mjs"),
+    dict(id="TC-UI-PROC-003", component="src/features/proctoring/components/ReadinessCheck.jsx", type="E2E",
+         scenario="Start exam gate on the step-by-step readiness page (last step): recording switch, capture in the page, capture elsewhere (known limit), camera stopping, start failing, double click",
+         pre="Isolated local stack: web :3055, API :5055, real AI, disposable database behind a ~100 ms delay; real Chrome, simulated camera",
+         steps="node scripts/proctoring-e2e/readiness-check.mjs",
+         expected="Start is off with a capture the page can see or with the recording switch off; failures are explained and can be retried; one request per start. A capture outside the page is not detected, and that is reported as a limit.",
+         ref="scripts/proctoring-e2e/readiness-check.mjs"),
+    dict(id="TC-UI-PROC-004", component="src/features/proctoring/hooks/useWebcamCapture.js", type="E2E",
+         scenario="Monitoring performance: warning latency, 3 s capture grid, upload time, answer responsiveness, termination",
+         pre="Isolated local stack: web :3055, API :5055, real AI, disposable database behind a ~100 ms delay; real Chrome, simulated camera",
+         steps="node scripts/proctoring-e2e/measure.mjs --label=after; flow-timing.mjs --label=after",
+         expected="Warning within 1-2 s of the confirming frame, frames 3 s apart (the default since 2026-11-04) with no drift, uploads not held for the AI, no answer lag, exam closed at once on termination.",
+         ref="scripts/proctoring-e2e/measure.mjs"),
+    dict(id="TC-UI-PROC-005", component="src/features/proctoring/components/ReviewDetail.jsx", type="E2E",
+         scenario="Whole path: answers saved, Esc held, three warnings end the exam; student result, instructor and admin review with photos",
+         pre="Isolated local stack: web :3055, API :5055, real AI, disposable database behind a ~100 ms delay; real Chrome, simulated camera",
+         steps="node scripts/proctoring-e2e/instructor-check.mjs",
+         expected="Saved answers kept, exam released from fullscreen and stays out, timeline complete, instructor and admin see the event, its detail and the photos.",
+         ref="scripts/proctoring-e2e/instructor-check.mjs"),
+    dict(id="TC-UI-PROC-006", component="src/app/student/attempt/[quizId]/page.jsx", type="E2E",
+         scenario="Unproctored quiz beside a proctored one",
+         pre="Isolated local stack: web :3055, API :5055, real AI, disposable database behind a ~100 ms delay; real Chrome, simulated camera",
+         steps="node scripts/proctoring-e2e/instructor-check.mjs (last section)",
+         expected="No monitoring requests, no fullscreen, submits and shows its result on the same page as before.",
+         ref="scripts/proctoring-e2e/instructor-check.mjs"),
+    dict(id="TC-UI-PROC-007", component="src/lib/proctoring/examAddress.js", type="E2E",
+         scenario="Exam page address shows the course and no ids, like the learn page",
+         pre="Isolated local stack: web :3055, API :5055, real AI, disposable database behind a ~100 ms delay; real Chrome, simulated camera",
+         steps="node scripts/proctoring-e2e/address-check.mjs",
+         expected="No id or query in the address at any point; refresh, camera permission, leaving and old links all work; a pasted address in a new tab goes to the course.",
+         ref="scripts/proctoring-e2e/address-check.mjs"),
+    dict(id="TC-UI-PROC-008", component="src/features/proctoring/components/ReadinessCheck.jsx", type="UI – Browser",
+         scenario="Readiness page as a 4-step wizard (Notice, Camera & mic, Identity photo, Final check) with no page scroll",
+         pre=f"{_ENV}; a temporary preview route rendering the component with a stubbed camera and session (removed after the check); Chrome 1366x657 (a 768-high laptop less browser bars), light theme",
+         steps="1. Notice: tick the agreement, Agree and continue\n2. Turn on camera & mic, Continue\n3. Take photo, wait for Face check passed, Continue\n4. Turn on the recording switch\n5. Measure page and card overflow at each step",
+         expected="One step open at a time with a step bar; Continue only when the step is done; full notice in a pop-up; Start exam locked until every step is done; no page or card scroll at 1366x657 on any step.",
+         ref="src/features/proctoring/components/ReadinessCheck.jsx"),
+    dict(id="TC-UI-PROC-009", component="src/features/proctoring/components/ExamEndedView.jsx", type="UI – Browser",
+         scenario="Exam-ended report tabs: Overview, Why it ended (photos for warnings only), Answers, photo viewer",
+         pre=f"{_ENV}; a temporary preview route with a stubbed result (3 warnings, 3 recorded-only events, an ending event) and stubbed photos (removed after the check); Chrome 1366x657, light and dark",
+         steps="1. Open the report: Overview\n2. Open Why it ended, Show the other events\n3. Open a warning photo, use the arrows\n4. Open Answers, choose a question\n5. Measure page overflow on each tab",
+         expected="Banner with the ending and Awaiting instructor review; 3 photo cards for the 3 warnings only; the ending as one line; recorded-only events folded as text; photo viewer moves between warnings; Back to the course in the tab bar; no page scroll at 1366x657.",
+         ref="src/features/proctoring/components/ExamEndedView.jsx"),
+    dict(id="TC-UI-PROC-010", component="src/features/proctoring/hooks/useBrowserMonitoring.js", type="UI – Browser",
+         scenario="Top-edge warning before the browser's own fullscreen exit button (the X Chrome/Edge show at the top in fullscreen, which no page can hide)",
+         pre=f"{_ENV}; STUDENT in a proctored exam in fullscreen; real mouse (the button is browser UI, so a scripted pointer does not show it)",
+         steps="1. Move the pointer to the top 15 px of the screen\n2. Move it back down and wait 3 s\n3. Click the browser's X to leave fullscreen\n4. Check the attempt's events",
+         expected="Red banner at the top while near the edge, gone about 2.5 s after leaving it, never blocking a click; leaving through the X still shows Return to fullscreen and records one FULLSCREEN_EXIT with a warning.",
+         ref="src/lib/proctoring/examLogic.js isNearFullscreenExit"),
+    dict(id="TC-UI-PROC-011", component="src/features/proctoring/components/ReviewDetail.jsx", type="UI – Browser",
+         scenario="Staff review page as layout A: outcome banner, tabs (Overview, Why it ended, Timeline, All photos), decision fixed on the right, no page scroll",
+         pre=f"{_ENV}; a temporary preview route rendering the component with a seeded review (3 warnings ending the exam, 12 events, 25 photos) inside the bounded shell (removed after the check); Chrome 1366x657 and 390x800",
+         steps="1. Open the page: Why it ended opens first\n2. Open Overview\n3. Open Timeline\n4. Measure page, tab-panel and decision-column overflow\n5. Resize to 390x800",
+         expected="Banner says Ended by proctoring with the rule and count and Awaiting your decision; 3 numbered warning cards with their notes; the ending as one line; other events folded; decision form always visible; no page or panel scroll at 1366x657 on Overview and Why it ended; at 390 wide an ordinary page with no sideways overflow.",
+         ref="src/features/proctoring/components/ReviewDetail.jsx"),
+    dict(id="TC-UI-PROC-012", component="src/components/instructor/quizzes/ProctoringToggle.jsx", type="UI – Browser",
+         scenario="Instructor switches proctoring off and on again on a Final quiz a student has already started",
+         pre="Local web :3000 with every :5000 API request redirected to a local API :5055 on the disposable database (sockets blocked); seeded fake INSTRUCTOR; proctored Final quiz with one SUBMITTED proctored attempt",
+         steps="1. Course Composer: open the quiz, Edit Quiz\n2. Untick Enable proctoring, Save Changes\n3. Edit Quiz again\n4. Tick it again, Save Changes, Edit Quiz",
+         expected="1. Checkbox shown and changeable, note that tag, time limit and questions stay fixed while on\n2. Note changes to what switching off does; PUT /quizzes/:id 200 with proctoringEnabled false; no question requests\n3. Unticked, no lock notes, time limit and questions editable\n4. PUT 200 with proctoringEnabled true; lock notes back",
+         ref="backend quizLock.service.js resolveUpdate; test/proctoring-checkbox.test.js 'switching it off and on'"),
+    dict(id="TC-UI-PROC-013", component="src/features/proctoring/components/ReadinessCheck.jsx", type="UI – Browser",
+         scenario="Readiness 'Camera & mic' step: side column and its button keep their width at every desktop size; video stays 4:3",
+         pre="Local web :3000 with every :5000 API request redirected to a local API :5055 on the disposable database (sockets blocked); seeded fake STUDENT with a proctored quiz and no attempt used",
+         steps="1. Open /student/proctored/<quizId>, tick the notice, Agree and continue\n2. Measure the video box and the 'Turn on camera & mic' button at 1920x1080, 1440x900, 1366x657, 1280x720, 1024x768, 900x700, 800x600, 768x1024\n3. Look at it in light and dark",
+         expected="Video exactly 4:3 and inside its cell at every size; side column 17-20rem; button one line (44 px tall), 14 px text like the device rows; no page scroll.",
+         ref="src/features/proctoring/components/ReadinessCheck.jsx (grid size container)"),
+    dict(id="TC-UI-PROC-014", component="src/features/proctoring/components/ExamRoom.jsx", type="E2E",
+         scenario="Speed of response in a running exam: early message on the first photo that shows a problem, warning once confirmed (different person, covered camera)",
+         pre="Headless Chrome, simulated camera from public-domain fixture photos (scripts/proctoring-e2e/lib.mjs); web :3000 with every :5000 API request redirected to a local API :5055 on the disposable database; real local AI",
+         steps="1. Enter an exam as a seeded student with the identity photo passed\n2. Switch the camera to another person; time the amber early message and the counted warning\n3. Back to the student for 8 s, then switch to a blank (covered) camera; time both again",
+         expected="Early message within one capture interval plus about a second; warning about a second after the first photo for a different person, about 2 s after it for a covered camera; never two warnings within 5 s.",
+         ref="backend rules.js runFrames / identity threshold; monitor.service.js warningOwed; examLogic.js earlyNotice"),
 ]
 
 
@@ -941,7 +1037,7 @@ PURPOSE_OVERRIDES = {
     "src/app/admin/courses/[courseId]/page.jsx": "Route /admin/courses/[courseId]. Admin course review page (no Store pricing management yet — DEF-003).",
     "src/components/student/store/StoreCourseCard.jsx": "Student Store course card: price badge, Enroll Free for free courses, Buy → course details for paid ones.",
     "src/components/student/store/CoursePreviewModal.jsx": "Student Store preview modal: course summary with price badge and Enroll Free / Buy action.",
-    "src/components/instructor/courses/CourseOverviewView.jsx": "Instructor course header/overview: stats, Save, Publish/Unpublish/Restore actions (publish actions violate RBAC — DEF-001).",
+    "src/components/instructor/courses/CourseOverviewView.jsx": "Instructor course header/overview: stats, Save, Publish/Unpublish for the course's author, Restore for admins.",
     "src/components/dashboard/RecommendedCourseCard.jsx": "Recommendation card with 'View Course' link to /student/courses/<id> (no checkout).",
     "src/components/courses/FeaturedCourseCard.jsx": "Landing/catalogue featured course card with Store price or 'Pricing unavailable' and VIEW COURSE.",
     "scripts/ui-smoke.mjs": "Playwright responsive smoke test against a stubbed API: reports horizontal overflow, small tap targets and console errors per viewport.",

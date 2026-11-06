@@ -114,6 +114,12 @@ export const QUERY_KEYS = {
 
     QUIZZES: "quizzes",
     QUIZ: "quiz",
+    PROCTORING_CONFIG: "proctoring-config",
+    PROCTORED_QUIZ_STATUS: "proctored-quiz-status",
+    PROCTORED_ATTEMPT: "proctored-attempt",
+    PROCTORED_ATTEMPT_RESULT: "proctored-attempt-result",
+    PROCTORING_REVIEWS: "proctoring-reviews",
+    PROCTORING_REVIEW: "proctoring-review",
 
     QUESTIONS: "questions",
     QUESTION: "question",

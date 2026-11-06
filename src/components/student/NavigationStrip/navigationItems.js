@@ -2,6 +2,7 @@ import {
   BookOpen,
   ClipboardCheck,
   CodeXml,
+  Award,
 } from "lucide-react";
 
 /**
@@ -13,11 +14,13 @@ import {
  * the onboarding tour spotlights (both the strip pill and the bottom tab).
  */
 export const PRIMARY_NAV_ITEMS = [
-  { label: "Learning", href: "/student/my-courses", icon: BookOpen, primaryOnMobile: true, matches: ["/student/courses"] },
-  // Every assignment and quiz the student has submitted — grades, scores,
-  // attempts and instructor feedback — the lasting record, unlike a
-  // dismissible notification. The route keeps its /assignments path so
-  // existing links still land here.
+  {
+    label: "Learning",
+    href: "/student/my-courses",
+    icon: BookOpen,
+    primaryOnMobile: true,
+    matches: ["/student/courses"],
+  },
   {
     label: "Submissions",
     href: "/student/assignments",
@@ -29,4 +32,12 @@ export const PRIMARY_NAV_ITEMS = [
   // Code-IT: coding lab + playground (Java, Python, C, C++, JS), served by
   // the separate code-it-service microservice.
   { label: "Code-IT", href: "/student/code-it", icon: CodeXml, primaryOnMobile: true },
+  {
+    label: "Certificates",
+    href: "/student/certificates",
+    icon: Award,
+    primaryOnMobile: false,
+    matches: ["/student/certificates"],
+    tourId: "certificates",
+  },
 ];

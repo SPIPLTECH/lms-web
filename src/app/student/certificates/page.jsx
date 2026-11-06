@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Award, Lock, Search } from "lucide-react";
+import { Award, Lock, Search, GraduationCap } from "lucide-react";
+import Link from "next/link";
 
 import Loader from "@/components/common/Loader";
 import PageHeader from "@/components/layouts/PageHeader";
@@ -14,7 +15,6 @@ import CertificateViewerModal from "@/components/student/certificates/Certificat
 import { CERTIFICATES_LOCKED } from "@/constants/features";
 
 export default function StudentCertificatesPage() {
-  // Locked: a notice only, and no certificates are requested.
   if (CERTIFICATES_LOCKED) {
     return (
       <div className="space-y-8">
@@ -34,60 +34,18 @@ export default function StudentCertificatesPage() {
 function CertificatesList() {
   const { user } = useAuth();
   const { data: certificates = [], isLoading, isError } = useCertificates();
-  
+
   const [search, setSearch] = useState("");
   const [selectedCert, setSelectedCert] = useState(null);
 
-  // Fallback mock certificates for sandbox testing if none exist in the database
-  const displayCertificates = useMemo(() => {
-    if (certificates && certificates.length > 0) {
-      return certificates;
-    }
-    
-    // Sandbox Mocks
-    return [
-      {
-        id: "mock_cert_1",
-        certificateNo: "OT-JV-98421",
-        issuedAt: "2026-06-15T00:00:00.000Z",
-        course: {
-          title: "Java Core Essentials",
-          description: "Master object-oriented programming concepts, multithreading, and memory management in Java."
-        },
-        user: {
-          name: user?.name || "Student User",
-          email: user?.email || "student@orangelms.com"
-        }
-      },
-      {
-        id: "mock_cert_2",
-        certificateNo: "OT-WD-38291",
-        issuedAt: "2026-07-02T00:00:00.000Z",
-        course: {
-          title: "Next.js Web Development",
-          description: "Build production-ready fullstack applications using server components, route handlers, and Tailwind CSS."
-        },
-        user: {
-          name: user?.name || "Student User",
-          email: user?.email || "student@orangelms.com"
-        }
-      }
-    ];
-  }, [certificates, user]);
-
   const filteredCertificates = useMemo(() => {
     const query = search.toLowerCase();
-    return displayCertificates.filter((cert) =>
-      cert.course?.title?.toLowerCase().includes(query) ||
-      cert.certificateNo?.toLowerCase().includes(query)
+    return certificates.filter(
+      (cert) =>
+        cert.course?.title?.toLowerCase().includes(query) ||
+        cert.certificateNo?.toLowerCase().includes(query)
     );
-  }, [displayCertificates, search]);
-
-  const handlePrint = () => {
-    if (typeof window !== "undefined") {
-      window.print();
-    }
-  };
+  }, [certificates, search]);
 
   if (isLoading) {
     return <Loader />;
@@ -110,83 +68,87 @@ function CertificatesList() {
     <div className="space-y-8">
       <PageHeader
         title="My Certificates"
-        subtitle="Manage, view, and print your officially earned course completion credentials."
+        subtitle="View, verify, and download your officially earned course completion credentials."
       />
 
-      {/* Info notice about mocks */}
-      {(!certificates || certificates.length === 0) && (
-        <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-xs text-primary flex items-center gap-2 shadow-inner">
-          <Award size={16} className="text-primary" />
-          <span>
-            <strong>Sandbox Mode:</strong> You are viewing sample completion certificates. Earn official credentials by completing course lessons and quizzes.
+      {/* Toolbar / Search (only show if student has certificates) */}
+      {certificates.length > 0 && (
+        <div className="relative max-w-md">
+          <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-muted-foreground pointer-events-none">
+            <Search size={16} />
           </span>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by course title or certificate credential ID..."
+            className="
+              w-full
+              !pl-10
+              !pr-4
+              py-2.5
+              rounded-xl
+              border
+              border-border
+              bg-card
+              text-sm
+              text-foreground
+              placeholder-slate-500
+              focus:border-primary
+              focus:outline-none
+              transition-all
+            "
+          />
         </div>
       )}
 
-      {/* Toolbar */}
-      <div className="relative max-w-md">
-        <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-muted-foreground pointer-events-none">
-          <Search size={16} />
-        </span>
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by course title or certificate code..."
-          className="
-            w-full
-            !pl-10
-            !pr-4
-            py-2.5
-            rounded-xl
-            border
-            border-transparent/80
-            bg-background/40
-            text-sm
-            text-foreground
-            placeholder-slate-500
-            focus:border-primary/50
-            focus:outline-none
-            focus:ring-1
-            focus:ring-orange-500/20
-            transition-all
-            duration-300
-          "
-        />
-      </div>
-
-      {/* Grid */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {filteredCertificates.map((cert) => (
-          <CertificateCard
-            key={cert.id}
-            cert={cert}
-            onView={setSelectedCert}
-            onPrint={(c) => {
-              setSelectedCert(c);
-              setTimeout(() => handlePrint(), 150);
-            }}
-          />
-        ))}
-      </div>
-
-      {filteredCertificates.length === 0 && (
-        <Card className="p-12 text-center border-transparent/80">
-          <div className="mx-auto w-12 h-12 rounded-full bg-background border border-transparent flex items-center justify-center mb-4 text-muted-foreground">
-            <Award size={24} />
+      {/* Certificates Grid */}
+      {filteredCertificates.length > 0 ? (
+        <div className="grid gap-6 md:grid-cols-2">
+          {filteredCertificates.map((cert) => (
+            <CertificateCard
+              key={cert.id}
+              cert={cert}
+              onView={setSelectedCert}
+            />
+          ))}
+        </div>
+      ) : certificates.length === 0 ? (
+        <Card className="p-12 text-center border-dashed border-border/80 bg-card/50 rounded-2xl">
+          <div className="mx-auto w-14 h-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mb-4 text-primary">
+            <GraduationCap size={28} />
           </div>
-          <h3 className="text-lg font-semibold text-foreground">No certificates found</h3>
-          <p className="mt-1.5 text-xs text-muted-foreground max-w-sm mx-auto">
-            Try adjusting your search terms or view your course progress to complete modules.
+          <h3 className="text-lg font-bold text-foreground">
+            No Certificates Earned Yet
+          </h3>
+          <p className="mt-2 text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
+            You will automatically receive an official completion certificate as soon as you complete 100% of the lessons, quizzes, and assignments in any certificate-enabled course.
+          </p>
+          <div className="mt-6">
+            <Link
+              href="/student/my-courses"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-orange-600 text-slate-950 font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-sm"
+            >
+              Continue Learning in My Courses
+            </Link>
+          </div>
+        </Card>
+      ) : (
+        <Card className="p-10 text-center border-border bg-card/50 rounded-2xl">
+          <Award size={24} className="mx-auto text-muted-foreground mb-2" />
+          <h3 className="text-sm font-bold text-foreground">
+            No certificates matched "{search}"
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Try adjusting your search query.
           </p>
         </Card>
       )}
 
-      {/* Certificate Viewer Modal */}
+      {/* Certificate Viewer & Download Modal */}
       <CertificateViewerModal
         cert={selectedCert}
         onClose={() => setSelectedCert(null)}
-        onPrint={handlePrint}
       />
     </div>
   );

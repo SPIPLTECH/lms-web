@@ -51,15 +51,25 @@ export default function Layout({ children }) {
   // under DashboardLayout's p-16 padding.
   const isQuestionUploadPage = pathname === "/instructor/questions/upload";
 
-  if (isCourseComposerPage || isQuestionUploadPage) {
+  // A proctored attempt's review fits a laptop screen like the student's
+  // Exam Ended report; below lg it is an ordinary page, scrolled here.
+  const isProctoringReviewPage =
+    segments[0] === "instructor" && segments[1] === "proctoring" && segments.length === 3;
+
+  const isCertificatesPage =
+    segments[0] === "instructor" &&
+    segments[1] === "courses" &&
+    (segments.includes("certificates") || segments.includes("certificates-and-feedback") || pathname?.includes("/certificates"));
+
+  if (isCourseComposerPage || isQuestionUploadPage || isProctoringReviewPage || isCertificatesPage) {
     return (
       <InstructorNavDrawerProvider>
         <div className="h-screen flex flex-col overflow-hidden">
           <DashboardNavbar
             role="INSTRUCTOR"
-            title={isCourseComposerPage ? "Course Composer" : "Instructor Home"}
+            title={isCourseComposerPage || isCertificatesPage ? "Course Composer" : "Instructor Home"}
           />
-          <div className="flex-1 min-h-0">{children}</div>
+          <div className={`flex-1 min-h-0 ${isProctoringReviewPage ? "overflow-y-auto lg:overflow-hidden" : ""}`}>{children}</div>
         </div>
         <InstructorNavDrawer />
       </InstructorNavDrawerProvider>

@@ -7,6 +7,8 @@ const VIDEO_DIR = path.resolve("./test-evidence/videos");
 fs.mkdirSync(VIDEO_DIR, { recursive: true });
 
 const COURSE_ID = "c1";
+// IDLE_AFTER_MS in src/app/student/learn/[courseId]/page.jsx.
+const IDLE_MS = 30_000;
 
 const FIXTURE_COURSE = {
   id: COURSE_ID,
@@ -217,12 +219,16 @@ async function run() {
     status = await getRailStatus();
     assert("Test 1: Pointer movement over Course Map keeps panels visible", status.width > 200 && !status.isCollapsedClass, `width=${status.width}px after 4s active moves`);
 
-    // TEST 2: Inactivity auto-hides after 2.5 seconds
-    console.log("Testing: Waiting 3.5s without input for auto-hide...");
-    await page.waitForTimeout(3500);
+    // TEST 2: Inactivity auto-hides after 30 seconds, and not before
+    console.log("Testing: 10s without input, panels must still be open...");
+    await page.waitForTimeout(10_000);
+    status = await getRailStatus();
+    assert("Test 2a: Panels stay open through 10s of inactivity", status.width > 200 && !status.isCollapsedClass, `width=${status.width}px after 10s idle`);
+    console.log("Testing: waiting until 31.5s without input for auto-hide...");
+    await page.waitForTimeout(IDLE_MS + 1500 - 10_000);
     status = await getRailStatus();
     let expandVisible = await isExpandBtnVisible();
-    assert("Test 2: Panels auto-hide after 2.5s inactivity", status.width === 0 && status.isCollapsedClass && expandVisible, `width=${status.width}px, expandBtn=${expandVisible}`);
+    assert("Test 2: Panels auto-hide after 30s inactivity", status.width === 0 && status.isCollapsedClass && expandVisible, `width=${status.width}px, expandBtn=${expandVisible}`);
 
     // TEST 3: Mouse movement while hidden must NEVER reveal panels
     console.log("Testing: Repeated mouse movement across lesson area while hidden (3 seconds)...");
@@ -273,9 +279,9 @@ async function run() {
     expandVisible = await isExpandBtnVisible();
     assert("Test 7: Explicit expand tab reopens panels", status.width > 200 && !status.isCollapsedClass && !expandVisible, `width=${status.width}px, expandBtn=${expandVisible}`);
 
-    // TEST 8: Preserves 2.5-second auto-hide after reopening
-    console.log("Testing: Waiting 3.5s after reopening for second auto-hide cycle...");
-    await page.waitForTimeout(3500);
+    // TEST 8: Preserves the 30-second auto-hide after reopening
+    console.log("Testing: Waiting 31.5s after reopening for second auto-hide cycle...");
+    await page.waitForTimeout(IDLE_MS + 1500);
     status = await getRailStatus();
     expandVisible = await isExpandBtnVisible();
     assert("Test 8: Panels auto-hide again after reopening", status.width === 0 && status.isCollapsedClass && expandVisible, `width=${status.width}px, expandBtn=${expandVisible}`);

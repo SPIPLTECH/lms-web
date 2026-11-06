@@ -16,6 +16,10 @@ export default function QuizHeader({
                                        // The 10th (board-paper) course: that button shows the arrow
                                        // only, titled "Back" (at the user's request).
                                        exitIconOnly = false,
+                                       // A proctored exam: no way out from the header, and the
+                                       // countdown runs to the server's deadline.
+                                       hideBack = false,
+                                       fixedDeadline = null,
                                    }) {
     if (!quiz) return null;
 
@@ -40,7 +44,7 @@ export default function QuizHeader({
         <div className="flex min-w-0 flex-row items-center justify-between sm:justify-start gap-2 sm:gap-3 rounded-xl border border-border bg-background/80 px-2.5 sm:px-4 py-2 sm:py-2.5">
             {/* Identity row */}
             <div className="flex min-w-0 flex-1 items-center gap-2">
-                {onBack && exitLabel ? (
+                {hideBack ? null : onBack && exitLabel ? (
                     <button
                         type="button"
                         onClick={onBack}
@@ -110,6 +114,7 @@ export default function QuizHeader({
                             quiz.attemptStatus?.attemptsUsed ?? 0
                         )}
                         onTimeUp={onTimeUp}
+                        fixedDeadline={fixedDeadline}
                     />
                 </div>
             )}

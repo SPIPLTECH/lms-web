@@ -1,0 +1,188 @@
+import {
+    DISCRETE_WARNING_DISMISS_MS,
+    MIN_WARNING_DISPLAY_MS,
+    RESOLVED_WARNING_DISMISS_MS,
+    answerFingerprint,
+    answerRetryDelay,
+    changedQuestionIds,
+    classifyExamError,
+    earlyNotice,
+    formatSavedAnswer,
+    isDevToolsShortcut,
+    isLeaveShortcut,
+    isNearFullscreenExit,
+    isScreenshotShortcut,
+    localDeadlineMs,
+    openWarningBanner,
+    reconcileServerAnswers,
+    refusalMessage,
+    shouldDismissWarningBanner,
+    syncWarningBannerConditions,
+    toSavePayload,
+} from "../proctoring/examLogic.js";
+import { VoiceActivityDetector, crossingsPerSecond, frameLevelDb } from "../proctoring/voiceActivity.js";
+
+/**
+ * The proctored exam page's decisions that need no browser, and the voice detector copied
+ * from ProctorGuard. The screens themselves are exercised in a real browser.
+ */
+let failed = 0;
+const check = (name, ok) => {
+    console.log(`${ok ? "[PASS]" : "[FAIL]"} ${name}`);
+    if (!ok) failed += 1;
+};
+const http = (status, code) => ({ response: { status, data: { code } } });
+
+// ---- shortcuts ----
+check("Alt+Tab, the Windows key, Esc and Ctrl+W count as leaving", [{ key: "Tab", altKey: true }, { key: "Meta" }, { key: "Escape" }, { key: "w", ctrlKey: true }].every(isLeaveShortcut));
+check("back/reload shortcuts (Alt+ArrowLeft, BrowserBack, F5, Ctrl+R) count as leaving", [
+    { key: "ArrowLeft", altKey: true },
+    { key: "ArrowRight", altKey: true },
+    { key: "BrowserBack" },
+    { key: "F5" },
+    { key: "r", ctrlKey: true },
+].every(isLeaveShortcut));
+check("ordinary typing does not", ![{ key: "a" }, { key: "Tab" }, { key: "Enter" }, { key: "w" }, { key: "r" }, { key: "ArrowLeft" }].some(isLeaveShortcut));
+check("PrintScreen and the snipping shortcut are screenshots", Boolean(isScreenshotShortcut({ key: "PrintScreen" })) && Boolean(isScreenshotShortcut({ key: "S", shiftKey: true, metaKey: true })));
+check("Ctrl+P is treated as a screenshot, Ctrl+Shift+P is not", Boolean(isScreenshotShortcut({ key: "p", ctrlKey: true })) && !isScreenshotShortcut({ key: "p", ctrlKey: true, shiftKey: true }));
+check("a plain letter is not a screenshot", !isScreenshotShortcut({ key: "s" }));
+check("F12 and Ctrl+Shift+I are developer tools", isDevToolsShortcut({ key: "F12" }) && isDevToolsShortcut({ key: "I", ctrlKey: true, shiftKey: true }));
+
+// ---- the browser's own fullscreen exit button ----
+check("the pointer at the top edge is near the browser's exit button", [0, 8, 15].every((clientY) => isNearFullscreenExit({ clientY })));
+check("the pointer anywhere lower is not", ![16, 120, 700].some((clientY) => isNearFullscreenExit({ clientY })));
+check("a touch or missing position is not", !isNearFullscreenExit({}) && !isNearFullscreenExit(null));
+
+// ---- what an error means ----
+check("an ended attempt ends the page", classifyExamError(http(409, "ATTEMPT_ENDED")) === "ENDED" && classifyExamError(http(409, "TIME_EXPIRED")) === "ENDED");
+check("another tab or device supersedes this one", classifyExamError(http(409, "TOKEN_SUPERSEDED")) === "SUPERSEDED" && classifyExamError(http(409, "ATTEMPT_ACTIVE_ON_ANOTHER_DEVICE")) === "SUPERSEDED");
+check("a token that no longer works offers a way back, not a dead end", classifyExamError(http(401, "MONITORING_TOKEN_INVALID")) === "SUPERSEDED");
+check("a recheck goes to the recheck screen", classifyExamError(http(409, "IDENTITY_RECHECK_REQUIRED")) === "RECHECK");
+check("a network failure retries", classifyExamError(new Error("Network Error")) === "RETRY" && classifyExamError(http(503)) === "RETRY" && classifyExamError(http(429)) === "RETRY");
+check("a refusal does not retry forever", classifyExamError(http(403)) === "FATAL" && classifyExamError(http(400)) === "FATAL");
+check("retries back off and stop growing", answerRetryDelay(0) === 1000 && answerRetryDelay(1) === 2000 && answerRetryDelay(50) === 15000);
+
+// ---- what needs saving ----
+const answered = { questionId: "q1", answer: "right", answered: true, visited: true, status: "ANSWERED", hintViewed: false };
+const visitedOnly = { questionId: "q2", answer: null, answered: false, visited: true, status: "VISITED" };
+const untouched = { questionId: "q3", answer: null, answered: false, visited: false, status: "NOT_VISITED" };
+check("touched questions need saving, untouched ones do not", JSON.stringify(changedQuestionIds({ q1: answered, q2: visitedOnly, q3: untouched }, {})) === JSON.stringify(["q1", "q2"]));
+check("what the server has does not need saving again", changedQuestionIds({ q1: answered }, { q1: answerFingerprint(answered) }).length === 0);
+check("changing an answer needs saving", changedQuestionIds({ q1: { ...answered, answer: "wrong" } }, { q1: answerFingerprint(answered) }).length === 1);
+check("skipping needs saving", changedQuestionIds({ q1: { ...visitedOnly, questionId: "q1", skipped: true, status: "SKIPPED" } }, { q1: answerFingerprint({ ...visitedOnly, questionId: "q1" }) }).length === 1);
+
+const payload = toSavePayload({ ...answered, firstVisitedAt: 1000, answeredAt: 2000 }, 7);
+check("a save carries the answer and revision", payload.answer === "right" && payload.clientRevision === 7);
+check("times go as ISO dates, and missing ones as null", payload.state.firstVisitedAt === new Date(1000).toISOString() && payload.state.skippedAt === null);
+check("an unanswered question saves null, whatever its record holds", toSavePayload({ ...visitedOnly, answer: "stale" }, 1).answer === null);
+
+// ---- the clock ----
+const received = Date.parse("2026-10-31T10:00:00.000Z");
+check("a correct local clock changes nothing", localDeadlineMs("2026-10-31T11:00:00.000Z", "2026-10-31T10:00:00.000Z", received) === Date.parse("2026-10-31T11:00:00.000Z"));
+check("a local clock an hour fast gets the same hour of exam", localDeadlineMs("2026-10-31T11:00:00.000Z", "2026-10-31T09:00:00.000Z", received) - received === 2 * 3600 * 1000);
+check("a local clock an hour slow gets the same hour of exam", localDeadlineMs("2026-10-31T11:00:00.000Z", "2026-10-31T10:30:00.000Z", received) - received === 30 * 60 * 1000);
+check("no deadline, no countdown", localDeadlineMs(null, "2026-10-31T10:00:00.000Z") === null);
+
+// ---- words ----
+check("answers read as words", formatSavedAnswer("right") === "right" && formatSavedAnswer(["a", "b"]) === "a, b" && formatSavedAnswer({ left: "right" }) === "left → right" && formatSavedAnswer(null) === "");
+check("every refusal the server can send has wording", ["PROCTORING_UNAVAILABLE", "NO_ATTEMPTS_LEFT", "RETAKE_APPROVAL_REQUIRED", "PROCTORING_DECLINED"].every((reason) => Boolean(refusalMessage(reason))));
+check("an unknown refusal has none, rather than a wrong one", refusalMessage("SOMETHING_ELSE") === null);
+
+// ---- voice detection ----
+const SAMPLE_RATE = 48000;
+const tone = (frequency, amplitude, size = 2048) => Float32Array.from({ length: size }, (_, i) => amplitude * Math.sin((2 * Math.PI * frequency * i) / SAMPLE_RATE));
+const silence = new Float32Array(2048);
+check("silence measures as the floor", frameLevelDb(silence) === -100);
+check("a full-scale tone is close to -3 dBFS", Math.abs(frameLevelDb(tone(440, 1)) + 3) < 0.2);
+check("zero crossings follow the pitch", Math.abs(crossingsPerSecond(tone(1000, 1), SAMPLE_RATE) - 2000) < 60);
+
+const run = (frames, options = {}) => {
+    const detector = new VoiceActivityDetector({ sampleRate: SAMPLE_RATE, minSpeechMs: 1500, cooldownMs: 30000, ...options });
+    const reports = [];
+    let now = 0;
+    for (const frame of frames) {
+        const report = detector.push(frame, now);
+        if (report) reports.push(report);
+        now += 100;
+    }
+    return reports;
+};
+const quiet = tone(300, 0.001);
+const speech = tone(300, 0.2);
+const repeat = (frame, count) => Array.from({ length: count }, () => frame);
+check("speech long enough is reported once, as numbers only", (() => {
+    const reports = run([...repeat(quiet, 15), ...repeat(speech, 25)]);
+    return reports.length === 1 && Object.keys(reports[0]).sort().join() === "durationMs,levelDb,speechRatio";
+})());
+check("a short sound is not", run([...repeat(quiet, 15), ...repeat(speech, 5), ...repeat(quiet, 10)]).length === 0);
+check("mains hum is not speech", run([...repeat(quiet, 15), ...repeat(tone(30, 0.2), 25)]).length === 0);
+check("constant background noise is learned as the room", run(repeat(speech, 40)).length === 0);
+check("the cooldown holds a second report back", run([...repeat(quiet, 15), ...repeat(speech, 25), ...repeat(quiet, 10), ...repeat(speech, 25)]).length === 1);
+
+// ---- early notice: the first photo that shows a problem, before it counts as a warning ----
+check("no problem in the newest photo shows nothing", earlyNotice([]) === null && earlyNotice(undefined) === null);
+check("a covered camera is told at once, in plain words, and it is not a warning yet", (() => {
+    const notice = earlyNotice(["FACE_NOT_DETECTED"]);
+    return notice?.eventType === "FACE_NOT_DETECTED" && /face/i.test(notice.message) && /warning/i.test(notice.message);
+})());
+check("a phone is said before anything else in the same photo", earlyNotice(["FACE_NOT_DETECTED", "PROHIBITED_OBJECT_DETECTED"])?.eventType === "PROHIBITED_OBJECT_DETECTED");
+check("someone else in front of the camera is said", earlyNotice(["IDENTITY_MISMATCH_DETECTED"])?.eventType === "IDENTITY_MISMATCH_DETECTED");
+check("a glance away is not nagged about", earlyNotice(["HEAD_POSE_AWAY"]) === null);
+check("a problem already shown as a warning is not said twice", earlyNotice(["FACE_NOT_DETECTED"], "FACE_NOT_DETECTED") === null
+    && earlyNotice(["FACE_NOT_DETECTED", "MULTIPLE_FACES_DETECTED"], "FACE_NOT_DETECTED")?.eventType === "MULTIPLE_FACES_DETECTED");
+
+// ---- warning banner lifecycle (dismissal vs violation resolution) ----
+check("a continuous warning stays pinned while its condition remains active", (() => {
+    const t0 = 10_000;
+    let banner = openWarningBanner({ message: "Face missing", eventType: "FACE_NOT_DETECTED", currentWarnings: 1, maxWarnings: 3 }, t0);
+    banner = syncWarningBannerConditions(banner, ["FACE_NOT_DETECTED"], t0 + 20_000);
+    return banner.continuous && banner.dismissAt === null && !shouldDismissWarningBanner(banner, t0 + 60_000);
+})());
+check("a continuous warning schedules dismissal only after the condition resolves, respecting minimum display time", (() => {
+    const t0 = 10_000;
+    let banner = openWarningBanner({ message: "Phone detected", eventType: "PROHIBITED_OBJECT_DETECTED", currentWarnings: 2, maxWarnings: 3 }, t0);
+    // Resolves after 1s -> must wait until at least t0 + MIN_WARNING_DISPLAY_MS (6s)
+    banner = syncWarningBannerConditions(banner, [], t0 + 1_000);
+    const minFloorRespected = banner.dismissAt === t0 + MIN_WARNING_DISPLAY_MS && !shouldDismissWarningBanner(banner, t0 + 5_500) && shouldDismissWarningBanner(banner, t0 + MIN_WARNING_DISPLAY_MS);
+    // Resolves after 8s -> dismisses at resolve + RESOLVED_WARNING_DISMISS_MS (12s)
+    let banner2 = openWarningBanner({ message: "Looking away", eventType: "HEAD_POSE_AWAY", currentWarnings: 1, maxWarnings: 3 }, t0);
+    banner2 = syncWarningBannerConditions(banner2, [], t0 + 8_000);
+    const postResolveRespected = banner2.dismissAt === t0 + 8_000 + RESOLVED_WARNING_DISMISS_MS;
+    // Re-activating before dismissal re-pins the banner
+    banner2 = syncWarningBannerConditions(banner2, ["HEAD_POSE_AWAY"], t0 + 9_000);
+    return minFloorRespected && postResolveRespected && banner2.dismissAt === null && banner2.resolvedAt === null;
+})());
+check("a discrete warning auto-dismisses after DISCRETE_WARNING_DISMISS_MS", (() => {
+    const t0 = 5_000;
+    const banner = openWarningBanner({ message: "Tab hidden", eventType: "TAB_HIDDEN", currentWarnings: 1, maxWarnings: 3 }, t0);
+    return !banner.continuous && !shouldDismissWarningBanner(banner, t0 + DISCRETE_WARNING_DISMISS_MS - 1) && shouldDismissWarningBanner(banner, t0 + DISCRETE_WARNING_DISMISS_MS);
+})());
+
+// ---- timestamp-aware server answer reconciliation ----
+check("empty local state restores answers, skipped, visited and hintViewed from server rows", (() => {
+    const base = {
+        q1: { questionId: "q1", answer: null, answered: false, skipped: false, visited: false, hintViewed: false, status: "NOT_VISITED", firstVisitedAt: null, lastVisitedAt: null, answeredAt: null, skippedAt: null },
+        q2: { questionId: "q2", answer: null, answered: false, skipped: false, visited: false, hintViewed: false, status: "NOT_VISITED", firstVisitedAt: null, lastVisitedAt: null, answeredAt: null, skippedAt: null },
+    };
+    const reconciled = reconcileServerAnswers(base, [
+        { questionId: "q1", answer: "B", savedAt: "2026-10-31T10:05:00.000Z", state: { visited: true, hintViewed: true, answeredAt: "2026-10-31T10:05:00.000Z" } },
+        { questionId: "q2", answer: null, savedAt: "2026-10-31T10:06:00.000Z", state: { visited: true, skipped: true, skippedAt: "2026-10-31T10:06:00.000Z" } },
+    ]);
+    return reconciled.q1.answer === "B" && reconciled.q1.status === "ANSWERED" && reconciled.q1.hintViewed === true && reconciled.q2.skipped === true && reconciled.q2.status === "SKIPPED";
+})());
+check("newer local pre-refresh answer beats older server answer, while newer server answer from another device beats stale local cache", (() => {
+    const tOld = Date.parse("2026-10-31T10:00:00.000Z");
+    const tMid = Date.parse("2026-10-31T10:02:00.000Z");
+    const tNew = Date.parse("2026-10-31T10:04:00.000Z");
+    const base = {
+        qLocalNewer: { questionId: "qLocalNewer", answer: "LocalChoice", answered: true, skipped: false, visited: true, hintViewed: false, status: "ANSWERED", answeredAt: tNew, lastVisitedAt: tNew },
+        qServerNewer: { questionId: "qServerNewer", answer: "StaleLocal", answered: true, skipped: false, visited: true, hintViewed: false, status: "ANSWERED", answeredAt: tOld, lastVisitedAt: tOld },
+    };
+    const reconciled = reconcileServerAnswers(base, [
+        { questionId: "qLocalNewer", answer: "OldServer", savedAt: new Date(tMid).toISOString(), state: { answeredAt: new Date(tMid).toISOString() } },
+        { questionId: "qServerNewer", answer: "FreshFromOtherDevice", savedAt: new Date(tNew).toISOString(), state: { answeredAt: new Date(tNew).toISOString() } },
+    ]);
+    return reconciled.qLocalNewer.answer === "LocalChoice" && reconciled.qServerNewer.answer === "FreshFromOtherDevice";
+})());
+
+if (failed > 0) process.exit(1);

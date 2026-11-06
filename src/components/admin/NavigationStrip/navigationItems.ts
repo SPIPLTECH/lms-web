@@ -3,6 +3,7 @@ import {
   BookOpen,
   GraduationCap,
   Home,
+  ShieldCheck,
   UserCircle,
   Users,
   type LucideIcon,
@@ -33,5 +34,7 @@ export const PRIMARY_NAV_ITEMS: NavItem[] = [
   { label: "Courses", href: "/admin/courses", icon: BookOpen, primaryOnMobile: true },
   { label: "Enrollments", href: "/admin/enrollments", icon: GraduationCap, primaryOnMobile: true },
   { label: "Analytics", href: "/admin/analytics", icon: BarChart3, primaryOnMobile: true },
+  // Hidden by NavigationStrip while proctoring is off.
+  { label: "Proctoring", href: "/admin/proctoring", icon: ShieldCheck },
   { label: "Profile", href: "/admin/profile", icon: UserCircle, primaryOnMobile: true },
 ];

@@ -1,120 +1,107 @@
 "use client";
 
-import { Award } from "lucide-react";
+import { useState } from "react";
+import { Award, Download, Printer, X, Loader2 } from "lucide-react";
+import { downloadCertificatePdf, buildCertificateFilename } from "@/services/certificate.service";
+import CertificatePreviewCanvas from "@/components/student/certificates/CertificatePreviewCanvas";
 
-export default function CertificateViewerModal({ cert, onClose, onPrint }) {
+export default function CertificateViewerModal({ cert, onClose }) {
+  const [downloading, setDownloading] = useState(false);
+
   if (!cert) return null;
+
+  const rawTemplate =
+    cert.templateId ||
+    cert.course?.certificateTemplate?.templateId ||
+    cert.course?.certificateTemplate?.style ||
+    "CLASSIC_GOLD_V1";
+
+  const templateId = (() => {
+    const s = String(rawTemplate).toUpperCase();
+    if (s === "CLASSIC_GOLD_V1" || s === "GOLD_A" || s === "CLASSIC_GOLD" || s === "CLASSIC") return "CLASSIC_GOLD_V1";
+    if (s === "CLASSIC_GOLD_V2" || s === "GOLD_B" || s === "MODERN_MINIMAL") return "CLASSIC_GOLD_V2";
+    if (s === "CLASSIC_GOLD_V3" || s === "GOLD_C" || s === "PREMIUM_DARK") return "CLASSIC_GOLD_V3";
+    if (s === "CLASSIC_GOLD_V4" || s === "GOLD_D") return "CLASSIC_GOLD_V4";
+    return "CLASSIC_GOLD_V1";
+  })();
+
+  const isGraded = Boolean(cert.grade && cert.grade !== "Completed" && cert.score !== null && cert.score !== undefined);
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const preferredFilename = buildCertificateFilename(cert);
+      await downloadCertificatePdf(cert.id, preferredFilename);
+    } catch (err) {
+      console.error("Failed to download certificate PDF:", err);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handlePrint = () => {
+    if (typeof window !== "undefined") {
+      window.print();
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-background/85 backdrop-blur-md animate-in fade-in duration-200">
-      {/* Close Backdrop click */}
+      {/* Backdrop */}
       <div className="absolute inset-0 cursor-default" onClick={onClose} />
 
-      <div className="relative w-full max-w-3xl bg-background border border-border rounded-2xl p-8 shadow-2xl z-10 flex flex-col gap-6 animate-in zoom-in-95 duration-200">
-
+      <div className="relative w-full max-w-4xl bg-card border border-border rounded-2xl p-6 sm:p-8 shadow-2xl z-10 flex flex-col gap-5 animate-in zoom-in-95 duration-200 max-h-[92vh] overflow-y-auto">
         {/* Modal Actions */}
-        <div className="flex justify-between items-center pb-4 border-b border-border/60 print:hidden">
-          <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-            <Award size={16} className="text-primary" />
-            Certificate Preview
-          </h3>
+        <div className="flex justify-between items-center pb-3 border-b border-border/80 print:hidden">
+          <div className="flex items-center gap-2">
+            <Award size={18} className="text-amber-500" />
+            <h3 className="text-sm font-bold text-foreground">
+              Official Credential Preview
+            </h3>
+          </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={onPrint}
-              className="px-3.5 py-1.5 rounded-lg bg-primary text-foreground text-xs font-semibold hover:bg-orange-600 shadow-md shadow-orange-500/15 transition-all"
+              onClick={handleDownload}
+              disabled={downloading}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-500 text-slate-950 text-xs font-bold hover:bg-amber-600 transition shadow-sm disabled:opacity-50 cursor-pointer"
             >
-              Print / Save PDF
+              {downloading ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <Download size={13} />
+              )}
+              Download PDF
+            </button>
+            <button
+              onClick={handlePrint}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-border bg-background hover:bg-muted text-foreground text-xs font-semibold transition cursor-pointer"
+            >
+              <Printer size={13} />
+              Print
             </button>
             <button
               onClick={onClose}
-              className="px-3.5 py-1.5 rounded-lg bg-muted text-foreground text-xs font-semibold hover:bg-muted hover:text-foreground transition-all"
+              className="p-1.5 rounded-xl border border-border hover:bg-muted text-foreground transition cursor-pointer"
+              aria-label="Close modal"
             >
-              Close
+              <X size={15} />
             </button>
           </div>
         </div>
 
-        {/* Printable Certificate Page */}
-        <div className="
-          relative
-          w-full
-          aspect-[1.414/1]
-          border-[8px]
-          border-double
-          border-primary/40
-          bg-background
-          p-12
-          rounded-xl
-          flex
-          flex-col
-          justify-between
-          align-center
-          text-center
-          overflow-hidden
-          shadow-inner
-          print:border-slate-300
-          print:bg-white
-          print:text-black
-        ">
-          {/* Decorative Corner Borders */}
-          <div className="absolute top-4 left-4 w-12 h-12 border-t-2 border-l-2 border-primary/30 print:border-slate-300 pointer-events-none" />
-          <div className="absolute top-4 right-4 w-12 h-12 border-t-2 border-r-2 border-primary/30 print:border-slate-300 pointer-events-none" />
-          <div className="absolute bottom-4 left-4 w-12 h-12 border-b-2 border-l-2 border-primary/30 print:border-slate-300 pointer-events-none" />
-          <div className="absolute bottom-4 right-4 w-12 h-12 border-b-2 border-r-2 border-primary/30 print:border-slate-300 pointer-events-none" />
+        {/* Certificate Landscape Canvas */}
+        <div className="relative overflow-hidden rounded-xl border border-border/80 bg-background/50 p-2 sm:p-4">
+          <CertificatePreviewCanvas
+            cert={cert}
+            templateId={templateId}
+            isGraded={isGraded}
+          />
+        </div>
 
-          {/* Certificate Header */}
-          <div className="space-y-1">
-            <div className="flex justify-center text-primary print:text-slate-600 mb-2">
-              <Award size={40} className="drop-shadow-[0_0_10px_rgba(249,115,22,0.3)] print:drop-shadow-none" />
-            </div>
-            <h1 className="text-xl font-bold tracking-widest uppercase text-foreground print:text-black">
-              Certificate of Completion
-            </h1>
-            <p className="text-[10px] tracking-wider uppercase text-muted-foreground print:text-muted-foreground font-semibold">
-              Orange Tree Learning Management System
-            </p>
-          </div>
-
-          {/* Body */}
-          <div className="space-y-4">
-            <p className="text-[11px] italic text-muted-foreground print:text-muted-foreground">
-              This credential is proudly presented to
-            </p>
-            <h2 className="text-3xl font-extrabold text-foreground print:text-black border-b border-border/80 pb-2 max-w-md mx-auto tracking-wide font-serif">
-              {cert.user?.name}
-            </h2>
-            <p className="text-[11px] text-muted-foreground print:text-slate-600 max-w-lg mx-auto leading-relaxed">
-              for successfully satisfying all academic specifications, coursework modules, and final assessments for the study of
-            </p>
-            <h3 className="text-xl font-bold text-primary print:text-slate-800 tracking-wide leading-tight">
-              {cert.course?.title}
-            </h3>
-          </div>
-
-          {/* Footer signatures & dates */}
-          <div className="flex justify-between items-end border-t border-border print:border-slate-200 pt-6 max-w-xl mx-auto w-full text-left text-[10px]">
-            <div className="flex flex-col gap-1">
-              <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">Credential ID</span>
-              <span className="font-mono text-foreground print:text-black font-semibold">{cert.certificateNo}</span>
-            </div>
-
-            <div className="flex flex-col items-center gap-1 text-center">
-              <div className="w-16 h-0.5 bg-muted print:bg-slate-300 mb-1" />
-              <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">Authorized Seal</span>
-              <span className="font-serif italic text-foreground print:text-black font-semibold">Orange Tree LMS</span>
-            </div>
-
-            <div className="flex flex-col gap-1 text-right">
-              <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">Date of Issue</span>
-              <span className="text-foreground print:text-black font-semibold">
-                {new Date(cert.issuedAt).toLocaleDateString(undefined, {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
-              </span>
-            </div>
-          </div>
+        {/* Modal Footer Info */}
+        <div className="flex justify-between items-center text-xs text-muted-foreground pt-1 print:hidden">
+          <span>Standard ISO 216 A4 Landscape Format</span>
+          <span>Credential ID: <strong className="font-mono text-foreground">{cert.certificateNo || "CR-01OKK6"}</strong></span>
         </div>
       </div>
     </div>

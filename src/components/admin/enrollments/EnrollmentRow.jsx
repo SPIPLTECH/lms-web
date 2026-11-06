@@ -60,6 +60,26 @@ export default function EnrollmentRow({
                 ).toLocaleDateString()}
             </td>
 
+            {/* Status / Expiry */}
+            <td className="px-6 py-4">
+                {enrollment.isExpired || (enrollment.expiresAt && new Date(enrollment.expiresAt) <= new Date()) ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-red-500/10 text-red-400">
+                        <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                        Expired ({new Date(enrollment.expiresAt).toLocaleDateString()})
+                    </span>
+                ) : enrollment.expiresAt ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                        Active (Expires {new Date(enrollment.expiresAt).toLocaleDateString()})
+                    </span>
+                ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground">
+                        <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
+                        Lifetime
+                    </span>
+                )}
+            </td>
+
             {/* Actions */}
             <td className="px-6 py-4 text-right">
                 <ActionMenu

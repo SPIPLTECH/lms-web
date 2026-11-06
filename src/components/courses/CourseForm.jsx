@@ -23,6 +23,8 @@ const INITIAL_FORM = {
     discussionEnabled: true,
     sequentialLearning: true,
     estimatedLearningHours: 0,
+    durationValue: "",
+    durationUnit: "MONTHS",
 };
 
 const LEVELS = [
@@ -92,6 +94,20 @@ export default function CourseForm({
                 discussionEnabled: initialValues.discussionEnabled ?? true,
                 sequentialLearning: initialValues.sequentialLearning ?? true,
                 estimatedLearningHours: initialValues.estimatedLearningHours ?? 0,
+                durationValue: (() => {
+                    const days = initialValues.accessDurationDays;
+                    if (!days || Number(days) <= 0) return "";
+                    if (days % 365 === 0) return String(days / 365);
+                    if (days % 30 === 0) return String(days / 30);
+                    return String(days);
+                })(),
+                durationUnit: (() => {
+                    const days = initialValues.accessDurationDays;
+                    if (!days || Number(days) <= 0) return initialValues.accessDurationDays === 0 ? "SELF_PACED" : "MONTHS";
+                    if (days % 365 === 0) return "YEARS";
+                    if (days % 30 === 0) return "MONTHS";
+                    return "DAYS";
+                })(),
             });
         }
     }, [initialValues]);
@@ -127,11 +143,22 @@ export default function CourseForm({
 
         setValidationErrors({});
         
+        let calculatedAccessDurationDays = null;
+        if (formData.durationUnit !== "SELF_PACED" && formData.durationValue && Number(formData.durationValue) > 0) {
+            const num = parseInt(formData.durationValue, 10);
+            if (formData.durationUnit === "DAYS") calculatedAccessDurationDays = num;
+            else if (formData.durationUnit === "MONTHS") calculatedAccessDurationDays = num * 30;
+            else if (formData.durationUnit === "YEARS") calculatedAccessDurationDays = num * 365;
+        }
+
         const payload = {
             ...formData,
             tags: formData.tags ? formData.tags.split(",").map(t => t.trim()).filter(Boolean) : [],
             estimatedLearningHours: formData.estimatedLearningHours ? Number(formData.estimatedLearningHours) : 0,
+            accessDurationDays: calculatedAccessDurationDays,
         };
+        delete payload.durationValue;
+        delete payload.durationUnit;
         
         onSubmit?.(payload);
     };
@@ -352,6 +379,44 @@ export default function CourseForm({
                         value={formData.estimatedLearningHours}
                         onChange={handleChange}
                     />
+
+                    <div>
+                        <label className="block mb-2 text-sm font-medium">
+                            Course Access Duration
+                        </label>
+                        <div className="flex gap-2">
+                            {formData.durationUnit !== "SELF_PACED" && (
+                                <input
+                                    name="durationValue"
+                                    type="number"
+                                    min="1"
+                                    max="3650"
+                                    placeholder="e.g. 3"
+                                    value={formData.durationValue}
+                                    onChange={handleChange}
+                                    className="w-1/2 rounded-lg bg-background border border-border px-4 py-3 outline-none focus:border-primary text-sm font-medium text-foreground"
+                                />
+                            )}
+                            <select
+                                name="durationUnit"
+                                value={formData.durationUnit}
+                                onChange={handleChange}
+                                className={`rounded-lg bg-background border border-border px-4 py-3 outline-none focus:border-primary text-sm font-medium text-foreground ${
+                                    formData.durationUnit === "SELF_PACED" ? "w-full" : "w-1/2"
+                                }`}
+                            >
+                                <option value="DAYS">Days</option>
+                                <option value="MONTHS">Months</option>
+                                <option value="YEARS">Years</option>
+                                <option value="SELF_PACED">Self-Paced / No Expiration</option>
+                            </select>
+                        </div>
+                        <p className="mt-1.5 text-xs text-muted-foreground">
+                            {formData.durationUnit === "SELF_PACED" || !formData.durationValue
+                                ? "Students will have unlimited lifetime access to this course."
+                                : `Students receive ${formData.durationValue} ${formData.durationUnit.toLowerCase()} access + 1 calendar month grace after enrolling.`}
+                        </p>
+                    </div>
                 </div>
 
                 <div className="space-y-4 rounded-xl border border-border bg-background/30 p-5 mt-4">

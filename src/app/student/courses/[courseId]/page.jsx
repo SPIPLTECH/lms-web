@@ -1,6 +1,6 @@
 "use client";
 
-import { use } from "react";
+import { use, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpen } from "lucide-react";
 
@@ -10,6 +10,7 @@ import CourseDetails from "@/components/student/course-details/CourseDetails";
 import useStudentCoursePage from "@/hooks/queries/student/useStudentCoursePage";
 import useCourseTestReview from "@/hooks/queries/student/useCourseTestReview";
 import CourseTestReviewCard from "@/components/student/test-review/CourseTestReviewCard";
+import { looksLikeCourseId } from "@/lib/courseSlug";
 
 /**
  * Course details for an enrolled student (see CourseDetails): what the
@@ -18,11 +19,19 @@ import CourseTestReviewCard from "@/components/student/test-review/CourseTestRev
  * component draws the page.
  */
 export default function CourseDetailsPage({ params }) {
-  const { courseId } = use(params);
+  const { courseId: courseKey } = use(params);
   const router = useRouter();
-  const { status, course, isEnrolled, learnPath, actionLabel, hasNoContent } = useStudentCoursePage(courseId);
+  const { status, course, courseId, isEnrolled, isComplete, overviewPath, learnPath, actionLabel, hasNoContent } =
+    useStudentCoursePage(courseKey);
   // Test-series courses only: progress toward, then the whole-course review.
   const { data: testReview } = useCourseTestReview(courseId, { enabled: isEnrolled });
+
+  // Mirror the address bar to the readable key when visited by id, without reloading.
+  useEffect(() => {
+    if (overviewPath && looksLikeCourseId(courseKey) && window.location.pathname !== overviewPath) {
+      window.history.replaceState(window.history.state, "", overviewPath);
+    }
+  }, [overviewPath, courseKey]);
 
   if (status === "loading") return <Loader />;
   if (status === "error") {
@@ -45,7 +54,8 @@ export default function CourseDetailsPage({ params }) {
         course={course}
         actionLabel={actionLabel}
         hasNoContent={hasNoContent}
-        onOpenMap={() => router.push(`/student/courses/${courseId}/map`)}
+        isComplete={isComplete}
+        onOpenMap={() => router.push(`/student/courses/${courseKey}/map`)}
         // No ?item= — the player lands on the server's resume step.
         onContinue={() => router.push(learnPath)}
       />

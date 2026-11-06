@@ -12,6 +12,7 @@ import QuestionCard from "@/components/student/attempt/QuestionCard";
 import QuizNavigation, { QuestionPalette, isLargeQuiz } from "@/components/student/attempt/QuizNavigation";
 import QuizSubmitModal from "@/components/student/attempt/QuizSubmitModal";
 import QuizResultSummary from "@/components/student/attempt/QuizResultSummary";
+import ProctoredQuizLauncher from "@/features/proctoring/components/ProctoredQuizLauncher";
 import QuizStartScreen from "@/components/student/attempt/QuizStartScreen";
 import useQuiz from "@/hooks/queries/student/useQuiz";
 import useSubmitQuiz from "@/hooks/queries/student/useSubmitQuiz";
@@ -429,7 +430,7 @@ export default function QuizExperience({
     const { data: resultData, isLoading: isResultLoading } = useQuizResult(quizId, {
         // A Self-Test has no result screen to feed; its summary is worked out
         // from the answers on screen.
-        enabled: !isPractice && (isSubmitted || Boolean(quiz?.attemptStatus?.attemptsUsed > 0)),
+        enabled: !isPractice && (!quiz?.proctoringEnabled || Boolean(quiz?.proctoringDeclined)) && (isSubmitted || Boolean(quiz?.attemptStatus?.attemptsUsed > 0)),
     });
 
     const submissionResult = resultData?.data || resultData;
@@ -481,6 +482,13 @@ export default function QuizExperience({
                 </p>
             </div>
         );
+    }
+
+    // Every launch point comes through here, so this one branch sends every proctored
+    // quiz to its own exam page. The server sends no questions to this screen anyway.
+    // A student who chose to take it without proctoring gets the ordinary quiz below.
+    if (quiz.proctoringEnabled && !quiz.proctoringDeclined) {
+        return <ProctoredQuizLauncher quiz={quiz} onBack={onBack} resultReturnTo={resultReturnTo} />;
     }
 
     // A Self-Test stays on its questions after it saves — the student keeps

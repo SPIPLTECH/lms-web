@@ -382,7 +382,7 @@ Responsible for:
 - Managing content items
 - Managing quizzes
 - Managing course metadata
-- Publishing / unpublishing owned courses
+- Publishing and unpublishing **their own** courses (owner decision, 2026-11-04): Publish on a DRAFT course and Unpublish on a PUBLISHED one, in the course header of `/instructor/courses/[courseId]`. The backend allows it only for the course's creator (`verifyCourseOwnership` on `POST /courses/:courseId/publish|unpublish`).
 
 Instructor MUST NOT:
 
@@ -391,16 +391,8 @@ Instructor MUST NOT:
 - Set discounts
 - Change discounts
 - Modify Store pricing
-- Publish or unpublish courses they do not own
-- Archive or restore courses
-
-Current known gap:
-
-```text
-/instructor/courses/[courseId]
-```
-
-contains a publish toggle that must be removed.
+- Archive courses, or restore archived ones
+- Publish or unpublish another instructor's course
 
 Frontend restrictions are not security boundaries. Backend RBAC remains authoritative.
 
@@ -704,7 +696,7 @@ Before declaring a frontend task complete:
 ### Business Rules
 
 - [ ] Instructor has no pricing controls.
-- [ ] Instructor has no publication controls.
+- [ ] Instructor can publish and unpublish only their own courses; no archive or restore control.
 - [ ] Admin pricing UI follows the approved Store model.
 - [ ] Student sees actual Store pricing.
 - [ ] Invalid pricing shows `Pricing unavailable`.

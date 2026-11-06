@@ -17,6 +17,7 @@ export default function QuizCard({ quiz }) {
         <div className="min-w-0 flex-1">
           <h3 className="text-h4 text-foreground tracking-tight line-clamp-2" title={quiz.title}>
             {quiz.title}
+            {quiz.proctoringEnabled && <span className="ml-1.5 inline-flex items-center rounded-md border border-primary/30 bg-primary/10 px-1.5 py-0.5 align-middle text-[10px] font-bold uppercase tracking-wider text-primary">Proctored</span>}
           </h3>
           <p className="text-xs text-muted-foreground line-clamp-2 mt-1 leading-relaxed">
             {quiz.description || "Self-assessment to verify concept mastery."}

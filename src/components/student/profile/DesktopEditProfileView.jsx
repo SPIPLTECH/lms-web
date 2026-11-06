@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import {
   User,
   Mail,
@@ -418,6 +419,14 @@ export default function DesktopEditProfileView({ profile, onRefresh }) {
               <Lock size={14} />
               <span>Change Password</span>
             </button>
+
+            <Link
+              href="/student/certificates"
+              className="flex items-center justify-center gap-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 font-bold text-xs px-5 py-2.5 transition active:scale-95 cursor-pointer"
+            >
+              <Award size={14} />
+              <span>My Certificates</span>
+            </Link>
 
           </div>
         </div>

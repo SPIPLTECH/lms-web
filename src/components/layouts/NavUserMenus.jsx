@@ -233,6 +233,16 @@ export function ProfileMenu({ user, onLogout, profileHref = "/student/profile", 
               My Profile
             </Link>
           )}
+          {profileHref?.startsWith("/student") && (
+            <Link
+              href="/student/certificates"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="flex items-center rounded-xl px-3 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-white/[0.06] hover:text-foreground"
+            >
+              My Certificates
+            </Link>
+          )}
           {onTakeTour && (
             <button
               type="button"

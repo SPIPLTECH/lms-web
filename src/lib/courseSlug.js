@@ -72,6 +72,19 @@ export function learnHrefForId(courseId, enrollments = [], query = "") {
   return learnHref({ id: courseId, title: match?.title }, enrollments, query);
 }
 
+/** /student/courses/<readable key>[?query] for course overview. */
+export function courseOverviewHref(course, enrollments = [], query = "") {
+  const key = courseKeyFor(course, enrollments) || course?.id || "";
+  const search = query ? (query.startsWith("?") ? query : `?${query}`) : "";
+  return `/student/courses/${encodeURIComponent(key)}${search}`;
+}
+
+/** courseOverviewHref for a course known only by id (its title is looked up in `enrollments`). */
+export function courseOverviewHrefForId(courseId, enrollments = [], query = "") {
+  const match = enrollments.map(enrollmentCourse).find((course) => course.id === courseId);
+  return courseOverviewHref({ id: courseId, title: match?.title }, enrollments, query);
+}
+
 const LEARN_PREFIX = "/student/learn/";
 
 /** The course key in a /student/learn/<key> pathname, or null. */

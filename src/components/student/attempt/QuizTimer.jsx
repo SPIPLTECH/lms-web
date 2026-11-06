@@ -34,6 +34,9 @@ export default function QuizTimer({
                                       duration = 15,
                                       storageKey,
                                       onTimeUp,
+                                      // A deadline decided elsewhere (a proctored exam's, from the
+                                      // server), in this browser's clock. Nothing is stored for it.
+                                      fixedDeadline = null,
                                   }) {
     const effectiveDuration = useMemo(() => {
         const num = Number(duration);
@@ -44,12 +47,12 @@ export default function QuizTimer({
     // rather than a decrementing counter, so it reflects real elapsed time
     // even after a refresh or a throttled background tab.
     const [deadline, setDeadline] = useState(() =>
-        readOrCreateDeadline(storageKey, effectiveDuration)
+        fixedDeadline ?? readOrCreateDeadline(storageKey, effectiveDuration)
     );
 
     useEffect(() => {
-        setDeadline(readOrCreateDeadline(storageKey, effectiveDuration));
-    }, [storageKey, effectiveDuration]);
+        setDeadline(fixedDeadline ?? readOrCreateDeadline(storageKey, effectiveDuration));
+    }, [storageKey, effectiveDuration, fixedDeadline]);
 
     const [timeLeft, setTimeLeft] = useState(() =>
         Math.max(0, Math.round((deadline - Date.now()) / 1000))
