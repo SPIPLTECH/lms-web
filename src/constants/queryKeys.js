@@ -28,10 +28,6 @@ export const QUERY_KEYS = {
     STICKY_NOTES: "sticky-notes",
     TRANSCRIPT: "transcript",
     NOTES: "notes",
-    /** Code-IT microservice: lab topics per language, and one exercise. */
-    CODEIT_LANGUAGES: "codeit-languages",
-    CODEIT_TOPICS: "codeit-topics",
-    CODEIT_EXERCISE: "codeit-exercise",
     BOOKMARKS: "bookmarks",
     MY_ACHIEVEMENTS: "my-achievements",
     DASHBOARD: "dashboard",

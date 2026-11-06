@@ -58,7 +58,6 @@ export default function Layout({ children }) {
   }
 
   const isLearnPage = pathname?.includes("/student/learn/");
-  const isCodeItPage = pathname === "/student/code-it";
 
   // Pages that show course content follow the account's playback lease: while
   // another device of this account is playing, they show why instead.
@@ -105,17 +104,6 @@ export default function Layout({ children }) {
               <DashboardNavbar role="STUDENT" title="Learning Workspace" />
               <div className="flex-1 min-h-0">{content}</div>
             </div>
-          ) : isCodeItPage ? (
-            // Code-IT is a full-viewport workspace: from md up the editor and
-            // output stretch to the bottom of the screen and only their panes
-            // scroll.
-            <>
-              <div className="min-h-screen md:h-screen flex flex-col md:overflow-hidden bg-background">
-                <DashboardNavbar role="STUDENT" title="Code-IT" />
-                <main className="flex-1 min-h-0 w-full flex flex-col px-3 py-3 sm:px-4">{content}</main>
-              </div>
-              {bottomTabs}
-            </>
           ) : (
             <>
               <DashboardLayout

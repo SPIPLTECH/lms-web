@@ -1,7 +1,6 @@
 import {
   BookOpen,
   ClipboardCheck,
-  CodeXml,
   Award,
 } from "lucide-react";
 
@@ -29,9 +28,6 @@ export const PRIMARY_NAV_ITEMS = [
     matches: ["/student/result", "/student/quizzes"],
     tourId: "submissions",
   },
-  // Code-IT: coding lab + playground (Java, Python, C, C++, JS), served by
-  // the separate code-it-service microservice.
-  { label: "Code-IT", href: "/student/code-it", icon: CodeXml, primaryOnMobile: true },
   {
     label: "Certificates",
     href: "/student/certificates",
