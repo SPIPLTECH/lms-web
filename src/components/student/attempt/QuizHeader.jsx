@@ -17,6 +17,9 @@ export default function QuizHeader({
                                        // countdown runs to the server's deadline.
                                        hideBack = false,
                                        fixedDeadline = null,
+                                       // The 10th (board-paper) course: that button shows the arrow
+                                       // only, titled "Back" (at the user's request).
+                                       exitIconOnly = false,
                                    }) {
     if (!quiz) return null;
 
@@ -45,10 +48,14 @@ export default function QuizHeader({
                     <button
                         type="button"
                         onClick={onBack}
-                        className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-transparent px-2 sm:px-2.5 text-xs font-semibold text-muted-foreground transition hover:border-primary/40 hover:text-primary cursor-pointer"
+                        title={exitIconOnly ? "Back" : undefined}
+                        aria-label={exitIconOnly ? "Back" : undefined}
+                        className={`inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-transparent text-xs font-semibold text-muted-foreground transition hover:border-primary/40 hover:text-primary cursor-pointer ${
+                            exitIconOnly ? "w-8 justify-center" : "px-2 sm:px-2.5"
+                        }`}
                     >
-                        <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-                        {exitLabel}
+                        <ArrowLeft className={exitIconOnly ? "h-4 w-4" : "h-3.5 w-3.5"} aria-hidden="true" />
+                        {!exitIconOnly && exitLabel}
                     </button>
                 ) : onBack ? (
                     <button

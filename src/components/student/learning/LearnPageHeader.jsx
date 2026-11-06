@@ -3,6 +3,7 @@
 import { PanelLeftOpen, MoreHorizontal } from "lucide-react";
 
 import EvaluatorFeedbackButton from "@/components/evaluator/EvaluatorFeedbackButton";
+import QuestionTypeChips from "@/components/student/learning/QuestionTypeChips";
 
 // Sub-header for the learning workspace — the lesson/topic currently playing
 // in the content player and the Sticky Notes trigger. The shared
@@ -23,6 +24,12 @@ export default function LearnPageHeader({
   // Concept) and that level's name — one line, never a breadcrumb stack.
   topicTitle,
   levelLabel = "Topic",
+  // Board-paper courses (SSC Class 10): QuestionTypeChips props for the
+  // current topic's question-type tags; renders nothing elsewhere.
+  questionTypeChips = null,
+  // Board-paper course (SSC Class 10): the header holds only those tags — no
+  // "Learning Workspace" / lesson / topic lines and no More button.
+  boardPaper = false,
   course,
   // No progress readout here: the Course Map already reports progress at every
   // level (course, module, lesson, topic, subtopic, concept), so repeating the
@@ -44,7 +51,10 @@ export default function LearnPageHeader({
           idle timer from hiding it. */}
       <div
         data-learn-chrome=""
-        className={`max-sm:hidden shrink-0 relative z-30 grid transition-[grid-template-rows] duration-300 ease-in-out ${
+        // 10th (board-paper) course only: its header holds just the type tags,
+        // which below xl sit beside the Course Map button — so it is xl only.
+        // Every other course: unchanged (hidden on phones only).
+        className={`${boardPaper ? "max-xl:hidden" : "max-sm:hidden"} shrink-0 relative z-30 grid transition-[grid-template-rows] duration-300 ease-in-out ${
           collapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"
         }`}
       >
@@ -53,6 +63,11 @@ export default function LearnPageHeader({
             className="bg-[#07080f]/80 backdrop-blur-md border-b border-border py-3 max-xl:py-2 px-4 sm:px-6 flex items-center justify-between select-none"
           >
             <div className="flex items-center gap-3 min-w-0 flex-1">
+              {boardPaper ? (
+                <div className="hidden xl:block min-w-0">
+                  {questionTypeChips && <QuestionTypeChips {...questionTypeChips} />}
+                </div>
+              ) : (
               <div className="hidden xl:block min-w-0">
                 <span className="text-[12px] font-black uppercase tracking-widest text-muted-foreground truncate block">
                   LEARNING WORKSPACE
@@ -63,7 +78,9 @@ export default function LearnPageHeader({
                 {topicTitle && (
                   <p className="text-sm text-muted-foreground truncate">{levelLabel}: {topicTitle}</p>
                 )}
+                {questionTypeChips && <QuestionTypeChips {...questionTypeChips} className="mt-2" />}
               </div>
+              )}
             </div>
 
             <div className="flex shrink-0 items-center gap-3">
@@ -75,6 +92,7 @@ export default function LearnPageHeader({
                 border-radius / box-shadow / transition that beats Tailwind
                 utilities, so the pill radius and transition are set inline and the
                 gradient ring + glow live on inner spans the rule doesn't touch. */}
+            {!boardPaper && (
             <button
               type="button"
               onClick={onToggleStickyNotes}
@@ -109,6 +127,7 @@ export default function LearnPageHeader({
                 <span className="hidden sm:inline">More</span>
               </span>
             </button>
+            )}
             </div>
           </header>
         </div>

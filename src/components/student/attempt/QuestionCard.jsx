@@ -11,6 +11,7 @@ import MatchPairsGrid from "./MatchPairsGrid";
 import SelfAssessmentInput from "./SelfAssessmentInput";
 import ListenButton from "@/components/student/tts/ListenButton";
 import QuestionTags from "@/components/quiz/QuestionTags";
+import BoardQuestionText from "@/components/student/attempt/BoardQuestionText";
 import QuizRichText from "@/components/quiz/QuizRichText";
 import { resolveQuestionType, TRUE_FALSE_OPTIONS } from "@/lib/questionType";
 import { buildQuestionSpeech } from "@/lib/quizSpeech";
@@ -35,6 +36,11 @@ export default function QuestionCard({
   revealAnswers = false,
   answerChecked = false,
   onCheckAnswer,
+  // The 10th (board-paper) course shows no session / Q. number tags.
+  hideTags = false,
+  // The 10th (board-paper) course: the question text laid out as board
+  // question / activity / figure / this step (BoardQuestionText).
+  boardPaper = false,
 }) {
   const type = resolveQuestionType(question?.questionType);
   const isChoice = type === "MCQ_SINGLE" || type === "MCQ_MULTI";
@@ -141,10 +147,16 @@ export default function QuestionCard({
         <h2 className="sr-only">
           {questionNumber && totalQuestions ? `Question ${questionNumber} of ${totalQuestions}` : "Question"}
         </h2>
+        {boardPaper ? (
+          <div className="break-words flex-1 min-w-0">
+            <BoardQuestionText key={question.id} text={question.question} />
+          </div>
+        ) : (
         <div className="text-sm sm:text-xl font-semibold leading-snug text-foreground break-words flex-1 min-w-0">
-          <QuestionTags tags={question.tags} className="mb-3 sm:mb-4" />
+          {!hideTags && <QuestionTags tags={question.tags} className="mb-3 sm:mb-4" />}
           <QuizRichText text={question.question} preserveLines />
         </div>
+        )}
 
         <div className="flex shrink-0 items-center gap-1.5">
           {/* Beside the question, not in a separate audio section, so it's
