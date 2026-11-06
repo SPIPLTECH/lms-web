@@ -85,7 +85,7 @@ check("no deadline, no countdown", localDeadlineMs(null, "2026-10-31T10:00:00.00
 
 // ---- words ----
 check("answers read as words", formatSavedAnswer("right") === "right" && formatSavedAnswer(["a", "b"]) === "a, b" && formatSavedAnswer({ left: "right" }) === "left → right" && formatSavedAnswer(null) === "");
-check("every refusal the server can send has wording", ["PROCTORING_UNAVAILABLE", "NO_ATTEMPTS_LEFT", "RETAKE_APPROVAL_REQUIRED"].every((reason) => Boolean(refusalMessage(reason))));
+check("every refusal the server can send has wording", ["PROCTORING_UNAVAILABLE", "NO_ATTEMPTS_LEFT", "RETAKE_APPROVAL_REQUIRED", "PROCTORING_DECLINED"].every((reason) => Boolean(refusalMessage(reason))));
 check("an unknown refusal has none, rather than a wrong one", refusalMessage("SOMETHING_ELSE") === null);
 
 // ---- voice detection ----

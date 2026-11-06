@@ -8,6 +8,7 @@ import {
     getProctoredAttempt,
     getProctoredAttemptResult,
     getProctoredQuizStatus,
+    optOutOfProctoring,
     resumeProctoredAttempt,
     startProctoredAttempt,
     submitProctoredAttempt,
@@ -26,6 +27,12 @@ export function useProctoredQuizStatus(quizId, options = {}) {
         ...options,
     });
 }
+
+/**
+ * Taking the quiz without proctoring. The app-wide refresh after a write reloads the quiz, which
+ * then arrives as an ordinary quiz with its questions.
+ */
+export const useOptOutOfProctoring = (quizId) => useMutation({ mutationFn: () => optOutOfProctoring(quizId) });
 
 /** The running exam's questions and saved answers. Read once: answers then live on the page. */
 export function useProctoredAttempt(attemptId, { enabled = true } = {}) {

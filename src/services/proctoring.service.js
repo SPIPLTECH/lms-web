@@ -15,6 +15,9 @@ const dataOf = ({ data }) => data.data;
 
 export const getProctoredQuizStatus = (quizId) => api.get(`/proctoring/quizzes/${quizId}/status`).then(dataOf);
 
+/** The student takes this quiz without proctoring. Final for the quiz. */
+export const optOutOfProctoring = (quizId) => api.post(`/proctoring/quizzes/${quizId}/opt-out`).then(dataOf);
+
 export const createProctoredAttempt = (quizId, consent) => api.post(`/proctoring/quizzes/${quizId}/attempts`, { consent }).then(dataOf);
 
 export const resumeProctoredAttempt = (attemptId) => api.post(`/proctoring/attempts/${attemptId}/resume`).then(dataOf);

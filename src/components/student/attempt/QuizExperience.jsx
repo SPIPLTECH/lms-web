@@ -415,7 +415,7 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
     const { data: resultData, isLoading: isResultLoading } = useQuizResult(quizId, {
         // A Self-Test has no result screen to feed; its summary is worked out
         // from the answers on screen.
-        enabled: !isPractice && !quiz?.proctoringEnabled && (isSubmitted || Boolean(quiz?.attemptStatus?.attemptsUsed > 0)),
+        enabled: !isPractice && (!quiz?.proctoringEnabled || Boolean(quiz?.proctoringDeclined)) && (isSubmitted || Boolean(quiz?.attemptStatus?.attemptsUsed > 0)),
     });
 
     const submissionResult = resultData?.data || resultData;
@@ -471,7 +471,8 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
 
     // Every launch point comes through here, so this one branch sends every proctored
     // quiz to its own exam page. The server sends no questions to this screen anyway.
-    if (quiz.proctoringEnabled) {
+    // A student who chose to take it without proctoring gets the ordinary quiz below.
+    if (quiz.proctoringEnabled && !quiz.proctoringDeclined) {
         return <ProctoredQuizLauncher quiz={quiz} onBack={onBack} resultReturnTo={resultReturnTo} />;
     }
 

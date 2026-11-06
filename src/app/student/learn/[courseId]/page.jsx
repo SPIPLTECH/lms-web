@@ -870,6 +870,12 @@ export default function LearnPage() {
     aspect: "overflow-hidden max-xl:flex-none",
     form: "overflow-y-auto overscroll-contain",
   };
+  // Quiz wrapper. The proctored-exam card (ProctoredQuizLauncher) is the only
+  // thing on screen, so it is centred in the frame; every other quiz state keeps
+  // the ordinary block flow. min-h-full (not h-full) lets a tall card grow and
+  // scroll instead of being clipped at the top by justify-center.
+  const QUIZ_WRAPPER_CLASSES =
+    "p-2.5 sm:p-5 has-[[data-proctored-launcher]]:flex has-[[data-proctored-launcher]]:min-h-full has-[[data-proctored-launcher]]:flex-col has-[[data-proctored-launcher]]:justify-center";
 
   const lessonNavProps = {
     unitLabel: LEVEL_LABELS[step?.level] || "Lesson",
@@ -1264,7 +1270,7 @@ export default function LearnPage() {
                       />
                     </div>
                   ) : qualifyingAttempt ? (
-                    <div className="p-2.5 sm:p-5">
+                    <div className={QUIZ_WRAPPER_CLASSES}>
                       <QuizExperience
                         key={`qualifying:${qualifyingAttempt.quiz.id}:${qualifyingRunId}`}
                         quizId={qualifyingAttempt.quiz.id}
@@ -1301,7 +1307,7 @@ export default function LearnPage() {
                       />
                     </div>
                   ) : isQuizStep ? (
-                    <div data-tour="complete" className="p-2.5 sm:p-5">
+                    <div data-tour="complete" className={QUIZ_WRAPPER_CLASSES}>
                       <QuizExperience
                         key={step.quizId}
                         quizId={step.quizId}

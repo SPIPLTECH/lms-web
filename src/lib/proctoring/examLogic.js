@@ -151,6 +151,7 @@ export function formatSavedAnswer(answer) {
 const REFUSALS = {
     PROCTORING_UNAVAILABLE: "Exam monitoring is unavailable right now, so this exam cannot begin. No attempt has been used. Please try again later, and contact your instructor if this continues.",
     NO_ATTEMPTS_LEFT: "You have used all the attempts allowed for this exam.",
+    PROCTORING_DECLINED: "You chose to take this quiz without proctoring.",
     RETAKE_APPROVAL_REQUIRED: "This exam was ended by proctoring. Your instructor must approve a retake before you can start again.",
 };
 
