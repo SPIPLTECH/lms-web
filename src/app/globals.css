@@ -161,6 +161,24 @@ body {
   --heading-color: #0F1115;
 
   --shadow-color: 220 20% 20%;
+
+  /* Course quest map (student course page): frosted glass over soft glows,
+     brand-brown path and stages, link-blue topics. */
+  --map-bg: #F4F5F7;
+  --map-accent: #9A5B18;
+  --map-link: #1A56AB;
+  --map-goal: #8A5A05;
+  --map-glow-1: #E8A657;
+  --map-glow-2: #9A5B18;
+  --map-glow-3: #1A56AB;
+  --map-glow-opacity: 0.28;
+  --map-stars: 0;
+  --map-grid: rgba(22, 24, 29, 0.05);
+  --map-glass: rgba(255, 255, 255, 0.62);
+  --map-glass-strong: rgba(255, 255, 255, 0.9);
+  --map-glass-border: rgba(22, 24, 29, 0.09);
+  --map-rim: rgba(255, 255, 255, 0.9);
+  --map-lift: rgba(22, 24, 29, 0.28);
 }
 
 /* ==========================================================================
@@ -217,6 +235,23 @@ body {
   --heading-color: #E6EDF3;
 
   --shadow-color: 220 20% 3%;
+
+  /* Course quest map — green path and stages, blue topics, dark glass. */
+  --map-bg: #0D1117;
+  --map-accent: #3FB950;
+  --map-link: #58A6FF;
+  --map-goal: #D29922;
+  --map-glow-1: #238636;
+  --map-glow-2: #1F6FEB;
+  --map-glow-3: #D29922;
+  --map-glow-opacity: 0.32;
+  --map-stars: 0.6;
+  --map-grid: rgba(255, 255, 255, 0.04);
+  --map-glass: rgba(22, 27, 34, 0.55);
+  --map-glass-strong: rgba(22, 27, 34, 0.88);
+  --map-glass-border: rgba(240, 246, 252, 0.12);
+  --map-rim: rgba(240, 246, 252, 0.16);
+  --map-lift: rgba(0, 0, 0, 0.85);
 }
 
 /* Light mode: mirror-invert the neutral slate scale (50<->950, 100<->900, ...) so the thousands
