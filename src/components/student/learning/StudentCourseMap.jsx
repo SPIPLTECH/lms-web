@@ -18,8 +18,10 @@ import {
 } from "lucide-react";
 
 import { NodeBadge } from "@/components/student/learning/CourseContentAccordion";
+import { hasQuestionTypes } from "@/lib/questionTypes";
 import { useToast } from "@/components/ui/ToastProvider";
 import { useStudentTour } from "@/context/StudentTourContext";
+import { quizNotPassed } from "@/lib/learningSequence";
 import {
   getContentTypeMeta,
   getQuizTagStyle,
@@ -42,11 +44,11 @@ import {
  */
 
 const LEVEL_META = {
-  MODULE: { icon: Layers, prefix: "M", text: "text-base font-bold", noun: "module" },
-  LESSON: { icon: BookOpen, prefix: "L", text: "text-[15px] font-semibold", noun: "lesson" },
-  TOPIC: { icon: FileStack, prefix: "T", text: "text-[14.5px] font-semibold", noun: "topic" },
-  SUBTOPIC: { icon: GitBranch, prefix: "S", text: "text-[14.5px] font-medium", noun: "subtopic" },
-  CONCEPT: { icon: Lightbulb, prefix: "C", text: "text-[14.5px] font-medium", noun: "concept" },
+  MODULE: { icon: Layers, text: "text-base font-bold", noun: "module" },
+  LESSON: { icon: BookOpen, text: "text-[15px] font-semibold", noun: "lesson" },
+  TOPIC: { icon: FileStack, text: "text-[14.5px] font-semibold", noun: "topic" },
+  SUBTOPIC: { icon: GitBranch, text: "text-[14.5px] font-medium", noun: "subtopic" },
+  CONCEPT: { icon: Lightbulb, text: "text-[14.5px] font-medium", noun: "concept" },
 };
 
 /** Every container id on the path from the course down to step `index`. */
@@ -129,7 +131,7 @@ function StepRow({ step, isActive, onSelect, rowRef, tracksProgress }) {
       <span className="shrink-0 flex items-center">
         {step.locked ? (
           <Lock size={12} className="text-muted-foreground/70" aria-label="Locked" />
-        ) : tracksProgress && step.completed && step.passed === false ? (
+        ) : tracksProgress && quizNotPassed(step) ? (
           // A Final failed on its last attempt: done, so the course goes on, but not passed.
           <XCircle size={13} className="text-rose-500" aria-label="Not passed" />
         ) : tracksProgress && step.completed ? (
@@ -142,12 +144,13 @@ function StepRow({ step, isActive, onSelect, rowRef, tracksProgress }) {
 
 function ContainerNode({
   node,
-  numbering,
   steps,
   currentStepIndex,
   openIds,
   onToggle,
   onSelectStep,
+  onSelectTopic,
+  pickerTopicId,
   activeRowRef,
   tracksProgress,
 }) {
@@ -155,36 +158,76 @@ function ContainerNode({
   const tour = useStudentTour();
   const meta = LEVEL_META[node.kind] || LEVEL_META.TOPIC;
   const Icon = meta.icon;
+  // A Topic open in the quiz picker counts as where the student is.
   const containsActive =
-    node.firstStepIndex !== null &&
-    currentStepIndex >= node.firstStepIndex &&
-    currentStepIndex <= node.lastStepIndex;
+    pickerTopicId === node.id ||
+    (node.firstStepIndex !== null &&
+      currentStepIndex >= node.firstStepIndex &&
+      currentStepIndex <= node.lastStepIndex);
+  // Board-paper Topics (SSC Class 10): a click opens the question-type quiz
+  // picker instead of the Topic's first step.
+  const opensPicker = Boolean(onSelectTopic) && hasQuestionTypes(node);
+  // 10th course, a chapter (Lesson): a click opens its first Topic that has
+  // questions in the picker, showing all of them, instead of its first step.
+  const firstPickerTopic =
+    onSelectTopic && node.kind === "LESSON"
+      ? (node.entries || []).find((entry) => entry.type === "container" && hasQuestionTypes(entry.node))?.node ?? null
+      : null;
+  // The deepest row shown for it, so a picker Topic carries the current-item
+  // highlight itself: the Topic open in the picker, or else the one holding
+  // the step on screen — only one at a time.
+  const isCurrentTopic =
+    opensPicker &&
+    (pickerTopicId
+      ? pickerTopicId === node.id
+      : node.firstStepIndex !== null &&
+        currentStepIndex >= node.firstStepIndex &&
+        currentStepIndex <= node.lastStepIndex);
   // The server's lock on the container's first step. The one exception is a
   // container the student is already inside (a step they reached before
   // newer content locked its start): hiding where they are would be worse.
   const blocked = node.locked && !containsActive;
-  const open = openIds.has(node.id) && !blocked;
+  // A picker Topic (10th course only) is the deepest level the map shows: its
+  // SubTopics and quizzes are reached through the picker, never listed here.
+  const open = openIds.has(node.id) && !blocked && !opensPicker;
   const refuse = () => showToast(`Complete the previous ${meta.noun} to unlock this one.`, "error");
 
-  let childNumber = 0;
   return (
     <div>
       <div
+        // A picker Topic has no rows below it, so it is what the map scrolls to.
+        ref={isCurrentTopic ? activeRowRef : undefined}
+        aria-current={isCurrentTopic ? "location" : undefined}
         data-tour={blocked ? "locked-item" : undefined}
         data-tour-tap={blocked ? "Tap the locked item" : undefined}
         className={`flex items-center justify-between gap-1.5 pl-1 pr-1 py-1.5 rounded-lg transition-colors border-l-2 cursor-pointer ${
-          containsActive ? "bg-background/40 border-primary/40" : "border-transparent hover:bg-background/60"
-        } ${node.locked ? "text-muted-foreground" : "text-foreground"}`}
+          isCurrentTopic
+            ? "bg-primary/15 border-primary text-primary"
+            : opensPicker
+              ? "border-transparent hover:bg-background/60"
+              : containsActive
+                ? "bg-background/40 border-primary/40"
+                : "border-transparent hover:bg-background/60"
+        } ${isCurrentTopic ? "" : node.locked ? "text-muted-foreground" : "text-foreground"}`}
         onClick={() => {
           if (blocked) {
             if (tour.active) tour.signal("lockTapped");
             return refuse();
           }
-          if (node.firstStepIndex !== null) onSelectStep(node.firstStepIndex);
+          if (opensPicker) onSelectTopic(node);
+          else if (firstPickerTopic) {
+            // The chapter opens in the map too, so its highlighted topic shows.
+            if (!open) onToggle(node.id);
+            onSelectTopic(firstPickerTopic);
+          } else if (node.firstStepIndex !== null) onSelectStep(node.firstStepIndex);
           else onToggle(node.id);
         }}
       >
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
+          {opensPicker ? (
+            // Nothing to expand: a spacer the chevron's width keeps the row aligned.
+            <span aria-hidden="true" className="w-[18px] shrink-0" />
+          ) : (
           <button
             type="button"
             onClick={(event) => {
@@ -201,15 +244,14 @@ function ContainerNode({
           >
             <ChevronRight size={14} className={`transition-transform duration-200 ${open ? "rotate-90 text-primary" : ""}`} />
           </button>
+          )}
           {node.locked ? (
             <Lock size={14} className="shrink-0 text-muted-foreground" />
           ) : (
             <Icon size={14} className="shrink-0 text-primary/80" />
           )}
-          <span className="text-[13px] font-black text-muted-foreground tabular-nums shrink-0">
-            {meta.prefix}
-            {numbering}
-          </span>
+          {/* No M1 / L2 / T3 position code before the title — removed for
+              every course at the user's request. */}
           <span className={`truncate ${meta.text}`} title={node.title}>
             {node.title}
           </span>
@@ -238,17 +280,17 @@ function ContainerNode({
                 />
               );
             }
-            childNumber += 1;
             return (
               <ContainerNode
                 key={`${entry.node.kind}-${entry.node.id}`}
                 node={entry.node}
-                numbering={childNumber}
                 steps={steps}
                 currentStepIndex={currentStepIndex}
                 openIds={openIds}
                 onToggle={onToggle}
                 onSelectStep={onSelectStep}
+                onSelectTopic={onSelectTopic}
+                pickerTopicId={pickerTopicId}
                 activeRowRef={activeRowRef}
                 tracksProgress={tracksProgress}
               />
@@ -264,6 +306,11 @@ export default function StudentCourseMap({
   sequence,
   currentStepIndex,
   onSelectStep,
+  // Board-paper courses: a Topic click opens the quiz picker (onSelectTopic),
+  // and the Topic it is open on is highlighted (pickerTopicId).
+  onSelectTopic = null,
+  pickerTopicId = null,
+  hideProgress = false,
   onSelectCourseOverview,
   onToggleOpen,
   hideHeader = false,
@@ -272,7 +319,9 @@ export default function StudentCourseMap({
   const steps = sequence?.steps || [];
   // A course with sequential learning off keeps no progress: no ticks, no
   // percentages (the header falls back to "Course structure").
-  const tracksProgress = sequence?.progressTracked !== false;
+  // hideProgress (the 10th / board-paper course): no ticks or percentages
+  // either, and no "n of m complete" line.
+  const tracksProgress = sequence?.progressTracked !== false && !hideProgress;
 
   // Containers the student opened or closed by hand; the path down to the
   // current step is always open on top of these.
@@ -314,7 +363,6 @@ export default function StudentCourseMap({
     activeRowRef.current?.scrollIntoView?.({ block: "nearest" });
   }, [currentStepIndex]);
 
-  let childNumber = 0;
   return (
     <aside className="sidebar-panel rounded-2xl border border-border bg-background p-4 shadow-xl flex flex-col h-full max-h-full lg:max-h-full overflow-hidden text-foreground">
       {!hideHeader && (
@@ -336,10 +384,13 @@ export default function StudentCourseMap({
               <PanelLeftClose size={16} />
             </button>
           </div>
+          {/* hideProgress (10th course): only the divider stays. */}
           <div className="text-[14.5px] text-muted-foreground mb-3 pb-3 border-b border-border/80">
-            {sequence?.progress
-              ? `${sequence.progress.completedItems} of ${sequence.progress.totalItems} complete`
-              : "Course structure"}
+            {hideProgress
+              ? null
+              : sequence?.progress
+                ? `${sequence.progress.completedItems} of ${sequence.progress.totalItems} complete`
+                : "Course structure"}
           </div>
         </>
       )}
@@ -375,17 +426,17 @@ export default function StudentCourseMap({
                 />
               );
             }
-            childNumber += 1;
             return (
               <ContainerNode
                 key={`${entry.node.kind}-${entry.node.id}`}
                 node={entry.node}
-                numbering={childNumber}
                 steps={steps}
                 currentStepIndex={currentStepIndex}
                 openIds={openIds}
                 onToggle={toggle}
                 onSelectStep={onSelectStep}
+                onSelectTopic={onSelectTopic}
+                pickerTopicId={pickerTopicId}
                 activeRowRef={activeRowRef}
                 tracksProgress={tracksProgress}
               />

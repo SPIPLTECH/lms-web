@@ -21,10 +21,14 @@ import Cookies from "js-cookie";
 const ACCESS_TOKEN_DAYS = 1;
 const REFRESH_TOKEN_DAYS = 7;
 
+const isSecureContextCookie = () =>
+  process.env.NODE_ENV === "production" ||
+  (typeof window !== "undefined" && window.location?.protocol === "https:");
+
 const baseOptions = () => ({
   path: "/",
   sameSite: "strict",
-  secure: process.env.NODE_ENV === "production",
+  secure: isSecureContextCookie(),
 });
 
 /**

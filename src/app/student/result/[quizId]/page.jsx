@@ -13,6 +13,8 @@ import useQuizResult from "@/hooks/queries/student/useQuizResult";
 import QuestionReviewCard, { getQuestionReviewStatus } from "@/components/student/quiz-result/QuestionReviewCard";
 import AttemptHistory from "@/components/student/quiz-result/AttemptHistory";
 import ResultNextStep from "@/components/student/quiz-result/ResultNextStep";
+import WeakAreasCard from "@/components/student/test-review/WeakAreasCard";
+import CourseTestReviewCard from "@/components/student/test-review/CourseTestReviewCard";
 import useNextAction from "@/hooks/queries/student/useNextAction";
 import { NEXT_ACTION } from "@/lib/nextAction";
 import SubmissionStatusBadge from "@/components/student/submissions/SubmissionStatusBadge";
@@ -359,6 +361,12 @@ function QuizResultPageContent() {
       {showNextStep && (
         <ResultNextStep courseId={quiz.courseId} quizId={quizId} returnTo={returnTo} />
       )}
+
+      {/* TEST-SERIES FEEDBACK — only for a course with the review switched
+          on: this attempt's weak areas, then the whole-course review once
+          every test is in. */}
+      <WeakAreasCard testReview={submission.testReview} />
+      <CourseTestReviewCard review={submission.courseReview} />
 
       {/* QUESTION REVIEW — every question, filtered by what happened to it. */}
       <section aria-labelledby="review-title" className="space-y-3 sm:space-y-4">

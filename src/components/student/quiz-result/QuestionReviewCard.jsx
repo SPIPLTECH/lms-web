@@ -3,6 +3,7 @@
 import { ArrowRight, Check, CircleMinus, Minus, X } from "lucide-react";
 
 import ListenButton from "@/components/student/tts/ListenButton";
+import QuestionTags from "@/components/quiz/QuestionTags";
 import QuizRichText from "@/components/quiz/QuizRichText";
 import OptionReview, { explanationInsideOption } from "@/components/student/quiz-review/OptionReview";
 import { checkAnswerCorrectness } from "@/lib/quizAnswers";
@@ -106,8 +107,9 @@ export default function QuestionReviewCard({ question, index, total, userAnswer 
           </div>
 
           {/* A <div>, not a heading: the text may hold code blocks. */}
+          <QuestionTags tags={question.tags} className="mb-2 sm:mb-3" />
           <div className="min-w-0 break-words font-serif text-sm font-medium leading-snug text-foreground sm:text-base">
-            <QuizRichText text={question.question} />
+            <QuizRichText text={question.question} preserveLines />
           </div>
 
           {/* Conditional Display per Question Type */}

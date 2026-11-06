@@ -69,6 +69,24 @@ const SAMPLE_JSON = `${JSON.stringify(
       difficulty: "EASY",
       explanation: "C is case-sensitive, so Float is an ordinary name, not the keyword float.",
     },
+    {
+      question: "Arrange the tokens to print Hello in Python.",
+      type: "ARRANGE_TOKENS",
+      options: ["print", "(", '"Hello"', ")"],
+      marks: 2,
+      difficulty: "EASY",
+      explanation: "A call is the function name, then its argument inside parentheses.",
+    },
+    {
+      question: "Match each country to its capital.",
+      type: "MATCH_PAIRS",
+      options: {
+        left: ["India", "Japan", "France"],
+        right: ["New Delhi", "Tokyo", "Paris"],
+      },
+      marks: 3,
+      difficulty: "EASY",
+    },
   ],
   null,
   2
@@ -92,13 +110,27 @@ const textKey = (text) => String(text || "").trim().replace(/\s+/g, " ").toLower
 // The answer as the file wrote it and as it was understood: the option's
 // number with its text — "4 (int Float = 4;)" — so a wrong number shows up
 // here, before the questions are added.
-const answerLabel = (row) =>
-  (Array.isArray(row.correctAnswer) ? row.correctAnswer : [row.correctAnswer])
+const answerLabel = (row) => {
+  if (row.questionType === "ARRANGE_TOKENS") return (row.correctAnswer || []).join(" → ");
+  if (row.questionType === "MATCH_PAIRS") {
+    return Object.entries(row.correctAnswer || {})
+      .map(([left, right]) => `${left} → ${right}`)
+      .join(", ");
+  }
+  return (Array.isArray(row.correctAnswer) ? row.correctAnswer : [row.correctAnswer])
     .map((answer) => {
       const position = (row.options || []).findIndex((opt) => String(opt).trim() === String(answer).trim());
       return position >= 0 ? `${position + 1} (${answer})` : String(answer);
     })
     .join(", ");
+};
+
+// How much the row holds, in the words of its type.
+const sizeLabel = (row) => {
+  if (row.questionType === "MATCH_PAIRS") return `${row.options?.left?.length ?? 0} pairs`;
+  if (row.questionType === "ARRANGE_TOKENS") return `${row.options?.length ?? 0} tokens`;
+  return `${row.options?.length ?? 0} options`;
+};
 
 function downloadSample(content, filename, type) {
   const url = URL.createObjectURL(new Blob([content], { type }));
@@ -246,6 +278,12 @@ export default function QuizImportModal({ open, onClose, existingQuestions = [],
               option&apos;s number (2), or a list of numbers for several ([1, 3]).
             </p>
             <p>
+              <span className="font-semibold text-foreground">Arrange Tokens and Match Pairs:</span> set type to ARRANGE_TOKENS or
+              MATCH_PAIRS and leave correctAnswer out. Tokens go in their correct order. In JSON, pairs are options with left and
+              right lists, matched by position; in CSV or Excel, add a type column, with one token or one &quot;left =&gt; right&quot; pair
+              in each option column.
+            </p>
+            <p>
               <span className="font-semibold text-foreground">Word or PDF:</span> numbered questions (1.), lettered options (A))
               and an &quot;Answer:&quot; line. Scanned PDFs can&apos;t be read.
             </p>
@@ -332,7 +370,7 @@ export default function QuizImportModal({ open, onClose, existingQuestions = [],
                       {r.row}. {quizTextSummary(r.question) || "(no question text)"}
                     </span>
                     <span className="block text-xs text-muted-foreground">
-                      {TYPE_LABEL[r.questionType] || r.questionType}, {r.options.length} options, {r.marks} mark{r.marks === 1 ? "" : "s"}
+                      {TYPE_LABEL[r.questionType] || r.questionType}, {sizeLabel(r)}, {r.marks} mark{r.marks === 1 ? "" : "s"}
                       {(() => {
                         const reasons = (r.optionExplanations || []).filter(Boolean).length;
                         return reasons > 0 ? `, ${reasons} wrong-option reason${reasons === 1 ? "" : "s"}` : "";

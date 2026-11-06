@@ -7,13 +7,39 @@
  * the cache as soon as the server confirms, so "Mark as Complete" does not
  * come back while the sequence is refetched for its locks.
  */
-import { markQuizStepAttempted, markStepsCompleted, markStepsVisited } from "../learningSequence.js";
+import { markQuizStepAttempted, markStepsCompleted, markStepsVisited, quizAwaitsAttempt, quizNotPassed } from "../learningSequence.js";
 
 const AT = "2026-10-24T10:00:00.000Z";
 const step = (contentId, extra = {}) => ({ contentId, contentIds: [contentId], visited: false, visitedAt: null, locked: false, completed: false, ...extra });
 
 function runTests() {
   const testCases = [
+    {
+      name: "a quiz skipped by qualifying is not 'not passed' and does not trap the student",
+      run: () => {
+        const skipped = step("q", { kind: "QUIZ", completed: true, attempted: false, passed: false, qualifiedOut: true });
+        return quizNotPassed(skipped) === false && quizAwaitsAttempt(skipped) === false;
+      },
+    },
+    {
+      name: "a Final failed on its last attempt is still 'not passed'",
+      run: () => quizNotPassed(step("q", { kind: "QUIZ", completed: true, attempted: true, passed: false })) === true,
+    },
+    {
+      name: "a passed quiz, an open quiz and ordinary content are never 'not passed'",
+      run: () =>
+        quizNotPassed(step("q", { kind: "QUIZ", completed: true, attempted: true, passed: true })) === false &&
+        quizNotPassed(step("q", { kind: "QUIZ", completed: false, attempted: true, passed: false })) === false &&
+        quizNotPassed(step("c", { kind: "CONTENT", completed: true, attempted: false, passed: null })) === false,
+    },
+    {
+      name: "only an incomplete, unattempted quiz awaits an attempt",
+      run: () =>
+        quizAwaitsAttempt(step("q", { kind: "QUIZ", completed: false, attempted: false })) === true &&
+        quizAwaitsAttempt(step("q", { kind: "QUIZ", completed: false, attempted: true })) === false &&
+        quizAwaitsAttempt(step("c", { kind: "CONTENT", completed: false })) === false &&
+        quizAwaitsAttempt(null) === false,
+    },
     {
       name: "the visited step is marked visited with the given timestamp",
       run: () => {

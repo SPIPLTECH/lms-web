@@ -14,6 +14,8 @@ export default function MobileEditProfileView({ isOpen, onClose, profile }) {
     phoneNumber: "",
     address: "",
     education: "",
+    institution: "",
+    graduationYear: "",
     guardianName: "",
     dateOfBirth: "",
   });
@@ -36,6 +38,8 @@ export default function MobileEditProfileView({ isOpen, onClose, profile }) {
         phoneNumber: profile.phoneNumber || "",
         address: profile.address || "",
         education: student.education || "",
+        institution: student.institution ?? student.collegeName ?? "",
+        graduationYear: student.graduationYear != null ? String(student.graduationYear) : "",
         guardianName: student.guardianName || "",
         dateOfBirth: dobStr,
       });
@@ -187,6 +191,34 @@ export default function MobileEditProfileView({ isOpen, onClose, profile }) {
             value={formData.education}
             onChange={handleChange}
             placeholder="Enter education background"
+            className="w-full bg-card border border-card-border rounded-xl px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-primary transition"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1.5">
+            Institution / University
+          </label>
+          <input
+            type="text"
+            name="institution"
+            value={formData.institution}
+            onChange={handleChange}
+            placeholder="Enter institution or university"
+            className="w-full bg-card border border-card-border rounded-xl px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-primary transition"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1.5">
+            Year of Graduation
+          </label>
+          <input
+            type="text"
+            name="graduationYear"
+            value={formData.graduationYear}
+            onChange={handleChange}
+            placeholder="Enter graduation year"
             className="w-full bg-card border border-card-border rounded-xl px-3.5 py-2.5 text-sm text-foreground outline-none focus:border-primary transition"
           />
         </div>

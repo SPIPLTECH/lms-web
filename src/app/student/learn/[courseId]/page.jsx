@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, FastForward, ListTree, Lock, MoreHorizontal, X } from "lucide-react";
 
 import LessonContentBlock from "@/components/student/learning/LessonContentBlock";
@@ -15,7 +15,11 @@ import LearnPageHeader from "@/components/student/learning/LearnPageHeader";
 import EvaluatorFeedbackButton from "@/components/evaluator/EvaluatorFeedbackButton";
 import SkipQualificationModal from "@/components/student/learning/SkipQualificationModal";
 import QualificationResultPanel from "@/components/student/learning/QualificationResultPanel";
+import { quizAwaitsAttempt } from "@/lib/learningSequence";
 import StudentCourseMap from "@/components/student/learning/StudentCourseMap";
+import QuestionTypeChips from "@/components/student/learning/QuestionTypeChips";
+import TopicQuizPicker from "@/components/student/learning/TopicQuizPicker";
+import { labelledOfType, questionTypeCounts, typedSubTopics } from "@/lib/questionTypes";
 
 import { buildPathIndex, getSkipOfferForScope } from "@/lib/learningPath";
 import { learnHref, looksLikeCourseId, resolveCourseKey } from "@/lib/courseSlug";
@@ -112,6 +116,14 @@ export default function LearnPage() {
   } = useLearningSequence(courseId, { withPath: true });
   const steps = sequence?.steps || [];
   const containersById = useMemo(() => indexContainers(sequence?.tree), [sequence]);
+  // A board-paper course (SSC Class 10 Test Series — its SubTopics carry
+  // question types, lib/questionTypes.js) gets a pared-down player: the Course
+  // Map stops at Topics (each opens the quiz picker), the header holds only
+  // the question-type tags, and there is no More / side panel.
+  const isBoardPaperCourse = useMemo(
+    () => [...containersById.values()].some((node) => node.kind === "SUBTOPIC" && node.questionType),
+    [containersById]
+  );
 
   // The course record fields the player shows (title, language) ride on the
   // sequence, so the page needs no GET /courses/:id of its own.
@@ -181,10 +193,14 @@ export default function LearnPage() {
   // ask for it (?item= / ?lessonId=, e.g. "back to the lesson" from a result
   // page); a refresh of this tab finds it in the history entry instead, where
   // the mirror keeps it so the address bar shows no step id.
+  // The query comes from useSearchParams, not window.location: on a client
+  // navigation (router.push / <Link>) this page first renders before the
+  // browser's URL changes, so window.location still holds the previous page's.
+  const searchParams = useSearchParams();
   const openedWithRef = useRef(null);
   if (openedWithRef.current === null) {
     const isBrowser = typeof window !== "undefined";
-    const opened = new URLSearchParams(isBrowser ? window.location.search : "");
+    const opened = searchParams ?? new URLSearchParams(isBrowser ? window.location.search : "");
     let remembered = null;
     try {
       remembered = isBrowser ? window.history.state?.learnItem ?? null : null;
@@ -218,7 +234,10 @@ export default function LearnPage() {
 
   // Right-hand utility column (Ask Instructor / Sticky Notes)
   // collapse state. Preserved across refreshes via URL and localStorage for both desktop and mobile.
-  const [rightPanelOpen, setRightPanelOpen] = useState(() => {
+  // rightPanelWanted is the student's choice (kept for other courses);
+  // rightPanelOpen is what shows — never in a board-paper course, which has no
+  // More / side panel.
+  const [rightPanelWanted, setRightPanelOpen] = useState(() => {
     if (typeof window === "undefined") return false;
     try {
       const params = new URLSearchParams(window.location.search);
@@ -250,10 +269,13 @@ export default function LearnPage() {
   });
 
   // Persist panel open/closed state and active tool across desktop and mobile, keeping URL in sync
+  const rightPanelOpen = rightPanelWanted && !isBoardPaperCourse;
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      localStorage.setItem("lms.learn.rightPanelOpen.student", String(rightPanelOpen));
+      // The choice, not what shows: a board-paper course must not overwrite it.
+      localStorage.setItem("lms.learn.rightPanelOpen.student", String(rightPanelWanted));
       if (sidePanelFeature) {
         localStorage.setItem("lms.learn.sidePanelFeature.student", sidePanelFeature);
       }
@@ -278,7 +300,7 @@ export default function LearnPage() {
     } catch {
       // Storage unavailable
     }
-  }, [rightPanelOpen, sidePanelFeature]);
+  }, [rightPanelOpen, rightPanelWanted, sidePanelFeature]);
 
   // The below-xl "More" popover mounts on a real viewport check rather than
   // an xl:hidden class: its dismiss listeners would otherwise bind on
@@ -328,13 +350,75 @@ export default function LearnPage() {
     enabled: Boolean(activeContentId && isEnrolled && !step?.locked && !tourActive),
   });
   const stepPath = step?.path || {};
-  const selectedLesson = stepPath.lessonId ? containersById.get(stepPath.lessonId) || null : null;
+
+  // TOPIC QUIZ PICKER — board-paper courses only (SSC Class 10 Test Series,
+  // whose SubTopics carry a question type; lib/questionTypes.js). Clicking
+  // such a Topic in the Course Map, or a type tag in the header, shows that
+  // Topic's quizzes of one type ("All": every one) in the player instead of a
+  // step; picking one goes to it. Null when the player shows the step.
+  const [topicPicker, setTopicPicker] = useState(null); // { topicId, type }
+  const pickerTopic = topicPicker ? containersById.get(topicPicker.topicId) || null : null;
+  // Any move to another step (a pick, Prev/Next, the Course Map) closes it.
+  useEffect(() => {
+    setTopicPicker(null);
+  }, [stepIndex]);
+  // The header follows the picker's Topic while it is open.
+  const headerPath = pickerTopic ? pickerTopic.path : stepPath;
+  // The Topic whose type tags the header shows: the picker's, else the step's.
+  const typesTopic = pickerTopic || (stepPath.topicId ? containersById.get(stepPath.topicId) || null : null);
+  const questionTypes = useMemo(() => questionTypeCounts(typesTopic), [typesTopic]);
+  const currentQuestionType = stepPath.subTopicId
+    ? containersById.get(stepPath.subTopicId)?.questionType?.type ?? null
+    : null;
+  const questionTypeChipProps = {
+    types: questionTypes,
+    active: pickerTopic ? topicPicker.type : null,
+    current: currentQuestionType,
+    onPick: (type) => {
+      if (typesTopic) setTopicPicker({ topicId: typesTopic.id, type });
+    },
+  };
+
+  // 10th course: no Prev/Next, so a quiz's way out is back to its topic's
+  // picker, on the question's own type ("Exit quiz" / "Done").
+  const backToTopicPicker = () => {
+    if (stepPath.topicId) setTopicPicker({ topicId: stepPath.topicId, type: currentQuestionType || "All" });
+  };
+  // 10th course: the step after a board question's quiz in its SubTopic — its
+  // "Write this in the exam" text, opened by the quiz's "Ideal answer" button.
+  // Null for the MCQ's quiz, which has none.
+  const idealAnswerIndex = (() => {
+    if (!isBoardPaperCourse || step?.kind !== "QUIZ" || !stepPath.subTopicId) return null;
+    const subTopic = containersById.get(stepPath.subTopicId);
+    const entry = (subTopic?.entries || []).find(
+      (candidate) =>
+        candidate.type === "step" && candidate.stepIndex > stepIndex && steps[candidate.stepIndex]?.kind === "CONTENT"
+    );
+    return entry ? entry.stepIndex : null;
+  })();
+  // 10th course, on an Ideal answer: the next quiz of the SAME type in this
+  // topic, in the picker's order (board questions, then textbook practice) —
+  // { node, label } with the picker's label ("Question 2", "Practice 1") — or
+  // null after the type's last one. Undefined anywhere else.
+  const nextQuizOfType = (() => {
+    if (!isBoardPaperCourse || step?.kind !== "CONTENT" || !stepPath.subTopicId || !currentQuestionType) return undefined;
+    const sameType = labelledOfType(
+      typedSubTopics(containersById.get(stepPath.topicId)).filter((node) => node.questionType.type === currentQuestionType)
+    );
+    const at = sameType.findIndex((entry) => entry.node.id === stepPath.subTopicId);
+    if (at < 0) return undefined;
+    return sameType[at + 1] ? { node: sameType[at + 1].node, label: sameType[at + 1].label } : null;
+  })();
+
+  const selectedLesson = headerPath.lessonId ? containersById.get(headerPath.lessonId) || null : null;
   // The most specific container below the lesson (Concept, SubTopic or
   // Topic) — the one-line "where am I" label.
   const pathwayNode =
+    pickerTopic ||
     [stepPath.conceptId, stepPath.subTopicId, stepPath.topicId]
       .map((id) => (id ? containersById.get(id) : null))
-      .find(Boolean) || null;
+      .find(Boolean) ||
+    null;
   const pathwayTitle = pathwayNode?.title || null;
   const pathwayLevelLabel = LEVEL_LABELS[pathwayNode?.level] || "Topic";
 
@@ -443,6 +527,8 @@ export default function LearnPage() {
   //  - The only hold: KEYBOARD focus (:focus-visible) inside data-learn-chrome keeps
   //    the panels open so a keyboard user's focus is never swallowed.
   //  - Off during the onboarding tour, which points at the rail and header.
+  //    (On in the board-paper course too, as everywhere — the user turned it
+  //    back on there on 2026-11-06.)
   useEffect(() => {
     if (!isDesktop || tourActive) return undefined;
     const idle = workspaceCollapse !== null;
@@ -739,7 +825,8 @@ export default function LearnPage() {
     completed: Boolean(step?.completed),
   };
   // An open course keeps no progress, so it has no completion strip at all.
-  const showCompletionBar = Boolean(step) && !step.locked && !qualifyingAttempt && !isEvaluator && !isOpenCourse;
+  const showCompletionBar =
+    Boolean(step) && !step.locked && !qualifyingAttempt && !pickerTopic && !isEvaluator && !isOpenCourse;
   const completionBarProps = {
     completed: Boolean(step?.completed),
     isPending: completeContentMutation.isPending,
@@ -752,7 +839,11 @@ export default function LearnPage() {
 
   // A quiz not attempted yet hides the floating Prev/Next — the quiz itself is
   // the way through it. During the tour, controls stay visible so the tour can point at them.
-  const hideFloatingNavForActiveQuiz = isQuizStep && !step?.attempted && !tourActive;
+  // The topic quiz picker is not a step, so it has no Prev/Next either.
+  const hideFloatingNavForActiveQuiz = (quizAwaitsAttempt(step) && !tourActive) || Boolean(pickerTopic);
+  // The 10th (board-paper) course has no Previous / Next at all: the student
+  // moves by the topic picker, the type tags and the Course Map.
+  const hidePrevNext = hideFloatingNavForActiveQuiz || isBoardPaperCourse;
   // While a quiz is being attempted — the step's own, or a qualifying test not
   // yet submitted — the AI Assistant is not offered at any width. During the tour, show it so it can be explained.
   const quizInProgress = (isQuizStep && !step?.attempted && !tourActive) || (Boolean(qualifyingAttempt) && !qualifyingSubmitted);
@@ -791,6 +882,15 @@ export default function LearnPage() {
       onSelectStep={(index) => {
         if (goToStep(index)) setCourseMapOpen(false);
       }}
+      onSelectTopic={(topic) => {
+        // The tour never leaves the step on screen.
+        if (tourActive) return;
+        setTopicPicker({ topicId: topic.id, type: "All" });
+        setCourseMapOpen(false);
+      }}
+      pickerTopicId={pickerTopic?.id ?? null}
+      // The 10th course shows no progress in its Course Map.
+      hideProgress={isBoardPaperCourse}
       onSelectCourseOverview={() => router.push(`/student/courses/${courseId}`)}
       onToggleOpen={onToggleOpen}
       hideHeader={hideHeader}
@@ -808,7 +908,7 @@ export default function LearnPage() {
   //            scaled without breaking them, so a form taller than the frame
   //            still scrolls inside the body (overscroll-contain keeps that
   //            from chaining to the page). The one place the player scrolls.
-  const playerMode = qualifyingAttempt || isQuizStep || isAssignmentStep
+  const playerMode = qualifyingAttempt || pickerTopic || isQuizStep || isAssignmentStep
     ? "form"
     : isContentStep && step.type === "VIDEO"
       ? "aspect"
@@ -830,6 +930,37 @@ export default function LearnPage() {
     aspect: "overflow-hidden max-xl:flex-none",
     form: "overflow-y-auto overscroll-contain",
   };
+
+  // NEXT QUIZ (10th course, on an Ideal answer): on to the next question of
+  // the same type in this topic, never another type; after the type's last
+  // one, back to the topic's list on that type. Placed by the player below.
+  const nextQuizButton =
+    nextQuizOfType !== undefined && !pickerTopic && !qualifyingAttempt ? (
+      <button
+        type="button"
+        onClick={() => {
+          if (nextQuizOfType && nextQuizOfType.node.firstStepIndex !== null) {
+            goToStep(nextQuizOfType.node.firstStepIndex);
+          } else backToTopicPicker();
+        }}
+        title={
+          nextQuizOfType
+            ? `Next ${currentQuestionType} question: ${nextQuizOfType.label}`
+            : `That was the last ${currentQuestionType} question of this topic`
+        }
+        // globals.css stamps an unlayered radius on every <button>.
+        style={{ borderRadius: 14 }}
+        className="flex items-center gap-2 bg-primary py-2 pl-4 pr-3 text-left text-primary-foreground shadow-lg transition hover:opacity-90 cursor-pointer"
+      >
+        <span className="flex flex-col leading-tight">
+          <span className="text-[11px] font-semibold opacity-85">
+            {nextQuizOfType ? `${currentQuestionType} · ${nextQuizOfType.label}` : `Last ${currentQuestionType} question`}
+          </span>
+          <span className="text-sm font-bold">{nextQuizOfType ? "Next quiz" : "Back to questions"}</span>
+        </span>
+        {nextQuizOfType && <ChevronRight size={18} aria-hidden="true" />}
+      </button>
+    ) : null;
 
   const lessonNavProps = {
     unitLabel: LEVEL_LABELS[step?.level] || "Lesson",
@@ -989,6 +1120,8 @@ export default function LearnPage() {
           selectedLesson={selectedLesson}
           topicTitle={pathwayTitle}
           levelLabel={pathwayLevelLabel}
+          questionTypeChips={questionTypeChipProps}
+          boardPaper={isBoardPaperCourse}
           course={course}
           isStickyNotesOpen={rightPanelOpen}
           onToggleStickyNotes={() => {
@@ -1043,7 +1176,13 @@ export default function LearnPage() {
                     trigger in a 36px circle centred inside that same 44px box,
                     so the title's centring is unchanged by it. Same
                     courseMapOpen state and drawer as before. */}
-                <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
+                {/* A board-paper course: the Course Map button and the
+                    question-type tags only — no title, no More. */}
+                <div
+                  className={`grid items-center gap-2 ${
+                    isBoardPaperCourse ? "grid-cols-[auto_1fr]" : "grid-cols-[auto_1fr_auto]"
+                  }`}
+                >
                   <button
                     type="button"
                     onClick={() => {
@@ -1059,6 +1198,9 @@ export default function LearnPage() {
                     <ListTree size={18} aria-hidden="true" />
                   </button>
 
+                  {isBoardPaperCourse ? (
+                    <QuestionTypeChips {...questionTypeChipProps} className="min-w-0" />
+                  ) : (
                   <div className="min-w-0 text-center">
                     <h1 className="text-lg font-bold leading-snug text-foreground line-clamp-2">
                       {selectedLesson?.title || course?.title || "Lesson"}
@@ -1069,13 +1211,15 @@ export default function LearnPage() {
                       <p className="text-sm text-muted-foreground line-clamp-1">{pathwayLevelLabel}: {pathwayTitle}</p>
                     )}
                   </div>
+                  )}
 
                   {/* MORE — the below-xl entry point to LearnSidePanel (Ask
                       instructor / Sticky notes), the same component and the
                       same rightPanelOpen/sidePanelFeature state the xl+
                       column uses; it opens the Learning tools sheet. The 44px
                       cell keeps the row's geometry; the button inside it is
-                      the compact 36px circle. */}
+                      the compact 36px circle. Not in a board-paper course. */}
+                  {!isBoardPaperCourse && (
                   <div className="relative flex h-11 w-11 shrink-0 items-center justify-center">
                     <button
                       type="button"
@@ -1108,11 +1252,14 @@ export default function LearnPage() {
                       <MoreHorizontal size={18} aria-hidden="true" />
                     </button>
                   </div>
+                  )}
                 </div>
 
                 {/* Phones only: LearnPageHeader, which carries this from sm
                     up, is hidden below sm. Evaluator accounts only. */}
-                <div className="sm:hidden empty:hidden mt-3 flex">
+                {/* 10th (board-paper) course: the header is xl only, so this
+                    shows below xl too. */}
+                <div className={`${isBoardPaperCourse ? "" : "sm:hidden"} empty:hidden mt-3 flex`}>
                   <EvaluatorFeedbackButton className="w-full" />
                 </div>
               </div>
@@ -1239,6 +1386,18 @@ export default function LearnPage() {
                         speechLanguage={course?.language}
                       />
                     </div>
+                  ) : pickerTopic ? (
+                    <TopicQuizPicker
+                      key={`${pickerTopic.id}:${topicPicker.type}`}
+                      topic={pickerTopic}
+                      steps={steps}
+                      type={topicPicker.type || "All"}
+                      onPick={(index) => {
+                        // Same gate as every other move; a locked quiz is
+                        // refused with what to finish first.
+                        if (goToStep(index)) setTopicPicker(null);
+                      }}
+                    />
                   ) : !step ? (
                     <div className="flex h-full items-center justify-center p-6 text-center text-muted-foreground">
                       This course has no content yet.
@@ -1265,10 +1424,15 @@ export default function LearnPage() {
                       <QuizExperience
                         key={step.quizId}
                         quizId={step.quizId}
-                        onBack={goToPreviousStep}
+                        // 10th course: no Prev/Next — "Exit quiz" / "Done" go
+                        // back to the topic's picker; "Ideal answer" opens the
+                        // written answer; no question tags.
+                        onBack={isBoardPaperCourse ? backToTopicPicker : goToPreviousStep}
                         resultReturnTo={resultReturnTo}
-                        onNextContent={goToNextStepFresh}
+                        onNextContent={isBoardPaperCourse ? undefined : goToNextStepFresh}
                         speechLanguage={course?.language}
+                        hideQuestionTags={isBoardPaperCourse}
+                        onIdealAnswer={idealAnswerIndex !== null ? () => goToStep(idealAnswerIndex) : null}
                       />
                     </div>
                   ) : (
@@ -1299,8 +1463,8 @@ export default function LearnPage() {
                     same handlers — see lessonNavProps.
                     Hidden entirely (not just gated on click) while the block on
                     screen is a quiz still awaiting submission — see
-                    hideFloatingNavForActiveQuiz. */}
-                {!hideFloatingNavForActiveQuiz && (
+                    hideFloatingNavForActiveQuiz. None in the 10th course. */}
+                {!hidePrevNext && (
                   <div className={`max-xl:hidden absolute inset-3 flex items-center justify-between pointer-events-none group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-200 ${tour.stepKey === "nav" ? "opacity-100" : "opacity-0"}`}>
                     <LessonNavigationControls variant="corners" nextTourId="lesson-nav" {...lessonNavProps} />
                   </div>
@@ -1333,7 +1497,18 @@ export default function LearnPage() {
                     <ContentCompletionBar {...completionBarProps} />
                   </div>
                 )}
+
+                {/* NEXT QUIZ (10th course, on an Ideal answer), xl and up:
+                    at the middle of the player's right edge, where Next sat
+                    in other courses. */}
+                {nextQuizButton && (
+                  <div className="max-xl:hidden absolute right-3 top-1/2 -translate-y-1/2 z-30">{nextQuizButton}</div>
+                )}
               </div>
+
+              {/* NEXT QUIZ below xl: under the player, right-aligned — at the
+                  edge it would sit on the answer text. */}
+              {nextQuizButton && <div className="xl:hidden flex justify-end">{nextQuizButton}</div>}
 
               {/* COMPLETION (below xl), video steps: the same button, right
                   under the player rather than above it. Everything else
@@ -1352,7 +1527,7 @@ export default function LearnPage() {
                   document-page row: Next here keeps the primary fill, while
                   the document buttons stay neutral-outlined. Phones get the
                   same two controls in the bottom bar instead (below). */}
-              {!hideFloatingNavForActiveQuiz && (
+              {!hidePrevNext && (
                 <div data-tour="lesson-nav" data-tour-tap="Tap Next" className="hidden sm:block xl:hidden">
                   <LessonNavigationControls variant="below" {...lessonNavProps} />
                 </div>
@@ -1418,8 +1593,9 @@ export default function LearnPage() {
             tourTap="Tap Next"
             showAi={!quizInProgress}
             includePrimaryTabs
+            // 10th course: the tabs and Ask AI only, no Previous / Next.
             left={
-              <BottomBarItem
+              isBoardPaperCourse ? null : <BottomBarItem
                 icon={ChevronLeft}
                 label="Previous"
                 onClick={lessonNavProps.onSelectPrevious}
@@ -1430,7 +1606,7 @@ export default function LearnPage() {
               />
             }
             right={
-              <BottomBarItem
+              isBoardPaperCourse ? null : <BottomBarItem
                 icon={ChevronRight}
                 label="Next"
                 onClick={lessonNavProps.onSelectNext}

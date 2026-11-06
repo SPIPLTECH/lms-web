@@ -6,6 +6,8 @@ import { Award, ArrowRight, CheckCircle2, Eye } from "lucide-react";
 import Loader from "@/components/common/Loader";
 import Button from "@/components/ui/Button";
 import ListenButton from "@/components/student/tts/ListenButton";
+import WeakAreasCard from "@/components/student/test-review/WeakAreasCard";
+import CourseTestReviewCard from "@/components/student/test-review/CourseTestReviewCard";
 import { buildResultSummarySpeech } from "@/lib/quizSpeech";
 import { resolveSpeechLang } from "@/lib/textToSpeech";
 
@@ -25,6 +27,10 @@ export default function QuizResultSummary({
     resultHref,
     onNextContent,
     speechLanguage,
+    // Test-series courses only (null elsewhere): this attempt's weak areas,
+    // and the whole-course review once every test is submitted.
+    testReview = null,
+    courseReview = null,
 }) {
     if (isLoading) {
         return (
@@ -113,6 +119,13 @@ export default function QuizResultSummary({
                     </Button>
                 )}
             </div>
+
+            {(testReview || courseReview) && (
+                <div className="mx-auto mt-4 max-w-xl space-y-3 sm:mt-6">
+                    <WeakAreasCard testReview={testReview} />
+                    <CourseTestReviewCard review={courseReview} />
+                </div>
+            )}
         </div>
     );
 }

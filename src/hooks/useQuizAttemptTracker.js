@@ -21,7 +21,7 @@ import {
  * attempt (attemptsUsed incremented server-side) never inherits the previous
  * attempt's progress.
  */
-function getQuizAttemptStorageKey(quizId, attemptsUsed = 0) {
+export function getQuizAttemptStorageKey(quizId, attemptsUsed = 0) {
     if (!quizId) return undefined;
     return `quiz-progress:${quizId}:${attemptsUsed + 1}`;
 }

@@ -30,6 +30,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { useToast } from "@/components/ui/ToastProvider";
 import { useConfirm } from "@/context/ConfirmContext";
+import { useAuth } from "@/context/AuthContext";
 import { LessonComposerPanel } from "@/components/instructor/LessonComposer/LessonComposerPanel";
 import { createQuiz as createQuizService, updateQuiz as updateQuizService, deleteQuiz as deleteQuizService, getQuizById as getQuizByIdService } from "@/services/quiz.service";
 import {
@@ -139,6 +140,7 @@ export default function CourseDetailsPage() {
     isResolving: courseKeyResolving,
     notFound: courseKeyNotFound,
   } = useInstructorCourseKey(params.courseId);
+  const { user } = useAuth();
   // The workspace selection this page was OPENED at, read once: from a link's
   // query (?lesson=… from Q&A, a pasted link) or, on a refresh of this tab,
   // from the history entry the mirror below keeps it in — the address bar
@@ -2907,6 +2909,7 @@ export default function CourseDetailsPage() {
           <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl border border-transparent bg-background/60 p-2 pt-0 sm:p-6 sm:pt-0 shadow-xl">
             {composerMode === "course" && (
               <CourseOverviewView
+                role={user?.role || "INSTRUCTOR"}
                 course={effectiveCourse}
                 courseForm={courseForm}
                 setCourseForm={setCourseForm}

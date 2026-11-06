@@ -1,0 +1,228 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none" role="img" aria-label="Orange Tree LMS">
+  <title>Orange Tree LMS</title>
+  <defs>
+    <!-- Crescent Arch Gradient -->
+    <linearGradient id="ot-arch" x1="72" y1="388" x2="438" y2="112" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#EA580C" />
+      <stop offset="50%" stop-color="#F97316" />
+      <stop offset="100%" stop-color="#FBBF24" />
+    </linearGradient>
+
+    <!-- Sunrise Horizon Hills -->
+    <linearGradient id="ot-hill-upper" x1="256" y1="296" x2="256" y2="394" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FDE047" />
+      <stop offset="100%" stop-color="#F59E0B" />
+    </linearGradient>
+    <linearGradient id="ot-hill-lower" x1="256" y1="336" x2="256" y2="404" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FB923C" />
+      <stop offset="100%" stop-color="#C2410C" />
+    </linearGradient>
+
+    <!-- Open Book Gradients -->
+    <linearGradient id="ot-book-top" x1="66" y1="396" x2="446" y2="396" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#EA580C" />
+      <stop offset="30%" stop-color="#FB923C" />
+      <stop offset="50%" stop-color="#FDE047" />
+      <stop offset="70%" stop-color="#FB923C" />
+      <stop offset="100%" stop-color="#EA580C" />
+    </linearGradient>
+    <linearGradient id="ot-book-mid" x1="94" y1="422" x2="418" y2="422" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#9A3412" />
+      <stop offset="50%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#9A3412" />
+    </linearGradient>
+    <linearGradient id="ot-book-green" x1="114" y1="438" x2="398" y2="438" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#14532D" />
+      <stop offset="50%" stop-color="#22C55E" />
+      <stop offset="100%" stop-color="#14532D" />
+    </linearGradient>
+
+    <!-- Tree Trunk & Bark Grain -->
+    <linearGradient id="ot-trunk" x1="216" y1="168" x2="296" y2="412" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#B45309" />
+      <stop offset="52%" stop-color="#78350F" />
+      <stop offset="100%" stop-color="#451A03" />
+    </linearGradient>
+    <linearGradient id="ot-bark-glow" x1="248" y1="224" x2="274" y2="404" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FBBF24" />
+      <stop offset="100%" stop-color="#B45309" />
+    </linearGradient>
+
+    <!-- Botanical Two-Tone Leaf Gradients -->
+    <linearGradient id="ot-leaf-a" x1="-14" y1="-50" x2="14" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#84CC16" />
+      <stop offset="52%" stop-color="#22C55E" />
+      <stop offset="100%" stop-color="#15803D" />
+    </linearGradient>
+    <linearGradient id="ot-leaf-b" x1="0" y1="-50" x2="15" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#4ADE80" />
+      <stop offset="100%" stop-color="#166534" />
+    </linearGradient>
+
+    <!-- 3D Citrus Fruit Radial Gradient -->
+    <radialGradient id="ot-orange" cx="34%" cy="28%" r="68%">
+      <stop offset="0%" stop-color="#FEF9C3" />
+      <stop offset="22%" stop-color="#FDBA74" />
+      <stop offset="58%" stop-color="#F97316" />
+      <stop offset="100%" stop-color="#C2410C" />
+    </radialGradient>
+
+    <!-- Trunk Silhouette & Clip Path for Bark Highlights -->
+    <path
+      id="ot-trunk-shape"
+      d="M214 406
+         C234 392 244 364 242 330
+         C240 302 220 276 182 274
+         C166 273 152 278 140 286
+         C154 266 178 256 204 260
+         C220 262 232 270 240 280
+         C236 250 214 222 178 212
+         C198 206 222 214 240 234
+         C244 238 247 244 250 250
+         C249 214 242 182 226 152
+         C242 168 253 192 257 220
+         C262 190 274 166 290 150
+         C276 180 269 212 268 248
+         C284 220 312 204 344 210
+         C314 222 292 246 282 276
+         C298 260 322 254 348 262
+         C360 266 370 274 378 284
+         C358 274 336 272 316 280
+         C288 290 274 314 274 342
+         C274 370 284 392 302 406
+         L256 420 Z"
+    />
+    <clipPath id="ot-trunk-clip">
+      <use href="#ot-trunk-shape" />
+    </clipPath>
+
+    <!-- Crisp Split-Shaded Botanical Leaf (stem at 0,0, tip at 0,-52) -->
+    <g id="leaf">
+      <path d="M0 0 C-16 -14 -16 -36 0 -52 C16 -36 16 -14 0 0 Z" fill="url(#ot-leaf-a)" />
+      <path d="M0 0 C0 -18 0 -35 0 -52 C16 -36 16 -14 0 0 Z" fill="url(#ot-leaf-b)" fill-opacity="0.55" />
+      <path d="M0 -3 L0 -45" stroke="#DCFCE7" stroke-width="1.4" stroke-linecap="round" stroke-opacity="0.6" />
+    </g>
+
+    <!-- Reusable Ripe Orange Fruit (centered at 0,0, radius 24) -->
+    <g id="orange-fruit">
+      <circle cx="0" cy="2.5" r="24.5" fill="#431407" fill-opacity="0.26" />
+      <circle cx="0" cy="0" r="24" fill="url(#ot-orange)" />
+      <path d="M-9 -12 C-4 -17 4 -18 9 -14" stroke="#FFFBEB" stroke-width="2.5" stroke-linecap="round" stroke-opacity="0.7" />
+      <circle cx="-11" cy="-7" r="1.6" fill="#FFFBEB" fill-opacity="0.65" />
+      <path d="M0 -23 C0 -28 3 -31 6 -32" stroke="#15803D" stroke-width="2.5" stroke-linecap="round" />
+      <path d="M0 -23 C-6 -28 -13 -26 -15 -20 C-9 -19 -4 -20 0 -23 Z" fill="#22C55E" />
+    </g>
+  </defs>
+
+  <!-- 1. Sweeping Crescent Arch (thick left base, tapering over top to right point) -->
+  <path
+    d="M84 388 C46 284 82 162 176 106 C270 50 390 78 440 176 C452 200 459 226 462 252 C452 218 436 186 412 160 C352 92 250 80 174 130 C105 176 78 270 106 372 Z"
+    fill="url(#ot-arch)"
+  />
+
+  <!-- 2. Rolling Sunrise Horizon Hills (tucked cleanly inside arch & behind open book) -->
+  <!-- Left Rolling Hills -->
+  <path
+    d="M113 300 C134 304 148 326 164 330 C182 334 198 354 218 386 L122 392 C114 364 111 332 113 300 Z"
+    fill="url(#ot-hill-upper)"
+  />
+  <path
+    d="M116 342 C150 346 182 364 210 390 L122 392 C119 376 117 359 116 342 Z"
+    fill="url(#ot-hill-lower)"
+  />
+
+  <!-- Right Rolling Hills -->
+  <path
+    d="M444 302 C416 304 398 326 380 332 C354 340 328 360 302 386 L428 392 C438 366 444 336 444 302 Z"
+    fill="url(#ot-hill-upper)"
+  />
+  <path
+    d="M440 340 C402 342 358 360 314 390 L428 392 C434 376 438 358 440 340 Z"
+    fill="url(#ot-hill-lower)"
+  />
+
+  <!-- 3. Sculpted Organic Tree Trunk, Flared Roots & Carved Bark Grain -->
+  <use href="#ot-trunk-shape" fill="url(#ot-trunk)" />
+  <g clip-path="url(#ot-trunk-clip)">
+    <path
+      d="M253 410 C255 372 252 336 251 296 C250 270 253 246 258 224 C261 254 260 284 263 316 C266 348 265 380 260 412 Z"
+      fill="url(#ot-bark-glow)"
+      opacity="0.82"
+    />
+    <path
+      d="M268 408 C271 378 269 350 274 322 C279 298 292 280 310 272 C294 288 282 308 278 334 C274 358 276 382 275 408 Z"
+      fill="url(#ot-bark-glow)"
+      opacity="0.62"
+    />
+    <path
+      d="M238 408 C243 382 246 354 244 326 C242 304 232 288 216 278 C234 286 246 304 248 328 C250 354 248 382 244 408 Z"
+      fill="url(#ot-bark-glow)"
+      opacity="0.58"
+    />
+  </g>
+
+  <!-- 4. Balanced Botanical Leaf Canopy -->
+  <!-- Outer Crown Arc (12 evenly fanned leaves) -->
+  <use href="#leaf" transform="translate(152 310) rotate(-110) scale(0.84)" />
+  <use href="#leaf" transform="translate(136 270) rotate(-84) scale(0.92)" />
+  <use href="#leaf" transform="translate(142 224) rotate(-62) scale(0.95)" />
+  <use href="#leaf" transform="translate(168 184) rotate(-44) scale(0.96)" />
+  <use href="#leaf" transform="translate(206 156) rotate(-26) scale(0.96)" />
+  <use href="#leaf" transform="translate(246 142) rotate(-9) scale(0.92)" />
+  <use href="#leaf" transform="translate(268 142) rotate(9) scale(0.92)" />
+  <use href="#leaf" transform="translate(308 156) rotate(26) scale(0.96)" />
+  <use href="#leaf" transform="translate(346 184) rotate(44) scale(0.96)" />
+  <use href="#leaf" transform="translate(372 224) rotate(62) scale(0.95)" />
+  <use href="#leaf" transform="translate(378 270) rotate(84) scale(0.92)" />
+  <use href="#leaf" transform="translate(362 310) rotate(110) scale(0.84)" />
+
+  <!-- Inner Branch Leaves (spaced naturally along branches with clean separation) -->
+  <use href="#leaf" transform="translate(202 200) rotate(-20) scale(0.76)" />
+  <use href="#leaf" transform="translate(312 200) rotate(20) scale(0.76)" />
+  <use href="#leaf" transform="translate(186 248) rotate(-42) scale(0.76)" />
+  <use href="#leaf" transform="translate(328 248) rotate(42) scale(0.76)" />
+  <use href="#leaf" transform="translate(234 252) rotate(-28) scale(0.74)" />
+  <use href="#leaf" transform="translate(282 252) rotate(28) scale(0.74)" />
+  <use href="#leaf" transform="translate(226 300) rotate(-118) scale(0.76)" />
+  <use href="#leaf" transform="translate(290 300) rotate(118) scale(0.76)" />
+  <use href="#leaf" transform="translate(226 334) rotate(-132) scale(0.70)" />
+  <use href="#leaf" transform="translate(290 334) rotate(132) scale(0.70)" />
+
+  <!-- 5. Five Ripe Glowing Oranges -->
+  <use href="#orange-fruit" transform="translate(184 292) scale(0.96)" />
+  <use href="#orange-fruit" transform="translate(210 226) scale(0.88)" />
+  <use href="#orange-fruit" transform="translate(258 192) scale(0.96)" />
+  <use href="#orange-fruit" transform="translate(306 226) scale(0.88)" />
+  <use href="#orange-fruit" transform="translate(332 282) scale(0.92)" />
+
+  <!-- 6. Open Book Pages & Emerald Cover -->
+  <!-- Top Orange Page Wings -->
+  <path
+    d="M66 404
+       C126 366 198 368 256 412
+       C314 368 386 366 446 404
+       C388 384 316 388 256 428
+       C196 388 124 384 66 404 Z"
+    fill="url(#ot-book-top)"
+  />
+
+  <!-- Second Warm Page Fold -->
+  <path
+    d="M94 418
+       C148 396 206 400 256 434
+       C306 400 364 396 418 418
+       C364 410 308 416 256 446
+       C204 416 148 410 94 418 Z"
+    fill="url(#ot-book-mid)"
+  />
+
+  <!-- Emerald Green Book Cover Swoosh -->
+  <path
+    d="M116 430
+       C166 416 212 422 256 450
+       C300 422 346 416 396 430
+       C348 428 302 436 256 460
+       C210 436 164 428 116 430 Z"
+    fill="url(#ot-book-green)"
+  />
+</svg>

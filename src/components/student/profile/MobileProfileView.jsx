@@ -7,7 +7,6 @@ import {
   ChevronLeft,
   ChevronRight,
   User,
-  ShieldCheck,
   Edit,
   KeyRound,
   Award,
@@ -16,6 +15,7 @@ import {
   Calendar,
   MapPin,
   GraduationCap,
+  Building,
   Users,
   Clock,
   X,
@@ -106,6 +106,8 @@ export default function MobileProfileView({ profile, onEdit }) {
 
   // Real, derived-from-actual-data completion score (no field is invented) —
   // counts how many of the fields shown below are actually filled in.
+  const institution = student.institution || student.collegeName;
+  const graduationYear = student.graduationYear != null ? String(student.graduationYear) : null;
   const completionFields = [
     profile?.name,
     profile?.email,
@@ -113,8 +115,8 @@ export default function MobileProfileView({ profile, onEdit }) {
     profile?.address,
     profile?.avatar,
     student.dateOfBirth,
-    student.guardianName,
     student.education,
+    institution,
   ];
   const filledCount = completionFields.filter(Boolean).length;
   const completionPercent = Math.round((filledCount / completionFields.length) * 100);
@@ -207,6 +209,8 @@ export default function MobileProfileView({ profile, onEdit }) {
         </h3>
         <div className="divide-y divide-card-border">
           <InfoRow icon={GraduationCap} label="Education" value={student.education} onClick={onEdit} />
+          <InfoRow icon={Building} label="Institution" value={institution} onClick={onEdit} />
+          <InfoRow icon={Calendar} label="Year of Graduation" value={graduationYear} onClick={onEdit} />
           <InfoRow icon={Users} label="Guardian Name" value={student.guardianName} onClick={onEdit} />
           <InfoRow icon={Clock} label="Member Since" value={joinedDate} />
         </div>
