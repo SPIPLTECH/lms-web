@@ -21,6 +21,13 @@ import {
 } from "lucide-react";
 
 import QuestionRepositoryPickerModal from "./QuestionRepositoryPickerModal";
+import {
+  alignedMatchOptions,
+  ArrangeTokensFields,
+  MatchPairsFields,
+  StructuredAnswer,
+  structuredQuestionProblem,
+} from "./structuredQuestion";
 import QuizImportModal from "./QuizImportModal";
 import ProctoringToggle from "@/components/instructor/quizzes/ProctoringToggle";
 import Modal from "@/components/ui/Modal";
@@ -50,6 +57,7 @@ const optionExplanationOf = (opt) =>
   opt && typeof opt === "object" && typeof opt.explanation === "string" ? opt.explanation : "";
 
 const CHOICE_TYPES = ["MCQ_SINGLE", "MCQ_MULTI", "TRUE_FALSE"];
+const STRUCTURED_TYPES = ["ARRANGE_TOKENS", "MATCH_PAIRS"];
 
 // The API stores composer questions under its synonyms ("MCQ",
 // "MULTIPLE_CORRECT"); the editor branches on the UI's own keys, so a
@@ -239,7 +247,9 @@ export function QuizOverviewView({
         id: q.id || `draft-que-${quiz.id || "temp"}-${idx + 1}`,
         question: q.question || q.title || "",
         questionType: editorQuestionType(q),
-        options: Array.isArray(q.options) && q.options.length > 0
+        options: editorQuestionType(q) === "MATCH_PAIRS"
+          ? alignedMatchOptions(q.options, q.correctAnswer)
+          : Array.isArray(q.options) && q.options.length > 0
           ? q.options.map(optionToText)
           : String(q.questionType || "").toUpperCase() === "TRUE_FALSE"
             ? [...TRUE_FALSE_OPTIONS]
@@ -319,7 +329,9 @@ export function QuizOverviewView({
       id: q.id,
       question: q.question || "",
       questionType: editorQuestionType(q),
-      options: Array.isArray(q.options) ? q.options.map(optionToText) : [],
+      options: editorQuestionType(q) === "MATCH_PAIRS"
+        ? alignedMatchOptions(q.options, q.correctAnswer)
+        : Array.isArray(q.options) ? q.options.map(optionToText) : [],
       optionExplanations: Array.isArray(q.options) ? q.options.map(optionExplanationOf) : [],
       correctAnswer: editorCorrectAnswer(editorQuestionType(q), q.correctAnswer),
       explanation: q.explanation || "",
@@ -341,8 +353,8 @@ export function QuizOverviewView({
       id: `draft-que-${quiz?.id || "temp"}-import-${stamp}-${i + 1}`,
       question: r.question,
       questionType: r.questionType,
-      options: r.options,
-      optionExplanations: Array.isArray(r.optionExplanations) ? r.optionExplanations : (r.options || []).map(() => ""),
+      options: r.questionType === "MATCH_PAIRS" ? alignedMatchOptions(r.options, r.correctAnswer) : r.options,
+      optionExplanations: Array.isArray(r.optionExplanations) ? r.optionExplanations : [],
       correctAnswer: r.correctAnswer,
       explanation: r.explanation || "",
       hint: "",
@@ -379,10 +391,22 @@ export function QuizOverviewView({
           target.options = ["True", "False"];
           target.optionExplanations = ["", ""];
           target.correctAnswer = "True";
+        } else if (value === "ARRANGE_TOKENS") {
+          target.options = Array.isArray(target.options) && target.options.length >= 2 ? target.options.map(getOptionText) : ["", ""];
+          target.correctAnswer = target.options;
+          target.optionExplanations = [];
+        } else if (value === "MATCH_PAIRS") {
+          target.options = { left: ["", ""], right: ["", ""] };
+          target.correctAnswer = {};
+          target.optionExplanations = [];
         } else if (value === "MCQ_SINGLE" || value === "MCQ_MULTI") {
           if (!Array.isArray(target.options) || target.options.length < 2) {
             target.options = ["Option 1", "Option 2"];
             target.optionExplanations = ["", ""];
+          }
+          // Coming from Match Pairs or Arrange Tokens: their key names no option.
+          if (STRUCTURED_TYPES.includes(updated[currentQuestionIndex].questionType)) {
+            target.correctAnswer = value === "MCQ_MULTI" ? [] : "";
           }
           if (value === "MCQ_SINGLE" && Array.isArray(target.correctAnswer)) {
             // Never invent a key: if no option was selected under MCQ_MULTI,
@@ -396,6 +420,13 @@ export function QuizOverviewView({
       updated[currentQuestionIndex] = target;
       return updated;
     });
+  };
+
+  // Tokens or pairs changed: the answer lives in them, so both fields move.
+  const handleStructuredChange = ({ options, correctAnswer }) => {
+    setQuestions((prev) =>
+      prev.map((q, idx) => (idx === currentQuestionIndex ? { ...q, options, correctAnswer } : q))
+    );
   };
 
   // Option text change for current question
@@ -522,6 +553,13 @@ export function QuizOverviewView({
         type === "MCQ_MULTI" ? !Array.isArray(answer) || answer.length === 0 : !answer;
       if ((type === "MCQ_SINGLE" || type === "MCQ_MULTI" || type === "TRUE_FALSE") && missingAnswer) {
         setError(`Question #${i + 1} needs a correct answer selected before saving.`);
+        setCurrentQuestionIndex(i);
+        return;
+      }
+
+      const structuredProblem = structuredQuestionProblem(questions[i]);
+      if (structuredProblem) {
+        setError(`Question #${i + 1} ${structuredProblem}.`);
         setCurrentQuestionIndex(i);
         return;
       }
@@ -771,11 +809,13 @@ export function QuizOverviewView({
 
                   {/* Question Text */}
                   <div className="text-base font-semibold text-foreground leading-relaxed pt-1">
-                    <QuizRichText text={q.question} />
+                    <QuizRichText text={q.question} preserveLines />
                   </div>
 
                   {/* Options List with Correct Answer Highlight */}
-                  {Array.isArray(q.options) && q.options.length > 0 && (
+                  {STRUCTURED_TYPES.includes(q.questionType) && <StructuredAnswer question={q} />}
+
+                  {!STRUCTURED_TYPES.includes(q.questionType) && Array.isArray(q.options) && q.options.length > 0 && (
                     <div className="space-y-1.5 pt-2">
                       <span className="text-[13px] font-mono font-bold uppercase tracking-wider text-muted-foreground block">Options:</span>
                       <div className="grid grid-cols-1 gap-1.5">
@@ -816,7 +856,7 @@ export function QuizOverviewView({
                   )}
 
                   {/* Non-MCQ Correct Answer Display */}
-                  {(!Array.isArray(q.options) || q.options.length === 0) && q.correctAnswer && (
+                  {!STRUCTURED_TYPES.includes(q.questionType) && (!Array.isArray(q.options) || q.options.length === 0) && q.correctAnswer && (
                     <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-500/30 text-sm text-emerald-800 dark:text-emerald-300 space-y-1">
                       <span className="font-mono font-bold uppercase text-[12px] text-emerald-700 dark:text-emerald-400 block">Correct Answer:</span>
                       <p className="font-semibold">{String(q.correctAnswer)}</p>
@@ -1309,10 +1349,19 @@ export function QuizOverviewView({
                 </div>
               )}
 
+              {activeQuestion.questionType === "ARRANGE_TOKENS" && (
+                <ArrangeTokensFields tokens={activeQuestion.options} onChange={handleStructuredChange} />
+              )}
+
+              {activeQuestion.questionType === "MATCH_PAIRS" && (
+                <MatchPairsFields options={activeQuestion.options} onChange={handleStructuredChange} />
+              )}
+
               {/* Non-MCQ Correct Answer Input */}
               {activeQuestion.questionType !== "MCQ_SINGLE" &&
                activeQuestion.questionType !== "MCQ_MULTI" &&
-               activeQuestion.questionType !== "TRUE_FALSE" && (
+               activeQuestion.questionType !== "TRUE_FALSE" &&
+               !STRUCTURED_TYPES.includes(activeQuestion.questionType) && (
                 <div className="space-y-1 pt-2 border-t border-border/60">
                   <label className="text-sm font-semibold text-foreground">Correct Answer</label>
                   <input

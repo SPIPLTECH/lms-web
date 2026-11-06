@@ -16,6 +16,7 @@ import LearnPageHeader from "@/components/student/learning/LearnPageHeader";
 import EvaluatorFeedbackButton from "@/components/evaluator/EvaluatorFeedbackButton";
 import SkipQualificationModal from "@/components/student/learning/SkipQualificationModal";
 import QualificationResultPanel from "@/components/student/learning/QualificationResultPanel";
+import { quizAwaitsAttempt } from "@/lib/learningSequence";
 import StudentCourseMap from "@/components/student/learning/StudentCourseMap";
 
 import { buildPathIndex, getSkipOfferForScope } from "@/lib/learningPath";
@@ -791,7 +792,7 @@ export default function LearnPage() {
 
   // A quiz not attempted yet hides the floating Prev/Next — the quiz itself is
   // the way through it. During the tour, controls stay visible so the tour can point at them.
-  const hideFloatingNavForActiveQuiz = isQuizStep && !step?.attempted && !tourActive;
+  const hideFloatingNavForActiveQuiz = quizAwaitsAttempt(step) && !tourActive;
   // While a quiz is being attempted — the step's own, or a qualifying test not
   // yet submitted — the AI Assistant is not offered at any width. During the tour, show it so it can be explained.
   const quizInProgress = (isQuizStep && !step?.attempted && !tourActive) || (Boolean(qualifyingAttempt) && !qualifyingSubmitted);

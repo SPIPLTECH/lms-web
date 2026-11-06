@@ -9,15 +9,16 @@ import Button from "@/components/ui/Button";
 import QuizHeader from "@/components/student/attempt/QuizHeader";
 import { getQuizTimerStorageKey } from "@/components/student/attempt/QuizTimer";
 import QuestionCard from "@/components/student/attempt/QuestionCard";
-import QuizNavigation from "@/components/student/attempt/QuizNavigation";
+import QuizNavigation, { QuestionPalette, isLargeQuiz } from "@/components/student/attempt/QuizNavigation";
 import QuizSubmitModal from "@/components/student/attempt/QuizSubmitModal";
 import QuizResultSummary from "@/components/student/attempt/QuizResultSummary";
 import ProctoredQuizLauncher from "@/features/proctoring/components/ProctoredQuizLauncher";
+import QuizStartScreen from "@/components/student/attempt/QuizStartScreen";
 import useQuiz from "@/hooks/queries/student/useQuiz";
 import useSubmitQuiz from "@/hooks/queries/student/useSubmitQuiz";
 import useQuizResult from "@/hooks/queries/student/useQuizResult";
 import useTrackCourseAccess from "@/hooks/queries/student/useTrackCourseAccess";
-import useQuizAttemptTracker from "@/hooks/useQuizAttemptTracker";
+import useQuizAttemptTracker, { getQuizAttemptStorageKey } from "@/hooks/useQuizAttemptTracker";
 import { useToast } from "@/components/ui/ToastProvider";
 import { useConfirm } from "@/context/ConfirmContext";
 import { useStudentTour } from "@/context/StudentTourContext";
@@ -149,6 +150,8 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
         [quiz]
     );
 
+    const largeQuiz = isLargeQuiz(questions.length);
+
     const [showSubmitModal, setShowSubmitModal] =
         useState(false);
 
@@ -177,11 +180,44 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
     // allowance is now part of the gate and autoReattempt cannot override it.
     const showCompletedCard = !isPractice && hasPriorAttempt && (!reattempting || !canTakeAnother);
 
+    // A Final Quiz opens on a start screen, so its time isn't running before
+    // the student has seen what they are starting. An attempt already under
+    // way in this tab (a refresh: its timer or progress is stored) resumes
+    // straight away, its clock still running.
+    const [startPressed, setStartPressed] = useState(false);
+    const attemptAlreadyStarted = useMemo(() => {
+        if (!quiz?.id || typeof window === "undefined") return false;
+        const used = quiz.attemptStatus?.attemptsUsed ?? 0;
+        try {
+            return [getQuizTimerStorageKey(quiz.id, used), getQuizAttemptStorageKey(quiz.id, used)].some(
+                (key) => window.sessionStorage.getItem(key) !== null
+            );
+        } catch {
+            return false;
+        }
+    }, [quiz?.id, quiz?.attemptStatus?.attemptsUsed]);
+    const showStartScreen =
+        quiz?.quizTag === "FINAL" &&
+        !isPractice &&
+        !autoReattempt &&
+        !isSubmitted &&
+        !showCompletedCard &&
+        !startPressed &&
+        !attemptAlreadyStarted;
+
+    const handleStartQuiz = () => {
+        if (tour.active) {
+            showToast?.("Paused during the tour. You can start this quiz when the tour ends.", "info");
+            return;
+        }
+        setStartPressed(true);
+    };
+
     // Whether an attempt is actually being taken right now, as opposed to the
     // "already completed" card or the post-submit summary being shown over the
     // quiz. The tracker tracks and persists nothing outside that window — see
     // useQuizAttemptTracker.
-    const isAttemptActive = Boolean(quiz) && !isSubmitted && !showCompletedCard;
+    const isAttemptActive = Boolean(quiz) && !isSubmitted && !showCompletedCard && !showStartScreen;
 
     // Question-level state for this attempt: answer, status, visited/skipped/
     // hint history per question, plus which question is open and the
@@ -232,10 +268,10 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
     const practiceRight = practiceMarked.filter(Boolean).length;
 
     useEffect(() => {
-        if (quiz && startedAtRef.current === null) {
+        if (isAttemptActive && startedAtRef.current === null) {
             startedAtRef.current = Date.now();
         }
-    }, [quiz]);
+    }, [isAttemptActive]);
 
     const submitQuizMutation =
         useSubmitQuiz();
@@ -456,6 +492,8 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
                 resultHref={resultHref}
                 onNextContent={onNextContent}
                 speechLanguage={speechLanguage}
+                testReview={submissionResult?.testReview ?? null}
+                courseReview={submissionResult?.courseReview ?? null}
             />
         );
     }
@@ -527,6 +565,10 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
         );
     }
 
+    if (showStartScreen) {
+        return <QuizStartScreen quiz={quiz} onStart={handleStartQuiz} onBack={onBack} />;
+    }
+
     return (
         <>
             <div className="space-y-2 sm:space-y-3">
@@ -554,6 +596,14 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
                     </p>
                 )}
 
+                {/* A quiz with more than LARGE_QUIZ_THRESHOLD questions gets
+                    its question palette beside the question where the quiz
+                    is wide enough (@3xl of this container, so the learn
+                    page's frame counts, not the window); narrower, the
+                    palette opens under the nav bar instead. */}
+                <div className="@container">
+                <div className={largeQuiz ? "@3xl:grid @3xl:grid-cols-[minmax(0,1fr)_16rem] @3xl:items-start @3xl:gap-3" : undefined}>
+                <div className="min-w-0 space-y-2 sm:space-y-3">
                 <QuestionCard
                     question={currentQuestion}
                     selectedAnswer={currentAnswer}
@@ -588,6 +638,32 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
                     practice={isPractice}
                     checkedResults={checkedResults}
                 />
+                </div>
+
+                {largeQuiz && (
+                    <aside
+                        aria-label="Question palette"
+                        className="hidden @3xl:block rounded-2xl border border-border bg-background p-3"
+                    >
+                        <p className="mb-2 flex items-baseline justify-between gap-2 px-0.5 text-sm font-bold text-foreground">
+                            Questions
+                            <span className="text-xs font-medium tabular-nums text-muted-foreground">
+                                {currentQuestionIndex + 1} of {questions.length}
+                            </span>
+                        </p>
+                        <QuestionPalette
+                            questions={questions}
+                            currentQuestionIndex={currentQuestionIndex}
+                            questionStates={questionStates}
+                            checkedResults={checkedResults}
+                            practice={isPractice}
+                            onJumpTo={goToQuestion}
+                            gridClassName="max-h-[min(60vh,32rem)]"
+                        />
+                    </aside>
+                )}
+                </div>
+                </div>
 
                 {isPractice && (
                     <PracticeStatus

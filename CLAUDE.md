@@ -357,9 +357,8 @@ Responsible for:
 - Discount pricing
 - Store pricing
 - Reviewing courses
-- Publishing courses
-- Unpublishing courses
-- Archiving courses
+- Publishing / unpublishing any course
+- Archiving and restoring courses
 
 Current known gap:
 

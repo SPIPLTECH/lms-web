@@ -34,14 +34,14 @@ assert.match(nextConfigSource, /Content-Security-Policy/);
 assert.match(nextConfigSource, /script-src 'self'/);
 assert.match(nextConfigSource, /object-src 'none'/);
 
-// 3. Finding #4 (UI): CourseOverviewView restricts Publish/Unpublish/Restore to ADMIN
+// 3. Finding #4 (UI): Publish/Unpublish are shown to authors (ADMIN or the
+// owning INSTRUCTOR — the API enforces ownership); Restore stays ADMIN-only.
 const overviewSource = fs.readFileSync(
   path.resolve(import.meta.dirname, "../../components/instructor/courses/CourseOverviewView.jsx"),
   "utf8"
 );
-assert.doesNotMatch(overviewSource, /role === "INSTRUCTOR" && isDraft && onPublishClick/);
-assert.doesNotMatch(overviewSource, /role === "INSTRUCTOR" && isPublished && onUnpublishClick/);
-assert.match(overviewSource, /role === "ADMIN" && isDraft && onPublishClick/);
-assert.match(overviewSource, /role === "ADMIN" && isPublished && onUnpublishClick/);
+assert.match(overviewSource, /isAuthor && isDraft && onPublishClick/);
+assert.match(overviewSource, /isAuthor && isPublished && onUnpublishClick/);
+assert.match(overviewSource, /role === "ADMIN" && isArchived && onRestoreClick/);
 
-console.log("PASS: frontend security review checks (DOMPurify, CSP script-src, ADMIN publish UI)");
+console.log("PASS: frontend security review checks (DOMPurify, CSP script-src, publish UI roles)");

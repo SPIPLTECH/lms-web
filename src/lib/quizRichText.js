@@ -11,11 +11,15 @@
  *    numbers in a question; a slimmer cell, without them, in an option.
  *    Code is coloured only when the fence names a language: guessing
  *    colours pseudocode at random.
+ *
+ * An ![image](url) loads through getDisplayUrl: uploads live in private
+ * storage, so their stored URL does not open directly.
  */
 
 import { Marked } from "marked";
 import DOMPurify from "isomorphic-dompurify";
 
+import { getDisplayUrl } from "@/lib/blob";
 import { highlightCode } from "@/lib/markdown";
 import { quizCodeLanguageLabel, resolveQuizCodeLanguage } from "@/lib/quizText";
 
@@ -49,6 +53,11 @@ function codeCell(text, lang, compact) {
   );
 }
 
+function quizImage(href, alt, compact) {
+  const src = getDisplayUrl(href, { width: compact ? 640 : 1280 });
+  return `<img class="quiz-image${compact ? " quiz-image-compact" : ""}" src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" loading="lazy" />`;
+}
+
 const makeMarked = (compact) =>
   new Marked({
     gfm: true,
@@ -56,6 +65,9 @@ const makeMarked = (compact) =>
     renderer: {
       code({ text, lang }) {
         return codeCell(text, lang, compact);
+      },
+      image({ href, text }) {
+        return quizImage(href, text, compact);
       },
       html({ text }) {
         return escapeHtml(text);

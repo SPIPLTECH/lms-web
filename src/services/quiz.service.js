@@ -103,6 +103,16 @@ export const getQuizResult =
 };
 
 /**
+ * Student: their test-series review for a course — progress until every
+ * Final quiz is submitted, then the full review. Null for a course without
+ * the review switched on.
+ */
+export const getCourseTestReview = async (courseId) => {
+    const { data } = await api.get(`/quizzes/test-review/${courseId}`);
+    return data.data ?? null;
+};
+
+/**
  * Student: every quiz they have attempted, one entry per quiz with its
  * attempt history summarised — the quiz half of the Submissions page.
  */

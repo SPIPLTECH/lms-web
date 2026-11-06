@@ -15,6 +15,7 @@ import { useModules } from "@/hooks/queries/instructor/useModules";
 import { useCreateRepositoryQuestion } from "@/hooks/queries/instructor/useQuestionRepository";
 import { QUESTION_TYPE_OPTIONS } from "@/lib/questionType";
 import { useAlert } from "@/context/ConfirmContext";
+import QuizTextEditor from "@/components/quiz/QuizTextEditor";
 
 export default function CreateQuestionPage() {
   const router = useRouter();
@@ -282,11 +283,12 @@ export default function CreateQuestionPage() {
               <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                 Question Text *
               </label>
-              <textarea
-                rows={4}
+              <QuizTextEditor
+                minRows={4}
                 placeholder="Type your full question statement here..."
                 value={question}
-                onChange={(e) => setQuestion(e.target.value)}
+                onChange={setQuestion}
+                ariaLabel="Question"
                 required
                 className="w-full bg-background border border-transparent rounded-xl p-4 text-sm text-foreground focus:border-amber-500 focus:outline-none"
               />
@@ -398,12 +400,13 @@ export default function CreateQuestionPage() {
                       <Check className="w-4 h-4" />
                     </button>
 
-                    <input
-                      type="text"
+                    <QuizTextEditor
+                      variant="option"
                       placeholder={`Option ${idx + 1}`}
                       value={opt.optionText}
-                      onChange={(e) => handleOptionTextChange(idx, e.target.value)}
-                      className="flex-1 bg-transparent border-none text-xs text-foreground focus:outline-none"
+                      onChange={(text) => handleOptionTextChange(idx, text)}
+                      ariaLabel={`Option ${idx + 1}`}
+                      className="w-full bg-transparent border-none text-xs text-foreground focus:outline-none"
                     />
 
                     {options.length > 2 && (
@@ -525,11 +528,12 @@ export default function CreateQuestionPage() {
           {/* Explanation Card */}
           <div className="p-6 rounded-3xl bg-background/90 border border-transparent space-y-3">
             <h3 className="text-base font-bold text-foreground">Explanation & Notes (Optional)</h3>
-            <textarea
-              rows={3}
+            <QuizTextEditor
+              minRows={3}
               placeholder="Provide solution explanation or reference notes for students..."
               value={explanation}
-              onChange={(e) => setExplanation(e.target.value)}
+              onChange={setExplanation}
+              ariaLabel="Explanation"
               className="w-full bg-background border border-transparent rounded-xl p-3 text-sm text-foreground focus:border-amber-500 focus:outline-none"
             />
           </div>

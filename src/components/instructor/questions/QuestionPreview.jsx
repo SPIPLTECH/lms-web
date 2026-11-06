@@ -34,7 +34,7 @@ export default function QuestionPreview({
                 </div>
 
                 <div className="text-lg leading-8 text-foreground">
-                    <QuizRichText text={question.question} />
+                    <QuizRichText text={question.question} preserveLines />
                 </div>
             </div>
 

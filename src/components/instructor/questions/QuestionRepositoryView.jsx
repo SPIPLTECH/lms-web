@@ -557,7 +557,7 @@ export default function QuestionRepositoryView({ showImportShortcuts = false }) 
 
             <div>
               <div className="text-sm text-foreground mt-2 bg-background/80 p-4 rounded-2xl border border-border whitespace-pre-line">
-                <QuizRichText text={previewQuestion.question} />
+                <QuizRichText text={previewQuestion.question} preserveLines />
               </div>
             </div>
 

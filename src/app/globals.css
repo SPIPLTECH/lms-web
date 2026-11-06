@@ -806,6 +806,21 @@ button.bg-primary:hover, a.bg-primary:hover, .btn-rainbow:hover {
   text-decoration: underline;
 }
 
+/* An image never widens the card, and a tall one never pushes the options
+   off the screen. An answer choice has less room than the question. */
+.quiz-rich .quiz-image {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 24rem;
+  border-radius: 0.5rem;
+}
+
+.quiz-rich .quiz-image-compact {
+  max-height: 10rem;
+}
+
 /* Some imported questions carry a Markdown table (e.g. a ticket count per
    priority). It scrolls on its own rather than widening the card. */
 .quiz-rich table {

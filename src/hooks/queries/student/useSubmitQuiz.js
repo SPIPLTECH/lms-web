@@ -58,6 +58,8 @@ export default function useSubmitQuiz() {
             queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.RECOMMENDATIONS] });
             queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.STUDENT_DASHBOARD] });
             queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.MY_COURSES] });
+            // A test-series course's review progress (or the review itself).
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.COURSE_TEST_REVIEW] });
         },
     });
 }

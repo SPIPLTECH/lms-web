@@ -10,6 +10,7 @@ import ArrangeTokensList from "./ArrangeTokensList";
 import MatchPairsGrid from "./MatchPairsGrid";
 import SelfAssessmentInput from "./SelfAssessmentInput";
 import ListenButton from "@/components/student/tts/ListenButton";
+import QuestionTags from "@/components/quiz/QuestionTags";
 import QuizRichText from "@/components/quiz/QuizRichText";
 import { resolveQuestionType, TRUE_FALSE_OPTIONS } from "@/lib/questionType";
 import { buildQuestionSpeech } from "@/lib/quizSpeech";
@@ -141,7 +142,8 @@ export default function QuestionCard({
           {questionNumber && totalQuestions ? `Question ${questionNumber} of ${totalQuestions}` : "Question"}
         </h2>
         <div className="text-sm sm:text-xl font-semibold leading-snug text-foreground break-words flex-1 min-w-0">
-          <QuizRichText text={question.question} />
+          <QuestionTags tags={question.tags} className="mb-3 sm:mb-4" />
+          <QuizRichText text={question.question} preserveLines />
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
