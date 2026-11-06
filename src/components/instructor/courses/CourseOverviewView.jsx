@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Archive, ChevronRight } from "lucide-react";
+import Link from "next/link";
+import { Archive, ChevronRight, Award } from "lucide-react";
 import { UploadButton } from "@/components/instructor/courses/UploadButton";
 import { LessonComposerPanel } from "@/components/instructor/LessonComposer/LessonComposerPanel";
-import CertificateSettingsView from "@/components/instructor/courses/CertificateSettingsView";
-import CourseFeedbackView from "@/components/instructor/courses/CourseFeedbackView";
 
 export function CourseOverviewView({
   course,
@@ -131,6 +130,18 @@ export function CourseOverviewView({
               >
                 Unpublish
               </button>
+            )}
+
+            {/* Certificates and Feedback Hub Button */}
+            {isAuthor && !isDraftMode && (course?.id || course?._id) && (
+              <Link
+                href={`/instructor/courses/${encodeURIComponent(course?.urlKey || course?.id || course?._id)}/certificates`}
+                className="btn shrink-0 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 dark:text-amber-400 font-bold text-sm px-3.5 py-1.5 transition cursor-pointer flex items-center gap-1.5 shadow-sm"
+                title="Certificates and Feedback"
+              >
+                <Award size={14} className="shrink-0" />
+                <span>Certificates and Feedback</span>
+              </Link>
             )}
 
             {role === "ADMIN" && isArchived && onRestoreClick && (
@@ -538,25 +549,6 @@ export function CourseOverviewView({
                   })}
                 </div>
               </div>
-
-              {/* Certificate Template & Settings (Instructor & Admin only) */}
-              {isAuthor && !isDraftMode && (
-                <div className="pt-4 border-t border-border/80">
-                  <CertificateSettingsView
-                    course={course}
-                    onSave={onSaveCertificateSettings}
-                    isSaving={isSavingCertificateSettings}
-                    role={role}
-                  />
-                </div>
-              )}
-
-              {/* Course Feedback Dashboard (Instructor & Admin only) */}
-              {isAuthor && !isDraftMode && (
-                <div className="pt-4 border-t border-border/80">
-                  <CourseFeedbackView courseId={course?.id} />
-                </div>
-              )}
             </div>
           )}
         </div>
