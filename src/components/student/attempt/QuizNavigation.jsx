@@ -124,6 +124,10 @@ export default function QuizNavigation({
                                            // nothing to mark, e.g. a written answer).
                                            practice = false,
                                            checkedResults = {},
+                                           // A Self-Test's own control at the right of the
+                                           // bar (the 10th course's "Ideal answer"); null: the
+                                           // usual spacer.
+                                           practiceAction = null,
                                        }) {
     const numbersContainerRef = useRef(null);
     const { statusFor, labelFor, styleFor } = statusHelpers({
@@ -265,6 +269,10 @@ export default function QuizNavigation({
                     >
                         <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
                     </button>
+
+                    {/* Right beside the question numbers (the 10th course's
+                        "Ideal answer" on the last question). */}
+                    {practice && practiceAction}
                 </div>
 
                 {actions}

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
+import { ArrowRight, BookOpenCheck, CheckCircle2, Loader2 } from "lucide-react";
 
 import Loader from "@/components/common/Loader";
 import Button from "@/components/ui/Button";
@@ -117,7 +117,22 @@ function PracticeStatus({
 // question twice.
 //
 // It skips the CONFIRMATION only, never the allowance — see showCompletedCard.
-export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextContent, speechLanguage, onSubmitted, autoReattempt = false }) {
+// The 10th (board-paper) course, set by the learning page:
+//   hideQuestionTags — no session / Q. number tags above each question;
+//   onIdealAnswer    — opens the question's "Write this in the exam" answer;
+//                      given, an "Ideal answer" button sits beside the question
+//                      numbers on the quiz's last question.
+export default function QuizExperience({
+    quizId,
+    onBack,
+    resultReturnTo,
+    onNextContent,
+    speechLanguage,
+    onSubmitted,
+    autoReattempt = false,
+    hideQuestionTags = false,
+    onIdealAnswer = null,
+}) {
     const { showToast } = useToast();
     const tour = useStudentTour();
     const [isSubmitted, setIsSubmitted] = useState(false);
@@ -569,6 +584,8 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
                     quiz={quiz}
                     onBack={isPractice && onBack ? handleExitPractice : onBack}
                     exitLabel={isPractice ? "Exit quiz" : null}
+                    // 10th course: the arrow only, titled "Back".
+                    exitIconOnly={hideQuestionTags}
                     onTimeUp={handleTimeUp}
                     answeredCount={answeredQuestions}
                 />
@@ -614,6 +631,9 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
                     revealAnswers={isPractice}
                     answerChecked={currentAnswerChecked}
                     onCheckAnswer={handleCheckAnswer}
+                    hideTags={hideQuestionTags}
+                    // Same 10th-course flag: the board-question layout.
+                    boardPaper={hideQuestionTags}
                 />
 
                 <QuizNavigation
@@ -630,6 +650,21 @@ export default function QuizExperience({ quizId, onBack, resultReturnTo, onNextC
                     isSubmitting={submitQuizMutation.isPending}
                     practice={isPractice}
                     checkedResults={checkedResults}
+                    practiceAction={
+                        onIdealAnswer && currentQuestionIndex === questions.length - 1 ? (
+                            <button
+                                type="button"
+                                onClick={onIdealAnswer}
+                                title="See the full answer to write in the exam"
+                                // globals.css stamps an unlayered radius on every <button>.
+                                style={{ borderRadius: 12 }}
+                                className="flex h-9 sm:h-10 shrink-0 items-center gap-1.5 bg-primary px-3 text-xs sm:text-sm font-bold text-primary-foreground transition hover:opacity-90 cursor-pointer"
+                            >
+                                <BookOpenCheck className="h-4 w-4" aria-hidden />
+                                Ideal answer
+                            </button>
+                        ) : null
+                    }
                 />
                 </div>
 

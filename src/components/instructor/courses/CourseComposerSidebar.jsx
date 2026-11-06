@@ -880,9 +880,6 @@ export function CourseComposerSidebar({
             ) : (
               <Lightbulb size={12} className={`shrink-0 ${isConceptActive ? "text-primary" : "text-primary/80"}`} />
             )}
-            <span className="text-[12.5px] font-black text-muted-foreground tabular-nums shrink-0">
-              C{cIdx + 1}
-            </span>
             <span className={`truncate text-[14.5px] leading-snug font-medium ${isConceptLocked ? "text-muted-foreground" : ""}`} title={concept.title}>
               {concept.title}
             </span>
@@ -982,9 +979,6 @@ export function CourseComposerSidebar({
             ) : (
               <GitBranch size={12} className={`shrink-0 ${isSubTopicActive ? "text-primary" : "text-primary/80"}`} />
             )}
-            <span className="text-[12.5px] font-black text-muted-foreground tabular-nums shrink-0">
-              S{sIdx + 1}
-            </span>
             <span className={`truncate text-[14.5px] leading-snug font-medium ${isSubTopicLocked ? "text-muted-foreground" : ""}`} title={subTopic.title}>
               {subTopic.title}
             </span>
@@ -1229,9 +1223,6 @@ export function CourseComposerSidebar({
                     ) : (
                       <Layers size={14} className={`shrink-0 ${isModuleActive ? "text-primary" : "text-primary/80"}`} />
                     )}
-                    <span className="text-[13px] font-black text-muted-foreground tabular-nums shrink-0">
-                      M{mIdx + 1}
-                    </span>
                     <span className={`truncate text-base font-bold ${isModuleLocked ? "text-muted-foreground" : ""}`} title={mod.title}>
                       {mod.title}
                     </span>
@@ -1346,9 +1337,6 @@ export function CourseComposerSidebar({
                                 ) : (
                                   <BookOpen size={12} className={`shrink-0 ${isLessonActive ? "text-primary" : "text-muted-foreground"}`} />
                                 )}
-                                <span className="text-[12.5px] font-black text-muted-foreground tabular-nums shrink-0">
-                                  L{lIdx + 1}
-                                </span>
                                 <span className="truncate text-[15px] leading-snug" title={lesson.title}>
                                   {lesson.title}
                                 </span>
@@ -1457,9 +1445,6 @@ export function CourseComposerSidebar({
                                             ) : (
                                               <FileStack size={12} className={`shrink-0 ${isTopicActive ? "text-primary" : "text-primary/80"}`} />
                                             )}
-                                            <span className="text-[12.5px] font-black text-muted-foreground tabular-nums shrink-0">
-                                              T{tIdx + 1}
-                                            </span>
                                             <span className={`truncate text-[14.5px] leading-snug font-semibold ${isTopicLocked ? "text-muted-foreground" : ""}`} title={topic.title}>
                                               {topic.title}
                                             </span>
