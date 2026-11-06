@@ -18,6 +18,7 @@ import {
   Upload,
   Trash2,
   Save,
+  Award,
 } from "lucide-react";
 import DatePicker from "@/components/ui/DatePicker";
 import useUpdateProfile from "@/hooks/queries/student/useUpdateProfile";
